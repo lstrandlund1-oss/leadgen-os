@@ -10,7 +10,11 @@ type Lead = {
   website?: string;
   socialPresence: "low" | "medium" | "high";
   score: number;
+  priority: "Easy Win" | "Warm" | "Long Shot";
+  companySizeLabel: string;
 };
+
+
 
 export default function Home() {
   const [niche, setNiche] = useState("");
@@ -24,40 +28,35 @@ export default function Home() {
     e.preventDefault();
     setIsLoading(true);
 
-    // For now, we’ll just mock some leads.
-    // Later we’ll replace this with a real API call.
-    const mockLeads: Lead[] = [
-      {
-        id: 1,
-        companyName: "Example Fitness Studio",
-        niche: niche || "Fitness",
-        location: location || "Stockholm",
-        website: "https://examplefitness.com",
-        socialPresence: "low",
-        score: 87,
-      },
-      {
-        id: 2,
-        companyName: "Nordic Dental Clinic",
-        niche: niche || "Dental",
-        location: location || "Göteborg",
-        website: "https://nordicdental.se",
-        socialPresence: "medium",
-        score: 73,
-      },
-      {
-        id: 3,
-        companyName: "Luxe Beauty Lounge",
-        niche: niche || "Beauty",
-        location: location || "Malmö",
-        website: "https://luxebeauty.se",
-        socialPresence: "low",
-        score: 91,
-      },
-    ];
+    try {
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          niche,
+          location,
+          companySize,
+          socialPresence,
+        }),
+      });
 
-    setLeads(mockLeads);
-    setIsLoading(false);
+      if (!res.ok) {
+        console.error("Failed to fetch leads");
+        setLeads([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const data = await res.json();
+      setLeads(data.leads || []);
+    } catch (error) {
+      console.error("Error fetching leads:", error);
+      setLeads([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -68,7 +67,7 @@ export default function Home() {
             LeadGen OS – Lead Finder MVP
           </h1>
           <p className="text-slate-300">
-            Enter basic filters and generate a list of potential business leads.
+            Enter filters and generate a list of potential business leads.
             This is your first step toward a fully automated AI lead engine.
           </p>
         </header>
@@ -167,47 +166,63 @@ export default function Home() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
                 <thead>
-                  <tr className="bg-slate-900 border-b border-slate-800">
-                    <th className="text-left py-2 px-3">Company</th>
-                    <th className="text-left py-2 px-3">Niche</th>
-                    <th className="text-left py-2 px-3">Location</th>
-                    <th className="text-left py-2 px-3">Social Presence</th>
-                    <th className="text-left py-2 px-3">Score</th>
-                    <th className="text-left py-2 px-3">Website</th>
-                  </tr>
-                </thead>
+  <tr className="bg-slate-900 border-b border-slate-800">
+    <th className="text-left py-2 px-3">Company</th>
+    <th className="text-left py-2 px-3">Niche</th>
+    <th className="text-left py-2 px-3">Location</th>
+    <th className="text-left py-2 px-3">Size</th>
+    <th className="text-left py-2 px-3">Social Presence</th>
+    <th className="text-left py-2 px-3">Score</th>
+    <th className="text-left py-2 px-3">Priority</th>
+    <th className="text-left py-2 px-3">Website</th>
+  </tr>
+</thead>
                 <tbody>
-                  {leads.map((lead) => (
-                    <tr
-                      key={lead.id}
-                      className="border-b border-slate-800 hover:bg-slate-900/70"
-                    >
-                      <td className="py-2 px-3 font-medium">
-                        {lead.companyName}
-                      </td>
-                      <td className="py-2 px-3">{lead.niche}</td>
-                      <td className="py-2 px-3">{lead.location}</td>
-                      <td className="py-2 px-3 capitalize">
-                        {lead.socialPresence}
-                      </td>
-                      <td className="py-2 px-3">{lead.score}</td>
-                      <td className="py-2 px-3">
-                        {lead.website ? (
-                          <a
-                            href={lead.website}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-indigo-400 hover:underline"
-                          >
-                            Visit
-                          </a>
-                        ) : (
-                          <span className="text-slate-500">N/A</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+  {leads.map((lead) => (
+    <tr
+      key={lead.id}
+      className="border-b border-slate-800 hover:bg-slate-900/70"
+    >
+      <td className="py-2 px-3 font-medium">
+        {lead.companyName}
+      </td>
+      <td className="py-2 px-3">{lead.niche}</td>
+      <td className="py-2 px-3">{lead.location}</td>
+      <td className="py-2 px-3">{lead.companySizeLabel}</td>
+      <td className="py-2 px-3 capitalize">
+        {lead.socialPresence}
+      </td>
+      <td className="py-2 px-3">{lead.score}</td>
+      <td className="py-2 px-3">
+        <span
+          className={
+            lead.priority === "Easy Win"
+              ? "text-emerald-400 font-semibold"
+              : lead.priority === "Warm"
+              ? "text-amber-400 font-semibold"
+              : "text-slate-400"
+          }
+        >
+          {lead.priority}
+        </span>
+      </td>
+      <td className="py-2 px-3">
+        {lead.website ? (
+          <a
+            href={lead.website}
+            target="_blank"
+            rel="noreferrer"
+            className="text-indigo-400 hover:underline"
+          >
+            Visit
+          </a>
+        ) : (
+          <span className="text-slate-500">N/A</span>
+        )}
+      </td>
+    </tr>
+  ))}
+</tbody>
               </table>
             </div>
           )}
@@ -216,3 +231,4 @@ export default function Home() {
     </main>
   );
 }
+
