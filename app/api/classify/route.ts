@@ -1,31 +1,43 @@
+// app/api/classify/route.ts
 import { NextResponse } from "next/server";
 import { persistClassification, getRawCompanyById } from "@/lib/persistence";
 import { classifyCompany } from "@/lib/classification";
 import { scoreLead } from "@/lib/scoring";
 
 export async function POST(req: Request) {
-  const { rawId } = await req.json();
+  const body = await req.json().catch(() => null);
+  const rawId = body?.rawId;
 
-  if (!rawId) {
+  if (rawId === null || rawId === undefined || rawId === "") {
     return NextResponse.json({ error: "rawId required" }, { status: 400 });
   }
 
-  const raw = await getRawCompanyById(Number(rawId));
+  const rawIdNum = Number(rawId);
+  if (!Number.isFinite(rawIdNum)) {
+    return NextResponse.json(
+      { error: "rawId must be a number" },
+      { status: 400 },
+    );
+  }
+
+  const raw = await getRawCompanyById(rawIdNum);
   if (!raw) {
-    return NextResponse.json({ error: "Raw company not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Raw company not found" },
+      { status: 404 },
+    );
   }
 
   const classification = classifyCompany(raw);
 
-  await persistClassification(rawId, classification);
+  await persistClassification(rawIdNum, classification);
 
-  const { score, priority } = scoreLead(raw, classification);
+  // scoreLead expects (raw, classification). ScoreResult has no `priority`.
+  const scoreResult = scoreLead(raw, classification);
 
   return NextResponse.json({
-    rawId,
+    rawId: rawIdNum,
     classification,
-    score,
-    priority,
+    score: scoreResult,
   });
 }
-

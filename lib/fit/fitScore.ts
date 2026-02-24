@@ -1,5 +1,5 @@
 // lib/fit/fitScore.ts
-import type { Capability } from "@/lib/fit/needs";
+import type { Capability, WeightedNeed } from "@/lib/fit/needs";
 
 export type UserProfileV1 = {
   lineOfBusiness: "ads_specialist";
@@ -18,11 +18,12 @@ function clamp(n: number, min = 0, max = 100): number {
 }
 
 /**
- * Deterministic fit scoring:
+ * Deterministic weighted fit scoring:
  * - Fit is coverage of required needs by the user's capabilities.
+ * - Weighted so "website(5)" matters more than "crm(2)" etc.
  * - If needs are empty, return neutral 50 (avoid false certainty).
  */
-export function scoreFit(profile: UserProfileV1, needs: Capability[]): FitResult {
+export function scoreFit(profile: UserProfileV1, needs: WeightedNeed[]): FitResult {
   if (!needs.length) {
     return {
       fitScore: 50,
@@ -32,19 +33,31 @@ export function scoreFit(profile: UserProfileV1, needs: Capability[]): FitResult
     };
   }
 
+  let totalWeight = 0;
+  let matchedWeight = 0;
+
   const matched: Capability[] = [];
   const missing: Capability[] = [];
 
   for (const n of needs) {
-    if (profile.capabilities[n]) matched.push(n);
-    else missing.push(n);
+    totalWeight += n.weight;
+
+    if (profile.capabilities[n.key]) {
+      matchedWeight += n.weight;
+      matched.push(n.key);
+    } else {
+      missing.push(n.key);
+    }
   }
 
-  const coverage = matched.length / needs.length;
+  const coverage = totalWeight > 0 ? matchedWeight / totalWeight : 0;
   const fitScore = clamp(Math.round(coverage * 100));
 
   const reasons: string[] = [];
-  reasons.push(`Coverage: ${matched.length}/${needs.length} needs matched.`);
+  reasons.push(
+    `Weighted coverage: ${matchedWeight}/${totalWeight} (matchedWeight/totalWeight).`,
+  );
+
   if (matched.length) reasons.push(`Matches: ${matched.join(", ")}.`);
   if (missing.length) reasons.push(`Missing: ${missing.join(", ")}.`);
 

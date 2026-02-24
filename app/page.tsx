@@ -109,7 +109,8 @@ function localizeOpportunityMessage(
   };
 
   const en: Record<string, string> = {
-    conversion_gap: "Strong reputation but no website — high conversion upside.",
+    conversion_gap:
+      "Strong reputation but no website — high conversion upside.",
     trust_gap: "No website — conversion + trust friction.",
     untapped_attention: "High demand but weak social presence — content gap.",
     underexposed_quality:
@@ -235,7 +236,8 @@ function getScoreReason(lead: Lead, language: Language): string {
       reasons.push("Top-tier composite score for direct outreach.");
     else if (score >= 60)
       reasons.push("Good candidate for value-first outreach.");
-    else reasons.push("Lower composite score — use for volume / testing hooks.");
+    else
+      reasons.push("Lower composite score — use for volume / testing hooks.");
   } else {
     reasons.push(
       `Opportunity: ${opportunity}/100. Risk: ${risk}/100. Readiness: ${readiness}/100.`,
@@ -246,7 +248,8 @@ function getScoreReason(lead: Lead, language: Language): string {
     if (typeof rating === "number") reasons.push(`Betyg: ${rating}.`);
 
     if (score >= 80) reasons.push("Toppscore för direkt outreach.");
-    else if (score >= 60) reasons.push("Bra kandidat för värde-först outreach.");
+    else if (score >= 60)
+      reasons.push("Bra kandidat för värde-först outreach.");
     else reasons.push("Lägre score — använd för volym / testa hooks.");
   }
 
@@ -280,7 +283,9 @@ function getOutreachAngle(lead: LeadUI, language: Language): string {
         "Angle: Quick fundamentals upgrade (trust + capture) before scaling.",
       );
     } else if (opportunity >= 70 && risk <= 45) {
-      parts.push("Angle: Clear upside with manageable risk — direct growth system.");
+      parts.push(
+        "Angle: Clear upside with manageable risk — direct growth system.",
+      );
     } else {
       parts.push(
         "Angle: Value-first teardown + one change that improves bookings/leads.",
@@ -305,7 +310,9 @@ function getOutreachAngle(lead: LeadUI, language: Language): string {
       "Vinkel: Snabb fix av grunder (förtroende + lead-capture) innan man skalar.",
     );
   } else if (opportunity >= 70 && risk <= 45) {
-    parts.push("Vinkel: Tydlig uppsida med hanterbar risk — direkt tillväxtsystem.");
+    parts.push(
+      "Vinkel: Tydlig uppsida med hanterbar risk — direkt tillväxtsystem.",
+    );
   } else {
     parts.push(
       "Vinkel: Värde-först teardown + en konkret förbättring som ökar bokningar/leads.",
@@ -346,7 +353,9 @@ function buildOutreachScript(lead: LeadUI, language: Language): string {
   const insightLineEn = oppInsight?.message
     ? `Quick observation: ${oppInsight.message}.`
     : "";
-  const insightLineSv = oppInsight?.message ? `Observation: ${oppInsight.message}` : "";
+  const insightLineSv = oppInsight?.message
+    ? `Observation: ${oppInsight.message}`
+    : "";
 
   const proofPointSv = hasWebsite
     ? "Jag skulle främst justera hur ni fångar intresse och leder det till ett tydligt nästa steg."
@@ -540,9 +549,12 @@ export default function Home() {
         outcome?: LeadOutcomeUI;
       };
 
-      if (res.ok && data.outcome) {
-        setOutcomesByLeadId((prev) => ({ ...prev, [leadId]: data.outcome }));
+      const outcome = res.ok ? (data.outcome ?? null) : null;
+
+      if (outcome) {
+        setOutcomesByLeadId((prev) => ({ ...prev, [leadId]: outcome }));
       }
+      
     } finally {
       setIsSavingOutcome(false);
     }
@@ -811,7 +823,8 @@ export default function Home() {
               LeadGen OS – Lead Finder
             </h1>
             <p className="text-slate-300 text-sm md:text-base">
-              Provider runs. Deterministic scoring. Explainable Opportunity vs Risk.
+              Provider runs. Deterministic scoring. Explainable Opportunity vs
+              Risk.
             </p>
           </div>
 
@@ -1341,10 +1354,7 @@ export default function Home() {
                           try {
                             await navigator.clipboard.writeText(outreachScript);
                           } catch (e) {
-                            console.error(
-                              "Failed to copy outreach script:",
-                              e,
-                            );
+                            console.error("Failed to copy outreach script:", e);
                           }
                         }}
                         disabled={!outreachScript}

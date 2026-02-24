@@ -15,7 +15,7 @@ import {
 
 export async function runPipelineForRaw(
   rawId: number,
-  raw: RawCompany
+  raw: RawCompany,
 ): Promise<void> {
   // 1) normalized
   // NOTE: Your current design persists a normalized company from `raw`.
@@ -36,6 +36,13 @@ export async function runPipelineForRaw(
   // 5) opportunity signals (computed deterministically as needed by API/UI)
   // Same philosophy as scoring: pipeline "knows" how to compute it,
   // but we don't persist unless you add a table / column.
-  const signals = detectOpportunitySignals(raw, classification);
+  const signals = detectOpportunitySignals({
+    rating: raw.rating ?? 0,
+    reviews: raw.review_count ?? 0,
+    hasWebsite: Boolean(raw.website),
+    socialPresence: "medium",
+    categories: raw.categories ?? undefined,
+  });
+
   getPrimaryInsight(signals);
 }

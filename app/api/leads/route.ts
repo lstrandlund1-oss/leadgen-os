@@ -1,6 +1,7 @@
+// app/api/leads/route.ts
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
-import type { Lead, RawCompany } from "@/lib/types";
+import type { Lead, RawCompany, RiskProfile } from "@/lib/types";
 import { classifyCompany } from "@/lib/classification";
 import { scoreLead } from "@/lib/scoring";
 import {
@@ -11,8 +12,32 @@ import {
 
 type Presence = "low" | "medium" | "high";
 
+function getNum(obj: unknown, key: string): number | null {
+  if (!obj || typeof obj !== "object") return null;
+  const rec = obj as Record<string, unknown>;
+  const v = rec[key];
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+function getRiskProfile(obj: unknown): RiskProfile {
+  if (!obj || typeof obj !== "object") return "unstable_business";
+  const rec = obj as Record<string, unknown>;
+  const v = rec["riskProfile"];
+
+  if (v === "unstable_business" || v === "mature_competitor") {
+    return v;
+  }
+
+  return "unstable_business";
+}
+
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => ({}));
+  const body = (await request.json().catch(() => ({}))) as {
+    niche?: unknown;
+    location?: unknown;
+    socialPresence?: unknown;
+  };
+
   const niche = typeof body?.niche === "string" ? body.niche : "";
   const location = typeof body?.location === "string" ? body.location : "";
   const socialPresence = body?.socialPresence;
@@ -39,13 +64,16 @@ export async function POST(request: Request) {
 
   // Normalize requested presence (if provided)
   const requestedPresence: Presence | null =
-    socialPresence === "low" || socialPresence === "medium" || socialPresence === "high"
+    socialPresence === "low" ||
+    socialPresence === "medium" ||
+    socialPresence === "high"
       ? socialPresence
       : null;
 
   // Small helpers for mock realism
   const round1 = (v: number) => Math.round(v * 10) / 10;
-  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+  const clamp = (v: number, min: number, max: number) =>
+    Math.max(min, Math.min(max, v));
 
   const leads: Lead[] = [];
 
@@ -61,7 +89,6 @@ export async function POST(request: Request) {
     // Mock metrics aligned to your product logic:
     // - low presence => opportunity (often no website, lower review count)
     // - high presence => harder (has website, more reviews)
-    // rating is not strictly coupled to presence (real world), but we keep ranges stable.
     const hasWebsite =
       chosenPresence === "high"
         ? true
@@ -99,22 +126,23 @@ export async function POST(request: Request) {
     };
 
     // Persist raw + normalized
-    console.log("Persisting raw company:", raw.name);
     const rawId = await persistRawCompany(raw);
-    if (!rawId) {
-      console.error("persistRawCompany returned null rawId", raw);
-      continue;
-    }
+    if (!rawId) continue;
 
     await persistNormalizedCompany(rawId, raw);
 
-    // Classify
+    // Classify (returns the FULL classification object)
     const classification = classifyCompany(raw);
     await persistClassification(rawId, classification);
 
-    // Score WITH presence available to scoring.ts
+    // Provide presence to scoring by attaching it to raw (if your scoring uses it)
     const rawWithPresence = { ...raw, socialPresence: chosenPresence };
-    const { score, priority } = scoreLead(rawWithPresence, classification);
+
+    // Scoring API is now single-arg, and Lead.score expects ScoreResult (not {value, priority})
+    const scoreResult = scoreLead(
+      rawWithPresence as RawCompany,
+      classification,
+    );
 
     const lead: Lead = {
       id: String(rawId),
@@ -135,14 +163,17 @@ export async function POST(request: Request) {
         socialPresence: chosenPresence,
       },
 
-      classification: {
-        primaryIndustry: classification.primaryIndustry,
-        confidence: classification.confidence,
-      },
+      // IMPORTANT: assign the full object, not a partial
+      classification,
 
+      // IMPORTANT: score is the full ScoreResult (no `priority` field)
       score: {
-        value: score,
-        priority,
+        value:
+          getNum(scoreResult, "value") ?? getNum(scoreResult, "score") ?? 0,
+        opportunity: getNum(scoreResult, "opportunity") ?? 0,
+        readiness: getNum(scoreResult, "readiness") ?? 0,
+        risk: getNum(scoreResult, "risk") ?? 0,
+        riskProfile: getRiskProfile(scoreResult),
       },
 
       metadata: {
@@ -154,7 +185,7 @@ export async function POST(request: Request) {
   }
 
   // -------------------------------------------
-  // 3) Save the search in Supabase
+  // 2) Save the search in Supabase
   // -------------------------------------------
   if (supabase) {
     try {
@@ -170,8 +201,6 @@ export async function POST(request: Request) {
     } catch (e) {
       console.error("Supabase insert exception:", e);
     }
-  } else {
-    console.warn("Supabase client not initialized. Skipping search insert.");
   }
 
   return NextResponse.json({ leads });
