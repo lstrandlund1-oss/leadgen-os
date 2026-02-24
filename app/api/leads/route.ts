@@ -1,64 +1,32 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
+import type { Lead, RawCompany } from "@/lib/types";
+import { classifyCompany } from "@/lib/classification";
+import { scoreLead } from "@/lib/scoring";
+import {
+  persistRawCompany,
+  persistNormalizedCompany,
+  persistClassification,
+} from "@/lib/persistence";
 
-type Lead = {
-  id: number;
-  companyName: string;
-  niche: string;
-  location: string;
-  website?: string;
-  socialPresence: "low" | "medium" | "high";
-  score: number;
-  priority: "Easy Win" | "Warm" | "Long Shot";
-  companySizeLabel: string;
-};
-
-function calculateScore(
-  socialPresence: "low" | "medium" | "high",
-  companySizeLabel: string
-) {
-  let score = 50;
-
-  // Low social presence = more upside for you
-  if (socialPresence === "low") score += 30;
-  if (socialPresence === "medium") score += 15;
-  if (socialPresence === "high") score -= 10;
-
-  // Make size impact more obvious
-  const sizeLower = companySizeLabel.toLowerCase();
-  if (sizeLower.includes("1–10") || sizeLower.includes("1-10") || sizeLower.includes("solo")) {
-    score += 5;
-  } else if (sizeLower.includes("10–50") || sizeLower.includes("10-50")) {
-    score += 15;
-  } else if (sizeLower.includes("50–200") || sizeLower.includes("50-200") || sizeLower.includes("200")) {
-    score += 25;
-  }
-
-  if (score > 100) score = 100;
-  if (score < 0) score = 0;
-
-  return score;
-}
-
-function getPriority(score: number): "Easy Win" | "Warm" | "Long Shot" {
-  if (score >= 80) return "Easy Win";
-  if (score >= 60) return "Warm";
-  return "Long Shot";
-}
+type Presence = "low" | "medium" | "high";
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const { niche, location, companySize, socialPresence } = body;
+  const body = await request.json().catch(() => ({}));
+  const niche = typeof body?.niche === "string" ? body.niche : "";
+  const location = typeof body?.location === "string" ? body.location : "";
+  const socialPresence = body?.socialPresence;
 
-  const normalizedNiche = (niche?.trim() || "Local Business").toLowerCase();
-  const normalizedLocation = location?.trim() || "Sweden";
-  const companySizeLabel = companySize?.trim() || "Unknown size";
+  const normalizedNiche = (niche.trim() || "Local Business").toLowerCase();
+  const normalizedLocation = location.trim() || "Sweden";
 
   const readableNiche =
     normalizedNiche.charAt(0).toUpperCase() + normalizedNiche.slice(1);
 
-  // Base company names
-  const baseCompanies = [
+  // -------------------------------------------
+  // 1) Build raw mock companies (RawCompany layer)
+  // -------------------------------------------
+  const baseNames = [
     "Prime Edge",
     "Visionary Labs",
     "Nordic Growth Partners",
@@ -67,40 +35,133 @@ export async function POST(request: Request) {
     "Blue Horizon Clinic",
   ];
 
-  const mockLeads: Lead[] = baseCompanies.map((name, index) => {
-    const possiblePresence: Array<"low" | "medium" | "high"> = ["low", "medium", "high"];
-    let chosenPresence: "low" | "medium" | "high";
+  const possiblePresence: Presence[] = ["low", "medium", "high"];
 
-    if (socialPresence === "low" || socialPresence === "medium" || socialPresence === "high") {
-      chosenPresence = socialPresence;
-    } else {
-      chosenPresence = possiblePresence[index % possiblePresence.length];
+  // Normalize requested presence (if provided)
+  const requestedPresence: Presence | null =
+    socialPresence === "low" || socialPresence === "medium" || socialPresence === "high"
+      ? socialPresence
+      : null;
+
+  // Small helpers for mock realism
+  const round1 = (v: number) => Math.round(v * 10) / 10;
+  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+
+  const leads: Lead[] = [];
+
+  for (let index = 0; index < baseNames.length; index++) {
+    const name = baseNames[index];
+
+    // Choose presence:
+    // - If user selected a filter, apply it to all results.
+    // - Otherwise distribute across low/medium/high to keep buckets visible.
+    const chosenPresence: Presence =
+      requestedPresence ?? possiblePresence[index % possiblePresence.length];
+
+    // Mock metrics aligned to your product logic:
+    // - low presence => opportunity (often no website, lower review count)
+    // - high presence => harder (has website, more reviews)
+    // rating is not strictly coupled to presence (real world), but we keep ranges stable.
+    const hasWebsite =
+      chosenPresence === "high"
+        ? true
+        : chosenPresence === "medium"
+          ? index % 3 !== 0
+          : false; // low => no website
+
+    const reviewCount =
+      chosenPresence === "high"
+        ? clamp(120 + index * 55, 80, 450)
+        : chosenPresence === "medium"
+          ? clamp(25 + index * 20, 10, 200)
+          : clamp(0 + index * 6, 0, 60);
+
+    const rating =
+      chosenPresence === "high"
+        ? round1(clamp(4.1 + (index % 5) * 0.15, 3.6, 4.9))
+        : chosenPresence === "medium"
+          ? round1(clamp(4.0 + (index % 4) * 0.15, 3.6, 4.8))
+          : round1(clamp(3.8 + (index % 4) * 0.2, 3.6, 4.7));
+
+    const raw: RawCompany = {
+      source: "mock",
+      sourceId: `mock-${index + 1}`,
+      name,
+      categories: [readableNiche],
+      website: hasWebsite ? `https://mock-${index + 1}.example.com` : undefined,
+      address: undefined,
+      city: normalizedLocation,
+      country: normalizedLocation,
+      description: `${readableNiche} business in ${normalizedLocation}`,
+      rating,
+      review_count: reviewCount,
+      rawPayload: null,
+    };
+
+    // Persist raw + normalized
+    console.log("Persisting raw company:", raw.name);
+    const rawId = await persistRawCompany(raw);
+    if (!rawId) {
+      console.error("persistRawCompany returned null rawId", raw);
+      continue;
     }
 
-    const score = calculateScore(chosenPresence, companySizeLabel);
-    const priority = getPriority(score);
+    await persistNormalizedCompany(rawId, raw);
 
-    return {
-      id: index + 1,
-      companyName: `${readableNiche} – ${name} #${index + 1}`,
-      niche: readableNiche,
-      location: normalizedLocation,
-      website: undefined,
-      socialPresence: chosenPresence,
-      score,
-      priority,
-      companySizeLabel,
+    // Classify
+    const classification = classifyCompany(raw);
+    await persistClassification(rawId, classification);
+
+    // Score WITH presence available to scoring.ts
+    const rawWithPresence = { ...raw, socialPresence: chosenPresence };
+    const { score, priority } = scoreLead(rawWithPresence, classification);
+
+    const lead: Lead = {
+      id: String(rawId),
+      source: raw.source,
+      sourceId: raw.sourceId,
+
+      company: {
+        name: raw.name,
+        website: raw.website ?? null,
+        address: raw.address ?? null,
+        city: raw.city ?? null,
+        country: raw.country ?? null,
+      },
+
+      metrics: {
+        rating: raw.rating ?? null,
+        reviewCount: raw.review_count ?? null,
+        socialPresence: chosenPresence,
+      },
+
+      classification: {
+        primaryIndustry: classification.primaryIndustry,
+        confidence: classification.confidence,
+      },
+
+      score: {
+        value: score,
+        priority,
+      },
+
+      metadata: {
+        runId: "legacy",
+      },
     };
-  });
 
-  // Save the search in Supabase (best-effort, only if client is configured)
+    leads.push(lead);
+  }
+
+  // -------------------------------------------
+  // 3) Save the search in Supabase
+  // -------------------------------------------
   if (supabase) {
     try {
       const { error } = await supabase.from("searches").insert({
         niche: normalizedNiche,
         location: normalizedLocation,
-        company_size: companySizeLabel,
-        social_presence: socialPresence || "any",
+        social_presence: requestedPresence ?? "any",
       });
 
       if (error) {
@@ -113,6 +174,5 @@ export async function POST(request: Request) {
     console.warn("Supabase client not initialized. Skipping search insert.");
   }
 
-  return NextResponse.json({ leads: mockLeads });
+  return NextResponse.json({ leads });
 }
-

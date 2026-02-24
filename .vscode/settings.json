@@ -1,0 +1,9 @@
+{
+  "sonarlint.disableTelemetry": true,
+
+  "sonarlint.rules": {
+    "typescript:S3776": { "level": "off" }, 
+    "typescript:S5778": { "level": "off" }, 
+    "typescript:S3358": { "level": "off" }  
+  }
+}
