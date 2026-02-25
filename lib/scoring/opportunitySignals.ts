@@ -3,8 +3,17 @@
 /**
  * Legacy shape (kept for backward compatibility)
  */
+export type OpportunityType =
+  | "conversion_gap"
+  | "mature_competitor"
+  | "visibility_gap"
+  | "foundation_gap"
+  | "growth_opportunity"
+  | "moderate_opportunity"
+  | string; // fallback for legacy values
+
 export type OpportunitySignal = {
-  type: string;
+  type: OpportunityType;
   message: string;
   strength: "high" | "medium" | "low";
 };
@@ -18,6 +27,8 @@ export type WorkType =
   | "content_gap_low_social"
   | "underexposed_quality"
   | "trust_gap_no_website"
+  | "untapped_attention"
+  | "conversion_gap"
   | "scaling_ready";
 
 /**
@@ -27,6 +38,8 @@ export type WorkType =
 export type ResistanceType =
   | "mature_hard_target"
   | "basics_missing"
+  | "unstable_basics_missing"
+  | "trust_gap"
   | "reputation_risk";
 
 export type SignalStrength = "high" | "medium" | "low";

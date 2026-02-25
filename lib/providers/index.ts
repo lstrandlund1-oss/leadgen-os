@@ -8,32 +8,13 @@ import type {
 
 import { mockAdapter } from "./mock/adapter";
 import { assertProviderResult } from "./validate";
+import { googlePlacesAdapter } from "./googlePlaces";
 
 const registry: Record<ProviderName, ProviderAdapter> = {
   mock: mockAdapter,
 
   // Stubs: return well-formed ProviderResult with an explicit error.
-  google_places: {
-    name: "google_places",
-    async search(intent) {
-      return {
-        ok: false,
-        error: {
-          code: "UNKNOWN",
-          message: "google_places adapter not implemented yet",
-          retryable: false,
-        },
-        meta: {
-          provider: "google_places",
-          requestId: intent.requestId,
-          fetchedCount: 0,
-          returnedCount: 0,
-          nextCursor: null,
-          exhausted: true,
-        },
-      };
-    },
-  },
+  google_places: googlePlacesAdapter,
 
   serp: {
     name: "serp",
@@ -65,7 +46,7 @@ export function getProviderAdapter(provider: ProviderName): ProviderAdapter {
 }
 
 export async function runProviderSearch(
-  intent: ProviderSearchIntent
+  intent: ProviderSearchIntent,
 ): Promise<ProviderResult> {
   const adapter = getProviderAdapter(intent.provider);
 
@@ -90,5 +71,3 @@ export async function runProviderSearch(
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
-
-

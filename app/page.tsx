@@ -92,10 +92,34 @@ function bandLabel(language: Language, n: number): string {
 // ---------------------
 
 function localizeOpportunityMessage(
-  insight: OpportunitySignal | null | undefined,
+  signal: OpportunitySignal | null | undefined,
   language: Language,
 ): string | null {
-  if (!insight) return null;
+  if (!signal) return null;
+
+  if (signal.type === "conversion_gap") {
+    return language === "sv"
+      ? "Stark reputation men ingen webbplats — tydligt konverteringsgap."
+      : "Strong reputation but no website — clear conversion gap.";
+  }
+
+  if (signal.type === "mature_competitor") {
+    return language === "sv"
+      ? "Stark närvaro + starkt proof — troligen redan väloptimerad (svårare att vinna)."
+      : "Strong presence + strong proof — likely already well-served (harder to win).";
+  }
+
+  if (signal.type === "visibility_gap") {
+    return language === "sv"
+      ? "Webbplats finns men få recensioner — synlighets-/räckviddsgap."
+      : "Website exists but low reviews — visibility/reach gap.";
+  }
+
+  if (signal.type === "foundation_gap") {
+    return language === "sv"
+      ? "Låg grundnivå (få recensioner + ingen webbplats) — kräver foundation först."
+      : "Low foundation (few reviews + no website) — needs fundamentals first.";
+  }
 
   const sv: Record<string, string> = {
     conversion_gap:
@@ -119,7 +143,34 @@ function localizeOpportunityMessage(
   };
 
   const dict = language === "sv" ? sv : en;
-  return dict[insight.type] ?? insight.message ?? null;
+  return dict[signal.type] ?? signal.message ?? null;
+}
+
+function deriveDeterministicOpportunityFallback(
+  lead: LeadUI,
+): OpportunitySignal | null {
+  const rating = lead.metrics?.rating ?? 0;
+  const reviews = lead.metrics?.reviewCount ?? 0;
+  const hasWebsite = Boolean(lead.company?.website);
+
+  const strongReputation = rating >= 4.3 && reviews >= 80;
+  const veryStrongReputation = rating >= 4.4 && reviews >= 150;
+  const weakReputation = reviews < 15;
+
+  if (strongReputation && !hasWebsite) {
+    return { type: "conversion_gap", strength: "high", message: "" };
+  }
+  if (veryStrongReputation && hasWebsite) {
+    return { type: "mature_competitor", strength: "high", message: "" };
+  }
+  if (hasWebsite && weakReputation) {
+    return { type: "visibility_gap", strength: "medium", message: "" };
+  }
+  if (!hasWebsite && weakReputation) {
+    return { type: "foundation_gap", strength: "high", message: "" };
+  }
+
+  return null;
 }
 
 function normalizeLegacyOrNewOpportunityInsight(
@@ -136,6 +187,10 @@ function normalizeLegacyOrNewOpportunityInsight(
 
   // Fallback to legacy
   if (lead.primaryInsight) return lead.primaryInsight;
+
+  // Deterministic fallback (for when we don't have structured or legacy signals)
+  const deterministic = deriveDeterministicOpportunityFallback(lead);
+  if (deterministic) return deterministic;
 
   const sigs = Array.isArray(lead.opportunitySignals)
     ? lead.opportunitySignals
@@ -437,11 +492,13 @@ async function runProviderSearchAndFetchLeads(args: {
   const location = args.location.trim();
   const socialPresence = args.socialPresence ?? "";
 
+  const provider = "google_places";
+
   const searchRes = await fetch("/api/providers/search", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      provider: "mock",
+      provider,
       query: niche,
       country: "Sweden",
       location: location || undefined,
@@ -554,7 +611,6 @@ export default function Home() {
       if (outcome) {
         setOutcomesByLeadId((prev) => ({ ...prev, [leadId]: outcome }));
       }
-      
     } finally {
       setIsSavingOutcome(false);
     }
@@ -1061,11 +1117,24 @@ export default function Home() {
                         }
                       >
                         <td className="py-2 px-3">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium">
                               {lead.company.name}
                             </span>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full border border-slate-700 bg-slate-900/70 text-slate-200">
+
+                            {lead.source === "google_places" && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full border border-blue-700 bg-blue-900/40 text-blue-300">
+                                Google
+                              </span>
+                            )}
+
+                            {lead.source === "mock" && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full border border-slate-600 bg-slate-800 text-slate-300">
+                                Mock
+                              </span>
+                            )}
+
+                            <span className="text-[10px] px-2 py-0.5 rounded-full border border-slate-700 bg-slate-900/70">
                               {lead.classification.primaryIndustry.replaceAll(
                                 "_",
                                 " ",
