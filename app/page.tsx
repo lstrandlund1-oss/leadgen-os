@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState, FormEvent } from "react";
 import type { Lead, Language, SearchRecord, SocialPresence } from "@/lib/types";
+import type { ProviderName } from "@/lib/providers/types";
+import { getTranslations } from "@/lib/i18n";
 
 const STORAGE_KEY = "leadgen_os_state_v1";
 
@@ -325,25 +327,45 @@ function getOutreachAngle(lead: LeadUI, language: Language): string {
   const risk = lead.score.risk ?? 0;
   const rp = lead.score.riskProfile;
 
+  // Prefer insight "type" if present (new system), otherwise fall back to numeric/risk profile logic.
+  const type = oppInsight?.type ?? null;
+
   if (language === "en") {
     if (oppInsight?.message) parts.push(`Opportunity: ${oppInsight.message}`);
-    parts.push(`Context: I’m reviewing ${industry} businesses in ${loc}.`);
+    parts.push(`Context: I'm reviewing ${industry} businesses in ${loc}.`);
 
-    if (rp === "mature_competitor") {
+    // 1) Primary driver: insight type
+    if (type === "conversion_gap") {
       parts.push(
-        "Angle: You’re already strong — this is a conversion/system upgrade, not ‘more followers’.",
+        "Angle: Strong reputation, but weak conversion flow — this is a booking/leads system upgrade.",
       );
-    } else if (rp === "unstable_business") {
+    } else if (type === "visibility_gap") {
+      parts.push(
+        "Angle: Solid foundation but low visibility — growth through visibility + demand capture.",
+      );
+    } else if (type === "foundation_gap") {
+      parts.push(
+        "Angle: Foundation gap — trust + capture must be fixed before scaling.",
+      );
+    } else if (type === "mature_competitor") {
+      parts.push(
+        "Angle: You’re already strong — winning here is differentiation + system leverage, not “more followers”.",
+      );
+    }
+    // 2) Secondary driver: risk profile
+    else if (rp === "unstable_business") {
       parts.push(
         "Angle: Quick fundamentals upgrade (trust + capture) before scaling.",
       );
-    } else if (opportunity >= 70 && risk <= 45) {
+    }
+    // 3) Numeric fallback
+    else if (opportunity >= 70 && risk <= 45) {
       parts.push(
         "Angle: Clear upside with manageable risk — direct growth system.",
       );
     } else {
       parts.push(
-        "Angle: Value-first teardown + one change that improves bookings/leads.",
+        "Angle: Value-first teardown + one concrete change that improves bookings/leads.",
       );
     }
 
@@ -353,29 +375,56 @@ function getOutreachAngle(lead: LeadUI, language: Language): string {
     return parts.join(" ");
   }
 
-  if (oppInsight?.message) parts.push(`Opportunity: ${oppInsight.message}`);
-  parts.push(`Kontext: Jag går igenom ${industry} i ${loc}.`);
+  if (language === "sv") {
+    if (oppInsight?.message) parts.push(`Opportunity: ${oppInsight.message}`);
+    parts.push(`Context: Jag går igenom ${industry} i ${loc}.`);
 
-  if (rp === "mature_competitor") {
+    // 1) Primary driver: insight type
+    if (type === "conversion_gap") {
+      parts.push(
+        "Vinkel: Stark reputation men svagt konverteringsflöde — detta är en boknings-/leads-systemuppgradering.",
+      );
+    } else if (type === "visibility_gap") {
+      parts.push(
+        "Vinkel: Stabil grund men låg synlighet — tillväxt via synlighet + bättre efterfråge-fångst.",
+      );
+    } else if (type === "foundation_gap") {
+      parts.push(
+        "Vinkel: Grundglapp — förtroende + lead capture måste sitta innan man skalar.",
+      );
+    } else if (type === "mature_competitor") {
+      parts.push(
+        "Vinkel: Ni är redan starka — här handlar det om differentiering + systemhävarm, inte 'fler följare'.",
+      );
+    }
+    // 2) Secondary driver: risk profile
+    else if (rp === "unstable_business") {
+      parts.push(
+        "Vinkel: Snabb stabilisering av grunden (förtroende + lead capture) innan tillväxt.",
+      );
+    }
+    // 3) Numeric fallback
+    else if (opportunity >= 70 && risk <= 45) {
+      parts.push(
+        "Vinkel: Tydlig uppsida med hanterbar risk — direkt tillväxtsystem.",
+      );
+    } else {
+      parts.push(
+        "Vinkel: Värde-först teardown + en konkret förändring som ökar bokningar/leads.",
+      );
+    }
+
     parts.push(
-      "Vinkel: Ni är redan starka — detta är en system/konverteringsuppgradering, inte ‘mer följare’.",
+      "Erbjudande: 10–15 min teardown + enkel plan ni kan implementera direkt.",
     );
-  } else if (rp === "unstable_business") {
-    parts.push(
-      "Vinkel: Snabb fix av grunder (förtroende + lead-capture) innan man skalar.",
-    );
-  } else if (opportunity >= 70 && risk <= 45) {
-    parts.push(
-      "Vinkel: Tydlig uppsida med hanterbar risk — direkt tillväxtsystem.",
-    );
-  } else {
-    parts.push(
-      "Vinkel: Värde-först teardown + en konkret förbättring som ökar bokningar/leads.",
-    );
+    return parts.join(" ");
   }
 
+  // Safety fallback (if Language ever expands)
+  if (oppInsight?.message) parts.push(`Opportunity: ${oppInsight.message}`);
+  parts.push(`Context: I'm reviewing ${industry} businesses in ${loc}.`);
   parts.push(
-    "Erbjudande: 10–15 min teardown + enkel plan ni kan implementera direkt.",
+    "Offer: 10–15 min teardown + a simple plan you can implement immediately.",
   );
   return parts.join(" ");
 }
@@ -482,6 +531,7 @@ type RunLeadsResponse = {
 };
 
 async function runProviderSearchAndFetchLeads(args: {
+  provider: ProviderName;
   niche: string;
   location: string;
   socialPresence: SocialPresence;
@@ -492,7 +542,7 @@ async function runProviderSearchAndFetchLeads(args: {
   const location = args.location.trim();
   const socialPresence = args.socialPresence ?? "";
 
-  const provider = "google_places";
+  const provider = args.provider;
 
   const searchRes = await fetch("/api/providers/search", {
     method: "POST",
@@ -533,7 +583,11 @@ export default function Home() {
   // STATE
   // =====================
 
+  const [provider, setProvider] = useState<ProviderName>("google_places");
+
   const [language, setLanguage] = useState<Language>("en");
+  const t = useMemo(() => getTranslations(language), [language]);
+
   const [niche, setNiche] = useState("");
   const [location, setLocation] = useState("");
   const [socialPresence, setSocialPresence] = useState<SocialPresence>("");
@@ -556,6 +610,17 @@ export default function Home() {
     Record<string, LeadOutcomeUI>
   >({});
   const [isSavingOutcome, setIsSavingOutcome] = useState(false);
+
+  const OUTCOME_KEYS = useMemo(
+    () =>
+      [
+        ["contacted", t.ui.detail.contacted],
+        ["replied", t.ui.detail.replied],
+        ["booked_call", t.ui.detail.booked],
+        ["closed", t.ui.detail.closed],
+      ] as const,
+    [t],
+  );
 
   async function saveOutcome(args: {
     runId: number;
@@ -847,6 +912,7 @@ export default function Home() {
 
     try {
       const providerLeads = await runProviderSearchAndFetchLeads({
+        provider,
         niche,
         location,
         socialPresence,
@@ -876,11 +942,10 @@ export default function Home() {
         <header className="space-y-3 md:flex md:items-center md:justify-between md:space-y-0">
           <div className="space-y-2">
             <h1 className="text-3xl md:text-4xl font-bold">
-              LeadGen OS – Lead Finder
+              {t.ui.header.title}
             </h1>
             <p className="text-slate-300 text-sm md:text-base">
-              Provider runs. Deterministic scoring. Explainable Opportunity vs
-              Risk.
+              {t.ui.header.subtitle}
             </p>
           </div>
 
@@ -954,12 +1019,12 @@ export default function Home() {
 
         {/* Filter Form */}
         <section className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-lg space-y-6">
-          <h2 className="text-xl font-semibold">Lead Filters</h2>
+          <h2 className="text-xl font-semibold">{t.ui.filters.title}</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="block text-sm font-medium">
-                  Niche / Industry
+                  {t.ui.filters.nicheLabel}
                 </label>
                 <input
                   type="text"
@@ -970,8 +1035,27 @@ export default function Home() {
                 />
               </div>
 
+              <div className="flex flex-col gap-2">
+                <label className="text-xs text-slate-400">
+                  {t.ui.filters.providerLabel}
+                </label>
+                <select
+                  value={provider}
+                  onChange={(e) => {
+                    const v = e.target.value as ProviderName;
+                    setProvider(v);
+                  }}
+                  className="bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="google_places">Google Places</option>
+                  <option value="mock">Mock (Dev)</option>
+                </select>
+              </div>
+
               <div className="space-y-1">
-                <label className="block text-sm font-medium">Location</label>
+                <label className="block text-sm font-medium">
+                  {t.ui.filters.locationLabel}
+                </label>
                 <input
                   type="text"
                   value={location}
@@ -983,7 +1067,7 @@ export default function Home() {
 
               <div className="space-y-1">
                 <label className="block text-sm font-medium">
-                  Social Media Presence
+                  {t.ui.filters.socialPresenceLabel}
                 </label>
                 <select
                   value={socialPresence}
@@ -992,10 +1076,10 @@ export default function Home() {
                   }
                   className="w-full rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="">Any</option>
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
+                  <option value="">{t.ui.filters.socialPresenceOptions.any}</option>
+                  <option value="low">{t.ui.filters.socialPresenceOptions.low}</option>
+                  <option value="medium">{t.ui.filters.socialPresenceOptions.medium}</option>
+                  <option value="high">{t.ui.filters.socialPresenceOptions.high}</option>
                 </select>
               </div>
             </div>
@@ -1005,7 +1089,9 @@ export default function Home() {
               disabled={isLoading}
               className="inline-flex items-center justify-center rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900 px-4 py-2 text-sm font-semibold transition"
             >
-              {isLoading ? "Generating leads..." : "Generate Leads"}
+              {isLoading
+                ? t.ui.filters.generatingButton
+                : t.ui.filters.generateButton}
             </button>
           </form>
         </section>
@@ -1014,14 +1100,14 @@ export default function Home() {
         <section className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-lg space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div className="space-y-1">
-              <h2 className="text-xl font-semibold">Results</h2>
+              <h2 className="text-xl font-semibold">{t.ui.results.title}</h2>
               <p className="text-xs text-slate-400">
-                Showing {sortedLeads.length} lead(s)
+                {t.ui.results.showing} {sortedLeads.length} {t.ui.results.leads}
               </p>
 
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <label className="flex items-center gap-2 text-xs text-slate-300">
-                  Min score:
+                  {t.ui.results.minScore}:
                   <input
                     type="range"
                     min={0}
@@ -1033,7 +1119,7 @@ export default function Home() {
                 </label>
 
                 <label className="flex items-center gap-2 text-xs text-slate-300">
-                  Sort:
+                  {t.ui.results.sortBy}
                   <select
                     value={sortBy}
                     onChange={(e) =>
@@ -1048,18 +1134,18 @@ export default function Home() {
                     }
                     className="rounded-md bg-slate-900 border border-slate-700 px-2 py-1"
                   >
-                    <option value="score">Score</option>
-                    <option value="opportunity">Opportunity</option>
-                    <option value="risk">Risk (low first)</option>
-                    <option value="confidence">Confidence</option>
-                    <option value="fit">Fit</option>
+                    <option value="score">{t.ui.results.sortOptions.score}</option>
+                    <option value="opportunity">{t.ui.results.sortOptions.opportunity}</option>
+                    <option value="risk">{t.ui.results.sortOptions.riskLowFirst}</option>
+                    <option value="confidence">{t.ui.results.sortOptions.confidence}</option>
+                    <option value="fit">{t.ui.results.sortOptions.fit}</option>
                   </select>
                 </label>
 
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search name / industry / location..."
+                  placeholder={t.ui.results.searchPlaceholder}
                   className="flex-1 min-w-[180px] rounded-md bg-slate-900 border border-slate-700 px-2 py-1 text-xs"
                 />
               </div>
@@ -1071,13 +1157,13 @@ export default function Home() {
               disabled={sortedLeads.length === 0}
               className="text-xs border border-slate-600 rounded-lg px-3 py-1 bg-slate-900/60 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800 transition"
             >
-              Download CSV
+              {t.ui.results.download}
             </button>
           </div>
 
           {sortedLeads.length === 0 ? (
             <p className="text-slate-400 text-sm">
-              No leads yet. Fill filters and click{" "}
+              {t.ui.results.empty}
               <span className="font-semibold text-slate-100">
                 &quot;Generate Leads&quot;
               </span>
@@ -1088,14 +1174,26 @@ export default function Home() {
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="bg-slate-900 border-b border-slate-800">
-                    <th className="text-left py-2 px-3">Company</th>
-                    <th className="text-left py-2 px-3">Industry</th>
-                    <th className="text-left py-2 px-3">Location</th>
-                    <th className="text-left py-2 px-3">Score</th>
-                    <th className="text-left py-2 px-3">Opportunity</th>
-                    <th className="text-left py-2 px-3">Risk</th>
-                    <th className="text-left py-2 px-3">Insight</th>
-                    <th className="text-left py-2 px-3">Website</th>
+                    <th className="text-left py-2 px-3">
+                      {t.ui.table.company}
+                    </th>
+                    <th className="text-left py-2 px-3">
+                      {t.ui.table.industry}
+                    </th>
+                    <th className="text-left py-2 px-3">
+                      {t.ui.table.location}
+                    </th>
+                    <th className="text-left py-2 px-3">{t.ui.table.score}</th>
+                    <th className="text-left py-2 px-3">
+                      {t.ui.table.opportunity}
+                    </th>
+                    <th className="text-left py-2 px-3">{t.ui.table.risk}</th>
+                    <th className="text-left py-2 px-3">
+                      {t.ui.table.insight}
+                    </th>
+                    <th className="text-left py-2 px-3">
+                      {t.ui.table.website}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1122,17 +1220,13 @@ export default function Home() {
                               {lead.company.name}
                             </span>
 
-                            {lead.source === "google_places" && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full border border-blue-700 bg-blue-900/40 text-blue-300">
-                                Google
-                              </span>
-                            )}
-
-                            {lead.source === "mock" && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full border border-slate-600 bg-slate-800 text-slate-300">
-                                Mock
-                              </span>
-                            )}
+                            <span className="text-[10px] px-2 py-0.5 rounded-full border border-slate-700 bg-slate-900/70">
+                              {lead.source === "google_places"
+                                ? "Google Places"
+                                : lead.source === "mock"
+                                  ? "Mock (Dev)"
+                                  : lead.source}
+                            </span>
 
                             <span className="text-[10px] px-2 py-0.5 rounded-full border border-slate-700 bg-slate-900/70">
                               {lead.classification.primaryIndustry.replaceAll(
@@ -1265,7 +1359,7 @@ export default function Home() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <h3 className="text-sm font-semibold text-slate-100">
-                        Lead focus: {selectedLead.company.name}
+                        {t.ui.detail.leadFocus}: {selectedLead.company.name}
                       </h3>
                       <p className="text-xs text-slate-400">
                         {selectedLead.classification.primaryIndustry.replaceAll(
@@ -1280,14 +1374,14 @@ export default function Home() {
                       onClick={() => setSelectedLead(null)}
                       className="text-[11px] px-2 py-1 rounded-md border border-slate-700 bg-slate-900/70 hover:bg-slate-800"
                     >
-                      Clear
+                      {t.ui.detail.clear}
                     </button>
                   </div>
 
                   {oppInsight?.message && (
                     <div className="rounded-xl border border-orange-500/20 bg-orange-500/10 p-3">
                       <p className="text-[11px] uppercase tracking-wide text-orange-200/80 mb-1">
-                        Opportunity insight
+                        {t.ui.detail.opportunityInsight}
                       </p>
                       <p className="text-sm font-semibold text-orange-200">
                         ⚡ {oppInsight.message}
@@ -1311,7 +1405,7 @@ export default function Home() {
 
                   <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3">
                     <p className="text-[11px] uppercase tracking-wide text-rose-200/80 mb-1">
-                      Risk
+                      {t.ui.detail.risk}
                     </p>
                     <p className="text-sm font-semibold text-rose-100">
                       {riskTitleFromProfile(
@@ -1327,7 +1421,8 @@ export default function Home() {
                   {/* Outcome tracking */}
                   <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3">
                     <p className="text-[11px] uppercase tracking-wide text-slate-300/80 mb-2">
-                      Outcome tracking {isSavingOutcome ? "— saving…" : ""}
+                      {t.ui.detail.outcomeTracking}{" "}
+                      {isSavingOutcome && `… ${t.ui.detail.saving}`}
                     </p>
 
                     <div className="flex flex-wrap gap-4 text-xs text-slate-200">
@@ -1355,7 +1450,7 @@ export default function Home() {
 
                   <div className="grid md:grid-cols-4 gap-4 text-xs">
                     <div className="space-y-1">
-                      <p className="text-slate-400">Score</p>
+                      <p className="text-slate-400">{t.ui.detail.scoreLabel}</p>
                       <p className="text-lg font-semibold">
                         {selectedLead.score.value ?? 0}
                       </p>
@@ -1365,17 +1460,20 @@ export default function Home() {
                     </div>
 
                     <div className="space-y-1">
-                      <p className="text-slate-400">Opportunity</p>
+                      <p className="text-slate-400">
+                        {t.ui.detail.opportunityLabel}
+                      </p>
                       <p className="text-sm font-semibold">
                         {selectedLead.score.opportunity ?? 0}/100
                       </p>
                       <p className="text-[11px] text-slate-400">
-                        Readiness: {selectedLead.score.readiness ?? 0}/100
+                        {t.ui.detail.readinessLabel}:{" "}
+                        {selectedLead.score.readiness ?? 0}/100
                       </p>
                     </div>
 
                     <div className="space-y-1">
-                      <p className="text-slate-400">Risk</p>
+                      <p className="text-slate-400">{t.ui.detail.riskLabel}</p>
                       <p className="text-sm font-semibold">
                         {selectedLead.score.risk ?? 0}/100
                       </p>
@@ -1387,7 +1485,9 @@ export default function Home() {
                     </div>
 
                     <div className="space-y-1">
-                      <p className="text-slate-400">Website</p>
+                      <p className="text-slate-400">
+                        {t.ui.detail.websiteLabel}
+                      </p>
                       {selectedLead.company.website ? (
                         <a
                           href={selectedLead.company.website}
@@ -1399,14 +1499,14 @@ export default function Home() {
                         </a>
                       ) : (
                         <p className="text-[11px] text-slate-500">
-                          No website available.
+                          {t.ui.detail.noWebsite}
                         </p>
                       )}
                     </div>
                   </div>
 
                   <p className="text-[11px] uppercase tracking-wide text-slate-400 mb-1">
-                    Suggested outreach angle
+                    {t.ui.detail.suggestedAngle}
                   </p>
                   <p className="text-xs text-slate-200 leading-relaxed">
                     {getOutreachAngle(selectedLead, language)}
@@ -1415,7 +1515,7 @@ export default function Home() {
                   <div className="pt-3 border-t border-slate-800 mt-3 space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                        Outreach script (draft)
+                        {t.ui.detail.outreachScript} (draft)
                       </p>
                       <button
                         type="button"
@@ -1429,13 +1529,12 @@ export default function Home() {
                         disabled={!outreachScript}
                         className="text-[11px] px-2 py-1 rounded-md border border-slate-700 bg-slate-900/70 hover:bg-slate-800 disabled:opacity-50"
                       >
-                        Copy
+                        {t.ui.detail.copy}
                       </button>
                     </div>
                     <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-3 max-h-56 overflow-auto">
                       <pre className="whitespace-pre-wrap break-words text-[11px] text-slate-200">
-                        {outreachScript ||
-                          "Click a lead to generate a tailored outreach script."}
+                        {outreachScript || t.ui.detail.clickLeadHint}
                       </pre>
                     </div>
                   </div>

@@ -51,7 +51,10 @@ export type SearchRecord = {
 };
 
 // Raw company data coming from external providers (Google Maps, SERP APIs, etc.)
-export type RawCompanySource = "mock" | "google_places" | "serpapi" | "other";
+export type RawCompanySource =
+  | "mock"
+  | "google_places"
+  | "serp";
 
 export type RawCompany = {
   source: RawCompanySource;

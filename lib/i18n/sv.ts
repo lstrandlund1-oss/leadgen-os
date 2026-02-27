@@ -1,0 +1,77 @@
+import type { TranslationSchema } from "./types";
+
+export const sv: TranslationSchema = {
+  ui: {
+    header: {
+      title: "LeadGen OS – Lead Finder",
+      subtitle:
+        "Provider-körningar. Deterministisk scoring. Förklarbar Opportunity vs Risk.",
+    },
+    filters: {
+      title: "Lead Filter",
+      nicheLabel: "Nisch / Bransch",
+      locationLabel: "Plats",
+      providerLabel: "Datakälla",
+      socialPresenceLabel: "Närvaro i sociala medier",
+      generateButton: "Generera Leads",
+      generatingButton: "Generating leads...",
+      socialPresenceOptions: {
+        any: "Alla",
+        low: "Låg",
+        medium: "Medel",
+        high: "Hög",
+      },
+    },
+    results: {
+      title: "Resultat",
+      empty: "Inga leads ännu. Fyll i filter och klicka på Generera Leads.",
+      showing: "Visar",
+      leads: "lead(s)",
+      minScore: "Min poäng",
+      sortBy: "Sortera",
+      searchPlaceholder: "Sök namn / bransch / plats...",
+      download: "Ladda ner CSV",
+      sortOptions: {
+        score: "Poäng",
+        opportunity: "Möjlighet",
+        riskLowFirst: "Risk (lägsta först)",
+        confidence: "Säkerhet",
+        fit: "Match",
+      },
+    },
+    table: {
+      company: "företag",
+      industry: "bransch",
+      location: "plats",
+      score: "poäng",
+      opportunity: "möjlighet",
+      risk: "risk",
+      insight: "insikt",
+      website: "webbplats",
+    },
+    detail: {
+      clear: "Rensa",
+      leadFocus: "Leadfokus",
+      opportunityInsight: "Möjlighetsinsikt",
+      risk: "Risk",
+      outcomeTracking: "Resultatuppföljning",
+      contacted: "Kontaktad",
+      replied: "Svarat",
+      booked: "Bokad",
+      closed: "Stängd",
+      suggestedAngle: "Föreslagen Outreach-vinkel",
+      outreachScript: "Outreach-manus",
+      copy: "Kopiera",
+      saving: "Sparar...",
+      scoreLabel: "Poäng",
+      opportunityLabel: "Möjlighet",
+      riskLabel: "Risk",
+      websiteLabel: "Webbplats",
+      noWebsite: "Ingen webbplats tillgänglig.",
+      suggestedAngleLabel: "Föreslagen kontaktvinkel",
+      readinessLabel: "Redohet",
+      clickLeadHint:
+        "Klicka på en lead för att generera ett anpassat outreach-manus.",
+    },
+  },
+};
