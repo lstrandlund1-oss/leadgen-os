@@ -95,7 +95,13 @@ export function mapToLead(args: {
 
     classification: {
       primaryIndustry: classification.primaryIndustry,
+      subNiche: classification.subNiche ?? "unknown",
+      serviceType: classification.serviceType ?? "other",
+      b2b_b2c: classification.b2b_b2c ?? "b2b",
+      isGoodFit: classification.isGoodFit ?? false,
+      fitScoreReason: classification.fitScoreReason ?? "",
       confidence: classification.confidence,
+      source: classification.source ?? "rules",
     },
 
     score: {

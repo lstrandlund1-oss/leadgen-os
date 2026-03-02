@@ -2,7 +2,12 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
 import { getRawIdsForRun } from "@/lib/persistence";
-import type { Lead, RawCompany, Classification, PrimaryIndustry } from "@/lib/types";
+import type {
+  Lead,
+  RawCompany,
+  Classification,
+  PrimaryIndustry,
+} from "@/lib/types";
 import { mapToLead } from "@/lib/mappers/leadMapper";
 import {
   detectSignalsV2,
@@ -11,14 +16,21 @@ import {
   type WorkTypeSignal,
   type ResistanceSignal,
 } from "@/lib/scoring/opportunitySignals";
-
+import {
+  DEFAULT_USER_PROFILE_V1,
+  DEFAULT_CAPABILITY_PROFILE,
+} from "@/lib/profile/defaultProfile";
+import {
+  deriveDifficulty,
+  deriveGap,
+  generateScript,
+  inferSellerType,
+} from "@/lib/outreach/generateScript";
 // ✅ NEW: Fit layer imports (typed, deterministic, no TS union fights)
 import { deriveNeedsFromSignals } from "@/lib/fit/needs";
-import {
-  scoreFit,
-  TEMP_ADS_SPECIALIST_PROFILE,
-  type FitResult,
-} from "@/lib/fit/fitScore";
+import { scoreFit, type FitResult } from "@/lib/fit/fitScore";
+import type { RiskProfile, ScoreResult } from "@/lib/types";
+import { scoreOpportunity } from "@/lib/scoring/opportunity";
 
 type RawRow = {
   id: number;
@@ -88,12 +100,18 @@ function asRecord(v: unknown): Record<string, unknown> {
     : {};
 }
 
-function getString(obj: Record<string, unknown>, key: string): string | undefined {
+function getString(
+  obj: Record<string, unknown>,
+  key: string,
+): string | undefined {
   const v = obj[key];
   return typeof v === "string" ? v : undefined;
 }
 
-function getNumber(obj: Record<string, unknown>, key: string): number | undefined {
+function getNumber(
+  obj: Record<string, unknown>,
+  key: string,
+): number | undefined {
   const v = obj[key];
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
 }
@@ -101,7 +119,8 @@ function getNumber(obj: Record<string, unknown>, key: string): number | undefine
 function chunk<T>(items: readonly T[], size: number): T[][] {
   if (size <= 0) return [Array.from(items)];
   const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  for (let i = 0; i < items.length; i += size)
+    out.push(items.slice(i, i + size));
   return out;
 }
 
@@ -149,7 +168,9 @@ function isPrimaryIndustry(value: string): value is PrimaryIndustry {
   );
 }
 
-function normalizeRawCompany(r: RawRow): RawCompany & { socialPresence?: SocialPresence } {
+function normalizeRawCompany(
+  r: RawRow,
+): RawCompany & { socialPresence?: SocialPresence } {
   const payload = asRecord(r.payload);
 
   // normalize reviewCount -> review_count if older payloads exist
@@ -158,7 +179,9 @@ function normalizeRawCompany(r: RawRow): RawCompany & { socialPresence?: SocialP
   }
 
   const source = (
-    typeof r.source === "string" && r.source.trim().length > 0 ? r.source : "other"
+    typeof r.source === "string" && r.source.trim().length > 0
+      ? r.source
+      : "other"
   ) as RawCompany["source"];
 
   const sourceId =
@@ -167,7 +190,8 @@ function normalizeRawCompany(r: RawRow): RawCompany & { socialPresence?: SocialP
       : "unknown";
 
   const rawName = getString(payload, "name");
-  const name = rawName && rawName.trim().length > 0 ? rawName.trim() : "Unknown Company";
+  const name =
+    rawName && rawName.trim().length > 0 ? rawName.trim() : "Unknown Company";
 
   const categories =
     Array.isArray(payload["categories"]) &&
@@ -284,10 +308,13 @@ async function fetchNormalizedRowsByRawIds(
   for (const part of parts) {
     const { data, error } = await client
       .from("companies_normalized")
-      .select("raw_id, name, website, city, country, opportunity_signals, primary_insight")
+      .select(
+        "raw_id, name, website, city, country, opportunity_signals, primary_insight",
+      )
       .in("raw_id", part);
 
-    if (error) throw new Error(`Failed to fetch normalized rows: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to fetch normalized rows: ${error.message}`);
     all.push(...((data ?? []) as NormalizedRow[]));
   }
 
@@ -304,17 +331,23 @@ async function fetchClassificationRowsByRawIds(
   for (const part of parts) {
     const { data, error } = await client
       .from("company_classifications")
-      .select("raw_id, primary_industry, sub_niche, is_good_fit, confidence, fit_reason, source")
+      .select(
+        "raw_id, primary_industry, sub_niche, is_good_fit, confidence, fit_reason, source",
+      )
       .in("raw_id", part);
 
-    if (error) throw new Error(`Failed to fetch classifications: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to fetch classifications: ${error.message}`);
     all.push(...((data ?? []) as ClassificationRow[]));
   }
 
   return all;
 }
 
-function toLegacySignals(workTypes: WorkTypeSignal[], resistances: ResistanceSignal[]): OpportunitySignal[] {
+function toLegacySignals(
+  workTypes: WorkTypeSignal[],
+  resistances: ResistanceSignal[],
+): OpportunitySignal[] {
   const all = [...resistances, ...workTypes];
   return all.map((s) => ({
     type: s.code,
@@ -323,12 +356,43 @@ function toLegacySignals(workTypes: WorkTypeSignal[], resistances: ResistanceSig
   }));
 }
 
-function toLegacyPrimaryInsightFromWorkType(primary: WorkTypeSignal | null): PrimaryInsight {
+function toLegacyPrimaryInsightFromWorkType(
+  primary: WorkTypeSignal | null,
+): PrimaryInsight {
   if (!primary) return null;
   return {
     type: primary.code,
     message: primary.message,
     strength: primary.strength,
+  };
+}
+
+function toNum(v: unknown, fallback = 0): number {
+  return typeof v === "number" && Number.isFinite(v) ? v : fallback;
+}
+
+function isRiskProfile(v: unknown): v is RiskProfile {
+  return v === "unstable_business" || v === "mature_competitor";
+}
+
+function normalizeScore(score: unknown): ScoreResult {
+  const s =
+    score && typeof score === "object"
+      ? (score as Record<string, unknown>)
+      : {};
+
+  const rp = s["riskProfile"];
+  const riskProfile: RiskProfile =
+    rp === "mature_competitor" || rp === "unstable_business"
+      ? rp
+      : "unstable_business";
+
+  return {
+    value: toNum(s["value"] ?? s["score"], 0),
+    opportunity: toNum(s["opportunity"], 0),
+    readiness: toNum(s["readiness"], 0),
+    risk: toNum(s["risk"], 0),
+    riskProfile,
   };
 }
 
@@ -338,11 +402,19 @@ export async function GET(
 ) {
   try {
     if (!supabase) {
-      return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Supabase not configured" },
+        { status: 500 },
+      );
     }
 
     const { id } = await Promise.resolve(params);
     const runId = Number(id);
+
+    const { searchParams } = new URL(_request.url);
+
+    const niche = searchParams.get("niche") ?? undefined;
+    const locationStr = searchParams.get("location") ?? undefined;
 
     if (!Number.isFinite(runId) || runId <= 0) {
       return NextResponse.json({ error: "Invalid run id" }, { status: 400 });
@@ -382,7 +454,9 @@ export async function GET(
       .map((r) => {
         const rawCompany = normalizeRawCompany(r);
         const n = normByRawId.get(r.id);
-        const classification = normalizeClassification(clsByRawId.get(r.id) ?? null);
+        const classification = normalizeClassification(
+          clsByRawId.get(r.id) ?? null,
+        );
 
         const website = n?.website ?? rawCompany.website ?? null;
         const rating = rawCompany.rating ?? 0;
@@ -439,19 +513,93 @@ export async function GET(
         lead.primaryInsight = toLegacyPrimaryInsightFromWorkType(primaryWork);
 
         // ✅ Fit: derive needs from signals, then score vs ads specialist profile
-        const { needs, reasons: needReasons } = deriveNeedsFromSignals({ workTypes, resistances });
-        const fit = scoreFit(TEMP_ADS_SPECIALIST_PROFILE, needs);
+        const { needs, reasons: needReasons } = deriveNeedsFromSignals({
+          workTypes,
+          resistances,
+        });
+
+        const fit = scoreFit(
+          DEFAULT_USER_PROFILE_V1,
+          DEFAULT_CAPABILITY_PROFILE,
+          needs,
+        );
 
         lead.fit = {
-          ...fit,
+          fitScore: fit.fitScore,
+          matchedNeeds: fit.matchedNeeds,
+          missingNeeds: fit.missingNeeds,
+
+          // merged reasoning layer (this is your real asset)
           reasons: [...fit.reasons, ...needReasons],
         };
+
+        lead.score = normalizeScore(lead.score);
+
+        const pitchContext = {
+          hasWebsite: Boolean(lead.company.website),
+          socialPresence: lead.metrics.socialPresence ?? "medium",
+          opportunity: lead.score.opportunity ?? 0,
+          risk: lead.score.risk ?? 0,
+          riskProfile: lead.score.riskProfile ?? null,
+          fitScore: fit.fitScore,
+          missingNeeds: lead.fit?.missingNeeds ?? [],
+        };
+
+        const sellerType = inferSellerType(DEFAULT_USER_PROFILE_V1);
+        const gap = deriveGap(pitchContext);
+        const difficulty = deriveDifficulty(
+          pitchContext.opportunity,
+          pitchContext.risk,
+        );
+
+        const closeOpp = scoreOpportunity({
+          gap,
+          fitScore: fit.fitScore,
+
+          rating: lead.metrics.rating,
+          reviewCount: lead.metrics.reviewCount,
+          hasWebsite: pitchContext.hasWebsite,
+
+          socialPresence: pitchContext.socialPresence ?? null,
+
+          risk: lead.score.risk ?? 0,
+          riskProfile: lead.score.riskProfile ?? "unstable_business",
+
+          classificationConfidence: lead.classification.confidence ?? null,
+        });
+
+        lead.score = {
+          ...lead.score,
+          opportunity: closeOpp.opportunity,
+        };
+
+        const outreach = generateScript({
+          industry: niche ?? undefined,
+          city: locationStr ?? undefined,
+          sellerType,
+          gap,
+          difficulty,
+          ctx: pitchContext,
+        });
+
+        lead.metadata = {
+          ...lead.metadata,
+          outreach,
+          opportunityMeta: {
+            confidence: closeOpp.confidence,
+            reasons: closeOpp.reasons,
+          },
+        };
+        void pitchContext;
 
         return lead;
       })
       .filter((x): x is LeadWithSignals => !!x);
 
-    return NextResponse.json({ runId, count: leads.length, leads }, { status: 200 });
+    return NextResponse.json(
+      { runId, count: leads.length, leads },
+      { status: 200 },
+    );
   } catch (err) {
     console.error("/api/providers/runs/[id]/leads GET error:", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });

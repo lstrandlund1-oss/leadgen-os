@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, FormEvent } from "react";
 import type { Lead, Language, SearchRecord, SocialPresence } from "@/lib/types";
 import type { ProviderName } from "@/lib/providers/types";
 import { getTranslations } from "@/lib/i18n";
+import type { TranslationSchema as Translations } from "@/lib/i18n/types";
 
 const STORAGE_KEY = "leadgen_os_state_v1";
 
@@ -55,19 +56,33 @@ type LeadOutcomeUI = {
   notes: string | null;
 };
 
-const OUTCOME_KEYS = [
-  ["contacted", "Contacted"],
-  ["replied", "Replied"],
-  ["booked_call", "Booked"],
-  ["closed", "Closed"],
+type OutcomeKey = "contacted" | "replied" | "booked_call" | "closed";
+
+const OUTCOME_STATUS_KEYS: readonly OutcomeKey[] = [
+  "contacted",
+  "replied",
+  "booked_call",
+  "closed",
 ] as const;
 
-type OutcomeKey = (typeof OUTCOME_KEYS)[number][0];
+function outcomeLabel(k: OutcomeKey, t: Translations): string {
+  switch (k) {
+    case "contacted":
+      return t.ui.detail.contacted;
+    case "replied":
+      return t.ui.detail.replied;
+    case "booked_call":
+      return t.ui.detail.booked;
+    case "closed":
+      return t.ui.detail.closed;
+  }
+}
 
-function buildOutcomePatch(key: OutcomeKey, value: boolean) {
-  const patch: Partial<
-    Pick<LeadOutcomeUI, "contacted" | "replied" | "booked_call" | "closed">
-  > = {};
+function buildOutcomePatch(
+  key: OutcomeKey,
+  value: boolean,
+): Partial<Record<OutcomeKey, boolean>> {
+  const patch: Partial<Record<OutcomeKey, boolean>> = {};
   patch[key] = value;
   return patch;
 }
@@ -219,17 +234,14 @@ function getLocalizedOpportunityInsight(
 }
 
 function riskTitleFromProfile(
-  language: Language,
   p: Lead["score"]["riskProfile"] | null | undefined,
+  t: Translations,
 ): string {
-  if (language === "sv") {
-    if (p === "unstable_business") return "Hög risk: saknar grunder";
-    if (p === "mature_competitor") return "Hög risk: redan väloptimerad";
-    return "Risk";
-  }
-  if (p === "unstable_business") return "High risk: missing fundamentals";
-  if (p === "mature_competitor") return "High risk: already well-served";
-  return "Risk";
+  if (p === "unstable_business")
+    return t.ui.table.riskProfile.unstable_business;
+  if (p === "mature_competitor")
+    return t.ui.table.riskProfile.mature_competitor;
+  return t.ui.table.riskProfile.none;
 }
 
 function riskMessage(language: Language, lead: Lead): string {
@@ -429,99 +441,6 @@ function getOutreachAngle(lead: LeadUI, language: Language): string {
   return parts.join(" ");
 }
 
-function buildOutreachScript(lead: LeadUI, language: Language): string {
-  const name = lead.company.name;
-  const industry = lead.classification.primaryIndustry.replaceAll("_", " ");
-  const loc = leadLocation(lead);
-  const oppInsight = getLocalizedOpportunityInsight(lead, language);
-
-  const hasWebsite = !!lead.company.website;
-
-  const fitScore = lead.fit?.fitScore ?? 50;
-  const fitBand = fitScore >= 75 ? "high" : fitScore >= 45 ? "medium" : "low";
-
-  const credibilityLineSv =
-    fitBand === "high"
-      ? "Det här ligger helt inom mitt expertområde — det går att förbättra snabbt."
-      : fitBand === "medium"
-        ? "Det finns tydlig potential här — det kräver strukturerad implementation."
-        : "Det kan krävas mer grundarbete innan det går att skala.";
-
-  const credibilityLineEn =
-    fitBand === "high"
-      ? "This is directly in my execution zone — I can improve this fast."
-      : fitBand === "medium"
-        ? "There’s strong potential here — this likely needs structured execution."
-        : "This may require broader foundational work before scaling.";
-
-  const insightLineEn = oppInsight?.message
-    ? `Quick observation: ${oppInsight.message}.`
-    : "";
-  const insightLineSv = oppInsight?.message
-    ? `Observation: ${oppInsight.message}`
-    : "";
-
-  const proofPointSv = hasWebsite
-    ? "Jag skulle främst justera hur ni fångar intresse och leder det till ett tydligt nästa steg."
-    : "Utan en tydlig webbplats/landningsyta tappar man ofta förtroende och bokningar.";
-
-  const proofPointEn = hasWebsite
-    ? "I’d adjust how you capture attention and turn it into bookings/leads."
-    : "Without a simple landing page/website you’re likely losing trust and bookings.";
-
-  const ctaEn =
-    fitBand === "high"
-      ? "If you're open, I can send 2–3 concrete improvements I’d implement immediately."
-      : fitBand === "medium"
-        ? "If you're open, I can outline what I’d prioritize first."
-        : "If you're open, I can share a quick diagnostic overview of what would need fixing first.";
-
-  const ctaSv =
-    fitBand === "high"
-      ? "Vill du att jag skickar 2–3 konkreta saker jag hade implementerat direkt?"
-      : fitBand === "medium"
-        ? "Vill du att jag visar vad jag hade prioriterat först?"
-        : "Vill du att jag ger en snabb genomgång av vad som behöver fixas först?";
-
-  if (language === "en") {
-    return [
-      `Hi ${name},`,
-      "",
-      `I’m reviewing ${industry} businesses in ${loc} and you stood out.`,
-      insightLineEn,
-      credibilityLineEn,
-      proofPointEn,
-      "",
-      "I help businesses install a simple content + funnel system that turns attention into inquiries—without turning you into influencers.",
-      "",
-      ctaEn,
-      "",
-      "Best regards,",
-      "[Your name]",
-    ]
-      .filter(Boolean)
-      .join("\n");
-  }
-
-  return [
-    `Hej ${name},`,
-    "",
-    `Jag går igenom ${industry} i ${loc} och ni stack ut.`,
-    insightLineSv,
-    credibilityLineSv,
-    proofPointSv,
-    "",
-    "Jag hjälper företag att sätta ett enkelt content + funnel-system som gör uppmärksamhet till förfrågningar—utan att ni behöver bli ‘influencers’.",
-    "",
-    ctaSv,
-    "",
-    "Vänliga hälsningar,",
-    "[Ditt namn]",
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
 type ProviderSearchResponse = {
   runId?: number;
 };
@@ -604,23 +523,29 @@ export default function Home() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const [selectedLead, setSelectedLead] = useState<LeadUI | null>(null);
-  const [outreachScript, setOutreachScript] = useState<string>("");
+
+  type OutreachVariant = "soft" | "direct";
+  const [outreachVariant, setOutreachVariant] =
+    useState<OutreachVariant>("soft");
 
   const [outcomesByLeadId, setOutcomesByLeadId] = useState<
     Record<string, LeadOutcomeUI>
   >({});
   const [isSavingOutcome, setIsSavingOutcome] = useState(false);
 
-  const OUTCOME_KEYS = useMemo(
-    () =>
-      [
-        ["contacted", t.ui.detail.contacted],
-        ["replied", t.ui.detail.replied],
-        ["booked_call", t.ui.detail.booked],
-        ["closed", t.ui.detail.closed],
-      ] as const,
-    [t],
-  );
+  const outreach = selectedLead?.metadata?.outreach;
+  const selectedVariant = outreachVariant; // or just use outreachVariant directly
+  const outreachScript = outreach?.variants?.[selectedVariant] ?? "";
+  const scriptText = outreachScript.trim();
+
+  type OutcomeKey = "contacted" | "replied" | "booked_call" | "closed";
+
+  const OUTCOME_STATUS_KEYS: readonly OutcomeKey[] = [
+    "contacted",
+    "replied",
+    "booked_call",
+    "closed",
+  ] as const;
 
   async function saveOutcome(args: {
     runId: number;
@@ -752,6 +677,13 @@ export default function Home() {
   // =====================
 
   useEffect(() => {
+    if (!selectedLead?.metadata?.outreach) return;
+
+    const dv = selectedLead.metadata.outreach.defaultVariant;
+    setOutreachVariant(dv === "direct" ? "direct" : "soft");
+  }, [selectedLead]);
+
+  useEffect(() => {
     const runId = activeRunId;
     if (!runId) return;
 
@@ -774,11 +706,6 @@ export default function Home() {
 
     load();
   }, [activeRunId]);
-
-  useEffect(() => {
-    if (!selectedLead) return;
-    setOutreachScript(buildOutreachScript(selectedLead, language));
-  }, [selectedLead, language]);
 
   useEffect(() => {
     try {
@@ -950,7 +877,7 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-slate-400">Language</span>
+            <span className="text-slate-400">{t.ui.header.languageLabel}</span>
             <button
               type="button"
               onClick={() => setLanguage("en")}
@@ -1076,10 +1003,18 @@ export default function Home() {
                   }
                   className="w-full rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="">{t.ui.filters.socialPresenceOptions.any}</option>
-                  <option value="low">{t.ui.filters.socialPresenceOptions.low}</option>
-                  <option value="medium">{t.ui.filters.socialPresenceOptions.medium}</option>
-                  <option value="high">{t.ui.filters.socialPresenceOptions.high}</option>
+                  <option value="any">
+                    {t.ui.filters.socialPresenceOptions.any}
+                  </option>
+                  <option value="low">
+                    {t.ui.filters.socialPresenceOptions.low}
+                  </option>
+                  <option value="medium">
+                    {t.ui.filters.socialPresenceOptions.medium}
+                  </option>
+                  <option value="high">
+                    {t.ui.filters.socialPresenceOptions.high}
+                  </option>
                 </select>
               </div>
             </div>
@@ -1134,10 +1069,18 @@ export default function Home() {
                     }
                     className="rounded-md bg-slate-900 border border-slate-700 px-2 py-1"
                   >
-                    <option value="score">{t.ui.results.sortOptions.score}</option>
-                    <option value="opportunity">{t.ui.results.sortOptions.opportunity}</option>
-                    <option value="risk">{t.ui.results.sortOptions.riskLowFirst}</option>
-                    <option value="confidence">{t.ui.results.sortOptions.confidence}</option>
+                    <option value="score">
+                      {t.ui.results.sortOptions.score}
+                    </option>
+                    <option value="opportunity">
+                      {t.ui.results.sortOptions.opportunity}
+                    </option>
+                    <option value="risk">
+                      {t.ui.results.sortOptions.risk}
+                    </option>
+                    <option value="confidence">
+                      {t.ui.results.sortOptions.confidence}
+                    </option>
                     <option value="fit">{t.ui.results.sortOptions.fit}</option>
                   </select>
                 </label>
@@ -1293,34 +1236,38 @@ export default function Home() {
                         </td>
 
                         <td className="py-2 px-3">
-                          {insight?.message ? (
-                            <div className="text-[11px] leading-snug">
-                              <div className="text-orange-300 font-semibold flex items-center gap-2">
-                                <span>⚡</span>
-                                <span>
-                                  Opportunity:{" "}
-                                  <span className="text-slate-200 font-semibold">
-                                    {lead.score.opportunity ?? 0}/100
-                                  </span>{" "}
-                                  <span className="text-slate-400">
-                                    (
-                                    {bandLabel(
-                                      language,
-                                      lead.score.opportunity ?? 0,
-                                    )}
-                                    )
+                          {(() => {
+                            const opp = Number.isFinite(lead.score?.opportunity)
+                              ? (lead.score!.opportunity as number)
+                              : 0;
+
+                            return (
+                              <div className="text-[11px] leading-snug">
+                                <div className="text-orange-300 font-semibold flex items-center gap-2">
+                                  <span>⚡</span>
+                                  <span>
+                                    {t.ui.table.opportunity}{" "}
+                                    <span className="text-slate-200 font-semibold">
+                                      {opp}/100
+                                    </span>{" "}
+                                    <span className="text-slate-400">
+                                      ({bandLabel(language, opp)})
+                                    </span>
                                   </span>
-                                </span>
+                                </div>
+
+                                {insight?.message ? (
+                                  <div className="text-slate-200">
+                                    {insight.message}
+                                  </div>
+                                ) : (
+                                  <div className="text-slate-500 text-[11px]">
+                                    —
+                                  </div>
+                                )}
                               </div>
-                              <div className="text-slate-200">
-                                {insight.message}
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-slate-500 text-[11px]">
-                              —
-                            </span>
-                          )}
+                            );
+                          })()}
                         </td>
 
                         <td className="py-2 px-3">
@@ -1352,7 +1299,17 @@ export default function Home() {
                 language,
               );
               const runIdNum = Number(selectedLead.metadata?.runId ?? 0);
-              const outcome = selectedOutcome;
+
+              const outcomeFlags:
+                | Partial<Record<OutcomeKey, boolean>>
+                | undefined = selectedOutcome
+                ? {
+                    contacted: selectedOutcome.contacted,
+                    replied: selectedOutcome.replied,
+                    booked_call: selectedOutcome.booked_call,
+                    closed: selectedOutcome.closed,
+                  }
+                : undefined;
 
               return (
                 <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 md:p-5 space-y-3">
@@ -1408,10 +1365,7 @@ export default function Home() {
                       {t.ui.detail.risk}
                     </p>
                     <p className="text-sm font-semibold text-rose-100">
-                      {riskTitleFromProfile(
-                        language,
-                        selectedLead.score.riskProfile,
-                      )}
+                      {riskTitleFromProfile(selectedLead.score.riskProfile, t)}
                     </p>
                     <p className="mt-1 text-[11px] text-rose-200/70">
                       {riskMessage(language, selectedLead)}
@@ -1426,11 +1380,11 @@ export default function Home() {
                     </p>
 
                     <div className="flex flex-wrap gap-4 text-xs text-slate-200">
-                      {OUTCOME_KEYS.map(([key, label]) => (
-                        <label key={key} className="flex items-center gap-2">
+                      {OUTCOME_STATUS_KEYS.map((k) => (
+                        <label key={k} className="flex items-center gap-2">
                           <input
                             type="checkbox"
-                            checked={!!outcome?.[key]}
+                            checked={!!outcomeFlags?.[k]}
                             onChange={(e) => {
                               if (!Number.isFinite(runIdNum) || runIdNum <= 0)
                                 return;
@@ -1438,11 +1392,11 @@ export default function Home() {
                               saveOutcome({
                                 runId: runIdNum,
                                 leadId: selectedLead.id,
-                                patch: buildOutcomePatch(key, e.target.checked),
+                                patch: buildOutcomePatch(k, e.target.checked),
                               });
                             }}
                           />
-                          <span>{label}</span>
+                          <span>{outcomeLabel(k, t)}</span>
                         </label>
                       ))}
                     </div>
@@ -1514,27 +1468,76 @@ export default function Home() {
 
                   <div className="pt-3 border-t border-slate-800 mt-3 space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                        {t.ui.detail.outreachScript} (draft)
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-[11px] uppercase tracking-wide text-slate-400">
+                          {t.ui.detail.outreachScript} (draft)
+                        </p>
+
+                        {outreach ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setOutreachVariant("soft")}
+                              className={
+                                "text-[10px] px-2 py-0.5 rounded-md border " +
+                                (outreachVariant === "soft"
+                                  ? "border-slate-500 bg-slate-900/70 text-slate-100"
+                                  : "border-slate-800 bg-slate-900/40 text-slate-300")
+                              }
+                            >
+                              Soft
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setOutreachVariant("direct")}
+                              className={
+                                "text-[10px] px-2 py-0.5 rounded-md border " +
+                                (outreachVariant === "direct"
+                                  ? "border-slate-500 bg-slate-900/70 text-slate-100"
+                                  : "border-slate-800 bg-slate-900/40 text-slate-300")
+                              }
+                            >
+                              Direct
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+
                       <button
                         type="button"
                         onClick={async () => {
                           try {
-                            await navigator.clipboard.writeText(outreachScript);
+                            await navigator.clipboard.writeText(scriptText);
                           } catch (e) {
                             console.error("Failed to copy outreach script:", e);
                           }
                         }}
-                        disabled={!outreachScript}
+                        disabled={!scriptText}
                         className="text-[11px] px-2 py-1 rounded-md border border-slate-700 bg-slate-900/70 hover:bg-slate-800 disabled:opacity-50"
                       >
                         {t.ui.detail.copy}
                       </button>
                     </div>
                     <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-3 max-h-56 overflow-auto">
-                      <pre className="whitespace-pre-wrap break-words text-[11px] text-slate-200">
-                        {outreachScript || t.ui.detail.clickLeadHint}
+                      {outreach?.angleTitle ? (
+                        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 mb-3">
+                          <p className="text-[11px] uppercase tracking-wide text-slate-300/80">
+                            {t.ui.detail.suggestedAngle}
+                          </p>
+                          <p className="text-sm font-semibold text-slate-100">
+                            {outreach.angleTitle}
+                          </p>
+                          {outreach.angleWhy ? (
+                            <p className="mt-1 text-[12px] text-slate-200/70">
+                              {outreach.angleWhy}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      <pre className="whitespace-pre-wrap wrap-break-words text-[11px] text-slate-200">
+                        {scriptText || t.ui.detail.clickLeadHint}
                       </pre>
                     </div>
                   </div>

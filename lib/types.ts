@@ -1,7 +1,7 @@
 // ==========================================
 // Shared Types for LeadGen OS
 // ==========================================
-
+import type { Capability } from "@/lib/fit/needs";
 // Language support for UI + outreach generation
 export type Language = "en" | "sv";
 
@@ -27,6 +27,36 @@ export type ServiceType =
 
 export type B2B_B2C = "b2b" | "b2c" | "both" | "unknown";
 
+export type CapabilityKey = Capability; // if Capability is already an enum/union
+
+export type CapabilityProfile = {
+  id: string;
+  capabilities: Record<CapabilityKey, boolean>;
+};
+
+export type UserProfileV1 = {
+  id: string;
+
+  // Positioning
+  niche: string;
+  serviceFocus: ("ads" | "content" | "seo" | "branding")[];
+
+  // Capability level
+  experienceLevel: "beginner" | "intermediate" | "advanced";
+
+  // Target preference
+  targetBusinessSize: "small" | "medium" | "large";
+
+  // Strategy bias
+  acquisitionStyle: "aggressive" | "balanced" | "premium";
+
+  // Constraints
+  budgetPreference: "low" | "medium" | "high";
+
+  // Optional expansion later
+  notes?: string;
+};
+
 // Classification block returned by rule-based and AI classifiers
 export type Classification = {
   primaryIndustry: PrimaryIndustry;
@@ -51,10 +81,7 @@ export type SearchRecord = {
 };
 
 // Raw company data coming from external providers (Google Maps, SERP APIs, etc.)
-export type RawCompanySource =
-  | "mock"
-  | "google_places"
-  | "serp";
+export type RawCompanySource = "mock" | "google_places" | "serp";
 
 export type RawCompany = {
   source: RawCompanySource;
@@ -83,10 +110,10 @@ export type RawCompany = {
 export type RiskProfile = "mature_competitor" | "unstable_business" | null;
 
 export type ScoreResult = {
-  value: number;        // 0–100
-  opportunity: number;  // 0–100
-  readiness: number;    // 0–100
-  risk: number;         // 0–100
+  value: number; // 0–100
+  opportunity: number; // 0–100
+  readiness: number; // 0–100
+  risk: number; // 0–100
   riskProfile: RiskProfile;
 
   /**
@@ -95,6 +122,30 @@ export type ScoreResult = {
    * Keep it optional for stability until you delete it everywhere.
    */
   priority?: number;
+};
+
+export type OutreachVariantKey = "soft" | "direct";
+
+export type SellerType = "MARKETING" | "WEB_DEV" | "CONTENT" | "FREELANCER";
+
+export type GapType =
+  | "VISIBILITY"
+  | "CONVERSION"
+  | "INFRASTRUCTURE"
+  | "OPTIMIZATION";
+
+export type Difficulty = "LOW" | "MEDIUM" | "HIGH";
+
+export type OutreachPackage = {
+  sellerType: SellerType;
+  gap: GapType;
+  difficulty: Difficulty;
+
+  angleTitle: string;
+  angleWhy: string;
+
+  variants: Record<OutreachVariantKey, string>;
+  defaultVariant: OutreachVariantKey;
 };
 
 // --- Lead (canonical) ---
@@ -135,5 +186,11 @@ export type Lead = {
 
   metadata: {
     runId: string;
+    outreach?: OutreachPackage;
+
+    opportunityMeta?: {
+      confidence: number;
+      reasons: string[];
+    };
   };
 };

@@ -2,10 +2,15 @@ import type { TranslationSchema } from "./types";
 
 export const en: TranslationSchema = {
   ui: {
+    common: {
+      na: "N/A",
+      visit: "Visit",
+    },
     header: {
       title: "LeadGen OS – Lead Finder",
       subtitle:
         "Provider runs. Deterministic scoring. Explainable Opportunity vs Risk.",
+      languageLabel: "Language",
     },
     filters: {
       title: "Lead Filters",
@@ -30,24 +35,34 @@ export const en: TranslationSchema = {
       download: "Download CSV",
       showing: "Showing",
       leads: "lead(s)",
-      searchPlaceholder: "Search name / industry / location...",
       sortOptions: {
         score: "Score",
         opportunity: "Opportunity",
-        riskLowFirst: "Risk (low first)",
+        risk: "Risk (low first)",
         confidence: "Confidence",
         fit: "Fit",
       },
+      searchPlaceholder: "Search leads…",
     },
     table: {
-      company: "company",
-      industry: "industry",
-      location: "location",
-      score: "score",
-      opportunity: "opportunity",
-      risk: "risk",
-      insight: "insight",
-      website: "website",
+      company: "Company",
+      industry: "Industry",
+      location: "Location",
+      score: "Score",
+      opportunity: "Opportunity",
+      risk: "Risk",
+      insight: "Insight",
+      website: "Website",
+      insightPrefix: {
+        opportunity: "Opportunity:",
+        risk: "Risk:",
+        readiness: "Readiness:",
+      },
+      riskProfile: {
+        none: "None",
+        mature_competitor: "Mature competitor",
+        unstable_business: "Unstable business",
+      },
     },
     detail: {
       clear: "Clear",

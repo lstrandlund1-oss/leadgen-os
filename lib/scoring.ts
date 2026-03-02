@@ -1,4 +1,5 @@
 import type { RawCompany, Classification } from "@/lib/types";
+import { scoreOpportunity } from "@/lib/scoring/opportunity";
 
 export type RiskProfile = "mature_competitor" | "unstable_business" | null;
 
