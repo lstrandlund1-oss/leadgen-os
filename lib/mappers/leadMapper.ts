@@ -1,5 +1,7 @@
 import type { Lead, RawCompany, Classification } from "@/lib/types";
 import { scoreLead } from "@/lib/scoring";
+import { computeRiskFlags } from "@/lib/riskFlags";
+import { bucketOpportunity } from "@/lib/scoring/buckets";
 
 type SocialPresence = "low" | "medium" | "high";
 
@@ -69,9 +71,29 @@ export function mapToLead(args: {
   // Stable string id
   const leadId = `${raw.source}:${raw.sourceId}`;
 
-  const socialPresence = inferSocialPresence({
+  const inferredSocialPresence = inferSocialPresence({
     raw,
     normalized: normalized as unknown as Record<string, unknown>,
+  });
+
+  const socialPresence: "low" | "medium" | "high" =
+    inferredSocialPresence ?? "low";
+
+  const classificationConfidence01 =
+    typeof classification.confidence === "number"
+      ? Math.max(0, Math.min(1, classification.confidence / 100))
+      : null;
+
+  const riskFlags = computeRiskFlags({
+    hasWebsite: Boolean(
+      (normalized.website ?? raw.website ?? "").toString().trim().length > 0,
+    ),
+    socialPresence,
+    rating: typeof raw.rating === "number" ? raw.rating : null,
+    reviews: typeof raw.review_count === "number" ? raw.review_count : null,
+    classificationConfidence01,
+    isMatureCompetitor: scoring.riskProfile === "mature_competitor",
+    isDistressed: scoring.riskProfile === "unstable_business",
   });
 
   return {
@@ -105,7 +127,7 @@ export function mapToLead(args: {
     },
 
     score: {
-      value: scoring.score,
+      value: scoring.value,
       opportunity: scoring.opportunity,
       readiness: scoring.readiness,
       risk: scoring.risk,
@@ -114,6 +136,12 @@ export function mapToLead(args: {
 
     metadata: {
       runId,
+      opportunityMeta: {
+        confidence: classification.confidence ?? 0,
+        reasons: [],
+        bucket: bucketOpportunity(scoring.opportunity),
+        riskFlags,
+      },
     },
   };
 }

@@ -2,6 +2,8 @@
 // Shared Types for LeadGen OS
 // ==========================================
 import type { Capability } from "@/lib/fit/needs";
+import type { OpportunityBucket } from "@/lib/scoring/buckets";
+import { computeRiskFlags } from "@/lib/riskFlags";
 // Language support for UI + outreach generation
 export type Language = "en" | "sv";
 
@@ -107,7 +109,26 @@ export type RawCompany = {
 
 // API/UI-ready lead object (provider-agnostic, deterministic, stable)
 // --- Score (canonical) ---
-export type RiskProfile = "mature_competitor" | "unstable_business" | null;
+export type RiskProfile =
+  | "unstable_business"
+  | "mature_competitor"
+  | "early_stage"
+  | "owner_operator"
+  | "franchise_or_chain"
+  | "seasonal"
+  | "high_regulation"
+  | "strong_local_brand"
+  | "unknown";
+
+export type RiskFlag =
+  | "LOW_PROOF"
+  | "NO_WEBSITE"
+  | "WEAK_SOCIAL"
+  | "LOW_CLASS_CONF"
+  | "HIGH_RISK_SCORE"
+  | "SATURATED_COMPETITION"
+  | "OPERATIONAL_INSTABILITY"
+  | "MULTI_LOCATION";
 
 export type ScoreResult = {
   value: number; // 0–100
@@ -191,6 +212,8 @@ export type Lead = {
     opportunityMeta?: {
       confidence: number;
       reasons: string[];
+      bucket: OpportunityBucket;
+      riskFlags?: RiskFlag[];
     };
   };
 };

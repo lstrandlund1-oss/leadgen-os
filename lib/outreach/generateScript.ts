@@ -90,7 +90,7 @@ export function deriveGap(ctx: PitchContext): GapType {
   return "OPTIMIZATION";
 }
 
-function opener(difficulty: Difficulty): string {
+function _opener(difficulty: Difficulty): string {
   // Make this feel like a real person typed it.
   // No em-dash, no “Quick one—”
   if (difficulty === "HIGH") return "Hey — quick question.";
@@ -98,7 +98,7 @@ function opener(difficulty: Difficulty): string {
   return "Hey.";
 }
 
-function leadScanLine(
+function _leadScanLine(
   businessName: string,
   industry?: string,
   city?: string,

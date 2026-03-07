@@ -58,14 +58,48 @@ export async function runProviderSearch(
 
   const result = await adapter.search(safeIntent);
 
-  // HARDENING GATE:
-  // If ok=true, validate records before anything can touch the DB.
-  // If ok=false, we just return the result and let the caller decide how to persist the failure.
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: {
+        code: "BAD_REQUEST",
+        message: "...",
+        retryable: false,
+      },
+      meta: {
+        provider: result.meta.provider,
+        requestId: result.meta?.requestId ?? undefined,
+        fetchedCount: 0,
+        returnedCount: 0,
+        exhausted: true,
+        nextCursor: null,
+      },
+    };
+  }
+
+  const rawNextCursor =
+    typeof result.meta?.nextCursor === "string" ? result.meta.nextCursor : "";
+
+  const nextCursor =
+    rawNextCursor.trim().length > 0 ? rawNextCursor.trim() : null;
+
+  const exhausted =
+    typeof result.meta?.exhausted === "boolean"
+      ? result.meta.exhausted
+      : nextCursor === null;
+
   if (result.ok === true) {
     assertProviderResult(adapter, result);
   }
 
-  return result;
+  return {
+    ...result,
+    meta: {
+      ...result.meta,
+      nextCursor,
+      exhausted,
+    },
+  };
 }
 
 function clamp(n: number, min: number, max: number): number {

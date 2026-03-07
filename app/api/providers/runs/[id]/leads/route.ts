@@ -31,6 +31,7 @@ import { deriveNeedsFromSignals } from "@/lib/fit/needs";
 import { scoreFit, type FitResult } from "@/lib/fit/fitScore";
 import type { RiskProfile, ScoreResult } from "@/lib/types";
 import { scoreOpportunity } from "@/lib/scoring/opportunity";
+import { bucketOpportunity } from "@/lib/scoring/buckets";
 
 type RawRow = {
   id: number;
@@ -371,10 +372,6 @@ function toNum(v: unknown, fallback = 0): number {
   return typeof v === "number" && Number.isFinite(v) ? v : fallback;
 }
 
-function isRiskProfile(v: unknown): v is RiskProfile {
-  return v === "unstable_business" || v === "mature_competitor";
-}
-
 function normalizeScore(score: unknown): ScoreResult {
   const s =
     score && typeof score === "object"
@@ -588,6 +585,7 @@ export async function GET(
           opportunityMeta: {
             confidence: closeOpp.confidence,
             reasons: closeOpp.reasons,
+            bucket: bucketOpportunity(closeOpp.opportunity),
           },
         };
         void pitchContext;

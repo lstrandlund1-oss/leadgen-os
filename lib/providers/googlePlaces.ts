@@ -13,6 +13,7 @@ const PLACES_TEXT_SEARCH_URL =
 
 type GooglePlacesTextSearchResponse = {
   places?: GooglePlace[];
+  nextPageToken?: string;
 };
 
 type GooglePlace = {
@@ -137,12 +138,26 @@ export const googlePlacesAdapter: ProviderAdapter = {
 
       const textQuery = location.length > 0 ? `${query} ${location}` : query;
 
+      const cursor =
+        typeof i.cursor === "string" && i.cursor.trim().length > 0
+          ? i.cursor.trim()
+          : undefined;
+
+      // Always send the base query payload.
+      // If we have a cursor, add pageToken on top.
+      const payload = {
+        textQuery,
+        languageCode: "sv",
+        regionCode: "SE",
+        pageSize: typeof i.limit === "number" ? i.limit : 25,
+        ...(cursor ? { pageToken: cursor } : {}),
+      } satisfies Record<string, unknown>;
+
       const res = await fetch(PLACES_TEXT_SEARCH_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-Goog-Api-Key": apiKey,
-          // Required by Places API (New)
           "X-Goog-FieldMask": [
             "places.id",
             "places.displayName",
@@ -154,15 +169,28 @@ export const googlePlacesAdapter: ProviderAdapter = {
             "places.primaryType",
             "places.businessStatus",
             "places.location",
+            "nextPageToken", // ← IMPORTANT
           ].join(","),
         },
-        body: JSON.stringify({
-          textQuery,
-          languageCode: "sv",
-          regionCode: "SE",
-          pageSize: typeof i.limit === "number" ? i.limit : 25,
-        }),
+        body: JSON.stringify(payload), // ← This replaces your old block
       });
+
+      const data = (await res.json()) as GooglePlacesTextSearchResponse;
+      const places = Array.isArray(data.places) ? data.places : [];
+      const nextCursor =
+        typeof data.nextPageToken === "string" &&
+        data.nextPageToken.trim().length > 0
+          ? data.nextPageToken.trim()
+          : null;
+
+      const records: ProviderRecord[] = places
+        // Skip dead businesses so they don't pollute runs
+        .filter((p) => p.businessStatus !== "CLOSED_PERMANENTLY")
+        // Basic sanity: must have an id
+        .filter(
+          (p): p is GooglePlace => typeof p?.id === "string" && p.id.length > 0,
+        )
+        .map((p) => toProviderRecord(p, query, city));
 
       if (!res.ok) {
         const body = await res.text();
@@ -177,25 +205,13 @@ export const googlePlacesAdapter: ProviderAdapter = {
           meta: {
             provider: "google_places",
             requestId,
-            fetchedCount: 0,
-            returnedCount: 0,
-            exhausted: true,
-            nextCursor: null,
+            fetchedCount: places.length,
+            returnedCount: records.length,
+            exhausted: nextCursor === null,
+            nextCursor,
           },
         };
       }
-
-      const data = (await res.json()) as GooglePlacesTextSearchResponse;
-      const places = Array.isArray(data.places) ? data.places : [];
-
-      const records: ProviderRecord[] = places
-        // Skip dead businesses so they don't pollute runs
-        .filter((p) => p.businessStatus !== "CLOSED_PERMANENTLY")
-        // Basic sanity: must have an id
-        .filter(
-          (p): p is GooglePlace => typeof p?.id === "string" && p.id.length > 0,
-        )
-        .map((p) => toProviderRecord(p, query, city));
 
       return {
         ok: true,
@@ -205,8 +221,8 @@ export const googlePlacesAdapter: ProviderAdapter = {
           requestId,
           fetchedCount: places.length,
           returnedCount: records.length,
-          exhausted: true,
-          nextCursor: null,
+          exhausted: nextCursor === null,
+          nextCursor,
         },
       };
     } catch (e) {

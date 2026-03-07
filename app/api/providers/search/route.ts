@@ -19,17 +19,25 @@ function asRecord(v: unknown): Record<string, unknown> {
     : {};
 }
 
-function getString(obj: Record<string, unknown>, key: string): string | undefined {
+function getString(
+  obj: Record<string, unknown>,
+  key: string,
+): string | undefined {
   const v = obj[key];
   return typeof v === "string" ? v : undefined;
 }
 
-function getNumber(obj: Record<string, unknown>, key: string): number | undefined {
+function getNumber(
+  obj: Record<string, unknown>,
+  key: string,
+): number | undefined {
   const v = obj[key];
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
 }
 
-function normalizeSocialPresenceFilter(v: unknown): SocialPresenceFilter | undefined {
+function normalizeSocialPresenceFilter(
+  v: unknown,
+): SocialPresenceFilter | undefined {
   // Accept UI variants: "" means “no filter”
   if (v === "" || v == null) return "any";
   if (v === "any" || v === "low" || v === "medium" || v === "high") return v;
@@ -39,6 +47,14 @@ function normalizeSocialPresenceFilter(v: unknown): SocialPresenceFilter | undef
 export async function POST(request: Request) {
   try {
     const body = asRecord(await request.json());
+
+    const cursorRaw = body["cursor"];
+    const cursor =
+      typeof cursorRaw === "string" && cursorRaw.trim().length > 0
+        ? cursorRaw.trim()
+        : cursorRaw === null
+          ? null
+          : undefined;
 
     const providerRaw = getString(body, "provider");
     const provider =
@@ -53,7 +69,10 @@ export async function POST(request: Request) {
 
     const queryRaw = getString(body, "query");
     if (!queryRaw || queryRaw.trim().length === 0) {
-      return NextResponse.json({ error: "Missing or invalid 'query'" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing or invalid 'query'" },
+        { status: 400 },
+      );
     }
 
     const requestIdRaw = getString(body, "requestId");
@@ -69,7 +88,9 @@ export async function POST(request: Request) {
         ? locationRaw.trim()
         : undefined;
 
-    const socialPresence = normalizeSocialPresenceFilter(body["socialPresence"]);
+    const socialPresence = normalizeSocialPresenceFilter(
+      body["socialPresence"],
+    );
 
     const intent: ProviderSearchIntent = {
       provider,
@@ -86,12 +107,8 @@ export async function POST(request: Request) {
 
       limit: getNumber(body, "limit"),
       page: getNumber(body, "page"),
-      cursor:
-        typeof body["cursor"] === "string"
-          ? (body["cursor"] as string)
-          : body["cursor"] === null
-            ? null
-            : undefined,
+
+      cursor,
 
       nicheHint: getString(body, "nicheHint"),
 
@@ -105,16 +122,27 @@ export async function POST(request: Request) {
     };
 
     // Cache-first (now varies by socialPresence + location)
-    const cached = await getCachedRun(intent);
-    if (cached.hit && cached.summary) {
-      return NextResponse.json(
-        {
-          ok: true,
-          runId: cached.summary.runId ?? null,
-          summary: cached.summary,
-        },
-        { status: 200 },
-      );
+    // Cache-first (now varies by socialPresence + location)
+    // IMPORTANT: only cache the FIRST page (no cursor)
+
+    const hasCursor =
+      typeof intent.cursor === "string" && intent.cursor.trim().length > 0;
+
+    if (!hasCursor) {
+      const cached = await getCachedRun(intent);
+
+      if (cached.hit && cached.summary) {
+        return NextResponse.json(
+          {
+            ok: true,
+            runId: cached.summary.runId ?? null,
+            summary: cached.summary,
+            nextCursor: cached.summary.nextCursor ?? null,
+            exhausted: cached.summary.exhausted ?? false,
+          },
+          { status: 200 },
+        );
+      }
     }
 
     // Rate limit only on cache miss
@@ -123,7 +151,10 @@ export async function POST(request: Request) {
     const globalKey = `providers:global:${caller}`;
     const g = await rateLimitDb({ key: globalKey, ...GLOBAL_LIMIT });
     if (!g.ok) {
-      return rateLimitedResponse(g.retryAfterSeconds, "Global rate limit exceeded");
+      return rateLimitedResponse(
+        g.retryAfterSeconds,
+        "Global rate limit exceeded",
+      );
     }
 
     const providerKey = `providers:${intent.provider}:${caller}`;
@@ -142,6 +173,8 @@ export async function POST(request: Request) {
         ok: summary.status === "success",
         runId: summary.runId ?? null,
         summary,
+        nextCursor: summary.nextCursor ?? null,
+        exhausted: summary.exhausted ?? false,
       },
       { status: 200 },
     );
@@ -165,13 +198,16 @@ function getCallerId(request: Request): string {
 }
 
 function rateLimitedResponse(retryAfterSeconds: number, message: string) {
-  return new NextResponse(JSON.stringify({ error: message, retryAfterSeconds }), {
-    status: 429,
-    headers: {
-      "Content-Type": "application/json",
-      "Retry-After": String(retryAfterSeconds),
+  return new NextResponse(
+    JSON.stringify({ error: message, retryAfterSeconds }),
+    {
+      status: 429,
+      headers: {
+        "Content-Type": "application/json",
+        "Retry-After": String(retryAfterSeconds),
+      },
     },
-  });
+  );
 }
 
 function makeRequestId(): string {

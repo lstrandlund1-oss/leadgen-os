@@ -48,7 +48,7 @@ export async function createProviderRun(params: {
  * This resets the run into a "running" state and clears previous attempt outputs/errors.
  */
 export async function resetProviderRunForRetry(
-  runId: number
+  runId: number,
 ): Promise<number | null> {
   if (!supabase) return null;
   if (!runId || runId <= 0) return null;
@@ -86,7 +86,7 @@ export async function resetProviderRunForRetry(
 
 export async function attachRawIdsToRun(
   runId: number,
-  rawIds: number[]
+  rawIds: number[],
 ): Promise<void> {
   if (!supabase) return;
   if (!runId || rawIds.length === 0) return;
@@ -126,7 +126,7 @@ export async function getProviderRunByIntentHash(params: {
   const { data, error } = await supabase
     .from("provider_runs")
     .select(
-      "id, provider, status, fetched_count, returned_count, inserted_raw, skipped_duplicates, next_cursor, exhausted, request_id, intent, created_at, error_code, error_message"
+      "id, provider, status, fetched_count, returned_count, inserted_raw, skipped_duplicates, next_cursor, exhausted, request_id, intent, created_at, error_code, error_message",
     )
     .eq("provider", params.provider)
     .eq("intent_hash", params.intentHash)
@@ -173,8 +173,8 @@ export async function finalizeProviderRun(params: {
       returned_count: params.returnedCount,
       inserted_raw: params.insertedRaw,
       skipped_duplicates: params.skippedDuplicates,
-      next_cursor: params.nextCursor ?? null,
-      exhausted: params.exhausted ?? false,
+      provider_cursor: params.nextCursor ?? null,
+      provider_exhausted: params.exhausted ?? false,
       error_code: params.errorCode ?? null,
       error_message: params.errorMessage ?? null,
       finished_at: new Date().toISOString(),
@@ -186,7 +186,9 @@ export async function finalizeProviderRun(params: {
   }
 }
 
-export async function persistRawCompany(raw: RawCompany): Promise<number | null> {
+export async function persistRawCompany(
+  raw: RawCompany,
+): Promise<number | null> {
   if (!supabase) return null;
 
   const payload = raw.rawPayload ?? raw;
@@ -199,7 +201,7 @@ export async function persistRawCompany(raw: RawCompany): Promise<number | null>
         source_id: raw.sourceId,
         payload,
       },
-      { onConflict: "source,source_id" }
+      { onConflict: "source,source_id" },
     )
     .select("id")
     .single();
@@ -229,7 +231,7 @@ function deriveSocialPresence(raw: RawCompany): "low" | "medium" | "high" {
 
 export async function persistNormalizedCompany(
   rawId: number,
-  raw: RawCompany
+  raw: RawCompany,
 ): Promise<void> {
   if (!supabase) return;
 
@@ -262,7 +264,7 @@ export async function persistNormalizedCompany(
       opportunity_signals: opportunitySignals,
       primary_insight: primaryInsight,
     },
-    { onConflict: "raw_id" }
+    { onConflict: "raw_id" },
   );
 
   if (error) {
@@ -272,34 +274,34 @@ export async function persistNormalizedCompany(
 
 export async function persistClassification(
   rawId: number,
-  classification: Classification
+  classification: Classification,
 ): Promise<void> {
   if (!supabase) return;
 
-  const { error } = await supabase
-    .from("company_classifications")
-    .upsert(
-      {
-        raw_id: rawId,
-        primary_industry: classification.primaryIndustry,
-        sub_niche: classification.subNiche,
-        service_type: classification.serviceType,
-        b2b_b2c: classification.b2b_b2c,
-        is_good_fit: classification.isGoodFit,
-        fit_reason: classification.fitScoreReason,
-        confidence: classification.confidence,
-        source: classification.source,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "raw_id" }
-    );
+  const { error } = await supabase.from("company_classifications").upsert(
+    {
+      raw_id: rawId,
+      primary_industry: classification.primaryIndustry,
+      sub_niche: classification.subNiche,
+      service_type: classification.serviceType,
+      b2b_b2c: classification.b2b_b2c,
+      is_good_fit: classification.isGoodFit,
+      fit_reason: classification.fitScoreReason,
+      confidence: classification.confidence,
+      source: classification.source,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "raw_id" },
+  );
 
   if (error) {
     console.error("company_classifications upsert error:", error.message);
   }
 }
 
-export async function getRawCompanyById(rawId: number): Promise<RawCompany | null> {
+export async function getRawCompanyById(
+  rawId: number,
+): Promise<RawCompany | null> {
   if (!supabase) return null;
 
   const { data, error } = await supabase

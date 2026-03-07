@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState, FormEvent } from "react";
-import type { Lead, Language, SearchRecord, SocialPresence } from "@/lib/types";
+import type { Lead, Language, SearchRecord } from "@/lib/types";
 import type { ProviderName } from "@/lib/providers/types";
 import { getTranslations } from "@/lib/i18n";
 import type { TranslationSchema as Translations } from "@/lib/i18n/types";
+import type { SocialPresenceFilter } from "@/lib/providers/types";
 
 const STORAGE_KEY = "leadgen_os_state_v1";
 
@@ -442,7 +443,13 @@ function getOutreachAngle(lead: LeadUI, language: Language): string {
 }
 
 type ProviderSearchResponse = {
-  runId?: number;
+  ok?: boolean;
+  runId?: number | null;
+  summary?: unknown;
+
+  // pagination
+  nextCursor?: string | null;
+  exhausted?: boolean;
 };
 
 type RunLeadsResponse = {
@@ -453,15 +460,25 @@ async function runProviderSearchAndFetchLeads(args: {
   provider: ProviderName;
   niche: string;
   location: string;
-  socialPresence: SocialPresence;
-}): Promise<LeadUI[] | null> {
+  socialPresence: SocialPresenceFilter;
+  runId?: number | null;
+  cursor?: string | null;
+}): Promise<{
+  runId: number;
+  leads: LeadUI[];
+  nextCursor: string | null;
+  exhausted: boolean;
+} | null> {
   const niche = args.niche.trim();
-  if (!niche) return [];
+  if (!niche) return null;
 
-  const location = args.location.trim();
-  const socialPresence = args.socialPresence ?? "";
+  const locationText = args.location.trim();
+  const socialPresence = args.socialPresence;
 
   const provider = args.provider;
+
+  const runIdArg = args.runId ?? null;
+  const cursor = args.cursor ?? null;
 
   const searchRes = await fetch("/api/providers/search", {
     method: "POST",
@@ -470,9 +487,11 @@ async function runProviderSearchAndFetchLeads(args: {
       provider,
       query: niche,
       country: "Sweden",
-      location: location || undefined,
+      location: locationText || undefined,
       socialPresence: socialPresence,
       limit: 25,
+      runId: runIdArg,
+      cursor,
     }),
   }).catch(() => null);
 
@@ -482,6 +501,7 @@ async function runProviderSearchAndFetchLeads(args: {
     .json()
     .catch(() => ({}))) as ProviderSearchResponse;
   const runId = typeof searchData.runId === "number" ? searchData.runId : null;
+
   if (!runId) return null;
 
   const leadsRes = await fetch(`/api/providers/runs/${runId}/leads`).catch(
@@ -494,7 +514,12 @@ async function runProviderSearchAndFetchLeads(args: {
     .catch(() => ({}))) as RunLeadsResponse;
   const incoming = (leadsData?.leads ?? null) as unknown;
 
-  return Array.isArray(incoming) ? (incoming as LeadUI[]) : [];
+  return {
+    runId,
+    leads: Array.isArray(incoming) ? (incoming as LeadUI[]) : [],
+    nextCursor: searchData.nextCursor ?? null,
+    exhausted: searchData.exhausted ?? false,
+  };
 }
 
 export default function Home() {
@@ -509,7 +534,8 @@ export default function Home() {
 
   const [niche, setNiche] = useState("");
   const [location, setLocation] = useState("");
-  const [socialPresence, setSocialPresence] = useState<SocialPresence>("");
+  const [socialPresence, setSocialPresence] =
+    useState<SocialPresenceFilter>("any");
 
   const [leads, setLeads] = useState<LeadUI[]>([]);
   const [sortBy, setSortBy] = useState<
@@ -532,6 +558,45 @@ export default function Home() {
     Record<string, LeadOutcomeUI>
   >({});
   const [isSavingOutcome, setIsSavingOutcome] = useState(false);
+
+  const [runId, setRunId] = useState<number | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [exhausted, setExhausted] = useState(false);
+
+  async function handleLoadMore(): Promise<void> {
+    if (isLoading || exhausted || nextCursor == null || runId == null) return;
+
+    setIsLoading(true);
+    try {
+      const more = await runProviderSearchAndFetchLeads({
+        provider,
+        niche,
+        location,
+        socialPresence,
+        runId,
+        cursor: nextCursor,
+      });
+
+      if (!more) return;
+
+      // Update pagination state (NOT leads)
+      setRunId(more.runId);
+      setNextCursor(more.nextCursor);
+      setExhausted(more.exhausted);
+
+      // Update leads ONLY with LeadUI[]
+      setLeads((prev: LeadUI[]) => {
+        const seen = new Set(prev.map((l: LeadUI) => l.id));
+        const merged = [...prev];
+        for (const lead of more.leads) {
+          if (!seen.has(lead.id)) merged.push(lead);
+        }
+        return merged;
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   const outreach = selectedLead?.metadata?.outreach;
   const selectedVariant = outreachVariant; // or just use outreachVariant directly
@@ -730,7 +795,7 @@ export default function Home() {
         parsed.socialPresence === "high" ||
         parsed.socialPresence === ""
       ) {
-        setSocialPresence(parsed.socialPresence as SocialPresence);
+        setSocialPresence(parsed.socialPresence as SocialPresenceFilter);
       }
     } catch (e) {
       console.error("Failed to load state from localStorage:", e);
@@ -846,7 +911,11 @@ export default function Home() {
       });
 
       if (providerLeads !== null) {
-        setLeads(providerLeads);
+        setLeads(providerLeads.leads);
+        setRunId(providerLeads.runId);
+        setNextCursor(providerLeads.nextCursor);
+        setExhausted(providerLeads.exhausted);
+
         setSelectedLead(null);
         return;
       }
@@ -929,7 +998,7 @@ export default function Home() {
                       s.social_presence === "medium" ||
                       s.social_presence === "high"
                         ? s.social_presence
-                        : "") as SocialPresence,
+                        : "") as SocialPresenceFilter,
                     );
                   }}
                   className="text-[11px] md:text-xs px-2.5 py-1.5 rounded-full border border-slate-700 bg-slate-950/70 hover:bg-slate-900/80 text-slate-200 flex items-center gap-2"
@@ -999,7 +1068,7 @@ export default function Home() {
                 <select
                   value={socialPresence}
                   onChange={(e) =>
-                    setSocialPresence(e.target.value as SocialPresence)
+                    setSocialPresence(e.target.value as SocialPresenceFilter)
                   }
                   className="w-full rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
@@ -1093,6 +1162,16 @@ export default function Home() {
                 />
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={handleLoadMore}
+              disabled={
+                isLoading || exhausted || nextCursor == null || runId == null
+              }
+            >
+              Load more
+            </button>
 
             <button
               type="button"

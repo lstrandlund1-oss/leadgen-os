@@ -92,12 +92,16 @@ export async function upsertCompaniesRaw(records: ProviderRecord[]): Promise<Ups
   }
 
   // 3) Build map source_id -> raw_id
-  const rawIdsBySourceId: Record<string, number> = {};
-  for (const row of upserted ?? []) {
-    if (row?.source_id != null) {
-      rawIdsBySourceId[row.source_id as string] = row.id as number;
-    }
+
+// Start with prefetched duplicates
+const rawIdsBySourceId: Record<string, number> = { ...existingMap };
+
+// Merge newly upserted rows
+for (const row of upserted ?? []) {
+  if (row?.source_id != null) {
+    rawIdsBySourceId[row.source_id as string] = row.id as number;
   }
+}
 
   // inserted = returned - duplicates (best-effort)
   const insertedRaw = Math.max((upserted?.length ?? 0) - skippedDuplicates, 0);

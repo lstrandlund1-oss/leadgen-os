@@ -19,7 +19,7 @@ import { isRunRetryable } from "./retry";
 import { computeRetryAfterSeconds } from "./retryAfter";
 
 export async function ingestFromProvider(
-  intent: ProviderSearchIntent
+  intent: ProviderSearchIntent,
 ): Promise<IngestSummary> {
   const hash = intentHash(intent);
 
@@ -70,39 +70,58 @@ export async function ingestFromProvider(
   }
 
   // Create (or reuse) a run row (unique constraint -> existing id)
-  const runId = await createProviderRun({
-    provider: intent.provider,
-    intentHash: hash,
-    intent,
-    requestId: intent.requestId,
-  });
+  let effectiveRunId: number | null = null;
 
-  return runIngestionAttempt(runId, intent);
+  if (effectiveRunId == null) {
+    effectiveRunId = await createProviderRun({
+      provider: intent.provider,
+      intentHash: hash,
+      intent,
+      requestId: intent.requestId,
+    });
+  }
+
+  return runIngestionAttempt(effectiveRunId, intent);
 }
 
 async function runIngestionAttempt(
   runId: number | null,
-  intent: ProviderSearchIntent
+  intent: ProviderSearchIntent,
 ): Promise<IngestSummary> {
   const res = await runProviderSearch(intent);
 
   // Defensive meta normalization
   const metaBase = res.meta;
 
+const nextCursor =
+  typeof metaBase?.nextCursor === "string" && metaBase.nextCursor.trim().length > 0
+    ? metaBase.nextCursor.trim()
+    : null;
+
+const exhausted =
+  typeof metaBase?.exhausted === "boolean"
+    ? metaBase.exhausted
+    : nextCursor === null;
+
   const metaObj: unknown = metaBase;
   const providerSuggestedRetryAfter =
     typeof metaObj === "object" &&
     metaObj !== null &&
     "retryAfterSeconds" in metaObj &&
-    typeof (metaObj as { retryAfterSeconds?: unknown }).retryAfterSeconds === "number"
+    typeof (metaObj as { retryAfterSeconds?: unknown }).retryAfterSeconds ===
+      "number"
       ? (metaObj as { retryAfterSeconds: number }).retryAfterSeconds
       : null;
 
   const meta = {
     provider: metaBase?.provider ?? intent.provider,
     requestId: metaBase?.requestId ?? intent.requestId,
-    fetchedCount: Number.isFinite(metaBase?.fetchedCount) ? metaBase.fetchedCount : 0,
-    returnedCount: Number.isFinite(metaBase?.returnedCount) ? metaBase.returnedCount : 0,
+    fetchedCount: Number.isFinite(metaBase?.fetchedCount)
+      ? metaBase.fetchedCount
+      : 0,
+    returnedCount: Number.isFinite(metaBase?.returnedCount)
+      ? metaBase.returnedCount
+      : 0,
     nextCursor: metaBase?.nextCursor ?? null,
     exhausted: metaBase?.exhausted ?? false,
     retryAfterSeconds: providerSuggestedRetryAfter,
@@ -124,7 +143,10 @@ async function runIngestionAttempt(
       });
     }
 
-    const retryAfterSeconds = computeRetryAfterSeconds(res.error.code, meta.retryAfterSeconds);
+    const retryAfterSeconds = computeRetryAfterSeconds(
+      res.error.code,
+      meta.retryAfterSeconds,
+    );
     const retryable = isRunRetryable(res.error.code, res.error.retryable);
 
     return {
@@ -197,13 +219,3 @@ async function runIngestionAttempt(
     intent,
   };
 }
-
-
-
-
-
-
-
-
-
-

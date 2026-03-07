@@ -118,7 +118,12 @@ export function scoreOpportunity(input: OpportunityInput): OpportunityResult {
           : 0.35; // OPTIMIZATION is harder to sell unless they’re mature
 
   // riskProfile: subtle shaping, not absolute truth
-  const profileAdj = input.riskProfile === "unstable_business" ? -0.25 : 0.1;
+  const profileAdj =
+    input.riskProfile === "unstable_business"
+      ? -0.25
+      : input.riskProfile === "mature_competitor"
+        ? 0.1
+        : 0;
 
   // --- Close probability model (logistic) ---
   // Strong opinion: start with a logistic model now, because later you can fit weights from outcomes.
