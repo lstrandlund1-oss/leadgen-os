@@ -2,6 +2,7 @@
 import type { RawCompany } from "@/lib/types";
 import { classifyCompany } from "@/lib/classification";
 import { scoreLead } from "@/lib/scoring";
+import { extractSignals } from "@/lib/signals/extractSignals";
 
 import {
   detectOpportunitySignals,
@@ -31,12 +32,22 @@ export async function runPipelineForRaw(
 
   // 4) scoring is computed deterministically as needed by API/UI
   // We do NOT need to persist scoring unless you already have a table for it.
-  scoreLead(raw, classification);
+  const signalSet = extractSignals({
+    rating: raw.rating ?? null,
+    reviewCount: raw.review_count ?? null,
+    website: raw.website ?? null,
+    socialPresence: null,
+    classificationConfidence: classification.confidence ?? null,
+    isGoodFit: classification.isGoodFit ?? null,
+  });
 
-  // 5) opportunity signals (computed deterministically as needed by API/UI)
-  // Same philosophy as scoring: pipeline "knows" how to compute it,
-  // but we don't persist unless you add a table / column.
-  const signals = detectOpportunitySignals({
+  scoreLead({
+    raw,
+    classification,
+    signals: signalSet,
+  });
+
+  const opportunitySignals = detectOpportunitySignals({
     rating: raw.rating ?? 0,
     reviews: raw.review_count ?? 0,
     hasWebsite: Boolean(raw.website),
@@ -44,5 +55,5 @@ export async function runPipelineForRaw(
     categories: raw.categories ?? undefined,
   });
 
-  getPrimaryInsight(signals);
+  getPrimaryInsight(opportunitySignals);
 }

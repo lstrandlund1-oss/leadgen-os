@@ -1439,6 +1439,73 @@ export default function Home() {
                     </div>
                   )}
 
+                  {selectedLead?.score?.breakdown && (
+                    <div className="mt-4 rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+                      <div className="text-[11px] uppercase tracking-wide text-slate-400 mb-2">
+                        Scoring Breakdown
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
+                        <div>
+                          <span className="text-slate-400">Reputation:</span>{" "}
+                          <span className="text-slate-100 font-semibold">
+                            {selectedLead.score.breakdown.reputation}
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-slate-400">Digital:</span>{" "}
+                          <span className="text-slate-100 font-semibold">
+                            {selectedLead.score.breakdown.digitalPresence}
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-slate-400">Business:</span>{" "}
+                          <span className="text-slate-100 font-semibold">
+                            {selectedLead.score.breakdown.businessStrength}
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-slate-400">
+                            Opportunity Gap:
+                          </span>{" "}
+                          <span className="text-slate-100 font-semibold">
+                            {selectedLead.score.breakdown.opportunityGap}
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-slate-400">Risk:</span>{" "}
+                          <span className="text-slate-100 font-semibold">
+                            {selectedLead.score.breakdown.stabilityRisk}
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-slate-400">Evidence:</span>{" "}
+                          <span className="text-slate-100 font-semibold">
+                            {selectedLead.score.breakdown.evidenceConfidence}
+                          </span>
+                        </div>
+                      </div>
+
+                      {selectedLead.score.reasons?.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {selectedLead.score.reasons.map((reason, i) => (
+                            <span
+                              key={i}
+                              className="text-[11px] px-2 py-1 rounded border border-slate-700 text-slate-200"
+                            >
+                              {reason}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
                   <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3">
                     <p className="text-[11px] uppercase tracking-wide text-rose-200/80 mb-1">
                       {t.ui.detail.risk}

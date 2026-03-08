@@ -3,7 +3,7 @@
 // ==========================================
 import type { Capability } from "@/lib/fit/needs";
 import type { OpportunityBucket } from "@/lib/scoring/buckets";
-import { computeRiskFlags } from "@/lib/riskFlags";
+
 // Language support for UI + outreach generation
 export type Language = "en" | "sv";
 
@@ -130,20 +130,32 @@ export type RiskFlag =
   | "OPERATIONAL_INSTABILITY"
   | "MULTI_LOCATION";
 
+export type ScoreCategoryBreakdown = {
+  reputation: number;         // 0-100
+  digitalPresence: number;    // 0-100
+  businessStrength: number;   // 0-100
+  opportunityGap: number;     // 0-100
+  stabilityRisk: number;      // 0-100
+  evidenceConfidence: number; // 0-100
+};
+
 export type ScoreResult = {
-  value: number; // 0–100
-  opportunity: number; // 0–100
-  readiness: number; // 0–100
-  risk: number; // 0–100
+  value: number; // 0-100
+  opportunity: number; // 0-100
+  readiness: number; // 0-100
+  risk: number; // 0-100
   riskProfile: RiskProfile;
 
-  /**
-   * Legacy / optional.
-   * Some older routes still reference score.priority.
-   * Keep it optional for stability until you delete it everywhere.
-   */
+  // legacy compatibility (can remove later)
   priority?: number;
+
+  // category visibility
+  breakdown: ScoreCategoryBreakdown;
+
+  // human explanation layer
+  reasons: string[];
 };
+
 
 export type OutreachVariantKey = "soft" | "direct";
 

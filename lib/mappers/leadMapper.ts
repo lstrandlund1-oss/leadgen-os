@@ -2,6 +2,7 @@ import type { Lead, RawCompany, Classification } from "@/lib/types";
 import { scoreLead } from "@/lib/scoring";
 import { computeRiskFlags } from "@/lib/riskFlags";
 import { bucketOpportunity } from "@/lib/scoring/buckets";
+import { extractSignals } from "@/lib/signals/extractSignals";
 
 type SocialPresence = "low" | "medium" | "high";
 
@@ -66,7 +67,20 @@ export function mapToLead(args: {
 }): Lead {
   const { raw, normalized, classification, runId } = args;
 
-  const scoring = scoreLead(raw, classification);
+  const signalSet = extractSignals({
+    rating: raw.rating ?? null,
+    reviewCount: raw.review_count ?? null,
+    website: normalized.website ?? raw.website ?? null,
+    socialPresence: normalized.socialPresence ?? null,
+    classificationConfidence: classification.confidence ?? null,
+    isGoodFit: classification.isGoodFit ?? null,
+  });
+
+  const scoring = scoreLead({
+    raw,
+    classification,
+    signals: signalSet,
+  });
 
   // Stable string id
   const leadId = `${raw.source}:${raw.sourceId}`;
@@ -132,6 +146,9 @@ export function mapToLead(args: {
       readiness: scoring.readiness,
       risk: scoring.risk,
       riskProfile: scoring.riskProfile,
+      priority: scoring.priority,
+      breakdown: scoring.breakdown,
+      reasons: scoring.reasons,
     },
 
     metadata: {

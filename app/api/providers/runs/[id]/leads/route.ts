@@ -29,7 +29,11 @@ import {
 // ✅ NEW: Fit layer imports (typed, deterministic, no TS union fights)
 import { deriveNeedsFromSignals } from "@/lib/fit/needs";
 import { scoreFit, type FitResult } from "@/lib/fit/fitScore";
-import type { RiskProfile, ScoreResult } from "@/lib/types";
+import type {
+  RiskProfile,
+  ScoreResult,
+  ScoreCategoryBreakdown,
+} from "@/lib/types";
 import { scoreOpportunity } from "@/lib/scoring/opportunity";
 import { bucketOpportunity } from "@/lib/scoring/buckets";
 
@@ -380,9 +384,17 @@ function normalizeScore(score: unknown): ScoreResult {
 
   const rp = s["riskProfile"];
   const riskProfile: RiskProfile =
-    rp === "mature_competitor" || rp === "unstable_business"
+    rp === "unstable_business" ||
+    rp === "mature_competitor" ||
+    rp === "early_stage" ||
+    rp === "owner_operator" ||
+    rp === "franchise_or_chain" ||
+    rp === "seasonal" ||
+    rp === "high_regulation" ||
+    rp === "strong_local_brand" ||
+    rp === "unknown"
       ? rp
-      : "unstable_business";
+      : "unknown";
 
   return {
     value: toNum(s["value"] ?? s["score"], 0),
@@ -390,6 +402,23 @@ function normalizeScore(score: unknown): ScoreResult {
     readiness: toNum(s["readiness"], 0),
     risk: toNum(s["risk"], 0),
     riskProfile,
+    priority: toNum(s["value"] ?? s["score"], 0),
+
+    breakdown:
+      typeof s["breakdown"] === "object" && s["breakdown"] !== null
+        ? (s["breakdown"] as ScoreCategoryBreakdown)
+        : {
+            reputation: 0,
+            digitalPresence: 0,
+            businessStrength: 0,
+            opportunityGap: 0,
+            stabilityRisk: 0,
+            evidenceConfidence: 0,
+          },
+
+    reasons: Array.isArray(s["reasons"])
+      ? s["reasons"].filter((x): x is string => typeof x === "string")
+      : [],
   };
 }
 
