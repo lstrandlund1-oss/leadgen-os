@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, FormEvent } from "react";
+import { Fragment, useEffect, useMemo, useState, FormEvent } from "react";
 import type { Lead, Language, SearchRecord } from "@/lib/types";
 import type { ProviderName } from "@/lib/providers/types";
 import { getTranslations } from "@/lib/i18n";
@@ -549,6 +549,15 @@ export default function Home() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const [selectedLead, setSelectedLead] = useState<LeadUI | null>(null);
+  const [detailTab, setDetailTab] = useState<
+    "overview" | "signals" | "outreach" | "tracking"
+  >("overview");
+  const [enrichmentLoading, setEnrichmentLoading] = useState(false);
+  const [enrichmentData, setEnrichmentData] = useState<{
+    reachable: boolean;
+    detectedPlatforms: string[];
+    signals: Record<string, { value: unknown; confidence: number }>;
+  } | null>(null);
 
   type OutreachVariant = "soft" | "direct";
   const [outreachVariant, setOutreachVariant] =
@@ -602,15 +611,6 @@ export default function Home() {
   const selectedVariant = outreachVariant; // or just use outreachVariant directly
   const outreachScript = outreach?.variants?.[selectedVariant] ?? "";
   const scriptText = outreachScript.trim();
-
-  type OutcomeKey = "contacted" | "replied" | "booked_call" | "closed";
-
-  const OUTCOME_STATUS_KEYS: readonly OutcomeKey[] = [
-    "contacted",
-    "replied",
-    "booked_call",
-    "closed",
-  ] as const;
 
   async function saveOutcome(args: {
     runId: number;
@@ -747,6 +747,69 @@ export default function Home() {
     const dv = selectedLead.metadata.outreach.defaultVariant;
     setOutreachVariant(dv === "direct" ? "direct" : "soft");
   }, [selectedLead]);
+
+  useEffect(() => {
+    if (!selectedLead) {
+      setEnrichmentData(null);
+      setDetailTab("overview");
+      return;
+    }
+
+    const leadId = selectedLead.id;
+    const website = selectedLead.company.website ?? null;
+    const reviewCount = selectedLead.metrics.reviewCount ?? null;
+    const rating = selectedLead.metrics.rating ?? null;
+    const socialPresence = selectedLead.metrics.socialPresence ?? "low";
+    const isGoodFit = selectedLead.classification.isGoodFit ?? false;
+    const classificationConfidence =
+      selectedLead.classification.confidence ?? null;
+    const riskProfile = selectedLead.score.riskProfile ?? "unknown";
+
+    const run = async () => {
+      setEnrichmentLoading(true);
+      setEnrichmentData(null);
+      try {
+        const res = await fetch("/api/enrich/light", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            website,
+            reviewCount,
+            rating,
+            socialPresence,
+            isGoodFit,
+            classificationConfidence,
+            riskProfile,
+          }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setEnrichmentData({
+          reachable: data.reachable ?? false,
+          detectedPlatforms: data.detectedPlatforms ?? [],
+          signals: data.signals?.byKey ?? {},
+        });
+
+        if (data.updatedScore) {
+          setLeads((prev) =>
+            prev.map((l) =>
+              l.id === leadId ? { ...l, score: data.updatedScore } : l,
+            ),
+          );
+          setSelectedLead((prev) =>
+            prev?.id === leadId ? { ...prev, score: data.updatedScore } : prev,
+          );
+        }
+      } catch {
+        // fail soft
+      } finally {
+        setEnrichmentLoading(false);
+      }
+    };
+
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLead?.id]);
 
   useEffect(() => {
     const runId = activeRunId;
@@ -1220,476 +1283,682 @@ export default function Home() {
                 </thead>
                 <tbody>
                   {sortedLeads.map((lead) => {
-                    const insight = getLocalizedOpportunityInsight(
+                    const isSelected = selectedLead?.id === lead.id;
+                    const mainInsight = getLocalizedOpportunityInsight(
                       lead,
                       language,
                     );
+                    const mainOpp = Number.isFinite(lead.score.opportunity)
+                      ? (lead.score.opportunity as number)
+                      : 0;
+
+                    const detailLead = isSelected ? selectedLead : null;
+                    const detailInsight = detailLead
+                      ? getLocalizedOpportunityInsight(detailLead, language)
+                      : null;
+
+                    const safeOutreach = detailLead?.metadata?.outreach ?? null;
+                    const safeEnrichment = isSelected ? enrichmentData : null;
+                    const runIdNum = Number(detailLead?.metadata?.runId ?? 0);
+
+                    const contacted = selectedOutcome?.contacted ?? false;
+                    const replied = selectedOutcome?.replied ?? false;
+                    const bookedCall = selectedOutcome?.booked_call ?? false;
+                    const closed = selectedOutcome?.closed ?? false;
+
+                    const tabs = [
+                      { key: "overview", label: "Overview" },
+                      { key: "signals", label: "Signals" },
+                      { key: "outreach", label: "Outreach" },
+                      { key: "tracking", label: "Tracking" },
+                    ] as const;
+
+                    const detailWebsiteUrl =
+                      detailLead?.company.website ?? undefined;
+                    const enrichmentSignals = safeEnrichment?.signals ?? {};
+                    const detectedPlatforms =
+                      safeEnrichment?.detectedPlatforms ?? [];
+                    const isReachable = safeEnrichment?.reachable ?? false;
+
+                    const angleTitle = safeOutreach?.angleTitle ?? "";
+                    const angleWhy = safeOutreach?.angleWhy ?? "";
 
                     return (
-                      <tr
-                        key={lead.id}
-                        onClick={() => setSelectedLead(lead)}
-                        className={
-                          "border-b border-slate-800 hover:bg-slate-900/70 cursor-pointer " +
-                          (selectedLead?.id === lead.id
-                            ? "bg-slate-900/90"
-                            : "")
-                        }
-                      >
-                        <td className="py-2 px-3">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium">
-                              {lead.company.name}
+                      <Fragment key={lead.id}>
+                        <tr
+                          onClick={() => setSelectedLead(lead)}
+                          className={
+                            "border-b border-slate-800 hover:bg-slate-900/70 cursor-pointer " +
+                            (isSelected ? "bg-slate-900/90" : "")
+                          }
+                        >
+                          <td className="py-2 px-3">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium">
+                                {lead.company.name}
+                              </span>
+
+                              <span className="text-[10px] px-2 py-0.5 rounded-full border border-slate-700 bg-slate-900/70">
+                                {lead.source === "google_places"
+                                  ? "Google Places"
+                                  : lead.source === "mock"
+                                    ? "Mock (Dev)"
+                                    : lead.source}
+                              </span>
+
+                              <span className="text-[10px] px-2 py-0.5 rounded-full border border-slate-700 bg-slate-900/70">
+                                {lead.classification.primaryIndustry.replaceAll(
+                                  "_",
+                                  " ",
+                                )}
+                              </span>
+                            </div>
+                          </td>
+
+                          <td className="py-2 px-3">
+                            {lead.classification.primaryIndustry.replaceAll(
+                              "_",
+                              " ",
+                            )}
+                          </td>
+
+                          <td className="py-2 px-3">{leadLocation(lead)}</td>
+
+                          <td className="py-2 px-3">
+                            <div className="text-xs font-medium mb-1">
+                              {lead.score.value ?? 0}
+                            </div>
+                            <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className={
+                                  "h-1.5 rounded-full " +
+                                  ((lead.score.value ?? 0) >= 80
+                                    ? "bg-emerald-400"
+                                    : (lead.score.value ?? 0) >= 60
+                                      ? "bg-amber-400"
+                                      : "bg-slate-500")
+                                }
+                                style={{ width: `${lead.score.value ?? 0}%` }}
+                              />
+                            </div>
+                          </td>
+
+                          <td className="py-2 px-3">
+                            <span className="text-slate-200 font-semibold">
+                              {lead.score.opportunity ?? 0}
                             </span>
+                            <p className="mt-1 text-[11px] leading-snug text-slate-400">
+                              {language === "sv" ? "Uppsida" : "Upside"}
+                            </p>
+                          </td>
 
-                            <span className="text-[10px] px-2 py-0.5 rounded-full border border-slate-700 bg-slate-900/70">
-                              {lead.source === "google_places"
-                                ? "Google Places"
-                                : lead.source === "mock"
-                                  ? "Mock (Dev)"
-                                  : lead.source}
-                            </span>
-
-                            <span className="text-[10px] px-2 py-0.5 rounded-full border border-slate-700 bg-slate-900/70">
-                              {lead.classification.primaryIndustry.replaceAll(
-                                "_",
-                                " ",
-                              )}
-                            </span>
-                          </div>
-                        </td>
-
-                        <td className="py-2 px-3">
-                          {lead.classification.primaryIndustry.replaceAll(
-                            "_",
-                            " ",
-                          )}
-                        </td>
-                        <td className="py-2 px-3">{leadLocation(lead)}</td>
-
-                        <td className="py-2 px-3">
-                          <div className="text-xs font-medium mb-1">
-                            {lead.score.value ?? 0}
-                          </div>
-                          <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                            <div
+                          <td className="py-2 px-3">
+                            <span
                               className={
-                                "h-1.5 rounded-full " +
-                                ((lead.score.value ?? 0) >= 80
-                                  ? "bg-emerald-400"
-                                  : (lead.score.value ?? 0) >= 60
-                                    ? "bg-amber-400"
-                                    : "bg-slate-500")
+                                (lead.score.risk ?? 0) >= 70
+                                  ? "text-rose-300 font-semibold"
+                                  : (lead.score.risk ?? 0) >= 45
+                                    ? "text-amber-300 font-semibold"
+                                    : "text-emerald-300 font-semibold"
                               }
-                              style={{ width: `${lead.score.value ?? 0}%` }}
-                            />
-                          </div>
-                        </td>
+                            >
+                              {lead.score.risk ?? 0}
+                            </span>
+                            <p className="mt-1 text-[11px] leading-snug text-slate-400">
+                              {lead.score.riskProfile
+                                ? lead.score.riskProfile.replaceAll("_", " ")
+                                : "—"}
+                            </p>
+                          </td>
 
-                        <td className="py-2 px-3">
-                          <span className="text-slate-200 font-semibold">
-                            {lead.score.opportunity ?? 0}
-                          </span>
-                          <p className="mt-1 text-[11px] leading-snug text-slate-400">
-                            {language === "sv" ? "Uppsida" : "Upside"}
-                          </p>
-                        </td>
-
-                        <td className="py-2 px-3">
-                          <span
-                            className={
-                              (lead.score.risk ?? 0) >= 70
-                                ? "text-rose-300 font-semibold"
-                                : (lead.score.risk ?? 0) >= 45
-                                  ? "text-amber-300 font-semibold"
-                                  : "text-emerald-300 font-semibold"
-                            }
-                          >
-                            {lead.score.risk ?? 0}
-                          </span>
-                          <p className="mt-1 text-[11px] leading-snug text-slate-400">
-                            {lead.score.riskProfile
-                              ? lead.score.riskProfile.replaceAll("_", " ")
-                              : "—"}
-                          </p>
-                        </td>
-
-                        <td className="py-2 px-3">
-                          {(() => {
-                            const opp = Number.isFinite(lead.score?.opportunity)
-                              ? (lead.score!.opportunity as number)
-                              : 0;
-
-                            return (
-                              <div className="text-[11px] leading-snug">
-                                <div className="text-orange-300 font-semibold flex items-center gap-2">
-                                  <span>⚡</span>
-                                  <span>
-                                    {t.ui.table.opportunity}{" "}
-                                    <span className="text-slate-200 font-semibold">
-                                      {opp}/100
-                                    </span>{" "}
-                                    <span className="text-slate-400">
-                                      ({bandLabel(language, opp)})
-                                    </span>
+                          <td className="py-2 px-3">
+                            <div className="text-[11px] leading-snug">
+                              <div className="text-orange-300 font-semibold flex items-center gap-2">
+                                <span>⚡</span>
+                                <span>
+                                  {t.ui.table.opportunity}{" "}
+                                  <span className="text-slate-200 font-semibold">
+                                    {mainOpp}/100
+                                  </span>{" "}
+                                  <span className="text-slate-400">
+                                    ({bandLabel(language, mainOpp)})
                                   </span>
+                                </span>
+                              </div>
+
+                              {mainInsight?.message ? (
+                                <div className="text-slate-200">
+                                  {mainInsight.message}
+                                </div>
+                              ) : (
+                                <div className="text-slate-500 text-[11px]">
+                                  —
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          <td className="py-2 px-3">
+                            {lead.company.website ? (
+                              <a
+                                href={lead.company.website}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-indigo-400 hover:underline"
+                              >
+                                Visit
+                              </a>
+                            ) : (
+                              <span className="text-slate-500">N/A</span>
+                            )}
+                          </td>
+                        </tr>
+
+                        {isSelected && detailLead && (
+                          <tr key={`${lead.id}-detail`}>
+                            <td colSpan={8} className="p-0">
+                              <div className="border-b border-slate-700 bg-slate-950/80 px-4 py-4 space-y-3">
+                                <div className="flex gap-1 border-b border-slate-800 pb-0">
+                                  {tabs.map((tab) => (
+                                    <button
+                                      key={tab.key}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDetailTab(tab.key);
+                                      }}
+                                      className={
+                                        "text-[11px] px-3 py-1.5 rounded-t-md font-medium transition-colors " +
+                                        (detailTab === tab.key
+                                          ? "bg-slate-800 text-slate-100 border border-b-0 border-slate-700"
+                                          : "text-slate-400 hover:text-slate-200")
+                                      }
+                                    >
+                                      {tab.label}
+                                    </button>
+                                  ))}
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedLead(null);
+                                    }}
+                                    className="ml-auto text-[11px] px-2 py-1 rounded-md border border-slate-700 bg-slate-900/70 hover:bg-slate-800"
+                                  >
+                                    {t.ui.detail.clear}
+                                  </button>
                                 </div>
 
-                                {insight?.message ? (
-                                  <div className="text-slate-200">
-                                    {insight.message}
+                                {detailTab === "overview" && (
+                                  <div className="space-y-3 pt-1">
+                                    {detailInsight?.message && (
+                                      <div className="rounded-xl border border-orange-500/20 bg-orange-500/10 p-3">
+                                        <p className="text-[11px] uppercase tracking-wide text-orange-200/80 mb-1">
+                                          {t.ui.detail.opportunityInsight}
+                                        </p>
+                                        <p className="text-sm font-semibold text-orange-200">
+                                          ⚡ {detailInsight.message}
+                                        </p>
+                                        <p className="mt-1 text-[11px] text-orange-200/70">
+                                          Opportunity:{" "}
+                                          <span className="text-orange-100 font-semibold">
+                                            {detailLead.score.opportunity ?? 0}
+                                            /100
+                                          </span>{" "}
+                                          <span className="text-orange-200/60">
+                                            (
+                                            {bandLabel(
+                                              language,
+                                              detailLead.score.opportunity ?? 0,
+                                            )}
+                                            )
+                                          </span>
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                                      <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 space-y-1">
+                                        <p className="text-slate-400">
+                                          {t.ui.detail.scoreLabel}
+                                        </p>
+                                        <p className="text-lg font-semibold">
+                                          {detailLead.score.value ?? 0}
+                                        </p>
+                                        <p className="text-[11px] text-slate-400">
+                                          {getScoreReason(detailLead, language)}
+                                        </p>
+                                      </div>
+
+                                      <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 space-y-1">
+                                        <p className="text-slate-400">
+                                          {t.ui.detail.opportunityLabel}
+                                        </p>
+                                        <p className="text-sm font-semibold">
+                                          {detailLead.score.opportunity ?? 0}
+                                          /100
+                                        </p>
+                                        <p className="text-[11px] text-slate-400">
+                                          {t.ui.detail.readinessLabel}:{" "}
+                                          {detailLead.score.readiness ?? 0}
+                                          /100
+                                        </p>
+                                      </div>
+
+                                      <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 space-y-1">
+                                        <p className="text-slate-400">
+                                          {t.ui.detail.riskLabel}
+                                        </p>
+                                        <p className="text-sm font-semibold">
+                                          {detailLead.score.risk ?? 0}/100
+                                        </p>
+                                        <p className="text-[11px] text-slate-400">
+                                          {detailLead.score.riskProfile?.replaceAll(
+                                            "_",
+                                            " ",
+                                          ) ?? "—"}
+                                        </p>
+                                      </div>
+
+                                      <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 space-y-1">
+                                        <p className="text-slate-400">
+                                          {t.ui.detail.websiteLabel}
+                                        </p>
+                                        {detailWebsiteUrl ? (
+                                          <a
+                                            href={detailWebsiteUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-xs text-indigo-400 hover:underline break-all"
+                                          >
+                                            {detailWebsiteUrl}
+                                          </a>
+                                        ) : (
+                                          <p className="text-[11px] text-slate-500">
+                                            {t.ui.detail.noWebsite}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3">
+                                      <p className="text-[11px] uppercase tracking-wide text-rose-200/80 mb-1">
+                                        {t.ui.detail.risk}
+                                      </p>
+                                      <p className="text-sm font-semibold text-rose-100">
+                                        {riskTitleFromProfile(
+                                          detailLead.score.riskProfile,
+                                          t,
+                                        )}
+                                      </p>
+                                      <p className="mt-1 text-[11px] text-rose-200/70">
+                                        {riskMessage(language, detailLead)}
+                                      </p>
+                                    </div>
                                   </div>
-                                ) : (
-                                  <div className="text-slate-500 text-[11px]">
-                                    —
+                                )}
+
+                                {detailTab === "signals" && (
+                                  <div className="space-y-3 pt-1">
+                                    {detailLead.score.breakdown && (
+                                      <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+                                        <p className="text-[11px] uppercase tracking-wide text-slate-400 mb-2">
+                                          Scoring Breakdown
+                                        </p>
+                                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
+                                          <div>
+                                            <span className="text-slate-400">
+                                              Reputation:
+                                            </span>{" "}
+                                            <span className="text-slate-100 font-semibold">
+                                              {
+                                                detailLead.score.breakdown
+                                                  .reputation
+                                              }
+                                            </span>
+                                          </div>
+                                          <div>
+                                            <span className="text-slate-400">
+                                              Digital:
+                                            </span>{" "}
+                                            <span className="text-slate-100 font-semibold">
+                                              {
+                                                detailLead.score.breakdown
+                                                  .digitalPresence
+                                              }
+                                            </span>
+                                          </div>
+                                          <div>
+                                            <span className="text-slate-400">
+                                              Business:
+                                            </span>{" "}
+                                            <span className="text-slate-100 font-semibold">
+                                              {
+                                                detailLead.score.breakdown
+                                                  .businessStrength
+                                              }
+                                            </span>
+                                          </div>
+                                          <div>
+                                            <span className="text-slate-400">
+                                              Opportunity Gap:
+                                            </span>{" "}
+                                            <span className="text-slate-100 font-semibold">
+                                              {
+                                                detailLead.score.breakdown
+                                                  .opportunityGap
+                                              }
+                                            </span>
+                                          </div>
+                                          <div>
+                                            <span className="text-slate-400">
+                                              Risk:
+                                            </span>{" "}
+                                            <span className="text-slate-100 font-semibold">
+                                              {
+                                                detailLead.score.breakdown
+                                                  .stabilityRisk
+                                              }
+                                            </span>
+                                          </div>
+                                          <div>
+                                            <span className="text-slate-400">
+                                              Evidence:
+                                            </span>{" "}
+                                            <span className="text-slate-100 font-semibold">
+                                              {
+                                                detailLead.score.breakdown
+                                                  .evidenceConfidence
+                                              }
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        {detailLead.score.reasons?.length >
+                                          0 && (
+                                          <div className="mt-3 flex flex-wrap gap-2">
+                                            {detailLead.score.reasons.map(
+                                              (reason, i) => (
+                                                <span
+                                                  key={i}
+                                                  className="text-[11px] px-2 py-1 rounded border border-slate-700 text-slate-200"
+                                                >
+                                                  {reason}
+                                                </span>
+                                              ),
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {enrichmentLoading && (
+                                      <div className="text-xs text-slate-400 animate-pulse">
+                                        Scanning website signals...
+                                      </div>
+                                    )}
+
+                                    {safeEnrichment && !enrichmentLoading && (
+                                      <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 space-y-2">
+                                        <p className="text-[11px] uppercase tracking-wide text-slate-400">
+                                          Website Signals
+                                        </p>
+
+                                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[12px]">
+                                          <p
+                                            className={
+                                              isReachable
+                                                ? "text-emerald-400"
+                                                : "text-rose-400"
+                                            }
+                                          >
+                                            {isReachable ? "✓" : "✗"} Website
+                                            reachable
+                                          </p>
+
+                                          {isReachable && (
+                                            <>
+                                              <p
+                                                className={
+                                                  enrichmentSignals[
+                                                    "website_has_contact_page"
+                                                  ]?.value
+                                                    ? "text-emerald-400"
+                                                    : "text-slate-500"
+                                                }
+                                              >
+                                                {enrichmentSignals[
+                                                  "website_has_contact_page"
+                                                ]?.value
+                                                  ? "✓"
+                                                  : "✗"}{" "}
+                                                Contact page
+                                              </p>
+
+                                              <p
+                                                className={
+                                                  enrichmentSignals[
+                                                    "website_has_booking_cta"
+                                                  ]?.value
+                                                    ? "text-emerald-400"
+                                                    : "text-slate-500"
+                                                }
+                                              >
+                                                {enrichmentSignals[
+                                                  "website_has_booking_cta"
+                                                ]?.value
+                                                  ? "✓"
+                                                  : "✗"}{" "}
+                                                Booking CTA
+                                              </p>
+
+                                              <p
+                                                className={
+                                                  enrichmentSignals[
+                                                    "website_has_clear_offer"
+                                                  ]?.value
+                                                    ? "text-emerald-400"
+                                                    : "text-slate-500"
+                                                }
+                                              >
+                                                {enrichmentSignals[
+                                                  "website_has_clear_offer"
+                                                ]?.value
+                                                  ? "✓"
+                                                  : "✗"}{" "}
+                                                Clear offer
+                                              </p>
+
+                                              <p
+                                                className={
+                                                  enrichmentSignals[
+                                                    "website_mobile_friendly"
+                                                  ]?.value
+                                                    ? "text-emerald-400"
+                                                    : "text-slate-500"
+                                                }
+                                              >
+                                                {enrichmentSignals[
+                                                  "website_mobile_friendly"
+                                                ]?.value
+                                                  ? "✓"
+                                                  : "✗"}{" "}
+                                                Mobile friendly
+                                              </p>
+                                            </>
+                                          )}
+                                        </div>
+
+                                        {detectedPlatforms.length > 0 && (
+                                          <p className="text-[12px] text-slate-400">
+                                            Social:{" "}
+                                            <span className="text-slate-200">
+                                              {detectedPlatforms.join(", ")}
+                                            </span>
+                                          </p>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {detailTab === "outreach" && (
+                                  <div className="space-y-3 pt-1">
+                                    <p className="text-[11px] uppercase tracking-wide text-slate-400">
+                                      {t.ui.detail.suggestedAngle}
+                                    </p>
+                                    <p className="text-xs text-slate-200 leading-relaxed">
+                                      {getOutreachAngle(detailLead, language)}
+                                    </p>
+
+                                    <div className="space-y-2">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                          <p className="text-[11px] uppercase tracking-wide text-slate-400">
+                                            {t.ui.detail.outreachScript} (draft)
+                                          </p>
+
+                                          {safeOutreach && (
+                                            <div className="flex items-center gap-1">
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  setOutreachVariant("soft")
+                                                }
+                                                className={
+                                                  "text-[10px] px-2 py-0.5 rounded-md border " +
+                                                  (outreachVariant === "soft"
+                                                    ? "border-slate-500 bg-slate-900/70 text-slate-100"
+                                                    : "border-slate-800 bg-slate-900/40 text-slate-300")
+                                                }
+                                              >
+                                                Soft
+                                              </button>
+
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  setOutreachVariant("direct")
+                                                }
+                                                className={
+                                                  "text-[10px] px-2 py-0.5 rounded-md border " +
+                                                  (outreachVariant === "direct"
+                                                    ? "border-slate-500 bg-slate-900/70 text-slate-100"
+                                                    : "border-slate-800 bg-slate-900/40 text-slate-300")
+                                                }
+                                              >
+                                                Direct
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            try {
+                                              await navigator.clipboard.writeText(
+                                                scriptText,
+                                              );
+                                            } catch (e) {
+                                              console.error(e);
+                                            }
+                                          }}
+                                          disabled={!scriptText}
+                                          className="text-[11px] px-2 py-1 rounded-md border border-slate-700 bg-slate-900/70 hover:bg-slate-800 disabled:opacity-50"
+                                        >
+                                          {t.ui.detail.copy}
+                                        </button>
+                                      </div>
+
+                                      <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-3 max-h-56 overflow-auto">
+                                        {angleTitle && (
+                                          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 mb-3">
+                                            <p className="text-[11px] uppercase tracking-wide text-slate-300/80">
+                                              {t.ui.detail.suggestedAngle}
+                                            </p>
+                                            <p className="text-sm font-semibold text-slate-100">
+                                              {angleTitle}
+                                            </p>
+                                            {angleWhy && (
+                                              <p className="mt-1 text-[12px] text-slate-200/70">
+                                                {angleWhy}
+                                              </p>
+                                            )}
+                                          </div>
+                                        )}
+
+                                        <pre className="whitespace-pre-wrap wrap-break-words text-[11px] text-slate-200">
+                                          {scriptText ||
+                                            t.ui.detail.clickLeadHint}
+                                        </pre>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {detailTab === "tracking" && (
+                                  <div className="space-y-3 pt-1">
+                                    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3">
+                                      <p className="text-[11px] uppercase tracking-wide text-slate-300/80 mb-2">
+                                        {t.ui.detail.outcomeTracking}{" "}
+                                        {isSavingOutcome &&
+                                          `… ${t.ui.detail.saving}`}
+                                      </p>
+
+                                      <div className="flex flex-wrap gap-4 text-xs text-slate-200">
+                                        {OUTCOME_STATUS_KEYS.map((k) => (
+                                          <label
+                                            key={k}
+                                            className="flex items-center gap-2"
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              checked={
+                                                k === "contacted"
+                                                  ? contacted
+                                                  : k === "replied"
+                                                    ? replied
+                                                    : k === "booked_call"
+                                                      ? bookedCall
+                                                      : closed
+                                              }
+                                              onChange={(e) => {
+                                                if (
+                                                  !Number.isFinite(runIdNum) ||
+                                                  runIdNum <= 0
+                                                ) {
+                                                  return;
+                                                }
+                                                saveOutcome({
+                                                  runId: runIdNum,
+                                                  leadId: detailLead.id,
+                                                  patch: buildOutcomePatch(
+                                                    k,
+                                                    e.target.checked,
+                                                  ),
+                                                });
+                                              }}
+                                            />
+                                            <span>{outcomeLabel(k, t)}</span>
+                                          </label>
+                                        ))}
+                                      </div>
+                                    </div>
                                   </div>
                                 )}
                               </div>
-                            );
-                          })()}
-                        </td>
-
-                        <td className="py-2 px-3">
-                          {lead.company.website ? (
-                            <a
-                              href={lead.company.website}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-indigo-400 hover:underline"
-                            >
-                              Visit
-                            </a>
-                          ) : (
-                            <span className="text-slate-500">N/A</span>
-                          )}
-                        </td>
-                      </tr>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     );
                   })}
                 </tbody>
               </table>
             </div>
           )}
-
-          {selectedLead &&
-            (() => {
-              const oppInsight = getLocalizedOpportunityInsight(
-                selectedLead,
-                language,
-              );
-              const runIdNum = Number(selectedLead.metadata?.runId ?? 0);
-
-              const outcomeFlags:
-                | Partial<Record<OutcomeKey, boolean>>
-                | undefined = selectedOutcome
-                ? {
-                    contacted: selectedOutcome.contacted,
-                    replied: selectedOutcome.replied,
-                    booked_call: selectedOutcome.booked_call,
-                    closed: selectedOutcome.closed,
-                  }
-                : undefined;
-
-              return (
-                <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 md:p-5 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <h3 className="text-sm font-semibold text-slate-100">
-                        {t.ui.detail.leadFocus}: {selectedLead.company.name}
-                      </h3>
-                      <p className="text-xs text-slate-400">
-                        {selectedLead.classification.primaryIndustry.replaceAll(
-                          "_",
-                          " ",
-                        )}{" "}
-                        · {leadLocation(selectedLead)}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedLead(null)}
-                      className="text-[11px] px-2 py-1 rounded-md border border-slate-700 bg-slate-900/70 hover:bg-slate-800"
-                    >
-                      {t.ui.detail.clear}
-                    </button>
-                  </div>
-
-                  {oppInsight?.message && (
-                    <div className="rounded-xl border border-orange-500/20 bg-orange-500/10 p-3">
-                      <p className="text-[11px] uppercase tracking-wide text-orange-200/80 mb-1">
-                        {t.ui.detail.opportunityInsight}
-                      </p>
-                      <p className="text-sm font-semibold text-orange-200">
-                        ⚡ {oppInsight.message}
-                      </p>
-                      <p className="mt-1 text-[11px] text-orange-200/70">
-                        Opportunity:{" "}
-                        <span className="text-orange-100 font-semibold">
-                          {selectedLead.score.opportunity ?? 0}/100
-                        </span>{" "}
-                        <span className="text-orange-200/60">
-                          (
-                          {bandLabel(
-                            language,
-                            selectedLead.score.opportunity ?? 0,
-                          )}
-                          )
-                        </span>
-                      </p>
-                    </div>
-                  )}
-
-                  {selectedLead?.score?.breakdown && (
-                    <div className="mt-4 rounded-lg border border-slate-800 bg-slate-900/50 p-3">
-                      <div className="text-[11px] uppercase tracking-wide text-slate-400 mb-2">
-                        Scoring Breakdown
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
-                        <div>
-                          <span className="text-slate-400">Reputation:</span>{" "}
-                          <span className="text-slate-100 font-semibold">
-                            {selectedLead.score.breakdown.reputation}
-                          </span>
-                        </div>
-
-                        <div>
-                          <span className="text-slate-400">Digital:</span>{" "}
-                          <span className="text-slate-100 font-semibold">
-                            {selectedLead.score.breakdown.digitalPresence}
-                          </span>
-                        </div>
-
-                        <div>
-                          <span className="text-slate-400">Business:</span>{" "}
-                          <span className="text-slate-100 font-semibold">
-                            {selectedLead.score.breakdown.businessStrength}
-                          </span>
-                        </div>
-
-                        <div>
-                          <span className="text-slate-400">
-                            Opportunity Gap:
-                          </span>{" "}
-                          <span className="text-slate-100 font-semibold">
-                            {selectedLead.score.breakdown.opportunityGap}
-                          </span>
-                        </div>
-
-                        <div>
-                          <span className="text-slate-400">Risk:</span>{" "}
-                          <span className="text-slate-100 font-semibold">
-                            {selectedLead.score.breakdown.stabilityRisk}
-                          </span>
-                        </div>
-
-                        <div>
-                          <span className="text-slate-400">Evidence:</span>{" "}
-                          <span className="text-slate-100 font-semibold">
-                            {selectedLead.score.breakdown.evidenceConfidence}
-                          </span>
-                        </div>
-                      </div>
-
-                      {selectedLead.score.reasons?.length > 0 && (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {selectedLead.score.reasons.map((reason, i) => (
-                            <span
-                              key={i}
-                              className="text-[11px] px-2 py-1 rounded border border-slate-700 text-slate-200"
-                            >
-                              {reason}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  
-                  <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3">
-                    <p className="text-[11px] uppercase tracking-wide text-rose-200/80 mb-1">
-                      {t.ui.detail.risk}
-                    </p>
-                    <p className="text-sm font-semibold text-rose-100">
-                      {riskTitleFromProfile(selectedLead.score.riskProfile, t)}
-                    </p>
-                    <p className="mt-1 text-[11px] text-rose-200/70">
-                      {riskMessage(language, selectedLead)}
-                    </p>
-                  </div>
-
-                  {/* Outcome tracking */}
-                  <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-300/80 mb-2">
-                      {t.ui.detail.outcomeTracking}{" "}
-                      {isSavingOutcome && `… ${t.ui.detail.saving}`}
-                    </p>
-
-                    <div className="flex flex-wrap gap-4 text-xs text-slate-200">
-                      {OUTCOME_STATUS_KEYS.map((k) => (
-                        <label key={k} className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={!!outcomeFlags?.[k]}
-                            onChange={(e) => {
-                              if (!Number.isFinite(runIdNum) || runIdNum <= 0)
-                                return;
-
-                              saveOutcome({
-                                runId: runIdNum,
-                                leadId: selectedLead.id,
-                                patch: buildOutcomePatch(k, e.target.checked),
-                              });
-                            }}
-                          />
-                          <span>{outcomeLabel(k, t)}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="grid md:grid-cols-4 gap-4 text-xs">
-                    <div className="space-y-1">
-                      <p className="text-slate-400">{t.ui.detail.scoreLabel}</p>
-                      <p className="text-lg font-semibold">
-                        {selectedLead.score.value ?? 0}
-                      </p>
-                      <p className="text-[11px] text-slate-400">
-                        {getScoreReason(selectedLead, language)}
-                      </p>
-                    </div>
-
-                    <div className="space-y-1">
-                      <p className="text-slate-400">
-                        {t.ui.detail.opportunityLabel}
-                      </p>
-                      <p className="text-sm font-semibold">
-                        {selectedLead.score.opportunity ?? 0}/100
-                      </p>
-                      <p className="text-[11px] text-slate-400">
-                        {t.ui.detail.readinessLabel}:{" "}
-                        {selectedLead.score.readiness ?? 0}/100
-                      </p>
-                    </div>
-
-                    <div className="space-y-1">
-                      <p className="text-slate-400">{t.ui.detail.riskLabel}</p>
-                      <p className="text-sm font-semibold">
-                        {selectedLead.score.risk ?? 0}/100
-                      </p>
-                      <p className="text-[11px] text-slate-400">
-                        {selectedLead.score.riskProfile
-                          ? selectedLead.score.riskProfile.replaceAll("_", " ")
-                          : "—"}
-                      </p>
-                    </div>
-
-                    <div className="space-y-1">
-                      <p className="text-slate-400">
-                        {t.ui.detail.websiteLabel}
-                      </p>
-                      {selectedLead.company.website ? (
-                        <a
-                          href={selectedLead.company.website}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs text-indigo-400 hover:underline break-all"
-                        >
-                          {selectedLead.company.website}
-                        </a>
-                      ) : (
-                        <p className="text-[11px] text-slate-500">
-                          {t.ui.detail.noWebsite}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <p className="text-[11px] uppercase tracking-wide text-slate-400 mb-1">
-                    {t.ui.detail.suggestedAngle}
-                  </p>
-                  <p className="text-xs text-slate-200 leading-relaxed">
-                    {getOutreachAngle(selectedLead, language)}
-                  </p>
-
-                  <div className="pt-3 border-t border-slate-800 mt-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                          {t.ui.detail.outreachScript} (draft)
-                        </p>
-
-                        {outreach ? (
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setOutreachVariant("soft")}
-                              className={
-                                "text-[10px] px-2 py-0.5 rounded-md border " +
-                                (outreachVariant === "soft"
-                                  ? "border-slate-500 bg-slate-900/70 text-slate-100"
-                                  : "border-slate-800 bg-slate-900/40 text-slate-300")
-                              }
-                            >
-                              Soft
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => setOutreachVariant("direct")}
-                              className={
-                                "text-[10px] px-2 py-0.5 rounded-md border " +
-                                (outreachVariant === "direct"
-                                  ? "border-slate-500 bg-slate-900/70 text-slate-100"
-                                  : "border-slate-800 bg-slate-900/40 text-slate-300")
-                              }
-                            >
-                              Direct
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(scriptText);
-                          } catch (e) {
-                            console.error("Failed to copy outreach script:", e);
-                          }
-                        }}
-                        disabled={!scriptText}
-                        className="text-[11px] px-2 py-1 rounded-md border border-slate-700 bg-slate-900/70 hover:bg-slate-800 disabled:opacity-50"
-                      >
-                        {t.ui.detail.copy}
-                      </button>
-                    </div>
-                    <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-3 max-h-56 overflow-auto">
-                      {outreach?.angleTitle ? (
-                        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 mb-3">
-                          <p className="text-[11px] uppercase tracking-wide text-slate-300/80">
-                            {t.ui.detail.suggestedAngle}
-                          </p>
-                          <p className="text-sm font-semibold text-slate-100">
-                            {outreach.angleTitle}
-                          </p>
-                          {outreach.angleWhy ? (
-                            <p className="mt-1 text-[12px] text-slate-200/70">
-                              {outreach.angleWhy}
-                            </p>
-                          ) : null}
-                        </div>
-                      ) : null}
-
-                      <pre className="whitespace-pre-wrap wrap-break-words text-[11px] text-slate-200">
-                        {scriptText || t.ui.detail.clickLeadHint}
-                      </pre>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
         </section>
       </div>
     </main>
