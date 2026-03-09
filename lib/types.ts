@@ -38,6 +38,8 @@ export type CapabilityProfile = {
 
 export type UserProfileV1 = {
   id: string;
+  profileType?: string;
+  businessName?: string;
 
   // Positioning
   niche: string;
@@ -131,11 +133,11 @@ export type RiskFlag =
   | "MULTI_LOCATION";
 
 export type ScoreCategoryBreakdown = {
-  reputation: number;         // 0-100
-  digitalPresence: number;    // 0-100
-  businessStrength: number;   // 0-100
-  opportunityGap: number;     // 0-100
-  stabilityRisk: number;      // 0-100
+  reputation: number; // 0-100
+  digitalPresence: number; // 0-100
+  businessStrength: number; // 0-100
+  opportunityGap: number; // 0-100
+  stabilityRisk: number; // 0-100
   evidenceConfidence: number; // 0-100
 };
 
@@ -155,7 +157,6 @@ export type ScoreResult = {
   // human explanation layer
   reasons: string[];
 };
-
 
 export type OutreachVariantKey = "soft" | "direct";
 

@@ -17,9 +17,11 @@ import {
   type ResistanceSignal,
 } from "@/lib/scoring/opportunitySignals";
 import {
-  DEFAULT_USER_PROFILE_V1,
-  DEFAULT_CAPABILITY_PROFILE,
-} from "@/lib/profile/defaultProfile";
+  buildUserProfile,
+  buildCapabilityProfile,
+  isValidProfileTypeKey,
+} from "@/lib/profile/profileTypes";
+import type { UserProfileV1, CapabilityProfile } from "@/lib/types";
 import {
   deriveDifficulty,
   deriveGap,
@@ -283,6 +285,43 @@ async function fetchRunIntent(
   };
 }
 
+async function fetchUserProfile(
+  client: NonNullable<typeof supabase>,
+): Promise<{ profile: UserProfileV1; capabilities: CapabilityProfile }> {
+  try {
+    const { data, error } = await client
+      .from("user_profiles")
+      .select("profile_data, capabilities_data")
+      .eq("id", "user_v1")
+      .maybeSingle();
+
+    if (error || !data) {
+      return {
+        profile: buildUserProfile("user_v1", "performance_marketer"),
+        capabilities: buildCapabilityProfile("user_v1", "performance_marketer"),
+      };
+    }
+
+    const row = data as { profile_data: unknown; capabilities_data: unknown };
+    const profileData = row.profile_data as UserProfileV1;
+    const typeKey = isValidProfileTypeKey(profileData?.profileType ?? "")
+      ? (profileData.profileType as Parameters<typeof buildUserProfile>[1])
+      : "performance_marketer";
+
+    return {
+      profile: profileData,
+      capabilities:
+        (row.capabilities_data as CapabilityProfile) ??
+        buildCapabilityProfile("user_v1", typeKey),
+    };
+  } catch {
+    return {
+      profile: buildUserProfile("user_v1", "performance_marketer"),
+      capabilities: buildCapabilityProfile("user_v1", "performance_marketer"),
+    };
+  }
+}
+
 async function fetchRawRowsByIds(
   client: NonNullable<typeof supabase>,
   ids: number[],
@@ -446,8 +485,13 @@ export async function GET(
       return NextResponse.json({ error: "Invalid run id" }, { status: 400 });
     }
 
-    const runIntent = await fetchRunIntent(supabase, runId);
+    const [runIntent, userProfileData] = await Promise.all([
+      fetchRunIntent(supabase, runId),
+      fetchUserProfile(supabase),
+    ]);
     const presenceFilter = runIntent.socialPresence;
+    const activeProfile = userProfileData.profile;
+    const activeCapabilities = userProfileData.capabilities;
 
     const rawIds = await getRawIdsForRun(runId);
     if (rawIds.length === 0) {
@@ -544,11 +588,7 @@ export async function GET(
           resistances,
         });
 
-        const fit = scoreFit(
-          DEFAULT_USER_PROFILE_V1,
-          DEFAULT_CAPABILITY_PROFILE,
-          needs,
-        );
+        const fit = scoreFit(activeProfile, activeCapabilities, needs);
 
         lead.fit = {
           fitScore: fit.fitScore,
@@ -571,7 +611,7 @@ export async function GET(
           missingNeeds: lead.fit?.missingNeeds ?? [],
         };
 
-        const sellerType = inferSellerType(DEFAULT_USER_PROFILE_V1);
+        const sellerType = inferSellerType(activeProfile);
         const gap = deriveGap(pitchContext);
         const difficulty = deriveDifficulty(
           pitchContext.opportunity,
