@@ -21,6 +21,9 @@ export default function LoginPage() {
     errorParam === "auth_callback_failed" ? "Email confirmation failed. Please try again." : null
   );
   const [success, setSuccess] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
   const supabase = createSupabaseBrowser();
 
@@ -52,6 +55,7 @@ export default function LoginPage() {
       if (error) {
         setError(error.message);
       } else {
+        setPendingEmail(email);
         setSuccess("Check your email to confirm your account, then come back to sign in.");
       }
     } else {
@@ -69,6 +73,18 @@ export default function LoginPage() {
     }
 
     setLoading(false);
+  }
+
+  async function resendConfirmation() {
+    if (!pendingEmail || resending) return;
+    setResending(true);
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: pendingEmail,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding` },
+    });
+    setResending(false);
+    if (!error) setResent(true);
   }
 
   return (
@@ -124,8 +140,22 @@ export default function LoginPage() {
               </div>
             )}
             {success && (
-              <div className="px-4 py-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 text-[12px] text-emerald-400">
-                {success}
+              <div className="px-4 py-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 text-[12px] text-emerald-400 space-y-2">
+                <p>{success}</p>
+                {pendingEmail && !resent && (
+                  <p className="text-[11px] text-[#555]">
+                    Didn&apos;t get it?{" "}
+                    <button
+                      type="button"
+                      onClick={resendConfirmation}
+                      disabled={resending}
+                      className="text-[#c9a84c] hover:text-[#e8c97a] transition-colors disabled:opacity-50"
+                    >
+                      {resending ? "Sending…" : "Resend confirmation email"}
+                    </button>
+                  </p>
+                )}
+                {resent && <p className="text-[11px] text-emerald-500">✓ New confirmation email sent.</p>}
               </div>
             )}
 
@@ -158,6 +188,18 @@ export default function LoginPage() {
                 className="w-full bg-[#0d0d0d] border border-[#252525] rounded-lg px-4 py-3 text-sm text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.5)] transition-colors"
               />
             </div>
+
+            {/* Forgot password — only show in sign in mode */}
+            {mode === "signin" && (
+              <div className="flex justify-end -mt-1">
+                <Link
+                  href="/forgot-password"
+                  className="text-[11px] text-[#555] hover:text-[#c9a84c] transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+            )}
 
             {/* Submit */}
             <button

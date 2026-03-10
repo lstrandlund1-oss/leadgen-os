@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Capability } from "@/lib/fit/needs";
+import { useToast } from "../components/ToastProvider";
 import {
   PROFILE_TYPE_DEFINITIONS,
   PROFILE_TYPE_KEYS,
@@ -18,13 +19,6 @@ type ProfileData = {
   targetLocation: string;
 };
 
-type OutcomeStats = {
-  contacted: number;
-  replied: number;
-  booked: number;
-  closed: number;
-  totalRevenue: number;
-};
 
 const ALL_CAPABILITIES: Capability[] = [
   "ads",
@@ -57,6 +51,7 @@ const CAPABILITY_ICONS: Record<Capability, string> = {
 };
 
 export default function ProfilePage() {
+  const { success: toastSuccess, error: toastError } = useToast();
   const [profile, setProfile] = useState<ProfileData>({
     profileType: "performance_marketer",
     businessName: "",
@@ -79,20 +74,17 @@ export default function ProfilePage() {
     },
   );
 
-  const [stats, setStats] = useState<OutcomeStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [activeTab, setActiveTab] = useState<"profile" | "stats">("profile");
 
   // Load profile + stats on mount
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        const [profileRes, outcomesRes] = await Promise.all([
+        const [profileRes] = await Promise.all([
           fetch("/api/profile"),
-          fetch("/api/outcomes?all=true"),
         ]);
 
         if (profileRes.ok) {
@@ -113,25 +105,6 @@ export default function ProfilePage() {
           if (data.capabilities?.capabilities) {
             setCapabilities(data.capabilities.capabilities);
           }
-        }
-
-        if (outcomesRes.ok) {
-          const outcomesData = await outcomesRes.json();
-          const outcomes: Array<{
-            contacted?: boolean;
-            replied?: boolean;
-            booked_call?: boolean;
-            closed?: boolean;
-            revenue?: number | null;
-          }> = outcomesData.outcomes ?? [];
-
-          setStats({
-            contacted: outcomes.filter((o) => o.contacted).length,
-            replied: outcomes.filter((o) => o.replied).length,
-            booked: outcomes.filter((o) => o.booked_call).length,
-            closed: outcomes.filter((o) => o.closed).length,
-            totalRevenue: outcomes.reduce((sum, o) => sum + (o.revenue ?? 0), 0),
-          });
         }
       } catch (err) {
         console.error("ProfilePage load error:", err);
@@ -167,17 +140,18 @@ export default function ProfilePage() {
           capabilities,
         }),
       });
-      if (res.ok) setSaved(true);
+      if (res.ok) {
+        setSaved(true);
+        toastSuccess("Profile saved — new searches will use your updated settings");
+      } else {
+        toastError("Failed to save profile. Please try again.");
+      }
     } catch (err) {
       console.error("Save error:", err);
+      toastError("Failed to save profile. Please try again.");
     } finally {
       setSaving(false);
     }
-  }
-
-  function conversionRate(a: number, b: number): string {
-    if (b === 0) return "—";
-    return Math.round((a / b) * 100) + "%";
   }
 
   if (loading) {
@@ -190,28 +164,13 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      {/* Tab bar */}
-      <div className="flex gap-1 border-b border-[#252525]">
-        {(["profile", "stats"] as const).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={
-              "text-[13px] px-4 py-2 rounded-t-lg font-medium transition-colors capitalize " +
-              (activeTab === tab
-                ? "bg-[#1a1a1a] text-[#f5f0e8] border border-b-0 border-[#2a2a2a]"
-                : "text-[#888] hover:text-[#c8c0b0]")
-            }
-          >
-            {tab === "profile" ? "⚙️ My Profile" : "📈 My Stats"}
-          </button>
-        ))}
+      {/* Settings header */}
+      <div className="pb-2 border-b border-[#252525]">
+        <p className="text-[11px] uppercase tracking-widest text-[#555]">Profile Settings</p>
       </div>
 
-      {/* PROFILE TAB */}
-      {activeTab === "profile" && (
-        <div className="space-y-6">
+      {/* PROFILE SETTINGS */}
+      <div className="space-y-6">
 
           {/* Business name */}
           <section className="bg-[#111111]/60 border border-[#252525] rounded-2xl p-5 space-y-4">
@@ -428,145 +387,120 @@ export default function ProfilePage() {
             </button>
             {saved && (
               <span className="text-[12px] text-emerald-400">
-                ✓ Profile saved — new lead searches will use your updated
-                profile.
+                ✓ Profile saved — new lead searches will use your updated profile.
               </span>
             )}
           </div>
+
+          {/* GDPR — Delete account */}
+          <DeleteAccountSection />
         </div>
-      )}
 
-      {/* STATS TAB */}
-      {activeTab === "stats" && (
-        <div className="space-y-6">
-          <section className="bg-[#111111]/60 border border-[#252525] rounded-2xl p-5 space-y-5">
-            <h2 className="text-sm font-semibold text-[#f5f0e8]">
-              Pipeline Overview
-            </h2>
-
-            {stats === null ? (
-              <p className="text-[12px] text-[#888]">
-                No outcome data yet. Start tracking leads in the Tracking tab.
-              </p>
-            ) : (
-              <>
-                {/* Funnel bars */}
-                <div className="space-y-3">
-                  {[
-                    {
-                      label: "Contacted",
-                      value: stats.contacted,
-                      color: "bg-blue-500",
-                      icon: "📬",
-                    },
-                    {
-                      label: "Replied",
-                      value: stats.replied,
-                      color: "bg-[#c9a84c]",
-                      icon: "💬",
-                    },
-                    {
-                      label: "Booked",
-                      value: stats.booked,
-                      color: "bg-violet-500",
-                      icon: "📅",
-                    },
-                    {
-                      label: "Closed",
-                      value: stats.closed,
-                      color: "bg-emerald-500",
-                      icon: "✅",
-                    },
-                  ].map((row) => {
-                    const maxVal = stats.contacted || 1;
-                    const pct = Math.round((row.value / maxVal) * 100);
-                    return (
-                      <div key={row.label} className="space-y-1">
-                        <div className="flex items-center justify-between text-[12px]">
-                          <span className="text-[#aaa]">
-                            {row.icon} {row.label}
-                          </span>
-                          <span className="text-[#f5f0e8] font-semibold">
-                            {row.value}
-                          </span>
-                        </div>
-                        <div className="w-full bg-[#1a1a1a] rounded-full h-2">
-                          <div
-                            className={row.color + " h-2 rounded-full transition-all"}
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Conversion rates */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
-                  {[
-                    {
-                      label: "Contact → Reply",
-                      rate: conversionRate(
-                        stats.replied,
-                        stats.contacted,
-                      ),
-                    },
-                    {
-                      label: "Reply → Booked",
-                      rate: conversionRate(stats.booked, stats.replied),
-                    },
-                    {
-                      label: "Booked → Closed",
-                      rate: conversionRate(stats.closed, stats.booked),
-                    },
-                    {
-                      label: "Overall Close Rate",
-                      rate: conversionRate(
-                        stats.closed,
-                        stats.contacted,
-                      ),
-                    },
-                  ].map((item) => (
-                    <div
-                      key={item.label}
-                      className="rounded-lg border border-[#252525] bg-[#111111]/50 p-3 text-center space-y-1"
-                    >
-                      <p className="text-[10px] uppercase tracking-wide text-[#888]">
-                        {item.label}
-                      </p>
-                      <p className="text-lg font-bold text-[#f5f0e8]">
-                        {item.rate}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Revenue summary */}
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div className="rounded-xl border border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.04)] p-4 text-center space-y-1">
-                    <p className="text-[10px] uppercase tracking-widest text-[#8a6e30]">Total Revenue</p>
-                    <p className="text-2xl font-bold text-[#c9a84c]">
-                      {stats.totalRevenue > 0
-                        ? `$${stats.totalRevenue.toLocaleString()}`
-                        : "—"}
-                    </p>
-                    <p className="text-[11px] text-[#555]">from {stats.closed} closed deal{stats.closed !== 1 ? "s" : ""}</p>
-                  </div>
-                  <div className="rounded-xl border border-[#252525] bg-[#111111]/50 p-4 text-center space-y-1">
-                    <p className="text-[10px] uppercase tracking-widest text-[#888]">Avg Deal Size</p>
-                    <p className="text-2xl font-bold text-[#f5f0e8]">
-                      {stats.closed > 0 && stats.totalRevenue > 0
-                        ? `$${Math.round(stats.totalRevenue / stats.closed).toLocaleString()}`
-                        : "—"}
-                    </p>
-                    <p className="text-[11px] text-[#555]">per closed lead</p>
-                  </div>
-                </div>
-              </>
-            )}
-          </section>
-        </div>
-      )}
     </div>
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// GDPR Delete Account Section
+// ---------------------------------------------------------------------------
+function DeleteAccountSection() {
+  const [open, setOpen] = useState(false);
+  const [confirm, setConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleDelete() {
+    if (confirm !== "DELETE") { setError('Type "DELETE" to confirm.'); return; }
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/account/delete", { method: "DELETE" });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setError((json as { error?: string }).error ?? "Deletion failed. Please contact support.");
+        setDeleting(false);
+        return;
+      }
+      // Sign out and redirect to home
+      window.location.href = "/?deleted=1";
+    } catch {
+      setError("Network error. Please try again.");
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <section className="mt-8 pt-8 border-t border-[#1a1a1a]">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-[13px] font-semibold text-[#888]">Danger zone</h2>
+          <p className="text-[11px] text-[#444] mt-0.5 leading-relaxed">
+            Permanently delete your account and all associated data. This cannot be undone.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="shrink-0 text-[12px] px-4 py-2 rounded-lg border border-rose-900/50 text-rose-600 hover:border-rose-700 hover:text-rose-400 transition-all"
+        >
+          Delete account
+        </button>
+      </div>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-rose-900/40 bg-[#0d0d0d] p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg border border-rose-900/50 bg-rose-950/30 flex items-center justify-center text-rose-500 text-sm">⚠</div>
+              <div>
+                <p className="text-[14px] font-semibold text-[#f5f0e8]">Delete your account</p>
+                <p className="text-[11px] text-[#555]">This action is permanent and irreversible</p>
+              </div>
+            </div>
+
+            <p className="text-[12px] text-[#666] leading-relaxed">
+              This will permanently delete your profile, all saved searches, lead outcomes, and your login credentials.
+              Your data will be erased in accordance with GDPR Article 17.
+            </p>
+
+            {error && (
+              <div className="px-3 py-2 rounded-lg border border-rose-500/30 bg-rose-500/5 text-[12px] text-rose-400">{error}</div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="block text-[11px] uppercase tracking-widest text-[#555]">
+                Type <span className="text-rose-500 font-bold">DELETE</span> to confirm
+              </label>
+              <input
+                type="text"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                placeholder="DELETE"
+                className="w-full bg-[#080808] border border-[#2a2a2a] rounded-lg px-3 py-2.5 text-sm text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-rose-800 transition-colors"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => { setOpen(false); setConfirm(""); setError(null); }}
+                className="flex-1 py-2.5 rounded-lg border border-[#252525] text-[#888] text-[13px] hover:border-[#333] hover:text-[#aaa] transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting || confirm !== "DELETE"}
+                className="flex-1 py-2.5 rounded-lg bg-rose-900/80 text-rose-200 text-[13px] font-semibold hover:bg-rose-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                {deleting ? "Deleting…" : "Yes, delete everything"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }

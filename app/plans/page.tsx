@@ -6,31 +6,31 @@ import HamburgerMenu from "../components/HamburgerMenu";
 
 const PLANS = [
   {
-    name: "Starter",
-    price: "Free",
-    sub: "during beta",
-    billing: null,
-    description: "Get started and explore the full platform. No card required.",
+    name: "Scout",
+    price: "$29",
+    sub: "/ month",
+    billing: "Billed monthly · cancel anytime",
+    description: "For freelancers and solo operators starting with signal-driven outreach.",
     highlight: false,
     badge: null,
     features: [
-      "25 lead searches per month",
+      "50 lead searches per month",
       "Full signal-driven scoring",
+      "All 4 gap types detected",
       "Outreach scripts (soft + direct)",
       "Outcome tracking + pipeline",
-      "1 profile type",
       "CSV export",
     ],
-    cta: "Start for Free",
-    href: "/onboarding",
+    cta: "Join Waitlist",
+    href: null,
     isExternal: false,
   },
   {
-    name: "Pro",
-    price: "$49",
+    name: "Operator",
+    price: "$79",
     sub: "/ month",
     billing: "Billed monthly · cancel anytime",
-    description: "For active service providers running outreach every week.",
+    description: "For active service providers running consistent outreach every week.",
     highlight: true,
     badge: "Most Popular",
     features: [
@@ -38,6 +38,7 @@ const PLANS = [
       "Light enrichment on every lead",
       "All 5 profile types",
       "Geography-aware fit scoring",
+      "Deep enrichment (website + brand)",
       "Pipeline analytics + revenue tracking",
       "Priority support",
     ],
@@ -47,19 +48,20 @@ const PLANS = [
   },
   {
     name: "Agency",
-    price: "$149",
+    price: "$199",
     sub: "/ month",
     billing: "Billed monthly · cancel anytime",
-    description: "For teams and agencies managing multiple outreach campaigns.",
+    description: "For teams and agencies running outreach at scale across multiple niches.",
     highlight: false,
     badge: null,
     features: [
-      "Everything in Pro",
-      "Deep enrichment (competitor + brand)",
-      "Multiple team members",
+      "Everything in Operator",
+      "Multiple team members (up to 5)",
+      "Competitor signal layer",
       "Custom outreach playbooks",
       "CRM integrations",
       "Dedicated onboarding call",
+      "SLA support",
     ],
     cta: "Join Waitlist",
     href: null,
@@ -69,20 +71,24 @@ const PLANS = [
 
 const FAQ = [
   {
-    q: "When will Pro and Agency plans launch?",
-    a: "We're targeting a public launch in Q2 2025. Beta users who join the waitlist will get early access and a discounted rate locked for 12 months.",
+    q: "When do paid plans launch?",
+    a: "We're in closed beta right now. Joining the waitlist locks in your early-access price for 12 months from launch — typically 30–40% below the public rate.",
   },
   {
-    q: "Will the Starter plan stay free?",
-    a: "Yes — Starter will remain free after launch with a 25-search monthly limit. It's designed to give you a complete picture of the platform before committing.",
+    q: "Is there a free trial?",
+    a: "Beta users get full platform access while we're in testing. When we launch publicly, each paid plan includes a 7-day free trial — no card charged until day 8.",
   },
   {
     q: "What counts as a 'lead search'?",
-    a: "One search = one niche + location query (e.g. \"barber shops in Malmö\"). Each search returns up to 25 scored leads. Pagination doesn't use additional searches.",
+    a: "One search = one niche + location query (e.g. \"barber shops in Malmö\"). Each search returns up to 25 scored leads. Loading more results from the same search doesn't use an additional search.",
   },
   {
     q: "Can I switch plans later?",
     a: "Yes. Upgrades take effect immediately, downgrades at the next billing cycle. No lock-in beyond the current month.",
+  },
+  {
+    q: "What's the difference between Scout and Operator?",
+    a: "Scout is built for occasional use — great for testing new niches or markets with a monthly search budget. Operator removes the search cap, adds deep enrichment, and is designed for people running outreach as a core part of their workflow.",
   },
 ];
 
@@ -102,8 +108,15 @@ export default function PlansPage() {
     e.preventDefault();
     if (!waitlistEmail.trim()) return;
     setSubmitting(true);
-    // Simulate submission — replace with real API call
-    await new Promise((r) => setTimeout(r, 900));
+    try {
+      await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: waitlistEmail.trim(), plan: waitlistPlan }),
+      });
+    } catch {
+      // Still show success — we don't want to block the user on a network error
+    }
     setSubmitting(false);
     setSubmitted(true);
   }
@@ -291,29 +304,67 @@ export default function PlansPage() {
           </div>
         )}
 
-        {/* FAQ */}
-        <div className="border-t border-[#111] pt-16">
-          <div className="text-center mb-10">
-            <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-3">Common questions</p>
-            <h2 className="text-3xl font-light" style={{ fontFamily: "var(--font-display), serif" }}>FAQ</h2>
+        {/* How it works + FAQ */}
+        <div className="border-t border-[#111] pt-16 space-y-16">
+
+          {/* How it works */}
+          <div>
+            <div className="text-center mb-10">
+              <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-3">The process</p>
+              <h2 className="text-3xl font-light" style={{ fontFamily: "var(--font-display), serif" }}>How LeadGenOS works</h2>
+              <p className="text-[#555] text-sm mt-3 max-w-lg mx-auto">Signal-driven outreach in three steps. No cold list buying, no guesswork.</p>
+            </div>
+            <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+              {[
+                {
+                  step: "01",
+                  title: "Search your niche",
+                  body: "Enter any niche and location. LeadGenOS pulls real businesses and scores each one using reputation, digital presence, opportunity gap, and risk signals.",
+                },
+                {
+                  step: "02",
+                  title: "Read the angle",
+                  body: "Every lead gets a tailored outreach angle and ready-to-send script — soft or direct — based on the specific gap detected in that business.",
+                },
+                {
+                  step: "03",
+                  title: "Track and close",
+                  body: "Log outcomes as you contact, follow up, book calls, and close. Your pipeline stats update in real time so you can see what's working.",
+                },
+              ].map(({ step, title, body }) => (
+                <div key={step} className="rounded-2xl border border-[#141414] bg-[#0d0d0d] p-6 space-y-3">
+                  <p className="text-[11px] tracking-widest text-[#8a6e30]">{step}</p>
+                  <p className="text-[15px] font-medium text-[#f5f0e8]">{title}</p>
+                  <p className="text-[12px] text-[#555] leading-relaxed">{body}</p>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="max-w-2xl mx-auto space-y-2">
-            {FAQ.map((item, i) => (
-              <div key={i} className="border border-[#141414] rounded-xl overflow-hidden">
-                <button
-                  className="w-full flex items-center justify-between px-5 py-4 text-left text-[13px] text-[#ccc] hover:text-[#f5f0e8] transition-colors"
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                >
-                  <span>{item.q}</span>
-                  <span className="text-[#555] ml-4 shrink-0 text-lg transition-transform" style={{ transform: openFaq === i ? "rotate(45deg)" : "none" }}>+</span>
-                </button>
-                {openFaq === i && (
-                  <div className="px-5 pb-4">
-                    <p className="text-[12px] text-[#555] leading-relaxed">{item.a}</p>
-                  </div>
-                )}
-              </div>
-            ))}
+
+          {/* FAQ accordion */}
+          <div>
+            <div className="text-center mb-10">
+              <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-3">Common questions</p>
+              <h2 className="text-3xl font-light" style={{ fontFamily: "var(--font-display), serif" }}>Questions & answers</h2>
+            </div>
+            <div className="max-w-2xl mx-auto space-y-2">
+              {FAQ.map((item, i) => (
+                <div key={i} className="border border-[#141414] rounded-xl overflow-hidden">
+                  <button
+                    className="w-full flex items-center justify-between px-5 py-4 text-left text-[13px] text-[#ccc] hover:text-[#f5f0e8] transition-colors"
+                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  >
+                    <span>{item.q}</span>
+                    <span className="text-[#555] ml-4 shrink-0 text-lg transition-transform" style={{ transform: openFaq === i ? "rotate(45deg)" : "none" }}>+</span>
+                  </button>
+                  {openFaq === i && (
+                    <div className="px-5 pb-4">
+                      <p className="text-[12px] text-[#555] leading-relaxed">{item.a}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -321,8 +372,8 @@ export default function PlansPage() {
         <div className="mt-12 text-center">
           <p className="text-[12px] text-[#333]">
             Questions?{" "}
-            <a href="mailto:hello@leadgenos.com" className="text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
-              hello@leadgenos.com →
+            <a href="/contact" className="text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
+              Contact us →
             </a>
           </p>
         </div>

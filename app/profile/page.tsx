@@ -41,7 +41,7 @@ function conversionRate(a: number, b: number): string {
   return Math.round((a / b) * 100) + "%";
 }
 
-export default function ProfileOverview() {
+export default function ProfileOverviewPage() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [capabilities, setCapabilities] = useState<Record<string, boolean>>({});
   const [stats, setStats] = useState<OutcomeStats | null>(null);
@@ -137,7 +137,6 @@ export default function ProfileOverview() {
             >
               ← Dashboard
             </Link>
-            {/* Settings cogwheel */}
             <Link
               href="/profile/settings"
               className="w-8 h-8 rounded-lg border border-[#252525] bg-[#111] flex items-center justify-center text-[#666] hover:border-[rgba(201,168,76,0.3)] hover:text-[#c9a84c] transition-all"
@@ -185,7 +184,6 @@ export default function ProfileOverview() {
             <section className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  {/* Avatar */}
                   <div className="w-12 h-12 rounded-xl border border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.05)] flex items-center justify-center text-[#c9a84c] text-xl font-light" style={{ fontFamily: "var(--font-display), serif" }}>
                     {(profile?.businessName?.[0] ?? "◈")}
                   </div>
@@ -211,7 +209,6 @@ export default function ProfileOverview() {
                 </Link>
               </div>
 
-              {/* Capabilities strip */}
               {activeCapabilities.length > 0 && (
                 <div className="mt-5 pt-4 border-t border-[#141414]">
                   <p className="text-[10px] uppercase tracking-[0.15em] text-[#444] mb-2.5">Active capabilities</p>
@@ -225,7 +222,6 @@ export default function ProfileOverview() {
                 </div>
               )}
 
-              {/* Profile preferences strip */}
               <div className="mt-4 pt-4 border-t border-[#141414] flex flex-wrap gap-x-6 gap-y-2">
                 {[
                   { label: "Experience", value: profile?.experienceLevel },
@@ -240,20 +236,55 @@ export default function ProfileOverview() {
               </div>
             </section>
 
-            {/* Pipeline stats */}
+            {/* Getting started checklist */}
+            {!(profile?.businessName && stats && stats.contacted > 0 && stats.closed > 0) && (
+              <section className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-6 space-y-4">
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-[#c9a84c] mb-0.5">Getting started</p>
+                  <p className="text-[12px] text-[#555]">Complete these steps to get the most out of LeadGenOS.</p>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    { done: !!(profile?.businessName), label: "Set up your profile", sub: "Tell us your business type and target market", href: "/profile/settings" },
+                    { done: !!(stats && stats.contacted > 0), label: "Contact a lead", sub: "Reach out and log it as contacted in the dashboard", href: "/dashboard" },
+                    { done: !!(stats && stats.booked > 0), label: "Book a call", sub: "Mark a reply as booked to track your calendar", href: "/dashboard" },
+                    { done: !!(stats && stats.closed > 0), label: "Close your first deal", sub: "Mark a lead as closed and log the revenue", href: "/dashboard" },
+                  ].map(({ done, label, sub, href }) => (
+                    <div key={label} className={`flex items-start gap-3 rounded-lg px-3 py-2.5 border transition-colors ${done ? "border-[#1a1a1a] opacity-50" : "border-[#252525] bg-[#111]"}`}>
+                      <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${done ? "border-[#4ade80] bg-[#4ade80]/10" : "border-[#333]"}`}>
+                        {done && <span className="text-[9px] text-[#4ade80]">✓</span>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-[12px] font-medium ${done ? "line-through text-[#444]" : "text-[#c8c0b0]"}`}>{label}</p>
+                        <p className="text-[11px] text-[#444] mt-0.5">{sub}</p>
+                      </div>
+                      {!done && (
+                        <a href={href} className="shrink-0 text-[11px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors mt-0.5">Go →</a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Pipeline Stats — always shown */}
             <section className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-6 space-y-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-[13px] font-semibold text-[#c8c0b0]">Pipeline</h2>
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Performance</p>
+                  <h2 className="text-[15px] font-semibold text-[#c8c0b0]">Pipeline Stats</h2>
+                </div>
                 {stats && stats.contacted > 0 && (
                   <p className="text-[11px] text-[#555]">{stats.contacted} total outreach</p>
                 )}
               </div>
 
               {!stats || stats.contacted === 0 ? (
-                <div className="py-8 text-center">
+                <div className="py-10 text-center space-y-2">
+                  <p className="text-2xl">📊</p>
                   <p className="text-[13px] text-[#444]">No pipeline data yet.</p>
-                  <p className="text-[11px] text-[#333] mt-1">
-                    Start tracking leads in the{" "}
+                  <p className="text-[11px] text-[#333]">
+                    Start contacting leads from the{" "}
                     <Link href="/dashboard" className="text-[#8a6e30] hover:text-[#c9a84c] transition-colors">
                       Dashboard →
                     </Link>
@@ -261,7 +292,21 @@ export default function ProfileOverview() {
                 </div>
               ) : (
                 <>
-                  {/* Funnel bars */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                      { label: "Leads tracked", value: String(stats.contacted), sub: "total outreach" },
+                      { label: "Reply rate", value: conversionRate(stats.replied, stats.contacted), sub: "of contacted" },
+                      { label: "Total revenue", value: stats.totalRevenue > 0 ? `$${stats.totalRevenue.toLocaleString()}` : "—", sub: `${stats.closed} deal${stats.closed !== 1 ? "s" : ""} closed` },
+                      { label: "Avg deal size", value: stats.closed > 0 && stats.totalRevenue > 0 ? `$${Math.round(stats.totalRevenue / stats.closed).toLocaleString()}` : "—", sub: "per closed lead" },
+                    ].map((kpi) => (
+                      <div key={kpi.label} className="rounded-xl border border-[#151515] bg-[#080808] p-3 space-y-1">
+                        <p className="text-[9px] uppercase tracking-wide text-[#444]">{kpi.label}</p>
+                        <p className="text-xl font-bold text-[#f5f0e8]">{kpi.value}</p>
+                        <p className="text-[10px] text-[#333]">{kpi.sub}</p>
+                      </div>
+                    ))}
+                  </div>
+
                   <div className="space-y-3">
                     {[
                       { label: "Contacted", value: stats.contacted, color: "#3b82f6" },
@@ -290,22 +335,33 @@ export default function ProfileOverview() {
                     })}
                   </div>
 
-                  {/* KPI grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+                  <div className="space-y-2">
+                    <p className="text-[10px] uppercase tracking-widest text-[#444]">Stage conversions vs benchmark</p>
                     {[
-                      { label: "Contact → Reply", rate: conversionRate(stats.replied, stats.contacted) },
-                      { label: "Reply → Booked", rate: conversionRate(stats.booked, stats.replied) },
-                      { label: "Booked → Closed", rate: conversionRate(stats.closed, stats.booked) },
-                      { label: "Overall Close", rate: conversionRate(stats.closed, stats.contacted) },
-                    ].map((item) => (
-                      <div key={item.label} className="rounded-xl border border-[#151515] bg-[#080808] p-3 text-center space-y-1">
-                        <p className="text-[9px] uppercase tracking-wide text-[#444]">{item.label}</p>
-                        <p className="text-xl font-bold text-[#f5f0e8]">{item.rate}</p>
-                      </div>
-                    ))}
+                      { label: "Contact → Reply", yours: conversionRate(stats.replied, stats.contacted), bench: "15–25%", raw: stats.contacted > 0 ? stats.replied / stats.contacted : null },
+                      { label: "Reply → Booked", yours: conversionRate(stats.booked, stats.replied), bench: "30–50%", raw: stats.replied > 0 ? stats.booked / stats.replied : null },
+                      { label: "Booked → Closed", yours: conversionRate(stats.closed, stats.booked), bench: "50–70%", raw: stats.booked > 0 ? stats.closed / stats.booked : null },
+                      { label: "Overall close", yours: conversionRate(stats.closed, stats.contacted), bench: "5–15%", raw: stats.contacted > 0 ? stats.closed / stats.contacted : null },
+                    ].map(({ label, yours, bench, raw }) => {
+                      const status = raw === null ? "none" : raw >= 0.5 ? "strong" : raw >= 0.15 ? "ok" : "weak";
+                      const c = status === "strong" ? "#4ade80" : status === "ok" ? "#c9a84c" : status === "weak" ? "#f87171" : "#333";
+                      return (
+                        <div key={label} className="flex items-center justify-between gap-2 rounded-lg border border-[#151515] bg-[#080808] px-3 py-2.5">
+                          <p className="text-[12px] text-[#666]">{label}</p>
+                          <div className="flex items-center gap-3">
+                            <p className="text-[11px] text-[#333]">Bench: {bench}</p>
+                            <p className="text-[12px] font-bold text-[#f5f0e8] tabular-nums">{yours}</p>
+                            {raw !== null && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ color: c, border: `1px solid ${c}30`, background: `${c}0a` }}>
+                                {status === "strong" ? "Strong" : status === "ok" ? "On track" : "Below avg"}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
 
-                  {/* Revenue */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-xl border border-[rgba(201,168,76,0.15)] bg-[rgba(201,168,76,0.03)] p-4 text-center space-y-1">
                       <p className="text-[9px] uppercase tracking-widest text-[#8a6e30]">Total Revenue</p>

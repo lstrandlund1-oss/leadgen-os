@@ -1,6 +1,6 @@
 // app/api/profile/route.ts
 import { NextResponse } from "next/server";
-import { getAuthUser } from "@/lib/supabaseServer";
+import { getAuthUser, createSupabaseServer } from "@/lib/supabaseServer";
 import { supabase } from "@/lib/supabaseClient";
 import type { UserProfileV1, CapabilityProfile } from "@/lib/types";
 import type { Capability } from "@/lib/fit/needs";
@@ -107,7 +107,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ profile, capabilities });
     }
 
-    const { error } = await supabase.from("user_profiles").upsert({
+    // Use authenticated server client so RLS policies are satisfied
+    const authedSupabase = await createSupabaseServer();
+    const { error } = await authedSupabase.from("user_profiles").upsert({
       id: profileId,
       profile_data: profile,
       capabilities_data: capabilities,

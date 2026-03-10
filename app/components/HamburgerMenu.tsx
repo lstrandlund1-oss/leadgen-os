@@ -42,8 +42,9 @@ export default function HamburgerMenu({
     { label: "Home", href: "/", icon: "◇" },
     { label: "Dashboard", href: "/dashboard", icon: "◈" },
     { label: "Profile", href: "/profile", icon: "◈" },
+    { label: "Analytics", href: "/analytics", icon: "◉" },
     { label: "Subscription Plans", href: "/plans", icon: "◆" },
-    { label: "Contact", href: "mailto:hello@leadgenos.com", icon: "◉" },
+    { label: "Contact & Support", href: "/contact", icon: "✉" },
   ];
 
   return (

@@ -49,15 +49,29 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
 
-  // Guard: if somehow middleware is bypassed, redirect to login
+  // Guard: if no session → login. If profile already exists → skip to dashboard.
   useEffect(() => {
     const supabase = createSupabaseBrowser();
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) {
         router.replace("/login?next=/onboarding");
-      } else {
-        setSessionChecked(true);
+        return;
       }
+      // Check if user already has a saved profile — if so, skip onboarding
+      try {
+        const res = await fetch("/api/profile");
+        if (res.ok) {
+          const json = await res.json();
+          // businessName being set means the user completed onboarding before
+          if (json.profile?.businessName) {
+            router.replace("/dashboard");
+            return;
+          }
+        }
+      } catch {
+        // If check fails, still show onboarding — safe fallback
+      }
+      setSessionChecked(true);
     });
   }, [router]);
 

@@ -8,6 +8,7 @@ import HamburgerMenu from "../components/HamburgerMenu";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import type { TranslationSchema as Translations } from "@/lib/i18n/types";
 import type { SocialPresenceFilter } from "@/lib/providers/types";
+import { useToast } from "../components/ToastProvider";
 
 const STORAGE_KEY = "leadgen_os_state_v1";
 
@@ -332,117 +333,99 @@ function getScoreReason(lead: Lead, language: Language): string {
 // ---------------------
 // Outreach upgrades
 // ---------------------
+// Returns the plain-text angle string (legacy compat)
 function getOutreachAngle(lead: LeadUI, language: Language): string {
-  const parts: string[] = [];
+  return getStructuredAngle(lead, language).body;
+}
+
+type StructuredAngle = { title: string; why: string; body: string };
+
+function getStructuredAngle(lead: LeadUI, language: Language): StructuredAngle {
   const industry = lead.classification.primaryIndustry.replaceAll("_", " ");
   const loc = leadLocation(lead);
-
   const oppInsight = getLocalizedOpportunityInsight(lead, language);
-
   const opportunity = lead.score.opportunity ?? 0;
   const risk = lead.score.risk ?? 0;
   const rp = lead.score.riskProfile;
-
-  // Prefer insight "type" if present (new system), otherwise fall back to numeric/risk profile logic.
   const type = oppInsight?.type ?? null;
+  const score = lead.score.value ?? 0;
+  const rep = lead.score.breakdown?.reputation ?? 0;
+  const digital = lead.score.breakdown?.digitalPresence ?? 0;
+  const name = lead.company.name;
 
   if (language === "en") {
-    if (oppInsight?.message) parts.push(`Opportunity: ${oppInsight.message}`);
-    parts.push(`Context: I'm reviewing ${industry} businesses in ${loc}.`);
-
-    // 1) Primary driver: insight type
+    let title = "";
+    let why = "";
     if (type === "conversion_gap") {
-      parts.push(
-        "Angle: Strong reputation, but weak conversion flow — this is a booking/leads system upgrade.",
-      );
+      title = "Conversion system upgrade";
+      why = `${name} has strong reputation (${rep}/100) and proven demand, but their conversion flow is leaking — visitors aren't turning into bookings. This angle lands well because the gap is visible and the business already has proof of market fit.`;
     } else if (type === "visibility_gap") {
-      parts.push(
-        "Angle: Solid foundation but low visibility — growth through visibility + demand capture.",
-      );
+      title = "Visibility + demand capture";
+      why = `${name} has solid fundamentals (score ${score}/100) but low digital presence (${digital}/100). Demand exists in their market but isn't being captured. The angle resonates because growth feels achievable — you're not asking them to fix broken basics.`;
     } else if (type === "foundation_gap") {
-      parts.push(
-        "Angle: Foundation gap — trust + capture must be fixed before scaling.",
-      );
+      title = "Foundation-first fix";
+      why = `${name} lacks core digital infrastructure. Without trust signals and a capture mechanism, any traffic spend is wasted. Frame your offer as a prerequisite to growth — not an optional add-on.`;
     } else if (type === "mature_competitor") {
-      parts.push(
-        "Angle: You’re already strong — winning here is differentiation + system leverage, not “more followers”.",
-      );
-    }
-    // 2) Secondary driver: risk profile
-    else if (rp === "unstable_business") {
-      parts.push(
-        "Angle: Quick fundamentals upgrade (trust + capture) before scaling.",
-      );
-    }
-    // 3) Numeric fallback
-    else if (opportunity >= 70 && risk <= 45) {
-      parts.push(
-        "Angle: Clear upside with manageable risk — direct growth system.",
-      );
+      title = "Differentiation + system leverage";
+      why = `${name} is already strong — generic growth pitches won't land. Lead with system efficiency and competitive differentiation. They don't need more followers; they need better conversion mechanics and a sharper edge.`;
+    } else if (rp === "unstable_business") {
+      title = "Stabilise before scaling";
+      why = `${name} shows instability signals (risk ${risk}/100). The pitch needs to build confidence first — frame your offer as a stabilising move that protects and compounds what they've built, rather than aggressive new growth.`;
+    } else if (opportunity >= 70 && risk <= 45) {
+      title = "Direct growth system";
+      why = `${name} has clear upside (opportunity ${opportunity}/100) with manageable risk (${risk}/100). Lead direct and confident — they have the foundation and market conditions to grow, they just need the right system to capture it.`;
     } else {
-      parts.push(
-        "Angle: Value-first teardown + one concrete change that improves bookings/leads.",
-      );
+      title = "Value-first teardown";
+      why = `${name} is a mixed-signal lead. The safest angle is a specific observation about their business followed by a free teardown offer. This lowers resistance and lets the value sell itself before you ask for anything.`;
     }
-
-    parts.push(
-      "Offer: 10–15 min teardown + a simple plan you can implement immediately.",
-    );
-    return parts.join(" ");
+    const body = [
+      oppInsight?.message ? `Opportunity: ${oppInsight.message}` : "",
+      `Context: I'm reviewing ${industry} businesses in ${loc}.`,
+      `Angle: ${title}.`,
+      `Offer: 10–15 min teardown + a simple plan you can implement immediately.`,
+    ].filter(Boolean).join(" ");
+    return { title, why, body };
   }
 
   if (language === "sv") {
-    if (oppInsight?.message) parts.push(`Opportunity: ${oppInsight.message}`);
-    parts.push(`Context: Jag går igenom ${industry} i ${loc}.`);
-
-    // 1) Primary driver: insight type
+    let title = "";
+    let why = "";
     if (type === "conversion_gap") {
-      parts.push(
-        "Vinkel: Stark reputation men svagt konverteringsflöde — detta är en boknings-/leads-systemuppgradering.",
-      );
+      title = "Konverteringssystemuppgradering";
+      why = `${name} har stark reputation (${rep}/100) och bevisad efterfrågan, men konverteringsflödet läcker — besökare omvandlas inte till bokningar. Hög mottaglighet eftersom gapet syns tydligt och efterfrågan redan är bevisad.`;
     } else if (type === "visibility_gap") {
-      parts.push(
-        "Vinkel: Stabil grund men låg synlighet — tillväxt via synlighet + bättre efterfråge-fångst.",
-      );
+      title = "Synlighet + efterfråge-fångst";
+      why = `${name} har stabil grund (score ${score}/100) men låg digital närvaro (${digital}/100). Efterfrågan finns men fångas inte. Vinkeln resonerar eftersom tillväxt känns uppnåelig — du ber dem inte laga grunden.`;
     } else if (type === "foundation_gap") {
-      parts.push(
-        "Vinkel: Grundglapp — förtroende + lead capture måste sitta innan man skalar.",
-      );
+      title = "Grund-fix först";
+      why = `${name} saknar digital infrastruktur. Utan förtroendesignaler och lead capture är all trafik bortkastad. Positionera ditt erbjudande som förutsättning för tillväxt.`;
     } else if (type === "mature_competitor") {
-      parts.push(
-        "Vinkel: Ni är redan starka — här handlar det om differentiering + systemhävarm, inte 'fler följare'.",
-      );
-    }
-    // 2) Secondary driver: risk profile
-    else if (rp === "unstable_business") {
-      parts.push(
-        "Vinkel: Snabb stabilisering av grunden (förtroende + lead capture) innan tillväxt.",
-      );
-    }
-    // 3) Numeric fallback
-    else if (opportunity >= 70 && risk <= 45) {
-      parts.push(
-        "Vinkel: Tydlig uppsida med hanterbar risk — direkt tillväxtsystem.",
-      );
+      title = "Differentiering + systemhävarm";
+      why = `${name} är redan starka — generiska pitchar landar inte. Fokusera på systemeffektivitet och differentiering. De behöver inte fler följare utan bättre konverteringsmekanik och en skarpare edge.`;
+    } else if (rp === "unstable_business") {
+      title = "Stabilisera innan skalning";
+      why = `${name} visar instabilitetstecken (risk ${risk}/100). Bygg förtroende först — rama in erbjudandet som en stabiliserande åtgärd som skyddar och förstärker det de byggt.`;
+    } else if (opportunity >= 70 && risk <= 45) {
+      title = "Direkt tillväxtsystem";
+      why = `${name} har tydlig uppsida (möjlighet ${opportunity}/100) med hanterbar risk (${risk}/100). Direkt och självsäker pitch — de har grunden och marknadsförutsättningarna, de behöver bara rätt system.`;
     } else {
-      parts.push(
-        "Vinkel: Värde-först teardown + en konkret förändring som ökar bokningar/leads.",
-      );
+      title = "Värde-först teardown";
+      why = `${name} är ett blandat lead. Säkraste vinkeln: en specifik observation om deras verksamhet följt av ett gratis teardown-erbjudande. Minskar motstånd och låter värdet sälja sig självt.`;
     }
-
-    parts.push(
-      "Erbjudande: 10–15 min teardown + enkel plan ni kan implementera direkt.",
-    );
-    return parts.join(" ");
+    const body = [
+      oppInsight?.message ? `Opportunity: ${oppInsight.message}` : "",
+      `Context: Jag går igenom ${industry} i ${loc}.`,
+      `Vinkel: ${title}.`,
+      `Erbjudande: 10–15 min teardown + enkel plan ni kan implementera direkt.`,
+    ].filter(Boolean).join(" ");
+    return { title, why, body };
   }
 
-  // Safety fallback (if Language ever expands)
-  if (oppInsight?.message) parts.push(`Opportunity: ${oppInsight.message}`);
-  parts.push(`Context: I'm reviewing ${industry} businesses in ${loc}.`);
-  parts.push(
-    "Offer: 10–15 min teardown + a simple plan you can implement immediately.",
-  );
-  return parts.join(" ");
+  return {
+    title: "Value-first teardown",
+    why: `${name} — lead with a specific observation and offer a free teardown.`,
+    body: `Context: I'm reviewing ${industry} businesses in ${loc}. Offer: 10–15 min teardown + a simple plan you can implement immediately.`,
+  };
 }
 
 type ProviderSearchResponse = {
@@ -526,6 +509,8 @@ async function runProviderSearchAndFetchLeads(args: {
 }
 
 export default function Home() {
+  const { success: toastSuccess, error: toastError, info: toastInfo } = useToast();
+
   // =====================
   // STATE
   // =====================
@@ -546,6 +531,8 @@ export default function Home() {
 
   const [niche, setNiche] = useState("");
   const [location, setLocation] = useState("");
+  const [showNicheDropdown, setShowNicheDropdown] = useState(false);
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [socialPresence, setSocialPresence] =
     useState<SocialPresenceFilter>("any");
 
@@ -664,6 +651,8 @@ export default function Home() {
         closed: patch.closed,
         revenue: patch.revenue,
         notes: patch.notes,
+        tonality: outreachVariant,
+        angleType: selectedLead ? getStructuredAngle(selectedLead as LeadUI, language).title : null,
       };
 
       const res = await fetch("/api/outcomes", {
@@ -681,6 +670,7 @@ export default function Home() {
 
       if (outcome) {
         setOutcomesByLeadId((prev) => ({ ...prev, [leadId]: outcome }));
+        setChecklistState(prev => ({ ...prev, hasOutcome: true }));
       }
     } finally {
       setIsSavingOutcome(false);
@@ -890,7 +880,14 @@ export default function Home() {
         const data = (await res.json().catch(() => ({}))) as {
           searches?: SearchRecord[];
         };
-        setRecentSearches(Array.isArray(data.searches) ? data.searches : []);
+        const searches = Array.isArray(data.searches) ? data.searches : [];
+        setRecentSearches(searches);
+        // Pre-fill from most recent search if fields are still empty
+        if (searches.length > 0) {
+          const latest = searches[0];
+          setNiche(prev => prev === "" && latest.niche ? latest.niche : prev);
+          setLocation(prev => prev === "" && latest.location ? latest.location : prev);
+        }
       } catch (e) {
         console.error("Error loading recent searches:", e);
       } finally {
@@ -902,14 +899,19 @@ export default function Home() {
   }, []);
 
   // Pre-fill location from saved profile if field is still empty
+  // Also check checklist completion
+  const [checklistDismissed, setChecklistDismissed] = useState(false);
+  const [checklistState, setChecklistState] = useState({ hasProfile: false, hasSearched: false, hasSelected: false, hasOutcome: false });
+
   useEffect(() => {
     fetch("/api/profile")
       .then((r) => r.json())
-      .then((data: { profile?: { targetLocation?: string } }) => {
+      .then((data: { profile?: { targetLocation?: string; businessName?: string } }) => {
         const geo = data?.profile?.targetLocation;
         if (geo && typeof geo === "string") {
           setLocation((prev) => (prev === "" ? geo : prev));
         }
+        setChecklistState(prev => ({ ...prev, hasProfile: !!(data?.profile?.businessName) }));
       })
       .catch(() => {});
   }, []);
@@ -995,6 +997,7 @@ export default function Home() {
     setIsLoading(true);
     setSearchError(null);
     setHasSearched(true);
+    setChecklistState(prev => ({ ...prev, hasSearched: true }));
 
     try {
       const providerLeads = await runProviderSearchAndFetchLeads({
@@ -1009,15 +1012,21 @@ export default function Home() {
         setRunId(providerLeads.runId);
         setNextCursor(providerLeads.nextCursor);
         setExhausted(providerLeads.exhausted);
-
         setSelectedLead(null);
+        if (providerLeads.leads.length > 0) {
+          toastSuccess(`Found ${providerLeads.leads.length} lead${providerLeads.leads.length !== 1 ? "s" : ""}`);
+        } else {
+          toastInfo("No leads found — try a different niche or location");
+        }
         return;
       }
     } catch (error) {
       console.error("Error fetching leads:", error);
       setLeads([]);
       setSelectedLead(null);
-      setSearchError(error instanceof Error ? error.message : "Something went wrong. Please try again.");
+      const msg = error instanceof Error ? error.message : "Something went wrong. Please try again.";
+      setSearchError(msg);
+      toastError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -1080,6 +1089,7 @@ export default function Home() {
     a.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+    toastSuccess(`Exported ${sortedLeads.length} lead${sortedLeads.length !== 1 ? "s" : ""} to CSV`);
   }
 
 
@@ -1114,6 +1124,40 @@ export default function Home() {
             🔍 Leads
           </span>
         </nav>
+
+        {/* Onboarding checklist — shown until all steps done or dismissed */}
+        {!checklistDismissed && !(checklistState.hasProfile && checklistState.hasSearched && checklistState.hasSelected && checklistState.hasOutcome) && (
+          <section className="bg-[#0d0d0d] border border-[#252525] rounded-2xl p-4 md:p-5 shadow-xl shadow-black/40">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-widest text-[#c9a84c] mb-0.5">Getting started</p>
+                <p className="text-sm text-[#888] leading-snug">Complete these steps to get the most out of LeadGenOS.</p>
+              </div>
+              <button type="button" onClick={() => setChecklistDismissed(true)} className="text-[#333] hover:text-[#555] text-lg leading-none mt-0.5 shrink-0" title="Dismiss">×</button>
+            </div>
+            <div className="space-y-2">
+              {[
+                { done: checklistState.hasProfile,   label: "Set up your profile",    sub: "Tell us your business type and target market",  href: "/profile/settings" },
+                { done: checklistState.hasSearched,  label: "Run your first search",  sub: "Enter a niche + location and score your first leads",  href: null },
+                { done: checklistState.hasSelected,  label: "Open a lead",            sub: "Click any lead to see signals, gap analysis, and outreach script", href: null },
+                { done: checklistState.hasOutcome,   label: "Log an outcome",         sub: "Mark a lead as contacted, replied, or booked", href: null },
+              ].map(({ done, label, sub, href }) => (
+                <div key={label} className={`flex items-start gap-3 rounded-lg px-3 py-2.5 border transition-colors ${done ? "border-[#1a1a1a] opacity-50" : "border-[#252525] bg-[#111]"}`}>
+                  <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${done ? "border-[#4ade80] bg-[#4ade80]/10" : "border-[#333]"}`}>
+                    {done && <span className="text-[9px] text-[#4ade80]">✓</span>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-[12px] font-medium ${done ? "line-through text-[#444]" : "text-[#c8c0b0]"}`}>{label}</p>
+                    <p className="text-[11px] text-[#444] mt-0.5">{sub}</p>
+                  </div>
+                  {!done && href && (
+                    <a href={href} className="shrink-0 text-[11px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors mt-0.5">Go →</a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {recentSearches.length > 0 && (
           <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 shadow-xl shadow-black/40 space-y-3">
@@ -1180,7 +1224,7 @@ export default function Home() {
           <h2 className="text-xl font-semibold">{t.ui.filters.title}</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-1">
+              <div className="space-y-1 relative">
                 <label className="block text-sm font-medium">
                   {t.ui.filters.nicheLabel}
                 </label>
@@ -1188,9 +1232,25 @@ export default function Home() {
                   type="text"
                   value={niche}
                   onChange={(e) => setNiche(e.target.value)}
+                  onFocus={() => setShowNicheDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowNicheDropdown(false), 150)}
                   placeholder="e.g. real estate, tattoo studio"
                   className="w-full rounded-lg bg-[#111111] border border-[#2a2a2a] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
+                {showNicheDropdown && recentSearches.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border border-[#252525] bg-[#111] shadow-xl overflow-hidden">
+                    <p className="text-[10px] uppercase tracking-widests text-[#444] px-3 pt-2.5 pb-1">Recent searches</p>
+                    {recentSearches.slice(0, 5).map((s, i) => (
+                      <button key={i} type="button"
+                        onMouseDown={() => { setNiche(s.niche || ""); setLocation(s.location || ""); setShowNicheDropdown(false); }}
+                        className="w-full text-left px-3 py-2 text-[12px] text-[#888] hover:bg-[#1a1a1a] hover:text-[#c8c0b0] transition-colors flex items-center justify-between"
+                      >
+                        <span>{s.niche || "—"}</span>
+                        <span className="text-[#444]">{s.location || ""}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col gap-2">
@@ -1206,11 +1266,13 @@ export default function Home() {
                   className="bg-[#111111] border border-[#2a2a2a] rounded-md px-3 py-2 text-sm"
                 >
                   <option value="google_places">Google Places</option>
-                  <option value="mock">Mock (Dev)</option>
+                  {process.env.NEXT_PUBLIC_SHOW_MOCK_PROVIDER === "true" && (
+                    <option value="mock">Mock (Dev)</option>
+                  )}
                 </select>
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1 relative">
                 <label className="block text-sm font-medium">
                   {t.ui.filters.locationLabel}
                 </label>
@@ -1218,9 +1280,25 @@ export default function Home() {
                   type="text"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
+                  onFocus={() => setShowLocationDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowLocationDropdown(false), 150)}
                   placeholder="e.g. Stockholm"
                   className="w-full rounded-lg bg-[#111111] border border-[#2a2a2a] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
+                {showLocationDropdown && recentSearches.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border border-[#252525] bg-[#111] shadow-xl overflow-hidden">
+                    <p className="text-[10px] uppercase tracking-widests text-[#444] px-3 pt-2.5 pb-1">Recent searches</p>
+                    {recentSearches.slice(0, 5).map((s, i) => (
+                      <button key={i} type="button"
+                        onMouseDown={() => { setNiche(s.niche || ""); setLocation(s.location || ""); setShowLocationDropdown(false); }}
+                        className="w-full text-left px-3 py-2 text-[12px] text-[#888] hover:bg-[#1a1a1a] hover:text-[#c8c0b0] transition-colors flex items-center justify-between"
+                      >
+                        <span>{s.location || "—"}</span>
+                        <span className="text-[#444]">{s.niche || ""}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -1335,15 +1413,20 @@ export default function Home() {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleLoadMore}
-              disabled={
-                isLoading || exhausted || nextCursor == null || runId == null
-              }
-            >
-              Load more
-            </button>
+            {/* Load more */}
+            {!exhausted && nextCursor !== null && runId !== null && (
+              <button
+                type="button"
+                onClick={handleLoadMore}
+                disabled={isLoading}
+                className="text-xs border border-[#333] rounded-lg px-4 py-1.5 bg-[#111111]/60 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#1a1a1a] transition text-[#888] hover:text-[#c8c0b0]"
+              >
+                {isLoading ? "Loading…" : `Load more`}
+              </button>
+            )}
+            {exhausted && leads.length > 0 && (
+              <span className="text-[11px] text-[#333]">All leads loaded</span>
+            )}
 
             <button
               type="button"
@@ -1483,7 +1566,7 @@ export default function Home() {
                     return (
                       <Fragment key={lead.id}>
                         <tr
-                          onClick={() => setSelectedLead(lead)}
+                          onClick={() => { setSelectedLead(lead); setChecklistState(prev => ({ ...prev, hasSelected: true })); }}
                           className={
                             "border-b border-[#252525] hover:bg-[#111111]/70 cursor-pointer " +
                             (isSelected ? "bg-[#111111]/90" : "")
@@ -1910,7 +1993,23 @@ export default function Home() {
 
                                       {/* Website enrichment */}
                                       {enrichmentLoading && (
-                                        <div className="text-xs text-[#555] animate-pulse px-1">Scanning website signals…</div>
+                                        <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] p-4 flex items-center gap-3">
+                                          <div className="w-3.5 h-3.5 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin shrink-0" />
+                                          <span className="text-[12px] text-[#555]">Scanning website signals…</span>
+                                        </div>
+                                      )}
+                                      {!safeEnrichment && !enrichmentLoading && detailLead.company.website && (
+                                        <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] p-4 space-y-1">
+                                          <p className="text-[10px] uppercase tracking-widests text-[#555]">Website Signals</p>
+                                          <p className="text-[12px] text-[#444]">Could not scan website — it may be unreachable or blocking automated requests.</p>
+                                          <p className="text-[11px] text-[#333]">{detailLead.company.website}</p>
+                                        </div>
+                                      )}
+                                      {!safeEnrichment && !enrichmentLoading && !detailLead.company.website && (
+                                        <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] p-4">
+                                          <p className="text-[10px] uppercase tracking-widests text-[#555] mb-1">Website Signals</p>
+                                          <p className="text-[12px] text-[#444]">No website on record — signals unavailable.</p>
+                                        </div>
                                       )}
 
                                       {safeEnrichment && !enrichmentLoading && (
@@ -1998,14 +2097,27 @@ export default function Home() {
                                       )}
 
                                       {/* Angle from engine */}
-                                      {(angleTitle || getOutreachAngle(detailLead, language)) && (
-                                        <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] p-3">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#555] mb-1.5">{t.ui.detail.suggestedAngle}</p>
-                                          {angleTitle && <p className="text-[13px] font-semibold text-[#f5f0e8] mb-1">{angleTitle}</p>}
-                                          {angleWhy && <p className="text-[11px] text-[#666] leading-relaxed">{angleWhy}</p>}
-                                          {!angleTitle && <p className="text-[12px] text-[#c8c0b0] leading-relaxed">{getOutreachAngle(detailLead, language)}</p>}
-                                        </div>
-                                      )}
+                                      {(() => {
+                                        const structured = getStructuredAngle(detailLead, language);
+                                        const title = angleTitle || structured.title;
+                                        const why = angleWhy || structured.why;
+                                        return (
+                                          <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] p-3 space-y-2">
+                                            <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.suggestedAngle}</p>
+                                            {title && (
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-[10px] px-2 py-0.5 rounded-md border border-[#c9a84c]/30 bg-[#c9a84c]/8 text-[#c9a84c] font-medium tracking-wide">{title}</span>
+                                              </div>
+                                            )}
+                                            {why && (
+                                              <div className="rounded-md border border-[#1e1e1e] bg-[#111] px-3 py-2">
+                                                <p className="text-[10px] uppercase tracking-widest text-[#444] mb-1">Why this angle</p>
+                                                <p className="text-[11px] text-[#777] leading-relaxed">{why}</p>
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
 
                                       {/* Script */}
                                       <div className="space-y-2">
@@ -2024,7 +2136,7 @@ export default function Home() {
                                             )}
                                           </div>
                                           <button type="button"
-                                            onClick={async () => { try { await navigator.clipboard.writeText(scriptText); } catch (e) { console.error(e); } }}
+                                            onClick={async () => { try { await navigator.clipboard.writeText(scriptText); toastSuccess("Copied to clipboard"); } catch (e) { console.error(e); toastError("Failed to copy"); } }}
                                             disabled={!scriptText}
                                             className="text-[11px] px-2.5 py-1 rounded-md border border-[#2a2a2a] bg-[#111] hover:bg-[#1a1a1a] disabled:opacity-40 transition-colors">
                                             {t.ui.detail.copy}
