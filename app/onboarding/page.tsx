@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -9,6 +9,7 @@ import {
   type ProfileTypeKey,
 } from "@/lib/profile/profileTypes";
 import type { Capability } from "@/lib/fit/needs";
+import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 
 const ALL_CAPABILITIES: Capability[] = [
   "ads",
@@ -46,6 +47,19 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
+
+  // Guard: if somehow middleware is bypassed, redirect to login
+  useEffect(() => {
+    const supabase = createSupabaseBrowser();
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) {
+        router.replace("/login?next=/onboarding");
+      } else {
+        setSessionChecked(true);
+      }
+    });
+  }, [router]);
 
   const [profileType, setProfileType] = useState<ProfileTypeKey>(
     "performance_marketer",
@@ -63,6 +77,7 @@ export default function OnboardingPage() {
   const [targetBusinessSize, setTargetBusinessSize] = useState<
     "small" | "medium" | "large"
   >("small");
+  const [targetLocation, setTargetLocation] = useState("");
 
   function handleProfileTypeChange(key: ProfileTypeKey) {
     setProfileType(key);
@@ -82,6 +97,7 @@ export default function OnboardingPage() {
           targetBusinessSize,
           acquisitionStyle,
           budgetPreference: "medium",
+          targetLocation,
           capabilities,
         }),
       });
@@ -91,6 +107,15 @@ export default function OnboardingPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  // Show nothing while verifying session to avoid flash of content
+  if (!sessionChecked) {
+    return (
+      <div className="min-h-screen bg-[#080808] flex items-center justify-center">
+        <div className="w-5 h-5 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin" />
+      </div>
+    );
   }
 
   return (
@@ -330,6 +355,22 @@ export default function OnboardingPage() {
                       : acquisitionStyle === "premium"
                         ? "Stricter qualification — only high-readiness leads."
                         : "Balanced scoring — best for most service providers."}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[11px] uppercase tracking-widest text-[#666]">
+                    Target Geography
+                  </label>
+                  <input
+                    type="text"
+                    value={targetLocation}
+                    onChange={(e) => setTargetLocation(e.target.value)}
+                    placeholder="e.g. Stockholm, London, New York"
+                    className="w-full bg-[#111] border border-[#252525] rounded-lg px-4 py-2.5 text-sm text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.5)] transition-colors"
+                  />
+                  <p className="text-[11px] text-[#444]">
+                    Pre-fills your location filter. Leave blank to search anywhere.
                   </p>
                 </div>
 

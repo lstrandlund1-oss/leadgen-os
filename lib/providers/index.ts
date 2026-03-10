@@ -9,34 +9,12 @@ import type {
 import { mockAdapter } from "./mock/adapter";
 import { assertProviderResult } from "./validate";
 import { googlePlacesAdapter } from "./googlePlaces";
+import { serpAdapter } from "./serp";
 
 const registry: Record<ProviderName, ProviderAdapter> = {
   mock: mockAdapter,
-
-  // Stubs: return well-formed ProviderResult with an explicit error.
   google_places: googlePlacesAdapter,
-
-  serp: {
-    name: "serp",
-    async search(intent) {
-      return {
-        ok: false,
-        error: {
-          code: "UNKNOWN",
-          message: "serp adapter not implemented yet",
-          retryable: false,
-        },
-        meta: {
-          provider: "serp",
-          requestId: intent.requestId,
-          fetchedCount: 0,
-          returnedCount: 0,
-          nextCursor: null,
-          exhausted: true,
-        },
-      };
-    },
-  },
+  serp: serpAdapter,
 };
 
 export function getProviderAdapter(provider: ProviderName): ProviderAdapter {

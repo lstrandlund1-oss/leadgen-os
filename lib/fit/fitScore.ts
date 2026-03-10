@@ -7,7 +7,54 @@ export type FitResult = {
   matchedNeeds: Capability[];
   missingNeeds: Capability[];
   reasons: string[];
+  geoMatch?: "exact" | "partial" | "none" | "unset";
 };
+
+// Normalise a location string for fuzzy matching
+function normLoc(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim();
+}
+
+function scoreGeo(
+  targetLocation: string | undefined,
+  city: string | null | undefined,
+  country: string | null | undefined,
+): { modifier: number; match: "exact" | "partial" | "none" | "unset"; reason: string } {
+  if (!targetLocation || !targetLocation.trim()) {
+    return { modifier: 0, match: "unset", reason: "" };
+  }
+
+  const target = normLoc(targetLocation);
+  const parts = target.split(/[\s,]+/).filter(Boolean);
+  const haystack = normLoc(`${city ?? ""} ${country ?? ""}`);
+
+  // Exact: every token in target found in haystack
+  const exactMatch = parts.every((p) => haystack.includes(p));
+  if (exactMatch) {
+    return {
+      modifier: 12,
+      match: "exact",
+      reason: `Geography match: lead is in target area (${targetLocation}).`,
+    };
+  }
+
+  // Partial: at least one token matches
+  const partialMatch = parts.some((p) => haystack.includes(p));
+  if (partialMatch) {
+    return {
+      modifier: 5,
+      match: "partial",
+      reason: `Geography partial match: lead overlaps with target area (${targetLocation}).`,
+    };
+  }
+
+  // No match — penalise slightly so in-area leads surface first
+  return {
+    modifier: -8,
+    match: "none",
+    reason: `Geography mismatch: lead is outside target area (${targetLocation}).`,
+  };
+}
 
 /**
  * Deterministic weighted fit scoring:
@@ -19,13 +66,16 @@ export function scoreFit(
   userProfile: UserProfileV1,
   capabilityProfile: CapabilityProfile,
   needs: WeightedNeed[],
+  leadLocation?: { city?: string | null; country?: string | null },
 ): FitResult {
   if (!needs.length) {
+    const geo = scoreGeo(userProfile.targetLocation, leadLocation?.city, leadLocation?.country);
     return {
       fitScore: 50,
       matchedNeeds: [],
       missingNeeds: [],
-      reasons: ["No clear need signature detected yet → neutral fit."],
+      reasons: ["No clear need signature detected yet → neutral fit.", ...(geo.reason ? [geo.reason] : [])],
+      geoMatch: geo.match,
     };
   }
 
@@ -74,9 +124,10 @@ export function scoreFit(
 
   const baseFitScore =
     totalWeight > 0 ? Math.round((matchedWeight / totalWeight) * 100) : 50;
+  const geo = scoreGeo(userProfile.targetLocation, leadLocation?.city, leadLocation?.country);
   const finalFitScore = Math.max(
     0,
-    Math.min(100, baseFitScore + profileModifier),
+    Math.min(100, baseFitScore + profileModifier + geo.modifier),
   );
 
   const reasons: string[] = [];
@@ -86,12 +137,14 @@ export function scoreFit(
 
   if (matched.length) reasons.push(`Matches: ${matched.join(", ")}.`);
   if (missing.length) reasons.push(`Missing: ${missing.join(", ")}.`);
+  if (geo.reason) reasons.push(geo.reason);
 
   return {
     fitScore: finalFitScore,
     matchedNeeds: matched,
     missingNeeds: missing,
     reasons: [...reasons, ...profileReasons],
+    geoMatch: geo.match,
   };
 }
 

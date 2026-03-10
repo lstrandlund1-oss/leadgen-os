@@ -1,0 +1,12 @@
+// lib/supabaseBrowser.ts
+// Browser-side Supabase client — use in "use client" components only.
+// Handles session persistence via localStorage automatically.
+
+import { createBrowserClient } from "@supabase/ssr";
+
+export function createSupabaseBrowser() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}

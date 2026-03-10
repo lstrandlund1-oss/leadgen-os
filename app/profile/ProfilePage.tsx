@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Language } from "@/lib/types";
 import type { Capability } from "@/lib/fit/needs";
 import {
   PROFILE_TYPE_DEFINITIONS,
@@ -16,6 +15,7 @@ type ProfileData = {
   targetBusinessSize: "small" | "medium" | "large";
   acquisitionStyle: "aggressive" | "balanced" | "premium";
   budgetPreference: "low" | "medium" | "high";
+  targetLocation: string;
 };
 
 type OutcomeStats = {
@@ -23,6 +23,7 @@ type OutcomeStats = {
   replied: number;
   booked: number;
   closed: number;
+  totalRevenue: number;
 };
 
 const ALL_CAPABILITIES: Capability[] = [
@@ -55,7 +56,7 @@ const CAPABILITY_ICONS: Record<Capability, string> = {
   crm: "🤝",
 };
 
-export default function ProfilePage({ language: _language }: { language: Language }) {
+export default function ProfilePage() {
   const [profile, setProfile] = useState<ProfileData>({
     profileType: "performance_marketer",
     businessName: "",
@@ -63,6 +64,7 @@ export default function ProfilePage({ language: _language }: { language: Languag
     targetBusinessSize: "small",
     acquisitionStyle: "balanced",
     budgetPreference: "medium",
+    targetLocation: "",
   });
 
   const [capabilities, setCapabilities] = useState<Record<Capability, boolean>>(
@@ -90,7 +92,7 @@ export default function ProfilePage({ language: _language }: { language: Languag
       try {
         const [profileRes, outcomesRes] = await Promise.all([
           fetch("/api/profile"),
-          fetch("/api/outcomes"),
+          fetch("/api/outcomes?all=true"),
         ]);
 
         if (profileRes.ok) {
@@ -105,6 +107,7 @@ export default function ProfilePage({ language: _language }: { language: Languag
               acquisitionStyle:
                 data.profile.acquisitionStyle ?? "balanced",
               budgetPreference: data.profile.budgetPreference ?? "medium",
+              targetLocation: data.profile.targetLocation ?? "",
             });
           }
           if (data.capabilities?.capabilities) {
@@ -119,6 +122,7 @@ export default function ProfilePage({ language: _language }: { language: Languag
             replied?: boolean;
             booked_call?: boolean;
             closed?: boolean;
+            revenue?: number | null;
           }> = outcomesData.outcomes ?? [];
 
           setStats({
@@ -126,6 +130,7 @@ export default function ProfilePage({ language: _language }: { language: Languag
             replied: outcomes.filter((o) => o.replied).length,
             booked: outcomes.filter((o) => o.booked_call).length,
             closed: outcomes.filter((o) => o.closed).length,
+            totalRevenue: outcomes.reduce((sum, o) => sum + (o.revenue ?? 0), 0),
           });
         }
       } catch (err) {
@@ -158,6 +163,7 @@ export default function ProfilePage({ language: _language }: { language: Languag
           targetBusinessSize: profile.targetBusinessSize,
           acquisitionStyle: profile.acquisitionStyle,
           budgetPreference: profile.budgetPreference,
+          targetLocation: profile.targetLocation,
           capabilities,
         }),
       });
@@ -225,6 +231,23 @@ export default function ProfilePage({ language: _language }: { language: Languag
                 placeholder="e.g. Spark Agency"
                 className="w-full bg-[#080808] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-[#f5f0e8] placeholder-slate-600 focus:outline-none focus:border-[#c9a84c]"
               />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase tracking-wide text-[#888]">
+                Target Geography
+              </label>
+              <input
+                type="text"
+                value={profile.targetLocation}
+                onChange={(e) =>
+                  setProfile((p: ProfileData) => ({ ...p, targetLocation: e.target.value }))
+                }
+                placeholder="e.g. Stockholm, London, New York"
+                className="w-full bg-[#080808] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-[#f5f0e8] placeholder-slate-600 focus:outline-none focus:border-[#c9a84c]"
+              />
+              <p className="text-[11px] text-[#444]">
+                Pre-fills the location field when you search. Leave blank to search anywhere.
+              </p>
             </div>
           </section>
 
@@ -516,6 +539,28 @@ export default function ProfilePage({ language: _language }: { language: Languag
                       </p>
                     </div>
                   ))}
+                </div>
+
+                {/* Revenue summary */}
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div className="rounded-xl border border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.04)] p-4 text-center space-y-1">
+                    <p className="text-[10px] uppercase tracking-widest text-[#8a6e30]">Total Revenue</p>
+                    <p className="text-2xl font-bold text-[#c9a84c]">
+                      {stats.totalRevenue > 0
+                        ? `$${stats.totalRevenue.toLocaleString()}`
+                        : "—"}
+                    </p>
+                    <p className="text-[11px] text-[#555]">from {stats.closed} closed deal{stats.closed !== 1 ? "s" : ""}</p>
+                  </div>
+                  <div className="rounded-xl border border-[#252525] bg-[#111111]/50 p-4 text-center space-y-1">
+                    <p className="text-[10px] uppercase tracking-widest text-[#888]">Avg Deal Size</p>
+                    <p className="text-2xl font-bold text-[#f5f0e8]">
+                      {stats.closed > 0 && stats.totalRevenue > 0
+                        ? `$${Math.round(stats.totalRevenue / stats.closed).toLocaleString()}`
+                        : "—"}
+                    </p>
+                    <p className="text-[11px] text-[#555]">per closed lead</p>
+                  </div>
                 </div>
               </>
             )}

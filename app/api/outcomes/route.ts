@@ -1,5 +1,6 @@
 // app/api/outcomes/route.ts
 import { NextResponse } from "next/server";
+import { getAuthUser } from "@/lib/supabaseServer";
 import { supabase } from "@/lib/supabaseClient";
 
 type OutcomePayload = {
@@ -15,6 +16,8 @@ type OutcomePayload = {
 };
 
 export async function POST(request: Request) {
+  const authUser = await getAuthUser();
+  const userId = authUser?.id ?? null;
   try {
     if (!supabase) {
       return NextResponse.json(
@@ -32,7 +35,7 @@ export async function POST(request: Request) {
     const payload = {
       run_id: body.runId,
       lead_id: body.leadId,
-      user_id: null, // auth later
+      user_id: userId,
 
       contacted: body.contacted ?? false,
       replied: body.replied ?? false,
@@ -69,9 +72,27 @@ export async function GET(request: Request) {
       );
     }
 
-    const { searchParams } = new URL(request.url);
-    const runId = Number(searchParams.get("runId"));
+    const authUser = await getAuthUser();
+    const userId = authUser?.id ?? null;
 
+    const { searchParams } = new URL(request.url);
+    const runIdParam = searchParams.get("runId");
+    const allRuns = searchParams.get("all") === "true";
+
+    // User-scoped all-runs query (for profile stats)
+    if (allRuns) {
+      let query = supabase.from("lead_outcomes").select("*");
+      if (userId) query = query.eq("user_id", userId);
+
+      const { data, error } = await query;
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ outcomes: data ?? [] }, { status: 200 });
+    }
+
+    // Per-run query (for dashboard tracking tab)
+    const runId = Number(runIdParam);
     if (!Number.isFinite(runId) || runId <= 0) {
       return NextResponse.json({ error: "Invalid runId" }, { status: 400 });
     }

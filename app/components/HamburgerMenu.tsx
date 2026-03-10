@@ -2,20 +2,25 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 
 type HamburgerMenuProps = {
   hasProfile?: boolean;
   language?: string;
   onLanguageChange?: (lang: "en" | "sv") => void;
+  userEmail?: string;
 };
 
 export default function HamburgerMenu({
-  hasProfile = false,
   language,
   onLanguageChange,
+  userEmail,
 }: HamburgerMenuProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const supabase = createSupabaseBrowser();
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -27,10 +32,16 @@ export default function HamburgerMenu({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
+
   const menuItems = [
     { label: "Home", href: "/", icon: "◇" },
     { label: "Dashboard", href: "/dashboard", icon: "◈" },
-    { label: "Profile Settings", href: "/profile", icon: "⚙️" },
+    { label: "Profile", href: "/profile", icon: "◈" },
     { label: "Subscription Plans", href: "/plans", icon: "◆" },
     { label: "Contact", href: "mailto:hello@leadgenos.com", icon: "◉" },
   ];
@@ -54,6 +65,17 @@ export default function HamburgerMenu({
         <div className="absolute right-0 mt-3 w-56 rounded-xl border border-[rgba(201,168,76,0.3)] bg-[#111] shadow-2xl overflow-hidden">
           <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-[#c9a84c] to-transparent" />
 
+          {/* User email */}
+          {userEmail && (
+            <>
+              <div className="px-4 py-3">
+                <p className="text-[10px] tracking-[0.15em] uppercase text-[#555] mb-0.5">Signed in as</p>
+                <p className="text-[12px] text-[#888] truncate">{userEmail}</p>
+              </div>
+              <div className="h-[1px] w-full bg-[#1a1a1a]" />
+            </>
+          )}
+
           <div className="py-2">
             {menuItems.map((item, i) => (
               <Link
@@ -68,7 +90,7 @@ export default function HamburgerMenu({
             ))}
           </div>
 
-          {/* Language switcher — only shown when onLanguageChange is provided */}
+          {/* Language switcher */}
           {onLanguageChange && (
             <>
               <div className="h-[1px] w-full bg-[#252525]" />
@@ -93,6 +115,19 @@ export default function HamburgerMenu({
               </div>
             </>
           )}
+
+          {/* Sign out */}
+          <div className="h-[1px] w-full bg-[#252525]" />
+          <div className="py-2">
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="flex items-center gap-3 px-4 py-3 w-full text-sm text-[#666] hover:bg-[#1a1a1a] hover:text-rose-400 transition-colors group"
+            >
+              <span className="text-[#444] group-hover:text-rose-500 transition-colors text-xs">⎋</span>
+              <span className="tracking-wide">Sign Out</span>
+            </button>
+          </div>
 
           <div className="h-[1px] w-full bg-[#1a1a1a]" />
           <div className="px-4 py-2">

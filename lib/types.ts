@@ -51,6 +51,9 @@ export type UserProfileV1 = {
   // Target preference
   targetBusinessSize: "small" | "medium" | "large";
 
+  // Geography targeting
+  targetLocation?: string;
+
   // Strategy bias
   acquisitionStyle: "aggressive" | "balanced" | "premium";
 

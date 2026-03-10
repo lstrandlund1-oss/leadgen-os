@@ -1,8 +1,6 @@
 // app/api/profile/route.ts
-// GET  /api/profile  → returns saved profile or default
-// POST /api/profile  → saves profile
-
 import { NextResponse } from "next/server";
+import { getAuthUser } from "@/lib/supabaseServer";
 import { supabase } from "@/lib/supabaseClient";
 import type { UserProfileV1, CapabilityProfile } from "@/lib/types";
 import type { Capability } from "@/lib/fit/needs";
@@ -12,7 +10,7 @@ import {
   isValidProfileTypeKey,
 } from "@/lib/profile/profileTypes";
 
-const PROFILE_ID = "user_v1"; // single-user beta — one profile row
+const FALLBACK_ID = "user_v1";
 
 type ProfileRow = {
   id: string;
@@ -21,49 +19,54 @@ type ProfileRow = {
   updated_at: string;
 };
 
-function defaultProfile(): { profile: UserProfileV1; capabilities: CapabilityProfile } {
+function defaultProfile(id: string) {
   return {
-    profile: buildUserProfile(PROFILE_ID, "performance_marketer"),
-    capabilities: buildCapabilityProfile(PROFILE_ID, "performance_marketer"),
+    profile: buildUserProfile(id, "performance_marketer"),
+    capabilities: buildCapabilityProfile(id, "performance_marketer"),
   };
 }
 
 export async function GET() {
   try {
+    const user = await getAuthUser();
+    const profileId = user?.id ?? FALLBACK_ID;
+
     if (!supabase) {
-      const d = defaultProfile();
+      const d = defaultProfile(profileId);
       return NextResponse.json({ profile: d.profile, capabilities: d.capabilities });
     }
 
     const { data, error } = await supabase
       .from("user_profiles")
       .select("id, profile_data, capabilities_data, updated_at")
-      .eq("id", PROFILE_ID)
+      .eq("id", profileId)
       .maybeSingle();
 
     if (error) throw error;
 
     if (!data) {
-      const d = defaultProfile();
+      const d = defaultProfile(profileId);
       return NextResponse.json({ profile: d.profile, capabilities: d.capabilities });
     }
 
     const row = data as ProfileRow;
-    const profile = row.profile_data as UserProfileV1;
-    const capabilities = row.capabilities_data as CapabilityProfile;
-
-    return NextResponse.json({ profile, capabilities });
+    return NextResponse.json({
+      profile: row.profile_data as UserProfileV1,
+      capabilities: row.capabilities_data as CapabilityProfile,
+    });
   } catch (err) {
     console.error("/api/profile GET error:", err);
-    const d = defaultProfile();
+    const d = defaultProfile(FALLBACK_ID);
     return NextResponse.json({ profile: d.profile, capabilities: d.capabilities });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const user = await getAuthUser();
+    const profileId = user?.id ?? FALLBACK_ID;
 
+    const body = await request.json();
     const {
       profileType,
       businessName,
@@ -71,6 +74,7 @@ export async function POST(request: Request) {
       targetBusinessSize,
       acquisitionStyle,
       budgetPreference,
+      targetLocation,
       capabilities: capOverrides,
     }: {
       profileType?: string;
@@ -79,38 +83,36 @@ export async function POST(request: Request) {
       targetBusinessSize?: UserProfileV1["targetBusinessSize"];
       acquisitionStyle?: UserProfileV1["acquisitionStyle"];
       budgetPreference?: UserProfileV1["budgetPreference"];
+      targetLocation?: string;
       capabilities?: Partial<Record<Capability, boolean>>;
     } = body;
 
-    // Build from type defaults then apply overrides
-    const validKey = isValidProfileTypeKey(profileType ?? "") ? profileType! : "performance_marketer";
-    const profile = buildUserProfile(PROFILE_ID, validKey as Parameters<typeof buildUserProfile>[1], {
+    const validKey = isValidProfileTypeKey(profileType ?? "")
+      ? (profileType as Parameters<typeof buildUserProfile>[1])
+      : "performance_marketer";
+
+    const profile = buildUserProfile(profileId, validKey, {
       ...(businessName ? { businessName } : {}),
       ...(experienceLevel ? { experienceLevel } : {}),
       ...(targetBusinessSize ? { targetBusinessSize } : {}),
       ...(acquisitionStyle ? { acquisitionStyle } : {}),
       ...(budgetPreference ? { budgetPreference } : {}),
+      ...(targetLocation !== undefined ? { targetLocation } : {}),
       profileType: validKey,
     });
 
-    const capabilities = buildCapabilityProfile(
-      PROFILE_ID,
-      validKey as Parameters<typeof buildCapabilityProfile>[1],
-      capOverrides,
-    );
+    const capabilities = buildCapabilityProfile(profileId, validKey, capOverrides);
 
     if (!supabase) {
       return NextResponse.json({ profile, capabilities });
     }
 
-    const { error } = await supabase
-      .from("user_profiles")
-      .upsert({
-        id: PROFILE_ID,
-        profile_data: profile,
-        capabilities_data: capabilities,
-        updated_at: new Date().toISOString(),
-      });
+    const { error } = await supabase.from("user_profiles").upsert({
+      id: profileId,
+      profile_data: profile,
+      capabilities_data: capabilities,
+      updated_at: new Date().toISOString(),
+    });
 
     if (error) throw error;
 

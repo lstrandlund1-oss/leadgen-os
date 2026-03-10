@@ -21,6 +21,7 @@ import {
   buildCapabilityProfile,
   isValidProfileTypeKey,
 } from "@/lib/profile/profileTypes";
+import { getAuthUser } from "@/lib/supabaseServer";
 import type { UserProfileV1, CapabilityProfile } from "@/lib/types";
 import {
   deriveDifficulty,
@@ -287,18 +288,19 @@ async function fetchRunIntent(
 
 async function fetchUserProfile(
   client: NonNullable<typeof supabase>,
+  userId: string,
 ): Promise<{ profile: UserProfileV1; capabilities: CapabilityProfile }> {
   try {
     const { data, error } = await client
       .from("user_profiles")
       .select("profile_data, capabilities_data")
-      .eq("id", "user_v1")
+      .eq("id", userId)
       .maybeSingle();
 
     if (error || !data) {
       return {
-        profile: buildUserProfile("user_v1", "performance_marketer"),
-        capabilities: buildCapabilityProfile("user_v1", "performance_marketer"),
+        profile: buildUserProfile(userId, "performance_marketer"),
+        capabilities: buildCapabilityProfile(userId, "performance_marketer"),
       };
     }
 
@@ -312,12 +314,12 @@ async function fetchUserProfile(
       profile: profileData,
       capabilities:
         (row.capabilities_data as CapabilityProfile) ??
-        buildCapabilityProfile("user_v1", typeKey),
+        buildCapabilityProfile(userId, typeKey),
     };
   } catch {
     return {
-      profile: buildUserProfile("user_v1", "performance_marketer"),
-      capabilities: buildCapabilityProfile("user_v1", "performance_marketer"),
+      profile: buildUserProfile(userId, "performance_marketer"),
+      capabilities: buildCapabilityProfile(userId, "performance_marketer"),
     };
   }
 }
@@ -485,9 +487,12 @@ export async function GET(
       return NextResponse.json({ error: "Invalid run id" }, { status: 400 });
     }
 
+    const authUser = await getAuthUser();
+    const userId = authUser?.id ?? "user_v1";
+
     const [runIntent, userProfileData] = await Promise.all([
       fetchRunIntent(supabase, runId),
-      fetchUserProfile(supabase),
+      fetchUserProfile(supabase, userId),
     ]);
     const presenceFilter = runIntent.socialPresence;
     const activeProfile = userProfileData.profile;
@@ -588,12 +593,16 @@ export async function GET(
           resistances,
         });
 
-        const fit = scoreFit(activeProfile, activeCapabilities, needs);
+        const fit = scoreFit(activeProfile, activeCapabilities, needs, {
+          city: lead.company.city,
+          country: lead.company.country,
+        });
 
         lead.fit = {
           fitScore: fit.fitScore,
           matchedNeeds: fit.matchedNeeds,
           missingNeeds: fit.missingNeeds,
+          geoMatch: fit.geoMatch,
 
           // merged reasoning layer (this is your real asset)
           reasons: [...fit.reasons, ...needReasons],

@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit && echo Typecheck OK"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.87.1",
     "next": "^16.0.10",
     "react": "19.2.1",

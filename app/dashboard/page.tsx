@@ -5,6 +5,7 @@ import type { Lead, Language, SearchRecord } from "@/lib/types";
 import type { ProviderName } from "@/lib/providers/types";
 import { getTranslations } from "@/lib/i18n";
 import HamburgerMenu from "../components/HamburgerMenu";
+import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import type { TranslationSchema as Translations } from "@/lib/i18n/types";
 import type { SocialPresenceFilter } from "@/lib/providers/types";
 
@@ -24,6 +25,7 @@ type FitUI = {
   matchedNeeds: string[];
   missingNeeds: string[];
   reasons: string[];
+  geoMatch?: "exact" | "partial" | "none" | "unset";
 };
 
 type LeadUI = Lead & {
@@ -531,6 +533,15 @@ export default function Home() {
   const [provider, setProvider] = useState<ProviderName>("google_places");
 
   const [language, setLanguage] = useState<Language>("en");
+  const [userEmail, setUserEmail] = useState<string>("");
+
+  // Fetch current user email
+  useEffect(() => {
+    const supabase = createSupabaseBrowser();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.email) setUserEmail(data.user.email);
+    });
+  }, []);
   const t = useMemo(() => getTranslations(language), [language]);
 
   const [niche, setNiche] = useState("");
@@ -545,6 +556,8 @@ export default function Home() {
   const [minScore, setMinScore] = useState(0);
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const [recentSearches, setRecentSearches] = useState<SearchRecord[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -617,7 +630,7 @@ export default function Home() {
     runId: number;
     leadId: string;
     patch: Partial<
-      Pick<LeadOutcomeUI, "contacted" | "replied" | "booked_call" | "closed">
+      Pick<LeadOutcomeUI, "contacted" | "replied" | "booked_call" | "closed" | "revenue" | "notes">
     >;
   }) {
     const { runId, leadId, patch } = args;
@@ -649,6 +662,8 @@ export default function Home() {
         replied: patch.replied,
         bookedCall: patch.booked_call,
         closed: patch.closed,
+        revenue: patch.revenue,
+        notes: patch.notes,
       };
 
       const res = await fetch("/api/outcomes", {
@@ -886,6 +901,19 @@ export default function Home() {
     fetchRecentSearches();
   }, []);
 
+  // Pre-fill location from saved profile if field is still empty
+  useEffect(() => {
+    fetch("/api/profile")
+      .then((r) => r.json())
+      .then((data: { profile?: { targetLocation?: string } }) => {
+        const geo = data?.profile?.targetLocation;
+        if (geo && typeof geo === "string") {
+          setLocation((prev) => (prev === "" ? geo : prev));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     try {
       localStorage.setItem(
@@ -965,6 +993,8 @@ export default function Home() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
+    setSearchError(null);
+    setHasSearched(true);
 
     try {
       const providerLeads = await runProviderSearchAndFetchLeads({
@@ -987,6 +1017,7 @@ export default function Home() {
       console.error("Error fetching leads:", error);
       setLeads([]);
       setSelectedLead(null);
+      setSearchError(error instanceof Error ? error.message : "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -995,6 +1026,62 @@ export default function Home() {
   // =====================
   // RENDER
   // =====================
+
+  // ── CSV EXPORT ─────────────────────────────────────────────
+  function exportCSV() {
+    const rows: string[][] = [
+      [
+        "Company", "Website", "City", "Country", "Industry", "Sub-niche",
+        "Score", "Fit", "Opportunity", "Readiness", "Risk", "Risk Profile",
+        "Social Presence", "Rating", "Reviews",
+        "Gap Type", "Seller Type",
+        "Contacted", "Replied", "Call Booked", "Closed", "Revenue", "Notes",
+      ],
+    ];
+
+    for (const lead of sortedLeads) {
+      const o = outcomesByLeadId[lead.id];
+      const outreach = lead.metadata?.outreach as { gap?: string; sellerType?: string } | null;
+      rows.push([
+        lead.company.name,
+        lead.company.website ?? "",
+        lead.company.city ?? "",
+        lead.company.country ?? "",
+        lead.classification.primaryIndustry.replaceAll("_", " "),
+        lead.classification.subNiche ?? "",
+        String(lead.score.value ?? 0),
+        String(lead.fit?.fitScore ?? ""),
+        String(lead.score.opportunity ?? 0),
+        String(lead.score.readiness ?? 0),
+        String(lead.score.risk ?? 0),
+        lead.score.riskProfile ?? "",
+        lead.metrics.socialPresence ?? "",
+        String(lead.metrics.rating ?? ""),
+        String(lead.metrics.reviewCount ?? ""),
+        outreach?.gap ?? "",
+        outreach?.sellerType ?? "",
+        o?.contacted ? "yes" : "no",
+        o?.replied ? "yes" : "no",
+        o?.booked_call ? "yes" : "no",
+        o?.closed ? "yes" : "no",
+        String(o?.revenue ?? ""),
+        (o?.notes ?? "").replace(/"/g, "'"),
+      ]);
+    }
+
+    const csv = rows
+      .map((r) => r.map((cell) => `"${cell}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
 
   return (
     <main className="min-h-screen bg-[#080808] text-[#f5f0e8] flex flex-col items-center px-4">
@@ -1009,7 +1096,7 @@ export default function Home() {
             </span>
             <span className="ml-2 text-[10px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full border border-[rgba(201,168,76,0.3)] text-[#8a6e30]">Beta</span>
           </div>
-          <HamburgerMenu hasProfile={true} language={language} onLanguageChange={setLanguage} />
+          <HamburgerMenu hasProfile={true} language={language} onLanguageChange={setLanguage} userEmail={userEmail} />
         </div>
       </nav>
 
@@ -1031,38 +1118,59 @@ export default function Home() {
         {recentSearches.length > 0 && (
           <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 shadow-xl shadow-black/40 space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-[#f5f0e8]">
-                Recent searches
-              </h2>
+              <div>
+                <h2 className="text-sm font-semibold text-[#f5f0e8]">Recent Searches</h2>
+                <p className="text-[11px] text-[#555] mt-0.5">Click to re-run a previous search</p>
+              </div>
               {isLoadingHistory && (
-                <span className="text-[11px] text-[#888]">Updating…</span>
+                <span className="text-[11px] text-[#555] animate-pulse">Updating…</span>
               )}
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {recentSearches.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => {
-                    setNiche(s.niche || "");
-                    setLocation(s.location || "");
-                    setSocialPresence(
-                      (s.social_presence === "low" ||
-                      s.social_presence === "medium" ||
-                      s.social_presence === "high"
-                        ? s.social_presence
-                        : "") as SocialPresenceFilter,
-                    );
-                  }}
-                  className="text-[11px] md:text-xs px-2.5 py-1.5 rounded-full border border-[#2a2a2a] bg-[#080808]/70 hover:bg-[#111111]/80 text-[#c8c0b0] flex items-center gap-2"
-                >
-                  <span className="font-medium">{s.niche || "N/A"}</span>
-                  <span className="text-[#888]">
-                    · {s.location || "Unknown"}
-                  </span>
-                </button>
-              ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+              {recentSearches.map((s) => {
+                const date = new Date(s.created_at);
+                const dateStr = date.toLocaleDateString(language === "sv" ? "sv-SE" : "en-GB", { day: "numeric", month: "short" });
+                const timeStr = date.toLocaleTimeString(language === "sv" ? "sv-SE" : "en-GB", { hour: "2-digit", minute: "2-digit" });
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      setNiche(s.niche || "");
+                      setLocation(s.location || "");
+                      setSocialPresence(
+                        (s.social_presence === "low" ||
+                        s.social_presence === "medium" ||
+                        s.social_presence === "high"
+                          ? s.social_presence
+                          : "") as SocialPresenceFilter,
+                      );
+                    }}
+                    className="text-left rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] hover:border-[rgba(201,168,76,0.3)] hover:bg-[#111] transition-all p-3 space-y-2 group"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-semibold text-[#f5f0e8] truncate group-hover:text-[#e8c97a] transition-colors">
+                          {s.niche || "—"}
+                        </p>
+                        <p className="text-[11px] text-[#555] truncate mt-0.5">
+                          {s.location || "Any location"}
+                        </p>
+                      </div>
+                      <span className="flex-shrink-0 text-[#c9a84c] text-xs opacity-0 group-hover:opacity-100 transition-opacity">↺</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      {s.social_presence && s.social_presence !== "" && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded border border-[#252525] text-[#555] capitalize">
+                          {s.social_presence} social
+                        </span>
+                      )}
+                      <span className="text-[10px] text-[#333] ml-auto">{dateStr} · {timeStr}</span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </section>
         )}
@@ -1214,6 +1322,16 @@ export default function Home() {
                   placeholder={t.ui.results.searchPlaceholder}
                   className="flex-1 min-w-[180px] rounded-md bg-[#111111] border border-[#2a2a2a] px-2 py-1 text-xs"
                 />
+
+                {sortedLeads.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={exportCSV}
+                    className="text-[11px] px-3 py-1.5 rounded-md border border-[rgba(201,168,76,0.3)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    ↓ Export CSV
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1238,13 +1356,60 @@ export default function Home() {
           </div>
 
           {sortedLeads.length === 0 ? (
-            <p className="text-[#888] text-sm">
-              {t.ui.results.empty}
-              <span className="font-semibold text-[#f5f0e8]">
-                &quot;Generate Leads&quot;
-              </span>
-              .
-            </p>
+            <div className="py-6">
+              {/* Error state */}
+              {searchError && (
+                <div className="rounded-xl border border-[#f87171]/20 bg-[#f87171]/5 p-5 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#f87171]">⚠</span>
+                    <p className="text-[13px] font-semibold text-[#f87171]">Search failed</p>
+                  </div>
+                  <p className="text-[12px] text-[#888] leading-relaxed">{searchError}</p>
+                  <p className="text-[11px] text-[#555]">Check your API key configuration or try a different search.</p>
+                </div>
+              )}
+
+              {/* Loading state */}
+              {isLoading && !searchError && (
+                <div className="flex flex-col items-center gap-4 py-8">
+                  <div className="w-6 h-6 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin" />
+                  <p className="text-[13px] text-[#555]">Scanning leads and scoring…</p>
+                </div>
+              )}
+
+              {/* Empty after search */}
+              {!isLoading && !searchError && hasSearched && leads.length === 0 && (
+                <div className="flex flex-col items-center gap-3 py-10 text-center">
+                  <span className="text-3xl text-[#333]">◈</span>
+                  <p className="text-[14px] text-[#888] font-medium">No leads found for this search</p>
+                  <p className="text-[12px] text-[#555] max-w-sm leading-relaxed">
+                    Try broadening your niche, removing the location, or lowering the minimum score filter.
+                  </p>
+                </div>
+              )}
+
+              {/* Empty after filter */}
+              {!isLoading && !searchError && hasSearched && leads.length > 0 && sortedLeads.length === 0 && (
+                <div className="flex flex-col items-center gap-3 py-10 text-center">
+                  <span className="text-3xl text-[#333]">◇</span>
+                  <p className="text-[14px] text-[#888] font-medium">All leads filtered out</p>
+                  <p className="text-[12px] text-[#555] max-w-sm leading-relaxed">
+                    {leads.length} lead{leads.length !== 1 ? "s" : ""} found but none pass the current filters. Lower the minimum score or clear the search query.
+                  </p>
+                </div>
+              )}
+
+              {/* Pre-search prompt */}
+              {!isLoading && !searchError && !hasSearched && (
+                <div className="flex flex-col items-center gap-3 py-10 text-center">
+                  <span className="text-3xl text-[#252525]">◈</span>
+                  <p className="text-[13px] text-[#555]">
+                    {t.ui.results.empty}
+                    <span className="font-semibold text-[#888]"> &quot;Generate Leads&quot;</span>.
+                  </p>
+                </div>
+              )}
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
@@ -1260,6 +1425,7 @@ export default function Home() {
                       {t.ui.table.location}
                     </th>
                     <th className="text-left py-2 px-3">{t.ui.table.score}</th>
+                    <th className="text-left py-2 px-3">Fit</th>
                     <th className="text-left py-2 px-3">
                       {t.ui.table.opportunity}
                     </th>
@@ -1375,6 +1541,47 @@ export default function Home() {
                           </td>
 
                           <td className="py-2 px-3">
+                            {lead.fit ? (
+                              <>
+                                <div className={
+                                  "text-xs font-semibold mb-1 " +
+                                  ((lead.fit.fitScore ?? 0) >= 65 ? "text-[#4ade80]" :
+                                   (lead.fit.fitScore ?? 0) >= 40 ? "text-[#c9a84c]" : "text-[#f87171]")
+                                }>
+                                  {lead.fit.fitScore ?? 0}
+                                </div>
+                                <div className="w-full bg-[#1a1a1a] rounded-full h-1.5 overflow-hidden">
+                                  <div
+                                    className="h-1.5 rounded-full"
+                                    style={{
+                                      width: `${lead.fit.fitScore ?? 0}%`,
+                                      backgroundColor:
+                                        (lead.fit.fitScore ?? 0) >= 65 ? "#4ade80" :
+                                        (lead.fit.fitScore ?? 0) >= 40 ? "#c9a84c" : "#f87171",
+                                    }}
+                                  />
+                                </div>
+                                {lead.fit.geoMatch && lead.fit.geoMatch !== "unset" && (
+                                  <div className="mt-1">
+                                    <span className={
+                                      "text-[9px] px-1.5 py-0.5 rounded border " +
+                                      (lead.fit.geoMatch === "exact"
+                                        ? "border-[#4ade80]/30 text-[#4ade80] bg-[#4ade80]/5"
+                                        : lead.fit.geoMatch === "partial"
+                                        ? "border-[#c9a84c]/30 text-[#c9a84c] bg-[#c9a84c]/5"
+                                        : "border-[#f87171]/20 text-[#f87171]/60 bg-transparent")
+                                    }>
+                                      📍{lead.fit.geoMatch === "exact" ? " match" : lead.fit.geoMatch === "partial" ? " near" : " far"}
+                                    </span>
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-[#333] text-xs">—</span>
+                            )}
+                          </td>
+
+                          <td className="py-2 px-3">
                             <span className="text-[#c8c0b0] font-semibold">
                               {lead.score.opportunity ?? 0}
                             </span>
@@ -1447,7 +1654,7 @@ export default function Home() {
 
                         {isSelected && detailLead && (
                           <tr key={`${lead.id}-detail`}>
-                            <td colSpan={8} className="p-0">
+                            <td colSpan={9} className="p-0">
                               <div className="border-b border-[#2a2a2a] bg-[#080808]/80 px-4 py-4 space-y-3">
                                 <div className="flex gap-1 border-b border-[#252525] pb-0">
                                   {tabs.map((tab) => (
@@ -1481,464 +1688,450 @@ export default function Home() {
                                   </button>
                                 </div>
 
-                                {detailTab === "overview" && (
-                                  <div className="space-y-3 pt-1">
-                                    {detailInsight?.message && (
-                                      <div className="rounded-xl border border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.05)] p-3">
-                                        <p className="text-[11px] uppercase tracking-wide text-[#e8c97a]/80 mb-1">
-                                          {t.ui.detail.opportunityInsight}
-                                        </p>
-                                        <p className="text-sm font-semibold text-[#e8c97a]">
-                                          ⚡ {detailInsight.message}
-                                        </p>
-                                        <p className="mt-1 text-[11px] text-[#e8c97a]/70">
-                                          Opportunity:{" "}
-                                          <span className="text-[#f5e6b0] font-semibold">
-                                            {detailLead.score.opportunity ?? 0}
-                                            /100
-                                          </span>{" "}
-                                          <span className="text-[#e8c97a]/60">
-                                            (
-                                            {bandLabel(
-                                              language,
-                                              detailLead.score.opportunity ?? 0,
-                                            )}
-                                            )
-                                          </span>
-                                        </p>
-                                      </div>
-                                    )}
+                                {detailTab === "overview" && (() => {
+                                  const opp = detailLead.score.opportunity ?? 0;
+                                  const readiness = detailLead.score.readiness ?? 0;
+                                  const risk = detailLead.score.risk ?? 0;
+                                  const value = detailLead.score.value ?? 0;
+                                  const fit = detailLead.fit?.fitScore ?? null;
+                                  const rp = detailLead.score.riskProfile ?? "unknown";
+                                  const hasRisk = rp === "unstable_business" || rp === "mature_competitor";
 
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                                      <div className="rounded-lg border border-[#252525] bg-[#111111]/50 p-3 space-y-1">
-                                        <p className="text-[#888]">
-                                          {t.ui.detail.scoreLabel}
-                                        </p>
-                                        <p className="text-lg font-semibold">
-                                          {detailLead.score.value ?? 0}
-                                        </p>
-                                        <p className="text-[11px] text-[#888]">
-                                          {getScoreReason(detailLead, language)}
-                                        </p>
-                                      </div>
+                                  // Score ring colour
+                                  const scoreColor = value >= 70 ? "#4ade80" : value >= 45 ? "#c9a84c" : "#f87171";
+                                  const scoreLabel = value >= 70 ? "Strong Lead" : value >= 45 ? "Moderate Lead" : "Weak Lead";
 
-                                      <div className="rounded-lg border border-[#252525] bg-[#111111]/50 p-3 space-y-1">
-                                        <p className="text-[#888]">
-                                          {t.ui.detail.opportunityLabel}
-                                        </p>
-                                        <p className="text-sm font-semibold">
-                                          {detailLead.score.opportunity ?? 0}
-                                          /100
-                                        </p>
-                                        <p className="text-[11px] text-[#888]">
-                                          {t.ui.detail.readinessLabel}:{" "}
-                                          {detailLead.score.readiness ?? 0}
-                                          /100
-                                        </p>
-                                      </div>
+                                  // Gap type from outreach metadata
+                                  const gap = (detailLead.metadata?.outreach as { gap?: string } | null)?.gap ?? null;
+                                  const gapLabels: Record<string, { label: string; desc: string; color: string }> = {
+                                    VISIBILITY:    { label: "Visibility Gap",    desc: "Demand exists but this business isn't capturing it — weak channels or low presence.", color: "#818cf8" },
+                                    CONVERSION:    { label: "Conversion Gap",    desc: "Traffic or interest exists but leaks before becoming bookings or enquiries.",           color: "#fb923c" },
+                                    INFRASTRUCTURE:{ label: "Infrastructure Gap",desc: "No digital foundation — interest has nowhere to land and convert.",                    color: "#f87171" },
+                                    OPTIMIZATION:  { label: "Optimization Gap",  desc: "Strong fundamentals — opportunity is in sharpening what already works.",               color: "#34d399" },
+                                  };
+                                  const gapInfo = gap ? gapLabels[gap] ?? null : null;
 
-                                      <div className="rounded-lg border border-[#252525] bg-[#111111]/50 p-3 space-y-1">
-                                        <p className="text-[#888]">
-                                          {t.ui.detail.riskLabel}
-                                        </p>
-                                        <p className="text-sm font-semibold">
-                                          {detailLead.score.risk ?? 0}/100
-                                        </p>
-                                        <p className="text-[11px] text-[#888]">
-                                          {detailLead.score.riskProfile?.replaceAll(
-                                            "_",
-                                            " ",
-                                          ) ?? "—"}
-                                        </p>
+                                  function ScoreBar({ value: v, color }: { value: number; color: string }) {
+                                    return (
+                                      <div className="h-1.5 w-full rounded-full bg-[#1a1a1a] overflow-hidden">
+                                        <div
+                                          className="h-full rounded-full transition-all duration-700"
+                                          style={{ width: `${v}%`, backgroundColor: color }}
+                                        />
                                       </div>
+                                    );
+                                  }
 
-                                      <div className="rounded-lg border border-[#252525] bg-[#111111]/50 p-3 space-y-1">
-                                        <p className="text-[#888]">
-                                          {t.ui.detail.websiteLabel}
-                                        </p>
-                                        {detailWebsiteUrl ? (
-                                          <a
-                                            href={detailWebsiteUrl}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="text-xs text-[#c9a84c] hover:underline break-all"
-                                          >
-                                            {detailWebsiteUrl}
+                                  return (
+                                    <div className="space-y-3 pt-1">
+
+                                      {/* Hero score row */}
+                                      <div className="flex items-center gap-4 rounded-xl border border-[#252525] bg-[#0d0d0d] p-4">
+                                        {/* Score circle */}
+                                        <div className="relative flex-shrink-0 w-16 h-16">
+                                          <svg viewBox="0 0 56 56" className="w-full h-full -rotate-90">
+                                            <circle cx="28" cy="28" r="24" fill="none" stroke="#1a1a1a" strokeWidth="4" />
+                                            <circle
+                                              cx="28" cy="28" r="24" fill="none"
+                                              stroke={scoreColor} strokeWidth="4"
+                                              strokeDasharray={`${(value / 100) * 150.8} 150.8`}
+                                              strokeLinecap="round"
+                                            />
+                                          </svg>
+                                          <div className="absolute inset-0 flex items-center justify-center">
+                                            <span className="text-base font-bold" style={{ color: scoreColor }}>{value}</span>
+                                          </div>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-xs uppercase tracking-widest text-[#555] mb-0.5">Lead Score</p>
+                                          <p className="font-semibold text-sm" style={{ color: scoreColor }}>{scoreLabel}</p>
+                                          <p className="text-[11px] text-[#666] mt-1 leading-relaxed">
+                                            {getScoreReason(detailLead, language)}
+                                          </p>
+                                        </div>
+                                        {detailWebsiteUrl && (
+                                          <a href={detailWebsiteUrl} target="_blank" rel="noreferrer"
+                                            className="flex-shrink-0 text-[11px] text-[#c9a84c] hover:text-[#e8c97a] underline-offset-2 hover:underline transition-colors">
+                                            Visit site ↗
                                           </a>
-                                        ) : (
-                                          <p className="text-[11px] text-[#f5f0e8]0">
-                                            {t.ui.detail.noWebsite}
-                                          </p>
                                         )}
                                       </div>
-                                    </div>
 
-                                    <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3">
-                                      <p className="text-[11px] uppercase tracking-wide text-rose-200/80 mb-1">
-                                        {t.ui.detail.risk}
-                                      </p>
-                                      <p className="text-sm font-semibold text-rose-100">
-                                        {riskTitleFromProfile(
-                                          detailLead.score.riskProfile,
-                                          t,
-                                        )}
-                                      </p>
-                                      <p className="mt-1 text-[11px] text-rose-200/70">
-                                        {riskMessage(language, detailLead)}
-                                      </p>
-                                    </div>
-                                  </div>
-                                )}
+                                      {/* Three score bars */}
+                                      <div className="grid grid-cols-3 gap-2">
+                                        {[
+                                          { label: "Opportunity", value: opp,      color: opp >= 60 ? "#4ade80" : opp >= 35 ? "#c9a84c" : "#f87171",  hint: "How much growth potential exists" },
+                                          { label: "Readiness",   value: readiness, color: readiness >= 60 ? "#4ade80" : readiness >= 35 ? "#c9a84c" : "#f87171", hint: "How operationally prepared they are" },
+                                          { label: "Risk",        value: risk,      color: risk >= 60 ? "#f87171" : risk >= 35 ? "#c9a84c" : "#4ade80", hint: "How risky this engagement is" },
+                                        ].map(({ label, value: v, color, hint }) => (
+                                          <div key={label} className="rounded-lg border border-[#252525] bg-[#111] p-3 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                              <p className="text-[10px] uppercase tracking-widest text-[#555]">{label}</p>
+                                              <p className="text-sm font-bold" style={{ color }}>{v}</p>
+                                            </div>
+                                            <ScoreBar value={v} color={color} />
+                                            <p className="text-[10px] text-[#444] leading-tight">{hint}</p>
+                                          </div>
+                                        ))}
+                                      </div>
 
-                                {detailTab === "signals" && (
-                                  <div className="space-y-3 pt-1">
-                                    {detailLead.score.breakdown && (
-                                      <div className="rounded-lg border border-[#252525] bg-[#111111]/50 p-3">
-                                        <p className="text-[11px] uppercase tracking-wide text-[#888] mb-2">
-                                          Scoring Breakdown
-                                        </p>
-                                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
-                                          <div>
-                                            <span className="text-[#888]">
-                                              Reputation:
-                                            </span>{" "}
-                                            <span className="text-[#f5f0e8] font-semibold">
-                                              {
-                                                detailLead.score.breakdown
-                                                  .reputation
-                                              }
+                                      {/* Gap type diagnosis */}
+                                      {gapInfo && (
+                                        <div className="rounded-xl border p-3" style={{ borderColor: `${gapInfo.color}30`, backgroundColor: `${gapInfo.color}08` }}>
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: gapInfo.color }}>
+                                              ◆ {gapInfo.label}
                                             </span>
                                           </div>
-                                          <div>
-                                            <span className="text-[#888]">
-                                              Digital:
-                                            </span>{" "}
-                                            <span className="text-[#f5f0e8] font-semibold">
-                                              {
-                                                detailLead.score.breakdown
-                                                  .digitalPresence
-                                              }
-                                            </span>
-                                          </div>
-                                          <div>
-                                            <span className="text-[#888]">
-                                              Business:
-                                            </span>{" "}
-                                            <span className="text-[#f5f0e8] font-semibold">
-                                              {
-                                                detailLead.score.breakdown
-                                                  .businessStrength
-                                              }
-                                            </span>
-                                          </div>
-                                          <div>
-                                            <span className="text-[#888]">
-                                              Opportunity Gap:
-                                            </span>{" "}
-                                            <span className="text-[#f5f0e8] font-semibold">
-                                              {
-                                                detailLead.score.breakdown
-                                                  .opportunityGap
-                                              }
-                                            </span>
-                                          </div>
-                                          <div>
-                                            <span className="text-[#888]">
-                                              Risk:
-                                            </span>{" "}
-                                            <span className="text-[#f5f0e8] font-semibold">
-                                              {
-                                                detailLead.score.breakdown
-                                                  .stabilityRisk
-                                              }
-                                            </span>
-                                          </div>
-                                          <div>
-                                            <span className="text-[#888]">
-                                              Evidence:
-                                            </span>{" "}
-                                            <span className="text-[#f5f0e8] font-semibold">
-                                              {
-                                                detailLead.score.breakdown
-                                                  .evidenceConfidence
-                                              }
-                                            </span>
-                                          </div>
+                                          <p className="text-[12px] text-[#aaa] leading-relaxed">{gapInfo.desc}</p>
                                         </div>
+                                      )}
 
-                                        {detailLead.score.reasons?.length >
-                                          0 && (
-                                          <div className="mt-3 flex flex-wrap gap-2">
-                                            {detailLead.score.reasons.map(
-                                              (reason, i) => (
-                                                <span
-                                                  key={i}
-                                                  className="text-[11px] px-2 py-1 rounded border border-[#2a2a2a] text-[#c8c0b0]"
-                                                >
-                                                  {reason}
-                                                </span>
-                                              ),
+                                      {/* Fit score */}
+                                      {fit !== null && (
+                                        <div className="rounded-xl border border-[#252525] bg-[#111] p-3">
+                                          <div className="flex items-center justify-between mb-2">
+                                            <p className="text-[10px] uppercase tracking-widest text-[#555]">Fit Score</p>
+                                            <p className="text-sm font-bold" style={{ color: fit >= 65 ? "#4ade80" : fit >= 40 ? "#c9a84c" : "#f87171" }}>{fit}/100</p>
+                                          </div>
+                                          <ScoreBar value={fit} color={fit >= 65 ? "#4ade80" : fit >= 40 ? "#c9a84c" : "#f87171"} />
+                                          <div className="flex gap-3 mt-2.5">
+                                            {(detailLead.fit?.matchedNeeds ?? []).length > 0 && (
+                                              <div className="flex-1">
+                                                <p className="text-[9px] uppercase tracking-widest text-[#4ade80]/70 mb-1">You can deliver</p>
+                                                <div className="flex flex-wrap gap-1">
+                                                  {(detailLead.fit?.matchedNeeds ?? []).map((n: string) => (
+                                                    <span key={n} className="text-[10px] px-1.5 py-0.5 rounded bg-[#4ade80]/10 border border-[#4ade80]/20 text-[#4ade80]">{n}</span>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                            {(detailLead.fit?.missingNeeds ?? []).length > 0 && (
+                                              <div className="flex-1">
+                                                <p className="text-[9px] uppercase tracking-widest text-[#f87171]/70 mb-1">You can&apos;t cover</p>
+                                                <div className="flex flex-wrap gap-1">
+                                                  {(detailLead.fit?.missingNeeds ?? []).map((n: string) => (
+                                                    <span key={n} className="text-[10px] px-1.5 py-0.5 rounded bg-[#f87171]/10 border border-[#f87171]/20 text-[#f87171]">{n}</span>
+                                                  ))}
+                                                </div>
+                                              </div>
                                             )}
                                           </div>
-                                        )}
-                                      </div>
-                                    )}
-
-                                    {enrichmentLoading && (
-                                      <div className="text-xs text-[#888] animate-pulse">
-                                        Scanning website signals...
-                                      </div>
-                                    )}
-
-                                    {safeEnrichment && !enrichmentLoading && (
-                                      <div className="rounded-lg border border-[#252525] bg-[#111111]/50 p-3 space-y-2">
-                                        <p className="text-[11px] uppercase tracking-wide text-[#888]">
-                                          Website Signals
-                                        </p>
-
-                                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[12px]">
-                                          <p
-                                            className={
-                                              isReachable
-                                                ? "text-emerald-400"
-                                                : "text-rose-400"
-                                            }
-                                          >
-                                            {isReachable ? "✓" : "✗"} Website
-                                            reachable
-                                          </p>
-
-                                          {isReachable && (
-                                            <>
-                                              <p
-                                                className={
-                                                  enrichmentSignals[
-                                                    "website_has_contact_page"
-                                                  ]?.value
-                                                    ? "text-emerald-400"
-                                                    : "text-[#f5f0e8]0"
-                                                }
-                                              >
-                                                {enrichmentSignals[
-                                                  "website_has_contact_page"
-                                                ]?.value
-                                                  ? "✓"
-                                                  : "✗"}{" "}
-                                                Contact page
-                                              </p>
-
-                                              <p
-                                                className={
-                                                  enrichmentSignals[
-                                                    "website_has_booking_cta"
-                                                  ]?.value
-                                                    ? "text-emerald-400"
-                                                    : "text-[#f5f0e8]0"
-                                                }
-                                              >
-                                                {enrichmentSignals[
-                                                  "website_has_booking_cta"
-                                                ]?.value
-                                                  ? "✓"
-                                                  : "✗"}{" "}
-                                                Booking CTA
-                                              </p>
-
-                                              <p
-                                                className={
-                                                  enrichmentSignals[
-                                                    "website_has_clear_offer"
-                                                  ]?.value
-                                                    ? "text-emerald-400"
-                                                    : "text-[#f5f0e8]0"
-                                                }
-                                              >
-                                                {enrichmentSignals[
-                                                  "website_has_clear_offer"
-                                                ]?.value
-                                                  ? "✓"
-                                                  : "✗"}{" "}
-                                                Clear offer
-                                              </p>
-
-                                              <p
-                                                className={
-                                                  enrichmentSignals[
-                                                    "website_mobile_friendly"
-                                                  ]?.value
-                                                    ? "text-emerald-400"
-                                                    : "text-[#f5f0e8]0"
-                                                }
-                                              >
-                                                {enrichmentSignals[
-                                                  "website_mobile_friendly"
-                                                ]?.value
-                                                  ? "✓"
-                                                  : "✗"}{" "}
-                                                Mobile friendly
-                                              </p>
-                                            </>
-                                          )}
                                         </div>
+                                      )}
 
-                                        {detectedPlatforms.length > 0 && (
-                                          <p className="text-[12px] text-[#888]">
-                                            Social:{" "}
-                                            <span className="text-[#c8c0b0]">
-                                              {detectedPlatforms.join(", ")}
-                                            </span>
-                                          </p>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
+                                      {/* Opportunity insight */}
+                                      {detailInsight?.message && (
+                                        <div className="rounded-xl border border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.04)] p-3">
+                                          <p className="text-[10px] uppercase tracking-widest text-[#8a6e30] mb-1">{t.ui.detail.opportunityInsight}</p>
+                                          <p className="text-[13px] font-semibold text-[#e8c97a]">⚡ {detailInsight.message}</p>
+                                        </div>
+                                      )}
 
-                                {detailTab === "outreach" && (
-                                  <div className="space-y-3 pt-1">
-                                    <p className="text-[11px] uppercase tracking-wide text-[#888]">
-                                      {t.ui.detail.suggestedAngle}
-                                    </p>
-                                    <p className="text-xs text-[#c8c0b0] leading-relaxed">
-                                      {getOutreachAngle(detailLead, language)}
-                                    </p>
+                                      {/* Risk flag — only shown when relevant */}
+                                      {hasRisk && (
+                                        <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-3">
+                                          <p className="text-[10px] uppercase tracking-widest text-rose-400/70 mb-1">{t.ui.detail.risk}</p>
+                                          <p className="text-[13px] font-semibold text-rose-300">{riskTitleFromProfile(detailLead.score.riskProfile, t)}</p>
+                                          <p className="mt-1 text-[11px] text-rose-400/60 leading-relaxed">{riskMessage(language, detailLead)}</p>
+                                        </div>
+                                      )}
 
-                                    <div className="space-y-2">
-                                      <div className="flex items-center justify-between gap-2">
-                                        <div className="flex items-center gap-2">
-                                          <p className="text-[11px] uppercase tracking-wide text-[#888]">
-                                            {t.ui.detail.outreachScript} (draft)
-                                          </p>
+                                      {/* Website — only shown when no website */}
+                                      {!detailWebsiteUrl && (
+                                        <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] px-3 py-2 flex items-center gap-2">
+                                          <span className="text-[#f87171] text-xs">✗</span>
+                                          <p className="text-[11px] text-[#555]">{t.ui.detail.noWebsite}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
 
-                                          {safeOutreach && (
-                                            <div className="flex items-center gap-1">
-                                              <button
-                                                type="button"
-                                                onClick={() =>
-                                                  setOutreachVariant("soft")
-                                                }
-                                                className={
-                                                  "text-[10px] px-2 py-0.5 rounded-md border " +
-                                                  (outreachVariant === "soft"
-                                                    ? "border-[#444] bg-[#111111]/70 text-[#f5f0e8]"
-                                                    : "border-[#252525] bg-[#111111]/40 text-[#aaa]")
-                                                }
-                                              >
-                                                Soft
-                                              </button>
+                                {detailTab === "signals" && (() => {
+                                  const bd = detailLead.score.breakdown;
 
-                                              <button
-                                                type="button"
-                                                onClick={() =>
-                                                  setOutreachVariant("direct")
-                                                }
-                                                className={
-                                                  "text-[10px] px-2 py-0.5 rounded-md border " +
-                                                  (outreachVariant === "direct"
-                                                    ? "border-[#444] bg-[#111111]/70 text-[#f5f0e8]"
-                                                    : "border-[#252525] bg-[#111111]/40 text-[#aaa]")
-                                                }
-                                              >
-                                                Direct
-                                              </button>
+                                  type CatDef = { key: keyof typeof bd; label: string; hint: string; invert?: boolean };
+                                  const categories: CatDef[] = [
+                                    { key: "reputation",         label: "Reputation",        hint: "Review count + rating quality — proves market demand and social proof." },
+                                    { key: "digitalPresence",    label: "Digital Presence",   hint: "Website + social signals — how visible they are online." },
+                                    { key: "businessStrength",   label: "Business Strength",  hint: "Operational maturity and ability to pay for services." },
+                                    { key: "opportunityGap",     label: "Opportunity Gap",    hint: "How much growth headroom exists. Higher = more room for your intervention." },
+                                    { key: "stabilityRisk",      label: "Stability Risk",     hint: "Signs of instability. Higher = riskier engagement.", invert: true },
+                                    { key: "evidenceConfidence", label: "Evidence Confidence",hint: "How much signal data was available. Low confidence = treat scores with caution." },
+                                  ];
+
+                                  function barColor(v: number, invert = false) {
+                                    const high = invert ? "#f87171" : "#4ade80";
+                                    const mid  = "#c9a84c";
+                                    const low  = invert ? "#4ade80" : "#f87171";
+                                    return v >= 65 ? high : v >= 35 ? mid : low;
+                                  }
+
+                                  return (
+                                    <div className="space-y-3 pt-1">
+
+                                      {/* Category score bars */}
+                                      {bd && (
+                                        <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Score Breakdown</p>
+                                          {categories.map(({ key, label, hint, invert }) => {
+                                            const v = bd[key] ?? 0;
+                                            const color = barColor(v, invert);
+                                            return (
+                                              <div key={key} className="space-y-1">
+                                                <div className="flex items-center justify-between">
+                                                  <p className="text-[11px] text-[#888]">{label}</p>
+                                                  <p className="text-[12px] font-bold tabular-nums" style={{ color }}>{v}</p>
+                                                </div>
+                                                <div className="h-1.5 w-full rounded-full bg-[#1a1a1a] overflow-hidden">
+                                                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${v}%`, backgroundColor: color }} />
+                                                </div>
+                                                <p className="text-[10px] text-[#444] leading-snug">{hint}</p>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+
+                                      {/* Score reasons */}
+                                      {detailLead.score.reasons?.length > 0 && (
+                                        <div className="rounded-lg border border-[#252525] bg-[#111] p-3">
+                                          <p className="text-[10px] uppercase tracking-widest text-[#555] mb-2">Why this score</p>
+                                          <div className="flex flex-wrap gap-1.5">
+                                            {detailLead.score.reasons.map((reason: string, i: number) => (
+                                              <span key={i} className="text-[11px] px-2 py-1 rounded-md border border-[#2a2a2a] bg-[#0d0d0d] text-[#c8c0b0]">
+                                                {reason}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Website enrichment */}
+                                      {enrichmentLoading && (
+                                        <div className="text-xs text-[#555] animate-pulse px-1">Scanning website signals…</div>
+                                      )}
+
+                                      {safeEnrichment && !enrichmentLoading && (
+                                        <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Website Signals</p>
+                                          <div className="grid grid-cols-2 gap-2">
+                                            {[
+                                              { key: "website_reachable",         label: "Site reachable",   value: isReachable },
+                                              { key: "website_has_contact_page",  label: "Contact page",     value: enrichmentSignals["website_has_contact_page"]?.value },
+                                              { key: "website_has_booking_cta",   label: "Booking CTA",      value: enrichmentSignals["website_has_booking_cta"]?.value },
+                                              { key: "website_has_clear_offer",   label: "Clear offer",      value: enrichmentSignals["website_has_clear_offer"]?.value },
+                                              { key: "website_mobile_friendly",   label: "Mobile friendly",  value: enrichmentSignals["website_mobile_friendly"]?.value },
+                                            ].map(({ key, label, value: v }) => (
+                                              <div key={key} className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${v ? "border-[#4ade80]/20 bg-[#4ade80]/5" : "border-[#f87171]/15 bg-[#f87171]/5"}`}>
+                                                <span className={`text-xs ${v ? "text-[#4ade80]" : "text-[#f87171]"}`}>{v ? "✓" : "✗"}</span>
+                                                <span className="text-[11px] text-[#888]">{label}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                          {detectedPlatforms.length > 0 && (
+                                            <div>
+                                              <p className="text-[10px] uppercase tracking-widest text-[#555] mb-1.5">Social Detected</p>
+                                              <div className="flex flex-wrap gap-1.5">
+                                                {detectedPlatforms.map((p: string) => (
+                                                  <span key={p} className="text-[11px] px-2 py-0.5 rounded-md border border-[#252525] text-[#c8c0b0]">{p}</span>
+                                                ))}
+                                              </div>
                                             </div>
                                           )}
                                         </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
 
-                                        <button
-                                          type="button"
-                                          onClick={async () => {
-                                            try {
-                                              await navigator.clipboard.writeText(
-                                                scriptText,
-                                              );
-                                            } catch (e) {
-                                              console.error(e);
-                                            }
-                                          }}
-                                          disabled={!scriptText}
-                                          className="text-[11px] px-2 py-1 rounded-md border border-[#2a2a2a] bg-[#111111]/70 hover:bg-[#1a1a1a] disabled:opacity-50"
-                                        >
-                                          {t.ui.detail.copy}
-                                        </button>
-                                      </div>
+                                {detailTab === "outreach" && (() => {
+                                  const gap = (safeOutreach as { gap?: string } | null)?.gap ?? null;
+                                  const sellerType = (safeOutreach as { sellerType?: string } | null)?.sellerType ?? null;
+                                  const difficulty = (safeOutreach as { difficulty?: string } | null)?.difficulty ?? null;
 
-                                      <div className="bg-[#080808]/80 border border-[#252525] rounded-lg p-3 max-h-56 overflow-auto">
-                                        {angleTitle && (
-                                          <div className="rounded-xl border border-[#252525] bg-[#111111]/40 p-3 mb-3">
-                                            <p className="text-[11px] uppercase tracking-wide text-[#aaa]/80">
-                                              {t.ui.detail.suggestedAngle}
-                                            </p>
-                                            <p className="text-sm font-semibold text-[#f5f0e8]">
-                                              {angleTitle}
-                                            </p>
-                                            {angleWhy && (
-                                              <p className="mt-1 text-[12px] text-[#c8c0b0]/70">
-                                                {angleWhy}
-                                              </p>
+                                  type GapConfig = { label: string; color: string; icon: string; intervention: string; urgency: string };
+                                  const gapConfig: Record<string, GapConfig> = {
+                                    VISIBILITY:    { label: "Visibility Gap",    color: "#818cf8", icon: "◎", intervention: "Build high-intent capture channels — search, retargeting, and demand-side content.", urgency: "Revenue is leaking because demand exists but has nowhere to land." },
+                                    CONVERSION:    { label: "Conversion Gap",    color: "#fb923c", icon: "⬡", intervention: "Fix the funnel — booking flow, tracking, and follow-up system.", urgency: "Interest is converting at a fraction of its potential. Each day this persists is lost revenue." },
+                                    INFRASTRUCTURE:{ label: "Infrastructure Gap",color: "#f87171", icon: "△", intervention: "Build the foundation — a single conversion-focused landing page with clear offer and CTA.", urgency: "There is no system to capture demand. Growth is impossible to scale without this." },
+                                    OPTIMIZATION:  { label: "Optimization Gap",  color: "#34d399", icon: "◈", intervention: "Sharpen conversion mechanics — tighten the CTA, proof structure, and acquisition loop.", urgency: "Strong baseline. Marginal improvements here compound into significant revenue lift." },
+                                  };
+                                  const gc = gap ? gapConfig[gap] ?? null : null;
+
+                                  const difficultyConfig: Record<string, { label: string; color: string; hint: string }> = {
+                                    LOW:    { label: "Low Friction",   color: "#4ade80", hint: "High receptivity expected. Lead direct with value." },
+                                    MEDIUM: { label: "Medium Friction", color: "#c9a84c", hint: "Qualified, but expect questions. Lead with curiosity." },
+                                    HIGH:   { label: "High Friction",   color: "#f87171", hint: "Resistant or saturated. Lead soft, offer a teardown." },
+                                  };
+                                  const dc = difficulty ? difficultyConfig[difficulty] ?? null : null;
+
+                                  return (
+                                    <div className="space-y-3 pt-1">
+
+                                      {/* GOE Panel */}
+                                      {gc && (
+                                        <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: `${gc.color}30`, backgroundColor: `${gc.color}06` }}>
+                                          <div className="flex items-start justify-between gap-3">
+                                            <div>
+                                              <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-base" style={{ color: gc.color }}>{gc.icon}</span>
+                                                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: gc.color }}>{gc.label}</p>
+                                              </div>
+                                              <p className="text-[12px] text-[#888] leading-relaxed">{gc.urgency}</p>
+                                            </div>
+                                            {dc && (
+                                              <span className="flex-shrink-0 text-[10px] font-semibold px-2 py-1 rounded-full border" style={{ color: dc.color, borderColor: `${dc.color}40`, backgroundColor: `${dc.color}10` }}>
+                                                {dc.label}
+                                              </span>
                                             )}
                                           </div>
+                                          <div className="border-t pt-3" style={{ borderColor: `${gc.color}20` }}>
+                                            <p className="text-[10px] uppercase tracking-widest mb-1.5" style={{ color: `${gc.color}99` }}>Recommended Intervention</p>
+                                            <p className="text-[13px] text-[#f5f0e8] font-medium leading-relaxed">{gc.intervention}</p>
+                                          </div>
+                                          {dc && (
+                                            <p className="text-[11px] italic" style={{ color: `${gc.color}70` }}>{dc.hint}</p>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {/* Angle from engine */}
+                                      {(angleTitle || getOutreachAngle(detailLead, language)) && (
+                                        <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] p-3">
+                                          <p className="text-[10px] uppercase tracking-widest text-[#555] mb-1.5">{t.ui.detail.suggestedAngle}</p>
+                                          {angleTitle && <p className="text-[13px] font-semibold text-[#f5f0e8] mb-1">{angleTitle}</p>}
+                                          {angleWhy && <p className="text-[11px] text-[#666] leading-relaxed">{angleWhy}</p>}
+                                          {!angleTitle && <p className="text-[12px] text-[#c8c0b0] leading-relaxed">{getOutreachAngle(detailLead, language)}</p>}
+                                        </div>
+                                      )}
+
+                                      {/* Script */}
+                                      <div className="space-y-2">
+                                        <div className="flex items-center justify-between gap-2">
+                                          <div className="flex items-center gap-2">
+                                            <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.outreachScript}</p>
+                                            {safeOutreach && (
+                                              <div className="flex items-center gap-1">
+                                                {(["soft", "direct"] as const).map((v) => (
+                                                  <button key={v} type="button" onClick={() => setOutreachVariant(v)}
+                                                    className={"text-[10px] px-2 py-0.5 rounded-md border capitalize " + (outreachVariant === v ? "border-[#444] bg-[#1a1a1a] text-[#f5f0e8]" : "border-[#252525] text-[#555] hover:border-[#444]")}>
+                                                    {v}
+                                                  </button>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                          <button type="button"
+                                            onClick={async () => { try { await navigator.clipboard.writeText(scriptText); } catch (e) { console.error(e); } }}
+                                            disabled={!scriptText}
+                                            className="text-[11px] px-2.5 py-1 rounded-md border border-[#2a2a2a] bg-[#111] hover:bg-[#1a1a1a] disabled:opacity-40 transition-colors">
+                                            {t.ui.detail.copy}
+                                          </button>
+                                        </div>
+                                        <div className="bg-[#080808] border border-[#252525] rounded-xl p-4 max-h-64 overflow-auto">
+                                          <pre className="whitespace-pre-wrap text-[12px] text-[#c8c0b0] leading-relaxed font-sans">
+                                            {scriptText || t.ui.detail.clickLeadHint}
+                                          </pre>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+
+                                {detailTab === "tracking" && (() => {
+                                  const canSave = Number.isFinite(runIdNum) && runIdNum > 0;
+
+                                  // Pipeline stage — furthest reached
+                                  const stage = closed ? 3 : bookedCall ? 2 : replied ? 1 : contacted ? 0 : -1;
+                                  const stages = [
+                                    { key: "contacted",  label: "Contacted",  icon: "✉" },
+                                    { key: "replied",    label: "Replied",    icon: "↩" },
+                                    { key: "booked_call",label: "Call Booked",icon: "📅" },
+                                    { key: "closed",     label: "Closed",     icon: "✦" },
+                                  ] as const;
+
+                                  const revenueVal = selectedOutcome?.revenue ?? null;
+                                  const notesVal   = selectedOutcome?.notes ?? "";
+
+                                  return (
+                                    <div className="space-y-3 pt-1">
+
+                                      {/* Pipeline funnel */}
+                                      <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4">
+                                        <div className="flex items-center justify-between mb-3">
+                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.outcomeTracking}</p>
+                                          {isSavingOutcome && <p className="text-[10px] text-[#555] animate-pulse">{t.ui.detail.saving}…</p>}
+                                        </div>
+                                        <div className="flex items-stretch gap-1">
+                                          {stages.map(({ key, label, icon }, i) => {
+                                            const checked = key === "contacted" ? contacted : key === "replied" ? replied : key === "booked_call" ? bookedCall : closed;
+                                            const isActive = i <= stage;
+                                            const isCurrent = i === stage;
+                                            return (
+                                              <button key={key} type="button"
+                                                disabled={!canSave}
+                                                onClick={() => canSave && saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: buildOutcomePatch(key, !checked) })}
+                                                className={"flex-1 flex flex-col items-center gap-1.5 py-3 rounded-lg border transition-all " + (isCurrent ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)]" : isActive ? "border-[#4ade80]/30 bg-[#4ade80]/5" : "border-[#1a1a1a] bg-[#111] hover:border-[#252525]") + " disabled:cursor-not-allowed"}>
+                                                <span className={"text-base transition-colors " + (isCurrent ? "text-[#c9a84c]" : isActive ? "text-[#4ade80]" : "text-[#333]")}>{isActive ? (i < stage ? "✓" : icon) : icon}</span>
+                                                <span className={"text-[10px] tracking-wide " + (isActive ? "text-[#888]" : "text-[#333]")}>{label}</span>
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                        {stage >= 0 && (
+                                          <p className="text-[11px] text-[#555] mt-2 text-center">
+                                            {stage === 3 ? "🎉 Deal closed" : `${stage + 1} of 4 stages reached`}
+                                          </p>
                                         )}
+                                      </div>
 
-                                        <pre className="whitespace-pre-wrap wrap-break-words text-[11px] text-[#c8c0b0]">
-                                          {scriptText ||
-                                            t.ui.detail.clickLeadHint}
-                                        </pre>
+                                      {/* Revenue input — shown once closed */}
+                                      <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Deal Value</p>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-[#555] text-sm">$</span>
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            placeholder="0"
+                                            defaultValue={revenueVal ?? ""}
+                                            disabled={!canSave}
+                                            onBlur={(e) => {
+                                              if (!canSave) return;
+                                              const v = parseFloat(e.target.value);
+                                              saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { revenue: Number.isFinite(v) ? v : null } });
+                                            }}
+                                            className="flex-1 bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-sm text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40"
+                                          />
+                                        </div>
+                                        {closed && revenueVal && (
+                                          <p className="text-[11px] text-[#4ade80]">
+                                            ✦ ${revenueVal.toLocaleString()} closed
+                                          </p>
+                                        )}
+                                      </div>
+
+                                      {/* Notes */}
+                                      <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
+                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Notes</p>
+                                        <textarea
+                                          rows={3}
+                                          placeholder="Objections, context, follow-up reminders…"
+                                          defaultValue={notesVal ?? ""}
+                                          disabled={!canSave}
+                                          onBlur={(e) => {
+                                            if (!canSave) return;
+                                            saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { notes: e.target.value.trim() || null } });
+                                          }}
+                                          className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-[12px] text-[#c8c0b0] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors resize-none disabled:opacity-40"
+                                        />
+                                        <p className="text-[10px] text-[#333]">Saves on blur</p>
                                       </div>
                                     </div>
-                                  </div>
-                                )}
-
-                                {detailTab === "tracking" && (
-                                  <div className="space-y-3 pt-1">
-                                    <div className="rounded-xl border border-[#252525] bg-[#111111]/40 p-3">
-                                      <p className="text-[11px] uppercase tracking-wide text-[#aaa]/80 mb-2">
-                                        {t.ui.detail.outcomeTracking}{" "}
-                                        {isSavingOutcome &&
-                                          `… ${t.ui.detail.saving}`}
-                                      </p>
-
-                                      <div className="flex flex-wrap gap-4 text-xs text-[#c8c0b0]">
-                                        {OUTCOME_STATUS_KEYS.map((k) => (
-                                          <label
-                                            key={k}
-                                            className="flex items-center gap-2"
-                                          >
-                                            <input
-                                              type="checkbox"
-                                              checked={
-                                                k === "contacted"
-                                                  ? contacted
-                                                  : k === "replied"
-                                                    ? replied
-                                                    : k === "booked_call"
-                                                      ? bookedCall
-                                                      : closed
-                                              }
-                                              onChange={(e) => {
-                                                if (
-                                                  !Number.isFinite(runIdNum) ||
-                                                  runIdNum <= 0
-                                                ) {
-                                                  return;
-                                                }
-                                                saveOutcome({
-                                                  runId: runIdNum,
-                                                  leadId: detailLead.id,
-                                                  patch: buildOutcomePatch(
-                                                    k,
-                                                    e.target.checked,
-                                                  ),
-                                                });
-                                              }}
-                                            />
-                                            <span>{outcomeLabel(k, t)}</span>
-                                          </label>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
+                                  );
+                                })()}
                               </div>
                             </td>
                           </tr>
