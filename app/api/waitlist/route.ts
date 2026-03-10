@@ -2,6 +2,21 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
 
+export async function GET() {
+  try {
+    if (!supabase) return NextResponse.json({ count: 0 });
+    const { count, error } = await supabase
+      .from("waitlist")
+      .select("*", { count: "exact", head: true });
+    if (error) return NextResponse.json({ count: 0 });
+    return NextResponse.json({ count: count ?? 0 }, {
+      headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=600" }
+    });
+  } catch {
+    return NextResponse.json({ count: 0 });
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const { email, plan } = await request.json() as { email?: string; plan?: string };

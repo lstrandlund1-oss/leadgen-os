@@ -15,6 +15,7 @@ const PLANS = [
     badge: null,
     features: [
       "50 lead searches per month",
+      "All 5 profile types (free)",
       "Full signal-driven scoring",
       "All 4 gap types detected",
       "Outreach scripts (soft + direct)",
@@ -36,9 +37,8 @@ const PLANS = [
     features: [
       "Unlimited lead searches",
       "Light enrichment on every lead",
-      "All 5 profile types",
       "Geography-aware fit scoring",
-      "Deep enrichment (website + brand)",
+      "Deep enrichment — 50 scans/month",
       "Pipeline analytics + revenue tracking",
       "Priority support",
     ],
@@ -56,6 +56,7 @@ const PLANS = [
     badge: null,
     features: [
       "Everything in Operator",
+      "Deep enrichment — unlimited scans",
       "Multiple team members (up to 5)",
       "Competitor signal layer",
       "Custom outreach playbooks",

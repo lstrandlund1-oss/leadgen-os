@@ -17,6 +17,7 @@ export async function POST(request: Request) {
       isGoodFit,
       classificationConfidence,
       riskProfile,
+      fitScore,
     }: {
       website?: string | null;
       reviewCount?: number | null;
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
       isGoodFit?: boolean;
       classificationConfidence?: number | null;
       riskProfile?: string;
+      fitScore?: number | null;
     } = body;
 
     // 1) Website signals (fetches the actual site)
@@ -67,6 +69,7 @@ export async function POST(request: Request) {
       isGoodFit: body.isGoodFit ?? false,
       classificationConfidence: body.classificationConfidence ?? null,
       riskProfile: body.riskProfile ?? "unknown",
+      fitScore: typeof body.fitScore === "number" ? body.fitScore : undefined,
 
       websiteReachable: websiteResult.reachable,
       hasContactPage:

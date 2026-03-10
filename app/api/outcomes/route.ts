@@ -15,6 +15,7 @@ type OutcomePayload = {
   notes?: string | null;
   tonality?: "soft" | "direct" | null;
   angleType?: string | null;
+  followupDate?: string | null;
 };
 
 export async function POST(request: Request) {
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
       notes: body.notes ?? null,
       tonality: body.tonality ?? null,
       angle_type: body.angleType ?? null,
+      followup_date: body.followupDate ?? null,
     };
 
     const { data, error } = await supabase

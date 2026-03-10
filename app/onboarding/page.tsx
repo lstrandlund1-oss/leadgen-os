@@ -41,6 +41,22 @@ const CAPABILITY_ICONS: Record<Capability, string> = {
   crm: "🤝",
 };
 
+const PROFILE_TYPE_ICONS: Record<string, string> = {
+  performance_marketer: "📢",
+  web_developer: "🌐",
+  content_creator: "✍️",
+  seo_specialist: "🔍",
+  full_service_agency: "◈",
+};
+
+const PROFILE_TYPE_TAGS: Record<string, string> = {
+  performance_marketer: "Ads · Funnels · ROI",
+  web_developer: "Sites · Landing Pages · CRO",
+  content_creator: "Social · Organic · Brand",
+  seo_specialist: "Search · Local · Rankings",
+  full_service_agency: "Full Stack · Scale · Teams",
+};
+
 const STEPS = ["Service Type", "Capabilities", "Preferences", "Done"];
 
 export default function OnboardingPage() {
@@ -224,12 +240,23 @@ export default function OnboardingPage() {
                       key={key}
                       type="button"
                       onClick={() => handleProfileTypeChange(key)}
-                      className={`text-left p-4 rounded-xl border transition-all duration-200 ${active ? "border-[#c9a84c] bg-[rgba(201,168,76,0.05)]" : "border-[#252525] bg-[#111] hover:border-[#444]"}`}
+                      className={`text-left p-4 rounded-xl border transition-all duration-200 group ${active ? "border-[#c9a84c] bg-[rgba(201,168,76,0.06)]" : "border-[#252525] bg-[#0d0d0d] hover:border-[#3a3a3a] hover:bg-[#111]"}`}
                     >
-                      <p className="text-sm font-medium mb-1">{def.label}</p>
-                      <p className="text-[11px] text-[#666] leading-relaxed">
-                        {def.description}
-                      </p>
+                      <div className="flex items-start gap-3">
+                        <span className={`text-xl mt-0.5 transition-all ${active ? "scale-110" : "opacity-50 group-hover:opacity-80"}`}>
+                          {PROFILE_TYPE_ICONS[key]}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className={`text-[13px] font-semibold ${active ? "text-[#f5f0e8]" : "text-[#888]"}`}>{def.label}</p>
+                            {active && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[rgba(201,168,76,0.15)] text-[#c9a84c] uppercase tracking-widest">Selected</span>}
+                          </div>
+                          <p className={`text-[10px] uppercase tracking-widest mb-1.5 ${active ? "text-[#8a6e30]" : "text-[#333]"}`}>{PROFILE_TYPE_TAGS[key]}</p>
+                          <p className="text-[11px] text-[#555] leading-relaxed">
+                            {def.description}
+                          </p>
+                        </div>
+                      </div>
                     </button>
                   );
                 })}
@@ -429,40 +456,46 @@ export default function OnboardingPage() {
 
           {/* ── STEP 3: Done ── */}
           {step === 3 && (
-            <div className="text-center space-y-6 animate-fade-up">
-              <div className="w-16 h-16 rounded-full border border-[#c9a84c] bg-[rgba(201,168,76,0.08)] flex items-center justify-center mx-auto text-2xl">
-                ✦
+            <div className="text-center space-y-8 animate-fade-up">
+              <div className="relative mx-auto w-20 h-20">
+                <div className="absolute inset-0 rounded-full bg-[rgba(201,168,76,0.08)] border border-[rgba(201,168,76,0.2)] animate-pulse" />
+                <div className="absolute inset-0 flex items-center justify-center text-3xl">✦</div>
               </div>
               <div>
+                <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-3">Profile ready</p>
                 <h1
-                  className="text-3xl md:text-4xl font-light mb-3"
+                  className="text-3xl md:text-4xl font-light mb-4"
                   style={{ fontFamily: "var(--font-display), serif" }}
                 >
-                  Profile{" "}
+                  Your intelligence layer is{" "}
                   <span className="italic" style={{ color: "#c9a84c" }}>
-                    created.
+                    active.
                   </span>
                 </h1>
-                <p className="text-[14px] text-[#666] max-w-md mx-auto leading-relaxed">
-                  Your profile is saved. Every lead search will now be scored
-                  and matched against your specific capabilities and style.
+                <p className="text-[14px] text-[#555] max-w-md mx-auto leading-relaxed">
+                  Every lead you find will now be scored, matched, and pitched specifically for your service type and capabilities. No two users see the same leads the same way.
                 </p>
               </div>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <button
-                  type="button"
-                  onClick={() => router.push("/dashboard")}
-                  className="px-8 py-3.5 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] hover:bg-[#e8c97a] transition-colors"
-                >
-                  Go to Dashboard →
-                </button>
-                <Link
-                  href="/plans"
-                  className="px-8 py-3.5 rounded-lg border border-[rgba(201,168,76,0.3)] text-[#c9a84c] text-[14px] hover:bg-[rgba(201,168,76,0.05)] transition-colors"
-                >
-                  View Plans
-                </Link>
+              <div className="grid grid-cols-3 gap-3 max-w-sm mx-auto">
+                {[
+                  { icon: "◈", label: "Profile-matched scoring" },
+                  { icon: "⬡", label: "Gap type detection" },
+                  { icon: "◆", label: "Outreach scripts" },
+                ].map((f) => (
+                  <div key={f.label} className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3 text-center">
+                    <p className="text-[#c9a84c] text-lg mb-1">{f.icon}</p>
+                    <p className="text-[10px] text-[#444] leading-tight">{f.label}</p>
+                  </div>
+                ))}
               </div>
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard")}
+                className="inline-block px-10 py-4 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] tracking-wide hover:bg-[#e8c97a] transition-all shadow-lg shadow-[rgba(201,168,76,0.15)]"
+              >
+                Find my first leads →
+              </button>
+              <p className="text-[11px] text-[#333]">You can update your profile anytime from the dashboard.</p>
             </div>
           )}
         </div>

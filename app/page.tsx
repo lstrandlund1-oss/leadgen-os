@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import HamburgerMenu from "./components/HamburgerMenu";
 
@@ -60,32 +61,13 @@ const STEPS = [
 ];
 
 const STATS = [
-  { value: "6", label: "Scoring dimensions per lead" },
-  { value: "5", label: "Profile types with unique scoring" },
+  { value: "< 3s", label: "Average time to score a lead" },
   { value: "4", label: "Gap types detected automatically" },
-  { value: "100%", label: "Deterministic — no guesswork" },
+  { value: "2×", label: "Script variants per lead — soft or direct" },
+  { value: "100%", label: "Profile-matched — no generic lists" },
 ];
 
-const TESTIMONIALS = [
-  {
-    quote: "I stopped sending cold messages into the void. Now I know exactly which businesses need what I offer before I reach out.",
-    name: "Marcus T.",
-    role: "Performance Marketer",
-    initial: "M",
-  },
-  {
-    quote: "The gap detection is the part I didn't know I needed. It tells me how to open the conversation before I've even looked at the business.",
-    name: "Lena K.",
-    role: "Web Developer",
-    initial: "L",
-  },
-  {
-    quote: "I used to spend an hour researching each lead. Now I get better intelligence in under a minute — and the scripts actually sound like me.",
-    name: "Daria V.",
-    role: "SEO Specialist",
-    initial: "D",
-  },
-];
+
 
 // Mini score card data for the mockup
 const MOCK_LEAD = {
@@ -103,6 +85,14 @@ const MOCK_LEAD = {
 };
 
 export default function LandingPage() {
+  const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("/api/waitlist")
+      .then(r => r.json())
+      .then(d => { if (typeof d.count === "number" && d.count > 0) setWaitlistCount(d.count); })
+      .catch(() => {});
+  }, []);
   return (
     <div className="min-h-screen bg-[#080808] text-[#f5f0e8] overflow-x-hidden">
 
@@ -130,7 +120,11 @@ export default function LandingPage() {
 
         <div className="animate-fade-up-delay-1 inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.04)] mb-8">
           <span className="w-1.5 h-1.5 rounded-full bg-[#c9a84c] animate-pulse" />
-          <span className="text-[11px] tracking-[0.15em] uppercase text-[#c9a84c]">Closed Beta — Limited Access</span>
+          <span className="text-[11px] tracking-[0.15em] uppercase text-[#c9a84c]">
+            {waitlistCount !== null
+              ? `${waitlistCount} service providers in early access`
+              : "Closed Beta — Limited Access"}
+          </span>
         </div>
 
         <h1 className="animate-fade-up-delay-2 text-5xl md:text-7xl lg:text-8xl font-light leading-[1.05] tracking-tight max-w-5xl" style={{ fontFamily: "var(--font-display), serif" }}>
@@ -197,6 +191,22 @@ export default function LandingPage() {
             <div className="rounded-lg p-2.5 flex items-center gap-2.5" style={{ background: `${MOCK_LEAD.gapColor}08`, border: `1px solid ${MOCK_LEAD.gapColor}20` }}>
               <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: MOCK_LEAD.gapColor }}>⬡ {MOCK_LEAD.gap} GAP</span>
               <span className="text-[10px] text-[#555]">— no booking flow detected</span>
+            </div>
+
+            {/* Mini pipeline stats */}
+            <div className="mt-3 grid grid-cols-4 gap-1 border border-[#1a1a1a] rounded-xl bg-[#0a0a0a] p-2.5">
+              {[
+                { label: "Contacted", value: "12", icon: "✉", active: true },
+                { label: "Replied", value: "5", icon: "↩", active: true },
+                { label: "Calls", value: "2", icon: "📅", active: true },
+                { label: "Closed", value: "1", icon: "✦", color: "#c9a84c" },
+              ].map((item) => (
+                <div key={item.label} className="flex flex-col items-center gap-0.5">
+                  <span className="text-[11px]" style={{ color: item.color ?? (item.active ? "#4ade80" : "#333") }}>{item.icon}</span>
+                  <span className="text-[13px] font-bold" style={{ color: item.color ?? "#f5f0e8" }}>{item.value}</span>
+                  <span className="text-[9px] text-[#444] tracking-wide">{item.label}</span>
+                </div>
+              ))}
             </div>
 
             {/* Shimmer label */}
@@ -274,33 +284,54 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* TESTIMONIALS */}
+      {/* DIFFERENTIATOR CALLOUT */}
       <section className="px-6 md:px-12 py-24 bg-[#060606] border-y border-[#111]">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           <div className="mb-14 text-center">
-            <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-4">Early access feedback</p>
+            <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-4">Why LeadGenOS is different</p>
             <h2 className="text-4xl md:text-5xl font-light" style={{ fontFamily: "var(--font-display), serif" }}>
-              What beta users{" "}
-              <span className="italic" style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>are saying.</span>
+              Other tools give you names.{" "}
+              <span className="italic" style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>We give you reasons.</span>
             </h2>
+            <p className="mt-4 text-[14px] text-[#444] max-w-2xl mx-auto leading-relaxed">
+              Every other lead tool hands you a spreadsheet. LeadGenOS hands you a verdict — scored against your specific service, with a ready-to-send outreach script and a clear reason why this business is worth your time right now.
+            </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {TESTIMONIALS.map((t, i) => (
-              <div key={i} className="rounded-2xl border border-[#151515] bg-[#0a0a0a] p-6 space-y-4">
-                <div className="flex gap-1">
-                  {[...Array(5)].map((_, j) => (
-                    <span key={j} className="text-[#c9a84c] text-sm">✦</span>
-                  ))}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-[#151515] rounded-2xl overflow-hidden border border-[#151515]">
+            {[
+              {
+                label: "Typical lead lists",
+                icon: "✗",
+                iconColor: "#f87171",
+                points: ["Name, phone, address", "No scoring or context", "Same list for everyone", "Manual research required", "No outreach guidance"],
+              },
+              {
+                label: "LeadGenOS",
+                icon: "◈",
+                iconColor: "#c9a84c",
+                highlight: true,
+                points: ["Signal-driven lead score", "Gap type + pitch angle", "Matched to your profile", "Website signals auto-scanned", "Script generated, ready to send"],
+              },
+              {
+                label: "Manual research",
+                icon: "✗",
+                iconColor: "#f87171",
+                points: ["1–2 hours per lead", "Inconsistent judgment", "No structured scoring", "Easy to miss signals", "Hard to scale"],
+              },
+            ].map((col, i) => (
+              <div key={i} className={`p-7 space-y-4 ${col.highlight ? "bg-[rgba(201,168,76,0.04)]" : "bg-[#0a0a0a]"}`}>
+                <div className="flex items-center gap-2 mb-5">
+                  <span className="text-lg" style={{ color: col.iconColor }}>{col.icon}</span>
+                  <p className={`text-[13px] font-semibold tracking-wide ${col.highlight ? "text-[#c9a84c]" : "text-[#444]"}`}>{col.label}</p>
+                  {col.highlight && <span className="text-[9px] px-2 py-0.5 rounded-full bg-[rgba(201,168,76,0.15)] text-[#c9a84c] uppercase tracking-widest ml-auto">You are here</span>}
                 </div>
-                <p className="text-[13px] text-[#888] leading-relaxed italic">&ldquo;{t.quote}&rdquo;</p>
-                <div className="flex items-center gap-3 pt-2 border-t border-[#111]">
-                  <div className="w-8 h-8 rounded-full border border-[rgba(201,168,76,0.3)] bg-[rgba(201,168,76,0.06)] flex items-center justify-center text-[#c9a84c] text-xs font-bold">
-                    {t.initial}
-                  </div>
-                  <div>
-                    <p className="text-[12px] font-semibold text-[#c8c0b0]">{t.name}</p>
-                    <p className="text-[10px] text-[#444]">{t.role}</p>
-                  </div>
+                <div className="space-y-3">
+                  {col.points.map((pt, j) => (
+                    <div key={j} className="flex items-start gap-2.5">
+                      <span className={`mt-0.5 text-[10px] shrink-0 ${col.highlight ? "text-[#4ade80]" : "text-[#333]"}`}>{col.highlight ? "✓" : "—"}</span>
+                      <p className={`text-[12px] leading-snug ${col.highlight ? "text-[#888]" : "text-[#333]"}`}>{pt}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
@@ -338,6 +369,8 @@ export default function LandingPage() {
             <Link href="/plans" className="hover:text-[#c9a84c] transition-colors">Pricing</Link>
             <Link href="/login" className="hover:text-[#c9a84c] transition-colors">Get Access</Link>
             <a href="mailto:hello@leadgenos.com" className="hover:text-[#c9a84c] transition-colors">Contact</a>
+            <Link href="/privacy" className="hover:text-[#c9a84c] transition-colors">Privacy</Link>
+            <Link href="/terms" className="hover:text-[#c9a84c] transition-colors">Terms</Link>
           </div>
           <p className="text-[11px] text-[#222] tracking-wide">© 2025 LeadGenOS. All rights reserved.</p>
         </div>

@@ -49,8 +49,8 @@ export type TranslationSchema = {
         opportunity: string;
         risk: string;
         readiness: string;
-    };
-    riskProfile: {
+      };
+      riskProfile: {
         none: string;
         mature_competitor: string;
         unstable_business: string;
@@ -79,6 +79,49 @@ export type TranslationSchema = {
       readinessLabel: string;
       clickLeadHint: string;
       riskProfileLabel?: string;
+      tabOverview: string;
+      tabSignals: string;
+      tabOutreach: string;
+      tabTracking: string;
+      dealValue: string;
+      notes: string;
+      savesOnBlur: string;
+      followUpReminder: string;
+      followUpHint: string;
+      stagesReached: string;
+      dealClosed: string;
+      overdueLabel: string;
+      todayLabel: string;
+      inDaysLabel: string;
+      upside: string;
+      deliverability: string;
+      inboxReady: string;
+      useWithCare: string;
+      likelyFiltered: string;
+      whyNoBookingFlow: string;
+      whyLowDigital: string;
+      whyMissingInfra: string;
+      whyAlreadyEstablished: string;
+      whyUnstableSignals: string;
+      whyTopTier: string;
+      whyGoodValueFit: string;
+      whyLowPriority: string;
+    };
+    savedSearches: {
+      title: string;
+      subtitle: string;
+      saveCurrent: string;
+      nameInputPlaceholder: string;
+      rerun: string;
+    };
+    profileBanner: {
+      title: string;
+      body: string;
+      cta: string;
+    };
+    feedback: {
+      buttonLabel: string;
+      tooltip: string;
     };
   };
 };

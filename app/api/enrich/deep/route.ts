@@ -122,6 +122,44 @@ async function fetchPage(url: string): Promise<{ html: string; loadTimeMs: numbe
 
 export async function POST(request: Request) {
   try {
+    // ── Quota check ──────────────────────────────────────────────────────────
+    // Import here to avoid circular deps at module level
+    const { getAuthUser } = await import("@/lib/supabaseServer");
+    const { supabase } = await import("@/lib/supabaseClient");
+    const { getEffectivePlan, deepEnrichmentLimit } = await import("@/lib/plan");
+
+    const authUser = await getAuthUser();
+    const userId = authUser?.id ?? null;
+    const plan = getEffectivePlan();
+    const limit = deepEnrichmentLimit(plan);
+
+    if (limit === 0) {
+      return NextResponse.json({ error: "Deep scan not available on your plan." }, { status: 403 });
+    }
+
+    // Enforce monthly quota for Operator (limit !== null means finite)
+    if (limit !== null && supabase && userId) {
+      const monthStart = new Date();
+      monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+
+      const { count } = await supabase
+        .from("deep_scan_usage")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .gte("created_at", monthStart.toISOString());
+
+      if ((count ?? 0) >= limit) {
+        return NextResponse.json(
+          { error: `Monthly deep scan limit reached (${limit}/month). Upgrade to Agency for unlimited scans.` },
+          { status: 429 }
+        );
+      }
+
+      // Log this scan (fire-and-forget — don't block on it)
+      supabase.from("deep_scan_usage").insert({ user_id: userId }).then(() => {});
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const body = await request.json() as {
       website?: string | null;
       nearbyCompetitorCount?: number;

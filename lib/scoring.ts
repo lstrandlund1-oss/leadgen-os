@@ -118,6 +118,10 @@ export function scoreLead({
     riskProfile,
     isGoodFit: c.isGoodFit ?? false,
     classificationConfidence: c.confidence ?? null,
+    rating,
+    reviews,
+    hasWebsite,
+    // fitScore not available at this stage (pre-fit); will be recalculated after fit scoring
   });
 
   const reasons: string[] = [];

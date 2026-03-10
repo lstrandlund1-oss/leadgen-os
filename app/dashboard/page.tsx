@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState, FormEvent } from "react";
 import type { Lead, Language, SearchRecord } from "@/lib/types";
 import type { ProviderName } from "@/lib/providers/types";
+import { getEffectivePlan, canUseDeepEnrichment } from "@/lib/plan";
 import { getTranslations } from "@/lib/i18n";
 import HamburgerMenu from "../components/HamburgerMenu";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
@@ -59,6 +60,7 @@ type LeadOutcomeUI = {
   closed: boolean;
   revenue: number | null;
   notes: string | null;
+  followup_date: string | null;
 };
 
 type OutcomeKey = "contacted" | "replied" | "booked_call" | "closed";
@@ -466,9 +468,14 @@ async function runProviderSearchAndFetchLeads(args: {
   const runIdArg = args.runId ?? null;
   const cursor = args.cursor ?? null;
 
+  // 30s timeout on search — prevents indefinite hang on slow APIs
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 30000);
+
   const searchRes = await fetch("/api/providers/search", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    signal: timeoutController.signal,
     body: JSON.stringify({
       provider,
       query: niche,
@@ -479,7 +486,14 @@ async function runProviderSearchAndFetchLeads(args: {
       runId: runIdArg,
       cursor,
     }),
-  }).catch(() => null);
+  }).catch((err) => {
+    if (err?.name === "AbortError") {
+      throw new Error("Search timed out. Try again or check your connection.");
+    }
+    return null;
+  });
+
+  clearTimeout(timeoutId);
 
   if (!searchRes?.ok) return null;
 
@@ -547,17 +561,30 @@ export default function Home() {
   const [hasSearched, setHasSearched] = useState(false);
 
   const [recentSearches, setRecentSearches] = useState<SearchRecord[]>([]);
+  const [saveSearchName, setSaveSearchName] = useState("");
+  const [showSaveSearchInput, setShowSaveSearchInput] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const [selectedLead, setSelectedLead] = useState<LeadUI | null>(null);
   const [detailTab, setDetailTab] = useState<
     "overview" | "signals" | "outreach" | "tracking"
   >("overview");
+  const userPlan = getEffectivePlan();
+  const deepScanUnlocked = canUseDeepEnrichment(userPlan);
+
   const [enrichmentLoading, setEnrichmentLoading] = useState(false);
   const [enrichmentData, setEnrichmentData] = useState<{
     reachable: boolean;
     detectedPlatforms: string[];
     signals: Record<string, { value: unknown; confidence: number }>;
+  } | null>(null);
+  const [deepScanLoading, setDeepScanLoading] = useState(false);
+  const [deepScanData, setDeepScanData] = useState<{
+    deepScore: number;
+    pageReachable: boolean;
+    website: { scores: Record<string, number>; summary: string };
+    market: { scores: Record<string, number>; competitorSummary: string; recommendation: string };
+    brand: { scores: Record<string, number>; brandGrade: string; weakestArea: string; strengthArea: string };
   } | null>(null);
 
   type OutreachVariant = "soft" | "direct";
@@ -613,11 +640,52 @@ export default function Home() {
   const outreachScript = outreach?.variants?.[selectedVariant] ?? "";
   const scriptText = outreachScript.trim();
 
+  async function runDeepScan(lead: LeadUI): Promise<void> {
+    if (deepScanLoading) return;
+    setDeepScanLoading(true);
+    setDeepScanData(null);
+    try {
+      const res = await fetch("/api/enrich/deep", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          website: lead.company.website ?? null,
+          nearbyCompetitorCount: 8,
+          nearbyWithWebsite: 4,
+          nearbyHighRated: 3,
+          nearbyHighReviewCount: 2,
+          searchVolumeProxy: lead.score.opportunity >= 70 ? "high" : lead.score.opportunity >= 40 ? "medium" : "low",
+        }),
+      });
+      if (!res.ok) {
+        if (res.status === 429 || res.status === 403) {
+          const errData = await res.json().catch(() => ({})) as { error?: string };
+          toastError(errData.error ?? "Deep scan limit reached.");
+        }
+        return;
+      }
+      const data = await res.json();
+      if (data.success) {
+        setDeepScanData({
+          deepScore: data.deepScore,
+          pageReachable: data.pageReachable,
+          website: data.website,
+          market: data.market,
+          brand: data.brand,
+        });
+      }
+    } catch {
+      // fail soft
+    } finally {
+      setDeepScanLoading(false);
+    }
+  }
+
   async function saveOutcome(args: {
     runId: number;
     leadId: string;
     patch: Partial<
-      Pick<LeadOutcomeUI, "contacted" | "replied" | "booked_call" | "closed" | "revenue" | "notes">
+      Pick<LeadOutcomeUI, "contacted" | "replied" | "booked_call" | "closed" | "revenue" | "notes" | "followup_date">
     >;
   }) {
     const { runId, leadId, patch } = args;
@@ -634,6 +702,7 @@ export default function Home() {
         closed: existing?.closed ?? false,
         revenue: existing?.revenue ?? null,
         notes: existing?.notes ?? null,
+        followup_date: existing?.followup_date ?? null,
         ...patch,
       };
       return { ...prev, [leadId]: next };
@@ -651,6 +720,7 @@ export default function Home() {
         closed: patch.closed,
         revenue: patch.revenue,
         notes: patch.notes,
+        followupDate: patch.followup_date,
         tonality: outreachVariant,
         angleType: selectedLead ? getStructuredAngle(selectedLead as LeadUI, language).title : null,
       };
@@ -733,6 +803,19 @@ export default function Home() {
     return arr;
   }, [filteredLeads, sortBy]);
 
+  const LEADS_PER_PAGE = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset to page 1 whenever the sorted list changes
+  const sortedLeadsKey = sortedLeads.map(l => l.id).join(",");
+  useEffect(() => { setCurrentPage(1); }, [sortedLeadsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const totalPages = Math.max(1, Math.ceil(sortedLeads.length / LEADS_PER_PAGE));
+  const pagedLeads = useMemo(() => {
+    const start = (currentPage - 1) * LEADS_PER_PAGE;
+    return sortedLeads.slice(start, start + LEADS_PER_PAGE);
+  }, [sortedLeads, currentPage]);
+
   const activeRunId = useMemo(() => {
     const v = Number(sortedLeads?.[0]?.metadata?.runId ?? 0);
     return Number.isFinite(v) && v > 0 ? v : 0;
@@ -757,6 +840,7 @@ export default function Home() {
   useEffect(() => {
     if (!selectedLead) {
       setEnrichmentData(null);
+      setDeepScanData(null);
       setDetailTab("overview");
       return;
     }
@@ -786,6 +870,7 @@ export default function Home() {
             isGoodFit,
             classificationConfidence,
             riskProfile,
+            fitScore: selectedLead?.fit?.fitScore ?? null,
           }),
         });
         if (!res.ok) return;
@@ -1161,14 +1246,66 @@ export default function Home() {
 
         {recentSearches.length > 0 && (
           <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 shadow-xl shadow-black/40 space-y-3">
+            {/* Profile completeness warning banner */}
+            {!checklistState.hasProfile && (
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-[#c9a84c]/20 bg-[#c9a84c]/04 px-4 py-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="text-[#c9a84c] text-base flex-shrink-0">⚠</span>
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-semibold text-[#c9a84c] leading-tight">{t.ui.profileBanner.title}</p>
+                    <p className="text-[11px] text-[#666] mt-0.5 leading-snug">{t.ui.profileBanner.body}</p>
+                  </div>
+                </div>
+                <a href="/profile/settings" className="flex-shrink-0 text-[11px] px-3 py-1.5 rounded-lg border border-[rgba(201,168,76,0.3)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-all whitespace-nowrap">
+                  {t.ui.profileBanner.cta}
+                </a>
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-sm font-semibold text-[#f5f0e8]">Recent Searches</h2>
-                <p className="text-[11px] text-[#555] mt-0.5">Click to re-run a previous search</p>
+                <h2 className="text-sm font-semibold text-[#f5f0e8]">{t.ui.savedSearches.title}</h2>
+                <p className="text-[11px] text-[#555] mt-0.5">{t.ui.savedSearches.subtitle}</p>
               </div>
-              {isLoadingHistory && (
-                <span className="text-[11px] text-[#555] animate-pulse">Updating…</span>
-              )}
+              <div className="flex items-center gap-2">
+                {isLoadingHistory && (
+                  <span className="text-[11px] text-[#555] animate-pulse">Updating…</span>
+                )}
+                {showSaveSearchInput ? (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      autoFocus
+                      type="text"
+                      value={saveSearchName}
+                      onChange={(e) => setSaveSearchName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          setSaveSearchName("");
+                          setShowSaveSearchInput(false);
+                        }
+                        if (e.key === "Escape") {
+                          setSaveSearchName("");
+                          setShowSaveSearchInput(false);
+                        }
+                      }}
+                      placeholder={t.ui.savedSearches.nameInputPlaceholder}
+                      className="text-[11px] bg-[#0d0d0d] border border-[rgba(201,168,76,0.3)] rounded-lg px-2 py-1 text-[#f5f0e8] placeholder-[#444] focus:outline-none focus:border-[rgba(201,168,76,0.6)] w-36"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { setSaveSearchName(""); setShowSaveSearchInput(false); }}
+                      className="text-[11px] text-[#555] hover:text-[#888] px-1"
+                    >✕</button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowSaveSearchInput(true)}
+                    className="text-[10px] px-2.5 py-1 rounded-lg border border-[rgba(201,168,76,0.25)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.06)] transition-all tracking-wide"
+                  >
+                    {t.ui.savedSearches.saveCurrent}
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
@@ -1221,6 +1358,21 @@ export default function Home() {
 
         {/* Filter Form */}
         <section className="bg-[#111111] border border-[#252525] rounded-2xl p-6 md:p-8 shadow-xl shadow-black/40 space-y-6">
+          {/* Profile completeness banner — show here too when no saved searches exist */}
+          {!checklistState.hasProfile && recentSearches.length === 0 && (
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-[#c9a84c]/20 bg-[#c9a84c]/04 px-4 py-3 -mb-2">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-[#c9a84c] text-base flex-shrink-0">⚠</span>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-semibold text-[#c9a84c] leading-tight">{t.ui.profileBanner.title}</p>
+                  <p className="text-[11px] text-[#666] mt-0.5 leading-snug">{t.ui.profileBanner.body}</p>
+                </div>
+              </div>
+              <a href="/profile/settings" className="flex-shrink-0 text-[11px] px-3 py-1.5 rounded-lg border border-[rgba(201,168,76,0.3)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-all whitespace-nowrap">
+                {t.ui.profileBanner.cta}
+              </a>
+            </div>
+          )}
           <h2 className="text-xl font-semibold">{t.ui.filters.title}</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
@@ -1266,6 +1418,9 @@ export default function Home() {
                   className="bg-[#111111] border border-[#2a2a2a] rounded-md px-3 py-2 text-sm"
                 >
                   <option value="google_places">Google Places</option>
+                  {process.env.NEXT_PUBLIC_SERP_API_KEY && (
+                    <option value="serp">SERP (Organic)</option>
+                  )}
                   {process.env.NEXT_PUBLIC_SHOW_MOCK_PROVIDER === "true" && (
                     <option value="mock">Mock (Dev)</option>
                   )}
@@ -1341,12 +1496,15 @@ export default function Home() {
         </section>
 
         {/* Results */}
-        <section className="bg-[#111111] border border-[#252525] rounded-2xl p-6 md:p-8 shadow-xl shadow-black/40 space-y-4">
+        <section className="bg-[#111111] border border-[#252525] rounded-2xl p-6 md:p-8 shadow-xl shadow-black/40 space-y-4 overflow-hidden">
           <div className="flex items-center justify-between gap-3">
             <div className="space-y-1">
               <h2 className="text-xl font-semibold">{t.ui.results.title}</h2>
               <p className="text-xs text-[#888]">
                 {t.ui.results.showing} {sortedLeads.length} {t.ui.results.leads}
+                {totalPages > 1 && (
+                  <span className="text-[#444] ml-1">· page {currentPage}/{totalPages}</span>
+                )}
               </p>
 
               <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -1494,35 +1652,28 @@ export default function Home() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              {/* ── LEADS TABLE ── */}
+              <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="bg-[#111111] border-b border-[#252525]">
-                    <th className="text-left py-2 px-3">
+                    <th className="text-left py-2 px-3 w-[30%]">
                       {t.ui.table.company}
                     </th>
-                    <th className="text-left py-2 px-3">
-                      {t.ui.table.industry}
-                    </th>
-                    <th className="text-left py-2 px-3">
-                      {t.ui.table.location}
-                    </th>
-                    <th className="text-left py-2 px-3">{t.ui.table.score}</th>
-                    <th className="text-left py-2 px-3">Fit</th>
-                    <th className="text-left py-2 px-3">
+                    <th className="text-left py-2 px-3 w-[10%]">{t.ui.table.score}</th>
+                    <th className="text-left py-2 px-3 w-[8%]">Fit</th>
+                    <th className="text-left py-2 px-3 w-[12%]">
                       {t.ui.table.opportunity}
                     </th>
-                    <th className="text-left py-2 px-3">{t.ui.table.risk}</th>
+                    <th className="text-left py-2 px-3 w-[8%]">{t.ui.table.risk}</th>
                     <th className="text-left py-2 px-3">
                       {t.ui.table.insight}
-                    </th>
-                    <th className="text-left py-2 px-3">
-                      {t.ui.table.website}
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedLeads.map((lead) => {
+                  {pagedLeads.map((lead) => {
                     const isSelected = selectedLead?.id === lead.id;
                     const mainInsight = getLocalizedOpportunityInsight(
                       lead,
@@ -1547,10 +1698,10 @@ export default function Home() {
                     const closed = selectedOutcome?.closed ?? false;
 
                     const tabs = [
-                      { key: "overview", label: "Overview" },
-                      { key: "signals", label: "Signals" },
-                      { key: "outreach", label: "Outreach" },
-                      { key: "tracking", label: "Tracking" },
+                      { key: "overview", label: t.ui.detail.tabOverview },
+                      { key: "signals", label: t.ui.detail.tabSignals },
+                      { key: "outreach", label: t.ui.detail.tabOutreach },
+                      { key: "tracking", label: t.ui.detail.tabTracking },
                     ] as const;
 
                     const detailWebsiteUrl =
@@ -1573,36 +1724,26 @@ export default function Home() {
                           }
                         >
                           <td className="py-2 px-3">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium">
+                            <div>
+                              <span className="font-medium text-[13px]">
                                 {lead.company.name}
                               </span>
-
-                              <span className="text-[10px] px-2 py-0.5 rounded-full border border-[#2a2a2a] bg-[#111111]/70">
-                                {lead.source === "google_places"
-                                  ? "Google Places"
-                                  : lead.source === "mock"
-                                    ? "Mock (Dev)"
-                                    : lead.source}
-                              </span>
-
-                              <span className="text-[10px] px-2 py-0.5 rounded-full border border-[#2a2a2a] bg-[#111111]/70">
-                                {lead.classification.primaryIndustry.replaceAll(
-                                  "_",
-                                  " ",
+                              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                <span className="text-[10px] text-[#555]">{leadLocation(lead)}</span>
+                                <span className="text-[10px] text-[#444]">·</span>
+                                <span className="text-[10px] text-[#555]">
+                                  {lead.classification.primaryIndustry.replaceAll("_", " ")}
+                                </span>
+                                {lead.company.website && (
+                                  <a href={lead.company.website} target="_blank" rel="noreferrer"
+                                    onClick={e => e.stopPropagation()}
+                                    className="text-[10px] text-[#c9a84c] hover:underline">
+                                    Visit ↗
+                                  </a>
                                 )}
-                              </span>
+                              </div>
                             </div>
                           </td>
-
-                          <td className="py-2 px-3">
-                            {lead.classification.primaryIndustry.replaceAll(
-                              "_",
-                              " ",
-                            )}
-                          </td>
-
-                          <td className="py-2 px-3">{leadLocation(lead)}</td>
 
                           <td className="py-2 px-3">
                             <div className="text-xs font-medium mb-1">
@@ -1621,6 +1762,30 @@ export default function Home() {
                                 style={{ width: `${lead.score.value ?? 0}%` }}
                               />
                             </div>
+                            {(() => {
+                              const insight = getLocalizedOpportunityInsight(lead, language);
+                              const score = lead.score.value ?? 0;
+                              const whyLabel = insight?.type === "conversion_gap"
+                                ? t.ui.detail.whyNoBookingFlow
+                                : insight?.type === "visibility_gap"
+                                ? t.ui.detail.whyLowDigital
+                                : insight?.type === "foundation_gap"
+                                ? t.ui.detail.whyMissingInfra
+                                : insight?.type === "mature_competitor"
+                                ? t.ui.detail.whyAlreadyEstablished
+                                : lead.score.riskProfile === "unstable_business"
+                                ? t.ui.detail.whyUnstableSignals
+                                : score >= 80
+                                ? t.ui.detail.whyTopTier
+                                : score >= 60
+                                ? t.ui.detail.whyGoodValueFit
+                                : t.ui.detail.whyLowPriority;
+                              return (
+                                <p className="text-[10px] text-[#555] mt-1 leading-tight truncate max-w-[120px]">
+                                  {whyLabel}
+                                </p>
+                              );
+                            })()}
                           </td>
 
                           <td className="py-2 px-3">
@@ -1669,7 +1834,7 @@ export default function Home() {
                               {lead.score.opportunity ?? 0}
                             </span>
                             <p className="mt-1 text-[11px] leading-snug text-[#888]">
-                              {language === "sv" ? "Uppsida" : "Upside"}
+                              {t.ui.detail.upside}
                             </p>
                           </td>
 
@@ -1719,26 +1884,12 @@ export default function Home() {
                             </div>
                           </td>
 
-                          <td className="py-2 px-3">
-                            {lead.company.website ? (
-                              <a
-                                href={lead.company.website}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-[#c9a84c] hover:underline"
-                              >
-                                Visit
-                              </a>
-                            ) : (
-                              <span className="text-[#f5f0e8]0">N/A</span>
-                            )}
-                          </td>
                         </tr>
 
                         {isSelected && detailLead && (
-                          <tr key={`${lead.id}-detail`}>
-                            <td colSpan={9} className="p-0">
-                              <div className="border-b border-[#2a2a2a] bg-[#080808]/80 px-4 py-4 space-y-3">
+                          <tr key={`${lead.id}-detail`} id={`lead-detail-${lead.id}`}>
+                            <td colSpan={6} className="p-0 overflow-hidden" style={{ maxWidth: 0 }}>
+                              <div className="border-b border-[#2a2a2a] bg-[#080808]/80 px-4 py-4 space-y-3 overflow-hidden">
                                 <div className="flex gap-1 border-b border-[#252525] pb-0">
                                   {tabs.map((tab) => (
                                     <button
@@ -2045,6 +2196,143 @@ export default function Home() {
                                   );
                                 })()}
 
+                                {detailTab === "signals" && deepScanData && (
+                                  <div className="space-y-3">
+                                    {/* Deep Score */}
+                                    <div className="rounded-xl border border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.04)] p-4">
+                                      <div className="flex items-center justify-between mb-3">
+                                        <p className="text-[10px] uppercase tracking-widest text-[#8a6e30]">Deep Scan Score</p>
+                                        <span className="text-2xl font-bold text-[#c9a84c]">{deepScanData.deepScore}</span>
+                                      </div>
+                                      {!deepScanData.pageReachable && (
+                                        <p className="text-[11px] text-[#555]">Website unreachable — scores based on available signals only.</p>
+                                      )}
+                                    </div>
+
+                                    {/* Website scores */}
+                                    <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+                                      <div className="flex items-center justify-between">
+                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Website Analysis</p>
+                                        {deepScanData.website.summary && (
+                                          <p className="text-[10px] text-[#444] max-w-[60%] text-right truncate">{deepScanData.website.summary}</p>
+                                        )}
+                                      </div>
+                                      {Object.entries(deepScanData.website.scores).map(([key, val]) => {
+                                        const label = key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase());
+                                        const color = val >= 65 ? "#4ade80" : val >= 35 ? "#c9a84c" : "#f87171";
+                                        return (
+                                          <div key={key} className="space-y-1">
+                                            <div className="flex items-center justify-between">
+                                              <p className="text-[11px] text-[#888]">{label}</p>
+                                              <p className="text-[12px] font-bold tabular-nums" style={{ color }}>{val}</p>
+                                            </div>
+                                            <div className="h-1.5 w-full rounded-full bg-[#1a1a1a]">
+                                              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${val}%`, backgroundColor: color }} />
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+
+                                    {/* Market signals */}
+                                    <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+                                      <p className="text-[10px] uppercase tracking-widest text-[#555]">Market Signals</p>
+                                      {Object.entries(deepScanData.market.scores).map(([key, val]) => {
+                                        const label = key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase());
+                                        const color = val >= 65 ? "#4ade80" : val >= 35 ? "#c9a84c" : "#f87171";
+                                        return (
+                                          <div key={key} className="space-y-1">
+                                            <div className="flex items-center justify-between">
+                                              <p className="text-[11px] text-[#888]">{label}</p>
+                                              <p className="text-[12px] font-bold tabular-nums" style={{ color }}>{val}</p>
+                                            </div>
+                                            <div className="h-1.5 w-full rounded-full bg-[#1a1a1a]">
+                                              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${val}%`, backgroundColor: color }} />
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                      {deepScanData.market.recommendation && (
+                                        <p className="text-[11px] text-[#666] border-t border-[#1a1a1a] pt-2">{deepScanData.market.recommendation}</p>
+                                      )}
+                                    </div>
+
+                                    {/* Brand grade */}
+                                    <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+                                      <div className="flex items-center justify-between">
+                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Brand Health</p>
+                                        <span className="text-[13px] font-bold text-[#c9a84c]">Grade: {deepScanData.brand.brandGrade}</span>
+                                      </div>
+                                      {Object.entries(deepScanData.brand.scores).map(([key, val]) => {
+                                        const label = key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase());
+                                        const color = val >= 65 ? "#4ade80" : val >= 35 ? "#c9a84c" : "#f87171";
+                                        return (
+                                          <div key={key} className="space-y-1">
+                                            <div className="flex items-center justify-between">
+                                              <p className="text-[11px] text-[#888]">{label}</p>
+                                              <p className="text-[12px] font-bold tabular-nums" style={{ color }}>{val}</p>
+                                            </div>
+                                            <div className="h-1.5 w-full rounded-full bg-[#1a1a1a]">
+                                              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${val}%`, backgroundColor: color }} />
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                      <div className="grid grid-cols-2 gap-2 border-t border-[#1a1a1a] pt-2">
+                                        <div className="rounded-lg border border-[#4ade80]/15 bg-[#4ade80]/5 px-2 py-1.5">
+                                          <p className="text-[9px] uppercase tracking-widest text-[#4ade80]/60 mb-0.5">Strength</p>
+                                          <p className="text-[11px] text-[#888]">{deepScanData.brand.strengthArea}</p>
+                                        </div>
+                                        <div className="rounded-lg border border-[#f87171]/15 bg-[#f87171]/5 px-2 py-1.5">
+                                          <p className="text-[9px] uppercase tracking-widest text-[#f87171]/60 mb-0.5">Weakest</p>
+                                          <p className="text-[11px] text-[#888]">{deepScanData.brand.weakestArea}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {detailTab === "signals" && !deepScanData && detailLead?.company.website && !deepScanLoading && (
+                                  <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 flex items-center justify-between">
+                                    <div>
+                                      <p className="text-[12px] text-[#888] font-medium">Deep Scan</p>
+                                      <p className="text-[11px] text-[#444] mt-0.5">Website · market · brand analysis</p>
+                                    </div>
+                                    {deepScanUnlocked ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => detailLead && runDeepScan(detailLead)}
+                                        className="text-[11px] px-3 py-1.5 rounded-lg border border-[rgba(201,168,76,0.3)] bg-[rgba(201,168,76,0.06)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.12)] transition-colors"
+                                      >
+                                        ◉ Run Scan
+                                      </button>
+                                    ) : (
+                                      <div className="relative group">
+                                        <button
+                                          type="button"
+                                          disabled
+                                          className="text-[11px] px-3 py-1.5 rounded-lg border border-[#2a2a2a] bg-[#111] text-[#444] cursor-not-allowed flex items-center gap-1.5"
+                                        >
+                                          <span>🔒</span>
+                                          <span>Deep Scan</span>
+                                        </button>
+                                        <div className="absolute bottom-full right-0 mb-2 w-56 rounded-xl border border-[#2a2a2a] bg-[#111] p-3 text-[11px] text-[#666] leading-relaxed opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50 shadow-xl">
+                                          <p className="text-[#c9a84c] font-medium mb-1">Operator & Agency feature</p>
+                                          <p>Deep Scan fetches the lead&apos;s website and analyses SEO structure, CTA strength, brand consistency, and market positioning — giving you a composite intelligence score before you reach out.</p>
+                                          <p className="mt-2 text-[#555]">Upgrade your plan to unlock.</p>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {detailTab === "signals" && deepScanLoading && (
+                                  <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 flex items-center gap-3">
+                                    <div className="w-3.5 h-3.5 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin shrink-0" />
+                                    <span className="text-[12px] text-[#555]">Running deep scan — fetching website, market & brand signals…</span>
+                                  </div>
+                                )}
+
                                 {detailTab === "outreach" && (() => {
                                   const gap = (safeOutreach as { gap?: string } | null)?.gap ?? null;
                                   const sellerType = (safeOutreach as { sellerType?: string } | null)?.sellerType ?? null;
@@ -2147,6 +2435,30 @@ export default function Home() {
                                             {scriptText || t.ui.detail.clickLeadHint}
                                           </pre>
                                         </div>
+                                        {/* Deliverability score */}
+                                        {scriptText && (() => {
+                                          const SPAM_WORDS = ["free", "guaranteed", "limited time", "act now", "click here", "no obligation", "earn money", "make money", "winner", "congratulations", "urgent", "exclusive offer", "risk-free", "lowest price", "best price", "order now", "buy now", "special promotion", "incredible deal"];
+                                          const lower = scriptText.toLowerCase();
+                                          const hits = SPAM_WORDS.filter(w => lower.includes(w));
+                                          const score = Math.max(0, 100 - hits.length * 18);
+                                          const scoreColor = score >= 80 ? "#4ade80" : score >= 55 ? "#c9a84c" : "#f87171";
+                                          const scoreLabel = score >= 80 ? t.ui.detail.inboxReady : score >= 55 ? t.ui.detail.useWithCare : t.ui.detail.likelyFiltered;
+                                          return (
+                                            <div className="flex items-center gap-3 rounded-lg border border-[#1e1e1e] bg-[#0a0a0a] px-3 py-2">
+                                              <p className="text-[10px] uppercase tracking-widest text-[#444] flex-shrink-0">{t.ui.detail.deliverability}</p>
+                                              <div className="flex-1 h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
+                                                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${score}%`, backgroundColor: scoreColor }} />
+                                              </div>
+                                              <span className="text-[11px] font-bold flex-shrink-0" style={{ color: scoreColor }}>{score}</span>
+                                              <span className="text-[10px] flex-shrink-0" style={{ color: `${scoreColor}99` }}>{scoreLabel}</span>
+                                              {hits.length > 0 && (
+                                                <span className="text-[10px] text-[#f87171]/70 flex-shrink-0">
+                                                  ⚠ {hits.slice(0, 2).map(h => `"${h}"`).join(", ")}{hits.length > 2 ? ` +${hits.length - 2}` : ""}
+                                                </span>
+                                              )}
+                                            </div>
+                                          );
+                                        })()}
                                       </div>
                                     </div>
                                   );
@@ -2166,6 +2478,7 @@ export default function Home() {
 
                                   const revenueVal = selectedOutcome?.revenue ?? null;
                                   const notesVal   = selectedOutcome?.notes ?? "";
+                                  const followupVal = selectedOutcome?.followup_date ?? "";
 
                                   return (
                                     <div className="space-y-3 pt-1">
@@ -2194,14 +2507,14 @@ export default function Home() {
                                         </div>
                                         {stage >= 0 && (
                                           <p className="text-[11px] text-[#555] mt-2 text-center">
-                                            {stage === 3 ? "🎉 Deal closed" : `${stage + 1} of 4 stages reached`}
+                                            {stage === 3 ? t.ui.detail.dealClosed : `${stage + 1} ${t.ui.detail.stagesReached}`}
                                           </p>
                                         )}
                                       </div>
 
                                       {/* Revenue input — shown once closed */}
                                       <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Deal Value</p>
+                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.dealValue}</p>
                                         <div className="flex items-center gap-2">
                                           <span className="text-[#555] text-sm">$</span>
                                           <input
@@ -2227,7 +2540,7 @@ export default function Home() {
 
                                       {/* Notes */}
                                       <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
-                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Notes</p>
+                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.notes}</p>
                                         <textarea
                                           rows={3}
                                           placeholder="Objections, context, follow-up reminders…"
@@ -2239,7 +2552,37 @@ export default function Home() {
                                           }}
                                           className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-[12px] text-[#c8c0b0] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors resize-none disabled:opacity-40"
                                         />
-                                        <p className="text-[10px] text-[#333]">Saves on blur</p>
+                                        <p className="text-[10px] text-[#333]">{t.ui.detail.savesOnBlur}</p>
+                                      </div>
+
+                                      {/* Follow-up reminder */}
+                                      <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.followUpReminder}</p>
+                                          {followupVal && !closed && (() => {
+                                            const diff = Math.ceil((new Date(followupVal).getTime() - Date.now()) / 86400000);
+                                            const overdue = diff < 0;
+                                            const today = diff === 0;
+                                            return (
+                                              <span className={"text-[10px] px-2 py-0.5 rounded-full border " + (overdue ? "border-[#f87171]/30 text-[#f87171] bg-[#f87171]/5" : today ? "border-[#c9a84c]/30 text-[#c9a84c] bg-[#c9a84c]/5" : "border-[#4ade80]/20 text-[#4ade80] bg-[#4ade80]/5")}>
+                                                {overdue ? `${Math.abs(diff)}${t.ui.detail.overdueLabel}` : today ? t.ui.detail.todayLabel : `${t.ui.detail.inDaysLabel} ${diff}d`}
+                                              </span>
+                                            );
+                                          })()}
+                                        </div>
+                                        <input
+                                          type="date"
+                                          disabled={!canSave}
+                                          defaultValue={followupVal ?? ""}
+                                          onBlur={(e) => {
+                                            if (!canSave) return;
+                                            saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { followup_date: e.target.value || null } });
+                                          }}
+                                          className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-[12px] text-[#c8c0b0] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40 [color-scheme:dark]"
+                                        />
+                                        {!followupVal && (
+                                          <p className="text-[10px] text-[#333]">{t.ui.detail.followUpHint}</p>
+                                        )}
                                       </div>
                                     </div>
                                   );
@@ -2253,10 +2596,103 @@ export default function Home() {
                   })}
                 </tbody>
               </table>
-            </div>
+              </div>
+
+              {/* ── PAGINATION BAR ── */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-1 pt-4 pb-1 flex-wrap">
+                  {/* First page */}
+                  <button
+                    type="button"
+                    onClick={() => { setCurrentPage(1); setSelectedLead(null); }}
+                    disabled={currentPage === 1}
+                    className="w-8 h-8 text-[12px] rounded-lg flex items-center justify-center text-[#555] hover:text-[#888] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    title="First page"
+                  >
+                    «
+                  </button>
+                  {/* Prev */}
+                  <button
+                    type="button"
+                    onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); setSelectedLead(null); }}
+                    disabled={currentPage === 1}
+                    className="w-8 h-8 text-[12px] rounded-lg flex items-center justify-center text-[#555] hover:text-[#888] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    ‹
+                  </button>
+
+                  {/* Page numbers — show at most 7 buttons with ellipsis */}
+                  {(() => {
+                    const pages: (number | "…")[] = [];
+                    if (totalPages <= 7) {
+                      for (let i = 1; i <= totalPages; i++) pages.push(i);
+                    } else {
+                      pages.push(1);
+                      if (currentPage > 3) pages.push("…");
+                      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) pages.push(i);
+                      if (currentPage < totalPages - 2) pages.push("…");
+                      pages.push(totalPages);
+                    }
+                    return pages.map((p, i) =>
+                      p === "…" ? (
+                        <span key={`ellipsis-${i}`} className="w-8 h-8 flex items-center justify-center text-[#333] text-[12px]">…</span>
+                      ) : (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => { setCurrentPage(p as number); setSelectedLead(null); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                          className={
+                            "w-8 h-8 text-[12px] rounded-lg flex items-center justify-center font-medium transition-all " +
+                            (currentPage === p
+                              ? "bg-[#c9a84c] text-[#080808]"
+                              : "text-[#555] hover:text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] border border-transparent hover:border-[rgba(201,168,76,0.2)]")
+                          }
+                        >
+                          {p}
+                        </button>
+                      )
+                    );
+                  })()}
+
+                  {/* Next */}
+                  <button
+                    type="button"
+                    onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); setSelectedLead(null); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                    disabled={currentPage === totalPages}
+                    className="w-8 h-8 text-[12px] rounded-lg flex items-center justify-center text-[#555] hover:text-[#888] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    ›
+                  </button>
+                  {/* Last */}
+                  <button
+                    type="button"
+                    onClick={() => { setCurrentPage(totalPages); setSelectedLead(null); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                    disabled={currentPage === totalPages}
+                    className="w-8 h-8 text-[12px] rounded-lg flex items-center justify-center text-[#555] hover:text-[#888] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    title="Last page"
+                  >
+                    »
+                  </button>
+
+                  <span className="text-[11px] text-[#333] ml-2">
+                    Page {currentPage} of {totalPages} · {sortedLeads.length} leads
+                  </span>
+                </div>
+              )}
+            </>
           )}
         </section>
       </div>
+
+      {/* Floating feedback button */}
+      <a
+        href={`/contact?subject=Feedback`}
+        title={t.ui.feedback.tooltip}
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-3.5 py-2 rounded-full border border-[#252525] bg-[#111] hover:border-[rgba(201,168,76,0.4)] hover:bg-[#181818] transition-all shadow-xl shadow-black/40 group"
+      >
+        <span className="text-[#444] group-hover:text-[#c9a84c] transition-colors text-sm">◎</span>
+        <span className="text-[11px] text-[#444] group-hover:text-[#888] transition-colors tracking-wide">{t.ui.feedback.buttonLabel}</span>
+      </a>
     </main>
   );
 }
