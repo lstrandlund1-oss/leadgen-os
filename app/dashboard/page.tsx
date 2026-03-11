@@ -2253,7 +2253,7 @@ export default function Home() {
                                           </div>
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                          <p className="text-xs uppercase tracking-widest text-[#555] mb-0.5">Lead Score</p>
+                                          <p className="text-xs uppercase tracking-widest text-[#555] mb-0.5">Score</p>
                                           <p className="font-semibold text-sm" style={{ color: scoreColor }}>{scoreLabel}</p>
                                           <p className="text-[11px] text-[#666] mt-1 leading-relaxed">
                                             {getScoreReason(detailLead, language)}
@@ -2270,7 +2270,7 @@ export default function Home() {
                                       {/* Three score bars */}
                                       <div className="grid grid-cols-3 gap-2">
                                         {[
-                                          { label: "Opportunity", value: opp,      color: opp >= 60 ? "#4ade80" : opp >= 35 ? "#c9a84c" : "#f87171",  hint: "How much growth potential exists" },
+                                          { label: "Opp.", value: opp,      color: opp >= 60 ? "#4ade80" : opp >= 35 ? "#c9a84c" : "#f87171",  hint: "Growth potential" },
                                           { label: "Readiness",   value: readiness, color: readiness >= 60 ? "#4ade80" : readiness >= 35 ? "#c9a84c" : "#f87171", hint: "How operationally prepared they are" },
                                           { label: "Risk",        value: risk,      color: risk >= 60 ? "#f87171" : risk >= 35 ? "#c9a84c" : "#4ade80", hint: "How risky this engagement is" },
                                         ].map(({ label, value: v, color, hint }) => (
@@ -2301,7 +2301,7 @@ export default function Home() {
                                       {fit !== null && (
                                         <div className="rounded-xl border border-[#252525] bg-[#111] p-3">
                                           <div className="flex items-center justify-between mb-2">
-                                            <p className="text-[10px] uppercase tracking-widest text-[#555]">Fit Score</p>
+                                            <p className="text-[10px] uppercase tracking-widest text-[#555]">Fit</p>
                                             <p className="text-sm font-bold" style={{ color: fit >= 65 ? "#4ade80" : fit >= 40 ? "#c9a84c" : "#f87171" }}>{fit}/100</p>
                                           </div>
                                           <ScoreBar value={fit} color={fit >= 65 ? "#4ade80" : fit >= 40 ? "#c9a84c" : "#f87171"} />
@@ -2363,12 +2363,12 @@ export default function Home() {
 
                                   type CatDef = { key: keyof typeof bd; label: string; hint: string; invert?: boolean };
                                   const categories: CatDef[] = [
-                                    { key: "reputation",         label: "Reputation",        hint: "Review count + rating quality — proves market demand and social proof." },
-                                    { key: "digitalPresence",    label: "Digital Presence",   hint: "Website + social signals — how visible they are online." },
-                                    { key: "businessStrength",   label: "Business Strength",  hint: "Operational maturity and ability to pay for services." },
-                                    { key: "opportunityGap",     label: "Opportunity Gap",    hint: "How much growth headroom exists. Higher = more room for your intervention." },
-                                    { key: "stabilityRisk",      label: "Stability Risk",     hint: "Signs of instability. Higher = riskier engagement.", invert: true },
-                                    { key: "evidenceConfidence", label: "Evidence Confidence",hint: "How much signal data was available. Low confidence = treat scores with caution." },
+                                    { key: "reputation",         label: "Reputation",        hint: "Reviews & rating quality." },
+                                    { key: "digitalPresence",    label: "Digital Pres.",      hint: "Website & social visibility." },
+                                    { key: "businessStrength",   label: "Biz Strength",       hint: "Maturity & ability to pay." },
+                                    { key: "opportunityGap",     label: "Opp. Gap",           hint: "Growth headroom available." },
+                                    { key: "stabilityRisk",      label: "Stability Risk",     hint: "Higher = riskier.", invert: true },
+                                    { key: "evidenceConfidence", label: "Evidence Conf.",     hint: "Signal data quality." },
                                   ];
 
                                   function barColor(v: number, invert = false) {
@@ -2384,7 +2384,7 @@ export default function Home() {
                                       {/* Category score bars */}
                                       {bd && (
                                         <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Score Breakdown</p>
+                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Breakdown</p>
                                           {categories.map(({ key, label, hint, invert }) => {
                                             const v = bd[key] ?? 0;
                                             const color = barColor(v, invert);
@@ -2397,7 +2397,7 @@ export default function Home() {
                                                 <div className="h-1.5 w-full rounded-full bg-[#1a1a1a] overflow-hidden">
                                                   <div className="h-full rounded-full transition-all duration-700" style={{ width: `${v}%`, backgroundColor: color }} />
                                                 </div>
-                                                <p className="text-[10px] text-[#444] leading-snug">{hint}</p>
+                                                <p className="text-[10px] text-[#444] leading-snug hidden sm:block">{hint}</p>
                                               </div>
                                             );
                                           })}
@@ -2407,7 +2407,7 @@ export default function Home() {
                                       {/* Score reasons */}
                                       {detailLead.score.reasons?.length > 0 && (
                                         <div className="rounded-lg border border-[#252525] bg-[#111] p-3">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#555] mb-2">Why this score</p>
+                                          <p className="text-[10px] uppercase tracking-widest text-[#555] mb-2">Why</p>
                                           <div className="flex flex-wrap gap-1.5">
                                             {detailLead.score.reasons.map((reason: string, i: number) => (
                                               <span key={i} className="text-[11px] px-2 py-1 rounded-md border border-[#2a2a2a] bg-[#0d0d0d] text-[#c8c0b0]">
@@ -2427,28 +2427,28 @@ export default function Home() {
                                       )}
                                       {!safeEnrichment && !enrichmentLoading && detailLead.company.website && (
                                         <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] p-4 space-y-1">
-                                          <p className="text-[10px] uppercase tracking-widests text-[#555]">Website Signals</p>
-                                          <p className="text-[12px] text-[#444]">Could not scan website — it may be unreachable or blocking automated requests.</p>
+                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Web Signals</p>
+                                          <p className="text-[12px] text-[#444]">Scan failed — unreachable or blocked.</p>
                                           <p className="text-[11px] text-[#333]">{detailLead.company.website}</p>
                                         </div>
                                       )}
                                       {!safeEnrichment && !enrichmentLoading && !detailLead.company.website && (
                                         <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] p-4">
-                                          <p className="text-[10px] uppercase tracking-widests text-[#555] mb-1">Website Signals</p>
-                                          <p className="text-[12px] text-[#444]">No website on record — signals unavailable.</p>
+                                          <p className="text-[10px] uppercase tracking-widest text-[#555] mb-1">Web Signals</p>
+                                          <p className="text-[12px] text-[#444]">No website — signals unavailable.</p>
                                         </div>
                                       )}
 
                                       {safeEnrichment && !enrichmentLoading && (
                                         <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Website Signals</p>
+                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Web Signals</p>
                                           <div className="grid grid-cols-2 gap-2">
                                             {[
-                                              { key: "website_reachable",         label: "Site reachable",   value: isReachable },
-                                              { key: "website_has_contact_page",  label: "Contact page",     value: enrichmentSignals["website_has_contact_page"]?.value },
+                                              { key: "website_reachable",         label: "Reachable",        value: isReachable },
+                                              { key: "website_has_contact_page",  label: "Contact pg",       value: enrichmentSignals["website_has_contact_page"]?.value },
                                               { key: "website_has_booking_cta",   label: "Booking CTA",      value: enrichmentSignals["website_has_booking_cta"]?.value },
                                               { key: "website_has_clear_offer",   label: "Clear offer",      value: enrichmentSignals["website_has_clear_offer"]?.value },
-                                              { key: "website_mobile_friendly",   label: "Mobile friendly",  value: enrichmentSignals["website_mobile_friendly"]?.value },
+                                              { key: "website_mobile_friendly",   label: "Mobile ok",        value: enrichmentSignals["website_mobile_friendly"]?.value },
                                             ].map(({ key, label, value: v }) => (
                                               <div key={key} className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${v ? "border-[#4ade80]/20 bg-[#4ade80]/5" : "border-[#f87171]/15 bg-[#f87171]/5"}`}>
                                                 <span className={`text-xs ${v ? "text-[#4ade80]" : "text-[#f87171]"}`}>{v ? "✓" : "✗"}</span>
@@ -2458,7 +2458,7 @@ export default function Home() {
                                           </div>
                                           {detectedPlatforms.length > 0 && (
                                             <div>
-                                              <p className="text-[10px] uppercase tracking-widest text-[#555] mb-1.5">Social Detected</p>
+                                              <p className="text-[10px] uppercase tracking-widest text-[#555] mb-1.5">Social</p>
                                               <div className="flex flex-wrap gap-1.5">
                                                 {detectedPlatforms.map((p: string) => (
                                                   <span key={p} className="text-[11px] px-2 py-0.5 rounded-md border border-[#252525] text-[#c8c0b0]">{p}</span>
@@ -2478,7 +2478,7 @@ export default function Home() {
                                     <div className="rounded-xl border border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.04)] p-4">
                                       <div className="flex items-center justify-between mb-3">
                                         <div className="space-y-1">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#8a6e30]">Deep Scan Score</p>
+                                          <p className="text-[10px] uppercase tracking-widest text-[#8a6e30]">Deep Scan</p>
                                           {deepScanData.scannedAt && (
                                             <div className="flex items-center gap-1.5">
                                               {deepScanData.isFromCache && (
@@ -2508,14 +2508,14 @@ export default function Home() {
                                         </div>
                                       </div>
                                       {!deepScanData.pageReachable && (
-                                        <p className="text-[11px] text-[#555]">Website unreachable — scores based on available signals only.</p>
+                                        <p className="text-[11px] text-[#555]">Unreachable — partial scores only.</p>
                                       )}
                                     </div>
 
                                     {/* Website scores */}
                                     <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
                                       <div className="flex items-center justify-between">
-                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Website Analysis</p>
+                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Website</p>
                                         {deepScanData.website.summary && (
                                           <p className="text-[10px] text-[#444] max-w-[60%] text-right truncate">{deepScanData.website.summary}</p>
                                         )}
@@ -2540,7 +2540,7 @@ export default function Home() {
 
                                     {/* Market signals */}
                                     <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                                      <p className="text-[10px] uppercase tracking-widest text-[#555]">Market Signals</p>
+                                      <p className="text-[10px] uppercase tracking-widest text-[#555]">Market</p>
                                       {Object.entries(deepScanData.market.scores).map(([key, val]) => {
                                         const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (s: string) => s.toUpperCase());
                                         const score = val as number;
@@ -2565,7 +2565,7 @@ export default function Home() {
                                     {/* Brand grade */}
                                     <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
                                       <div className="flex items-center justify-between">
-                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Brand Health</p>
+                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Brand</p>
                                         <span className="text-[13px] font-bold text-[#c9a84c]">Grade: {deepScanData.brand.brandGrade}</span>
                                       </div>
                                       {Object.entries(deepScanData.brand.scores).map(([key, val]) => {
@@ -2602,7 +2602,7 @@ export default function Home() {
                                   <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 flex items-center justify-between">
                                     <div>
                                       <p className="text-[12px] text-[#888] font-medium">Deep Scan</p>
-                                      <p className="text-[11px] text-[#444] mt-0.5">Website · market · brand analysis</p>
+                                      <p className="text-[11px] text-[#444] mt-0.5 hidden sm:block">Website · market · brand</p>
                                     </div>
                                     {deepScanUnlocked ? (
                                       <button
@@ -2625,7 +2625,7 @@ export default function Home() {
                                         <div className="absolute bottom-full right-0 mb-2 w-56 rounded-xl border border-[#2a2a2a] bg-[#111] p-3 text-[11px] text-[#666] leading-relaxed opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50 shadow-xl">
                                           <p className="text-[#c9a84c] font-medium mb-1">Operator & Agency feature</p>
                                           <p>Deep Scan fetches the lead&apos;s website and analyses SEO structure, CTA strength, brand consistency, and market positioning — giving you a composite intelligence score before you reach out.</p>
-                                          <p className="mt-2 text-[#555]">Upgrade your plan to unlock.</p>
+                                          <p className="mt-1 text-[#555]">Upgrade to unlock.</p>
                                         </div>
                                       </div>
                                     )}
@@ -2739,7 +2739,7 @@ export default function Home() {
                                       {/* Recommended angle */}
                                       <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
                                         <div className="flex items-center justify-between">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Recommended angle</p>
+                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Angle</p>
                                           {title && <span className="text-[10px] px-2 py-0.5 rounded-md border border-[#c9a84c]/30 bg-[#c9a84c]/8 text-[#c9a84c] font-medium tracking-wide">{title}</span>}
                                         </div>
                                         {why && <p className="text-[12px] text-[#888] leading-relaxed">{why}</p>}
@@ -2754,7 +2754,7 @@ export default function Home() {
                                       {/* Contact channel */}
                                       <div className="rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] p-4 space-y-2">
                                         <div className="flex items-center justify-between">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Best contact channel</p>
+                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Channel</p>
                                           <span className="text-[11px] font-medium text-[#c8c0b0]">{channelPrimary}</span>
                                         </div>
                                         <p className="text-[12px] text-[#666] leading-relaxed">{channelNote}</p>
@@ -2790,7 +2790,7 @@ export default function Home() {
 
                                       {/* Lead strength summary */}
                                       <div className="rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] p-4 space-y-2.5">
-                                        <p className="text-[10px] uppercase tracking-widests text-[#555]">Lead at a glance</p>
+                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Overview</p>
                                         <div className="space-y-1.5">
                                           {[
                                             { label: "Reputation", value: detailLead.score.breakdown?.reputation ?? 0 },
@@ -2815,7 +2815,7 @@ export default function Home() {
                                         </div>
                                         {oppInsight?.message && (
                                           <div className="rounded-lg border border-[#c9a84c]/15 bg-[#c9a84c]/04 px-3 py-2 mt-1">
-                                            <p className="text-[9px] uppercase tracking-widests text-[#8a6e30] mb-1">Key opportunity signal</p>
+                                            <p className="text-[9px] uppercase tracking-widest text-[#8a6e30] mb-1">Signal</p>
                                             <p className="text-[12px] text-[#888]">{oppInsight.message}</p>
                                           </div>
                                         )}
@@ -2928,7 +2928,7 @@ export default function Home() {
                                       {/* Lost reason — shown when contacted but stalled */}
                                       {showLostReason && (
                                         <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Why lost</p>
+                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Lost why</p>
                                           <div className="grid grid-cols-2 gap-1.5">
                                             {lostReasons.map(({ key, label }) => (
                                               <button
@@ -2947,7 +2947,7 @@ export default function Home() {
 
                                       {/* Tonality used */}
                                       <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
-                                        <p className="text-[10px] uppercase tracking-widests text-[#555]">Outreach tone</p>
+                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Tone</p>
                                         <div className="grid grid-cols-2 gap-1.5">
                                           {([
                                             { key: "soft",         label: "Soft" },
