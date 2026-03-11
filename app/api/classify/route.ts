@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   await persistClassification(rawIdNum, classification);
 
   // scoreLead expects (raw, classification). ScoreResult has no `priority`.
-  const scoreResult = scoreLead(raw, classification);
+  const scoreResult = scoreLead({ raw, classification, signals: { byKey: {}, byCategory: {}, counts: { total: 0, base: 0, light: 0, deep: 0 }, evidenceScore: 0 } });
 
   return NextResponse.json({
     rawId: rawIdNum,
