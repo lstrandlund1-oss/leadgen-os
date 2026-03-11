@@ -2743,6 +2743,8 @@ export default function Home() {
                                     { key: "booked_call",label: "Booked",     icon: "📅" },
                                     { key: "closed",     label: "Closed",     icon: "✦" },
                                   ] as const;
+
+                                  const lostReason  = selectedOutcome?.lost_reason ?? null;
                                   const isLost = !!lostReason;
 
                                   const revenueVal  = selectedOutcome?.revenue ?? null;
@@ -2752,7 +2754,6 @@ export default function Home() {
                                   const safeOutreachForTracking = (detailLead?.metadata?.outreach ?? null) as { difficulty?: string } | null;
                                   const difficultyForTracking = safeOutreachForTracking?.difficulty ?? null;
                                   const tonalityVal = selectedOutcome?.tonality ?? null;
-                                  const lostReason  = selectedOutcome?.lost_reason ?? null;
                                   const scoreSnap   = selectedOutcome?.score_at_outreach ?? detailLead.score.value ?? null;
 
                                   // Show lost reason picker when contacted but never progressed past contacted, or explicitly stalled
