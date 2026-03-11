@@ -62,6 +62,9 @@ export type UserProfileV1 = {
 
   // Optional expansion later
   notes?: string;
+
+  // Free-text offer description — default context for outreach generation
+  offerDescription?: string;
 };
 
 // Classification block returned by rule-based and AI classifiers
@@ -161,7 +164,7 @@ export type ScoreResult = {
   reasons: string[];
 };
 
-export type OutreachVariantKey = "soft" | "direct";
+export type OutreachVariantKey = "soft" | "consultative" | "direct" | "bold";
 
 export type SellerType = "MARKETING" | "WEB_DEV" | "CONTENT" | "FREELANCER";
 

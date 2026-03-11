@@ -16,6 +16,8 @@ type OutcomePayload = {
   tonality?: "soft" | "direct" | null;
   angleType?: string | null;
   followupDate?: string | null;
+  lostReason?: "no_response" | "not_interested" | "has_provider" | "wrong_timing" | null;
+  scoreAtOutreach?: number | null;
 };
 
 export async function POST(request: Request) {
@@ -50,6 +52,8 @@ export async function POST(request: Request) {
       tonality: body.tonality ?? null,
       angle_type: body.angleType ?? null,
       followup_date: body.followupDate ?? null,
+      lost_reason: body.lostReason ?? null,
+      score_at_outreach: body.scoreAtOutreach ?? null,
     };
 
     const { data, error } = await supabase

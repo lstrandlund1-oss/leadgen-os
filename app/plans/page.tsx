@@ -253,7 +253,7 @@ export default function PlansPage() {
               <div className="mb-6">
                 <p className="text-[10px] tracking-[0.2em] uppercase text-[#8a6e30] mb-2">Join waitlist</p>
                 <h3 className="text-2xl font-light mb-2" style={{ fontFamily: "var(--font-display), serif" }}>
-                  LeadGenOS <span style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>{waitlistPlan}</span>
+                  Vantio <span style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>{waitlistPlan}</span>
                 </h3>
                 <p className="text-[13px] text-[#555] leading-relaxed">
                   We&apos;ll email you when {waitlistPlan} launches — plus early access and a locked-in beta rate.
@@ -312,7 +312,7 @@ export default function PlansPage() {
           <div>
             <div className="text-center mb-10">
               <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-3">The process</p>
-              <h2 className="text-3xl font-light" style={{ fontFamily: "var(--font-display), serif" }}>How LeadGenOS works</h2>
+              <h2 className="text-3xl font-light" style={{ fontFamily: "var(--font-display), serif" }}>How Vantio works</h2>
               <p className="text-[#555] text-sm mt-3 max-w-lg mx-auto">Signal-driven outreach in three steps. No cold list buying, no guesswork.</p>
             </div>
             <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
@@ -320,7 +320,7 @@ export default function PlansPage() {
                 {
                   step: "01",
                   title: "Search your niche",
-                  body: "Enter any niche and location. LeadGenOS pulls real businesses and scores each one using reputation, digital presence, opportunity gap, and risk signals.",
+                  body: "Enter any niche and location. Vantio pulls real businesses and scores each one using reputation, digital presence, opportunity gap, and risk signals.",
                 },
                 {
                   step: "02",

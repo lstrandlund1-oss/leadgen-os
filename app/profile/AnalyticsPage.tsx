@@ -14,7 +14,7 @@ type Outcome = {
   closed: boolean;
   revenue: number | null;
   notes: string | null;
-  tonality: "soft" | "direct" | null;
+  tonality: "soft" | "direct" | "consultative" | "bold" | null;
   angle_type: string | null;
   created_at: string;
   updated_at: string;
@@ -23,11 +23,6 @@ type Outcome = {
 function pct(a: number, b: number) {
   if (b === 0) return 0;
   return Math.round((a / b) * 100);
-}
-
-function fmt(n: number) {
-  if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`;
-  return `$${n.toLocaleString()}`;
 }
 
 // Group outcomes by week (YYYY-WW)
@@ -52,7 +47,6 @@ type WeeklyPoint = {
   closed: number;
   replyRate: number;
   closeRate: number;
-  revenue: number;
 };
 
 export default function AnalyticsPage() {
@@ -73,7 +67,7 @@ export default function AnalyticsPage() {
     const now = new Date();
     const rows: Outcome[] = [];
     const angles = ["Conversion system upgrade", "Visibility + demand capture", "Foundation-first fix", "Value-first teardown", "Direct growth system"];
-    const tonalities: ("soft" | "direct")[] = ["soft", "direct"];
+    const tonalities: ("soft" | "direct" | "consultative" | "bold")[] = ["soft", "consultative", "direct", "bold"];
     let id = 1;
     for (let week = 7; week >= 0; week--) {
       const base = new Date(now);
@@ -93,9 +87,9 @@ export default function AnalyticsPage() {
           replied,
           booked_call: booked,
           closed,
-          revenue: closed ? 500 + Math.floor(Math.random() * 4500) : null,
+          revenue: null,
           notes: null,
-          tonality: tonalities[Math.floor(Math.random() * 2)],
+          tonality: tonalities[Math.floor(Math.random() * 4)],
           angle_type: angles[Math.floor(Math.random() * angles.length)],
           created_at: d.toISOString(),
           updated_at: d.toISOString(),
@@ -121,29 +115,43 @@ export default function AnalyticsPage() {
   const replied = filtered.filter((o) => o.replied).length;
   const booked = filtered.filter((o) => o.booked_call).length;
   const closed = filtered.filter((o) => o.closed).length;
-  const revenue = filtered.reduce((s, o) => s + (o.revenue ?? 0), 0);
-  const avgDeal = closed > 0 ? Math.round(revenue / closed) : 0;
 
-  // ── Tonality breakdown ──
-  const softOutcomes = filtered.filter((o) => o.tonality === "soft");
-  const directOutcomes = filtered.filter((o) => o.tonality === "direct");
-  const softContacted = softOutcomes.filter((o) => o.contacted).length;
-  const softReplied = softOutcomes.filter((o) => o.replied).length;
-  const softClosed = softOutcomes.filter((o) => o.closed).length;
-  const directContacted = directOutcomes.filter((o) => o.contacted).length;
-  const directReplied = directOutcomes.filter((o) => o.replied).length;
-  const directClosed = directOutcomes.filter((o) => o.closed).length;
+  // ── Tonality breakdown (all 4) ──
+  const TONALITIES = [
+    { key: "soft" as const,         label: "Soft",         color: "#8b5cf6" },
+    { key: "consultative" as const, label: "Consultative", color: "#3b82f6" },
+    { key: "direct" as const,       label: "Direct",       color: "#c9a84c" },
+    { key: "bold" as const,         label: "Bold",         color: "#f97316" },
+  ];
+
+  const tonalityStats = TONALITIES.map(({ key, label, color }) => {
+    const rows = filtered.filter((o) => o.tonality === key);
+    const c = rows.filter((o) => o.contacted).length;
+    const r = rows.filter((o) => o.replied).length;
+    const cl = rows.filter((o) => o.closed).length;
+    return { key, label, color, contacted: c, replied: r, closed: cl, replyRate: pct(r, c), closeRate: pct(cl, c) };
+  });
+
+  const tonalityWithData = tonalityStats.filter((t) => t.contacted > 0);
+  const bestTonality = tonalityWithData.length > 1
+    ? tonalityWithData.reduce((best, t) => t.replyRate > best.replyRate ? t : best)
+    : null;
+
+  // Legacy vars for insight engine
+  const softContacted = tonalityStats.find(t => t.key === "soft")?.contacted ?? 0;
+  const softReplied = tonalityStats.find(t => t.key === "soft")?.replied ?? 0;
+  const directContacted = tonalityStats.find(t => t.key === "direct")?.contacted ?? 0;
+  const directReplied = tonalityStats.find(t => t.key === "direct")?.replied ?? 0;
 
   // ── Angle type breakdown ──
-  const angleMap = new Map<string, { contacted: number; replied: number; closed: number; revenue: number }>();
+  const angleMap = new Map<string, { contacted: number; replied: number; closed: number }>();
   filtered.forEach((o) => {
     const key = o.angle_type ?? "Unknown";
-    const existing = angleMap.get(key) ?? { contacted: 0, replied: 0, closed: 0, revenue: 0 };
+    const existing = angleMap.get(key) ?? { contacted: 0, replied: 0, closed: 0 };
     angleMap.set(key, {
       contacted: existing.contacted + (o.contacted ? 1 : 0),
       replied: existing.replied + (o.replied ? 1 : 0),
       closed: existing.closed + (o.closed ? 1 : 0),
-      revenue: existing.revenue + (o.revenue ?? 0),
     });
   });
   const angleRows = Array.from(angleMap.entries())
@@ -154,14 +162,13 @@ export default function AnalyticsPage() {
   const weeklyMap = new Map<string, WeeklyPoint>();
   filtered.forEach((o) => {
     const week = getWeekKey(o.created_at);
-    const existing = weeklyMap.get(week) ?? { week, contacted: 0, replied: 0, booked: 0, closed: 0, replyRate: 0, closeRate: 0, revenue: 0 };
+    const existing = weeklyMap.get(week) ?? { week, contacted: 0, replied: 0, booked: 0, closed: 0, replyRate: 0, closeRate: 0 };
     weeklyMap.set(week, {
       ...existing,
       contacted: existing.contacted + (o.contacted ? 1 : 0),
       replied: existing.replied + (o.replied ? 1 : 0),
       booked: existing.booked + (o.booked_call ? 1 : 0),
       closed: existing.closed + (o.closed ? 1 : 0),
-      revenue: existing.revenue + (o.revenue ?? 0),
     });
   });
   const weeklyData: WeeklyPoint[] = Array.from(weeklyMap.entries())
@@ -261,7 +268,6 @@ export default function AnalyticsPage() {
                 { label: "Leads Contacted", value: contacted.toString(), sub: `${total} total tracked` },
                 { label: "Reply Rate", value: `${pct(replied, contacted)}%`, sub: `${replied} replied` },
                 { label: "Close Rate", value: `${pct(closed, contacted)}%`, sub: `${closed} deals closed` },
-                { label: "Total Revenue", value: revenue > 0 ? fmt(revenue) : "—", sub: avgDeal > 0 ? `${fmt(avgDeal)} avg deal` : "no revenue logged" },
               ].map((kpi) => (
                 <div key={kpi.label} className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-4 space-y-1">
                   <p className="text-[9px] uppercase tracking-widest text-[#444]">{kpi.label}</p>
@@ -361,7 +367,6 @@ export default function AnalyticsPage() {
                             <p className="text-[#888]">{w.contacted} contacted</p>
                             <p className="text-[#c9a84c]">{w.replyRate}% reply</p>
                             <p className="text-[#4ade80]">{w.closeRate}% close</p>
-                            {w.revenue > 0 && <p className="text-[#f5f0e8]">{fmt(w.revenue)}</p>}
                           </div>
                         </div>
                       );
@@ -413,52 +418,67 @@ export default function AnalyticsPage() {
             )}
 
             {/* ── Tonality breakdown ── */}
-            {(softContacted > 0 || directContacted > 0) && (
+            {tonalityWithData.length > 0 && (
               <section className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-6 space-y-5">
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Script Style</p>
-                  <h2 className="text-[15px] font-semibold text-[#c8c0b0]">Soft vs Direct Tonality</h2>
-                  <p className="text-[11px] text-[#444] mt-1">Which messaging style is actually getting responses.</p>
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Message Style</p>
+                  <h2 className="text-[15px] font-semibold text-[#c8c0b0]">Tonality Performance</h2>
+                  <p className="text-[11px] text-[#444] mt-1">Which messaging tone is getting the most replies.</p>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  {[
-                    { label: "Soft", contacted: softContacted, replied: softReplied, closed: softClosed, color: "#8b5cf6" },
-                    { label: "Direct", contacted: directContacted, replied: directReplied, closed: directClosed, color: "#c9a84c" },
-                  ].map((t) => {
-                    const rr = pct(t.replied, t.contacted);
-                    const cr = pct(t.closed, t.contacted);
-                    const winner = softContacted > 0 && directContacted > 0
-                      ? (t.label === "Soft" ? pct(softReplied, softContacted) >= pct(directReplied, directContacted) : pct(directReplied, directContacted) > pct(softReplied, softContacted))
-                      : false;
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {tonalityStats.map((t) => {
+                    const isWinner = bestTonality?.key === t.key;
+                    const noData = t.contacted === 0;
                     return (
-                      <div key={t.label} className={`rounded-xl border p-4 space-y-3 ${winner ? "border-[rgba(201,168,76,0.3)] bg-[rgba(201,168,76,0.03)]" : "border-[#1a1a1a] bg-[#080808]"}`}>
+                      <div key={t.key} className={`rounded-xl border p-4 space-y-3 ${
+                        noData ? "border-[#111] bg-[#080808] opacity-40"
+                        : isWinner ? "border-[rgba(201,168,76,0.3)] bg-[rgba(201,168,76,0.03)]"
+                        : "border-[#1a1a1a] bg-[#080808]"
+                      }`}>
                         <div className="flex items-center justify-between">
-                          <p className="text-[13px] font-semibold text-[#f5f0e8]">{t.label}</p>
-                          {winner && <span className="text-[9px] px-2 py-0.5 rounded-full border border-[#c9a84c]/30 text-[#c9a84c]">Best performer</span>}
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full" style={{ background: t.color }} />
+                            <p className="text-[13px] font-semibold text-[#f5f0e8]">{t.label}</p>
+                          </div>
+                          {isWinner && <span className="text-[9px] px-1.5 py-0.5 rounded-full border border-[#c9a84c]/30 text-[#c9a84c]">Best</span>}
                         </div>
-                        <div className="space-y-2">
-                          {[
-                            { label: "Contacted", value: t.contacted, pct: null, color: "#555" },
-                            { label: "Reply rate", value: t.replied, pct: rr, color: t.color },
-                            { label: "Close rate", value: t.closed, pct: cr, color: "#4ade80" },
-                          ].map((row) => (
-                            <div key={row.label} className="flex items-center justify-between">
-                              <span className="text-[11px] text-[#555]">{row.label}</span>
-                              <div className="flex items-center gap-2">
-                                {row.pct !== null && <span className="text-[11px] font-bold" style={{ color: row.color }}>{row.pct}%</span>}
-                                <span className="text-[11px] text-[#333]">{row.value} leads</span>
+                        {noData ? (
+                          <p className="text-[10px] text-[#333]">No data yet</p>
+                        ) : (
+                          <>
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between text-[11px]">
+                                <span className="text-[#555]">Contacted</span>
+                                <span className="text-[#666]">{t.contacted}</span>
+                              </div>
+                              <div className="flex justify-between text-[11px]">
+                                <span className="text-[#555]">Reply rate</span>
+                                <span className="font-bold" style={{ color: t.color }}>{t.replyRate}%</span>
+                              </div>
+                              <div className="flex justify-between text-[11px]">
+                                <span className="text-[#555]">Close rate</span>
+                                <span className="font-bold text-[#4ade80]">{t.closeRate}%</span>
                               </div>
                             </div>
-                          ))}
-                        </div>
-                        {/* Reply rate bar */}
-                        <div className="w-full bg-[#141414] rounded-full h-1.5">
-                          <div className="h-1.5 rounded-full" style={{ width: `${rr}%`, backgroundColor: t.color }} />
-                        </div>
+                            <div className="w-full bg-[#141414] rounded-full h-1.5">
+                              <div className="h-1.5 rounded-full transition-all duration-700" style={{ width: `${t.replyRate}%`, backgroundColor: t.color }} />
+                            </div>
+                          </>
+                        )}
                       </div>
                     );
                   })}
                 </div>
+                {bestTonality && tonalityWithData.length > 1 && (
+                  <div className="rounded-xl border border-[#151515] bg-[#080808] px-4 py-3 flex items-center gap-3">
+                    <span style={{ color: bestTonality.color }}>★</span>
+                    <p className="text-[12px] text-[#888]">
+                      <span className="font-semibold" style={{ color: bestTonality.color }}>{bestTonality.label}</span> is your top-performing tone at {bestTonality.replyRate}% reply rate{bestTonality.replyRate > 0 && tonalityWithData.filter(t => t.key !== bestTonality.key && t.contacted > 0).length > 0
+                        ? ` — ${bestTonality.replyRate - Math.max(...tonalityWithData.filter(t => t.key !== bestTonality.key).map(t => t.replyRate))} points ahead of the next best`
+                        : ""}.
+                    </p>
+                  </div>
+                )}
               </section>
             )}
 
@@ -472,19 +492,18 @@ export default function AnalyticsPage() {
                 </div>
                 <div className="space-y-2">
                   {/* Header */}
-                  <div className="grid grid-cols-12 gap-2 px-3 text-[9px] uppercase tracking-widest text-[#333]">
+                  <div className="grid grid-cols-10 gap-2 px-3 text-[9px] uppercase tracking-widest text-[#333]">
                     <div className="col-span-4">Angle</div>
                     <div className="col-span-2 text-right">Contacted</div>
                     <div className="col-span-2 text-right">Reply %</div>
                     <div className="col-span-2 text-right">Closed</div>
-                    <div className="col-span-2 text-right">Revenue</div>
                   </div>
                   {angleRows
                     .filter((r) => r.name !== "Unknown" && r.contacted > 0)
                     .map((row, i) => {
                       const isTop = i === 0;
                       return (
-                        <div key={row.name} className={`grid grid-cols-12 gap-2 rounded-xl border px-3 py-3 items-center ${isTop ? "border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.03)]" : "border-[#151515] bg-[#080808]"}`}>
+                        <div key={row.name} className={`grid grid-cols-10 gap-2 rounded-xl border px-3 py-3 items-center ${isTop ? "border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.03)]" : "border-[#151515] bg-[#080808]"}`}>
                           <div className="col-span-4 flex items-center gap-2">
                             {isTop && <span className="text-[10px] text-[#c9a84c]">★</span>}
                             <p className="text-[12px] text-[#c8c0b0] truncate">{row.name}</p>
@@ -500,9 +519,6 @@ export default function AnalyticsPage() {
                           <div className="col-span-2 text-right">
                             <p className="text-[12px] text-[#666]">{row.closed}</p>
                           </div>
-                          <div className="col-span-2 text-right">
-                            <p className="text-[12px] text-[#888]">{row.revenue > 0 ? fmt(row.revenue) : "—"}</p>
-                          </div>
                         </div>
                       );
                     })}
@@ -510,18 +526,18 @@ export default function AnalyticsPage() {
               </section>
             )}
 
-            {/* ── Revenue timeline ── */}
-            {revenue > 0 && weeklyData.some((w) => w.revenue > 0) && (
+            {/* ── Close rate over time ── */}
+            {weeklyData.length > 1 && contacted > 0 && (
               <section className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-6 space-y-5">
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Revenue</p>
-                  <h2 className="text-[15px] font-semibold text-[#c8c0b0]">Revenue Over Time</h2>
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Close Rate</p>
+                  <h2 className="text-[15px] font-semibold text-[#c8c0b0]">Close Rate Over Time</h2>
                 </div>
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   {[
-                    { label: "Total Revenue", value: fmt(revenue), color: "#c9a84c" },
+                    { label: "Total Contacted", value: contacted.toString(), color: "#3b82f6" },
                     { label: "Deals Closed", value: closed.toString(), color: "#4ade80" },
-                    { label: "Avg Deal Size", value: avgDeal > 0 ? fmt(avgDeal) : "—", color: "#8b5cf6" },
+                    { label: "Overall Close Rate", value: `${pct(closed, contacted)}%`, color: "#c9a84c" },
                   ].map((s) => (
                     <div key={s.label} className="rounded-xl border border-[#151515] bg-[#080808] p-3 text-center">
                       <p className="text-[9px] uppercase tracking-widest text-[#444]">{s.label}</p>
@@ -529,31 +545,30 @@ export default function AnalyticsPage() {
                     </div>
                   ))}
                 </div>
-                {/* Revenue bars per week */}
-                {weeklyData.filter((w) => w.revenue > 0).length > 0 && (
-                  <div>
-                    <p className="text-[10px] uppercase tracking-widest text-[#444] mb-3">Revenue per week</p>
-                    <div className="flex items-end gap-1.5 h-20">
-                      {weeklyData.map((w) => {
-                        const maxRev = Math.max(...weeklyData.map((x) => x.revenue), 1);
-                        const h = w.revenue > 0 ? Math.max(4, Math.round((w.revenue / maxRev) * 80)) : 2;
-                        return (
-                          <div key={w.week} className="flex-1 flex flex-col items-center gap-1 group relative">
-                            <div className="w-full rounded-t-sm transition-colors cursor-default"
-                              style={{ height: `${h}px`, backgroundColor: w.revenue > 0 ? "#c9a84c40" : "#1a1a1a" }} />
-                            <p className="text-[9px] text-[#333]">{getWeekLabel(w.week)}</p>
-                            {w.revenue > 0 && (
-                              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block z-10 bg-[#111] border border-[#252525] rounded-lg px-2 py-1.5 text-[10px] whitespace-nowrap">
-                                <p className="text-[#c9a84c] font-bold">{fmt(w.revenue)}</p>
-                                <p className="text-[#555]">{w.closed} deal{w.closed !== 1 ? "s" : ""}</p>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                {/* Close rate bars per week */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-[#444] mb-3">Close rate % per week</p>
+                  <div className="flex items-end gap-1.5 h-20">
+                    {weeklyData.map((w) => {
+                      const h = w.contacted > 0 ? Math.max(4, Math.round((w.closeRate / 100) * 80)) : 2;
+                      const hasActivity = w.contacted > 0;
+                      return (
+                        <div key={w.week} className="flex-1 flex flex-col items-center gap-1 group relative">
+                          <div className="w-full rounded-t-sm transition-colors cursor-default"
+                            style={{ height: `${h}px`, backgroundColor: hasActivity ? "#4ade8040" : "#1a1a1a" }} />
+                          <p className="text-[9px] text-[#333]">{getWeekLabel(w.week)}</p>
+                          {hasActivity && (
+                            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block z-10 bg-[#111] border border-[#252525] rounded-lg px-2 py-1.5 text-[10px] whitespace-nowrap space-y-0.5">
+                              <p className="text-[#4ade80] font-bold">{w.closeRate}% close rate</p>
+                              <p className="text-[#555]">{w.closed} closed / {w.contacted} contacted</p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
+
+                </div>
               </section>
             )}
 
@@ -564,10 +579,8 @@ export default function AnalyticsPage() {
               const closeRate = pct(closed, booked);
               const softReplyRate = pct(softReplied, softContacted);
               const directReplyRate = pct(directReplied, directContacted);
-              const bothTonalities = softContacted > 0 && directContacted > 0;
-              const winningTonality = bothTonalities
-                ? (softReplyRate > directReplyRate ? "soft" : directReplyRate > softReplyRate ? "direct" : null)
-                : null;
+              const bothTonalities = tonalityWithData.length > 1;
+              const winningTonality = bestTonality ? bestTonality.label.toLowerCase() : null;
 
               const insights: string[] = [];
 
@@ -577,13 +590,10 @@ export default function AnalyticsPage() {
                 } else if (replyRate >= 15) {
                   insights.push(`Reply rate of ${replyRate}% is on track. To push past 25%, test a different angle or tighten your opening line.`);
                 } else {
-                  if (winningTonality) {
-                    const losingTonality = winningTonality === "soft" ? "direct" : "soft";
-                    const winRate = winningTonality === "soft" ? softReplyRate : directReplyRate;
-                    const loseRate2 = winningTonality === "soft" ? directReplyRate : softReplyRate;
-                    insights.push(`Reply rate is ${replyRate}% — below benchmark. Your data shows ${winningTonality} tonality outperforms ${losingTonality} (${winRate}% vs ${loseRate2}%). Lean into ${winningTonality}.`);
+                  if (winningTonality && bestTonality) {
+                    insights.push(`Reply rate is ${replyRate}% — below benchmark. Your data shows ${bestTonality.label} tonality performing best at ${bestTonality.replyRate}%. Lean into it for new outreach.`);
                   } else {
-                    insights.push(`Reply rate is ${replyRate}% — below the 15% benchmark. Try a different angle, or split-test soft vs direct tonality to find what resonates.`);
+                    insights.push(`Reply rate is ${replyRate}% — below the 15% benchmark. Try a different angle or tonality to find what resonates.`);
                   }
                 }
               }
@@ -604,15 +614,14 @@ export default function AnalyticsPage() {
                 }
               }
 
-              if (bothTonalities && winningTonality) {
-                const winRate = winningTonality === "soft" ? softReplyRate : directReplyRate;
-                const loseRate = winningTonality === "soft" ? directReplyRate : softReplyRate;
-                const diff = winRate - loseRate;
+              if (bothTonalities && bestTonality && tonalityWithData.length > 1) {
+                const secondBest = tonalityWithData.filter(t => t.key !== bestTonality.key).reduce((b, t) => t.replyRate > b.replyRate ? t : b);
+                const diff = bestTonality.replyRate - secondBest.replyRate;
                 if (diff >= 3) {
-                  insights.push(`${winningTonality === "soft" ? "Soft" : "Direct"} tonality is outperforming ${winningTonality === "soft" ? "direct" : "soft"} by ${diff} points (${winRate}% vs ${loseRate}%). Prioritise it for new outreach.`);
+                  insights.push(`${bestTonality.label} tonality is leading with a ${bestTonality.replyRate}% reply rate — ${diff} points ahead of ${secondBest.label} (${secondBest.replyRate}%). Prioritise it for new outreach.`);
+                } else if (diff >= 0) {
+                  insights.push(`Tonalities are closely matched — ${bestTonality.label} leads at ${bestTonality.replyRate}% but keep testing to build a clearer signal.`);
                 }
-              } else if (bothTonalities && !winningTonality) {
-                insights.push(`Soft and direct tonality are performing equally. Keep testing — you need more data to find a clear winner.`);
               }
 
               if (angleRows.length > 1 && angleRows[0].contacted >= 2 && angleRows[0].name !== "Unknown") {
@@ -630,10 +639,6 @@ export default function AnalyticsPage() {
 
               if (contacted >= 10 && closed === 0) {
                 insights.push(`You have ${contacted} contacts but no closed deals yet. Getting on calls is where deals happen — focus on improving your booking rate.`);
-              }
-
-              if (revenue > 0 && closed >= 3) {
-                insights.push(`You have closed ${closed} deals for ${fmt(revenue)} total. To grow faster, your highest-leverage move is improving reply-to-book rate (currently ${bookRate}%).`);
               }
 
               return (

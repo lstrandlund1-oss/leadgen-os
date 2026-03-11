@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState, FormEvent } from "react";
+import { Fragment, useEffect, useMemo, useState, FormEvent, ChangeEvent, MouseEvent, KeyboardEvent, FocusEvent } from "react";
 import type { Lead, Language, SearchRecord } from "@/lib/types";
 import type { ProviderName } from "@/lib/providers/types";
 import { getEffectivePlan, canUseDeepEnrichment } from "@/lib/plan";
@@ -10,8 +10,9 @@ import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import type { TranslationSchema as Translations } from "@/lib/i18n/types";
 import type { SocialPresenceFilter } from "@/lib/providers/types";
 import { useToast } from "../components/ToastProvider";
+import { rescoreWithLightSignals } from "@/lib/scoring/rescoreWithSignals";
 
-const STORAGE_KEY = "leadgen_os_state_v1";
+const STORAGE_KEY = "vantio_state_v1";
 
 // ---------------------
 // UI-only enrichment
@@ -61,6 +62,10 @@ type LeadOutcomeUI = {
   revenue: number | null;
   notes: string | null;
   followup_date: string | null;
+  tonality: "soft" | "consultative" | "direct" | "bold" | null;
+  angle_type: string | null;
+  lost_reason: "no_response" | "not_interested" | "has_provider" | "wrong_timing" | null;
+  score_at_outreach: number | null;
 };
 
 type OutcomeKey = "contacted" | "replied" | "booked_call" | "closed";
@@ -531,24 +536,44 @@ export default function Home() {
 
   const [provider, setProvider] = useState<ProviderName>("google_places");
 
-  const [language, setLanguage] = useState<Language>("en");
+  const [language, setLanguage] = useState<Language>(() => {
+    if (typeof window === "undefined") return "en";
+    try {
+      const raw = localStorage.getItem("vantio_state_v1");
+      if (!raw) return "en";
+      const p = JSON.parse(raw);
+      return p.language === "en" || p.language === "sv" ? p.language : "en";
+    } catch { return "en"; }
+  });
   const [userEmail, setUserEmail] = useState<string>("");
 
   // Fetch current user email
   useEffect(() => {
     const supabase = createSupabaseBrowser();
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(({ data }: { data: { user: { email?: string } | null } }) => {
       if (data.user?.email) setUserEmail(data.user.email);
     });
   }, []);
   const t = useMemo(() => getTranslations(language), [language]);
 
-  const [niche, setNiche] = useState("");
-  const [location, setLocation] = useState("");
+  const [niche, setNiche] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try { const p = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}"); return typeof p.niche === "string" ? p.niche : ""; } catch { return ""; }
+  });
+  const [location, setLocation] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try { const p = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}"); return typeof p.location === "string" ? p.location : ""; } catch { return ""; }
+  });
   const [showNicheDropdown, setShowNicheDropdown] = useState(false);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
-  const [socialPresence, setSocialPresence] =
-    useState<SocialPresenceFilter>("any");
+  const [socialPresence, setSocialPresence] = useState<SocialPresenceFilter>(() => {
+    if (typeof window === "undefined") return "any";
+    try {
+      const p = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}");
+      const v = p.socialPresence;
+      return (v === "low" || v === "medium" || v === "high" || v === "") ? v : "any";
+    } catch { return "any"; }
+  });
 
   const [leads, setLeads] = useState<LeadUI[]>([]);
   const [sortBy, setSortBy] = useState<
@@ -564,6 +589,14 @@ export default function Home() {
   const [saveSearchName, setSaveSearchName] = useState("");
   const [showSaveSearchInput, setShowSaveSearchInput] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  const [savedLeadIds, setSavedLeadIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = JSON.parse(localStorage.getItem("vantio_saved_leads_v1") ?? "[]") as { id: string }[];
+      return new Set(raw.map((l) => l.id));
+    } catch { return new Set(); }
+  });
 
   const [selectedLead, setSelectedLead] = useState<LeadUI | null>(null);
   const [detailTab, setDetailTab] = useState<
@@ -582,14 +615,16 @@ export default function Home() {
   const [deepScanData, setDeepScanData] = useState<{
     deepScore: number;
     pageReachable: boolean;
+    scannedAt?: string;   // ISO string — set on restore from DB or on fresh scan
+    isFromCache?: boolean;
     website: { scores: Record<string, number>; summary: string };
     market: { scores: Record<string, number>; competitorSummary: string; recommendation: string };
     brand: { scores: Record<string, number>; brandGrade: string; weakestArea: string; strengthArea: string };
   } | null>(null);
 
-  type OutreachVariant = "soft" | "direct";
+  type OutreachVariant = "soft" | "consultative" | "direct" | "bold";
   const [outreachVariant, setOutreachVariant] =
-    useState<OutreachVariant>("soft");
+    useState<OutreachVariant>("consultative");
 
   const [outcomesByLeadId, setOutcomesByLeadId] = useState<
     Record<string, LeadOutcomeUI>
@@ -640,6 +675,42 @@ export default function Home() {
   const outreachScript = outreach?.variants?.[selectedVariant] ?? "";
   const scriptText = outreachScript.trim();
 
+  // Derive hasBookingCta / hasClearOffer / isMobileFriendly from deep scan result
+  function deriveDeepSignals(data: { pageReachable: boolean; website: { scores: Record<string, number> } }) {
+    return {
+      websiteReachable: data.pageReachable,
+      hasBookingCta:    data.pageReachable ? (data.website.scores.ctaStrength ?? 0) >= 50 : null,
+      hasClearOffer:    data.pageReachable ? (data.website.scores.ctaStrength ?? 0) >= 40 : null,
+      isMobileFriendly: data.pageReachable ? (data.website.scores.pageSpeed ?? 0) >= 50 : null,
+    };
+  }
+
+  function applyDeepScanToLead(lead: LeadUI, deepData: typeof deepScanData, derivedSignals: ReturnType<typeof deriveDeepSignals>): LeadUI {
+    if (!deepData) return lead;
+    try {
+      const newScore = rescoreWithLightSignals({
+        rating: lead.metrics.rating ?? 0,
+        reviewCount: lead.metrics.reviewCount ?? 0,
+        hasWebsite: !!lead.company.website,
+        socialPresence: lead.metrics.socialPresence ?? "low",
+        isGoodFit: lead.classification.isGoodFit ?? false,
+        classificationConfidence: lead.classification.confidence ?? null,
+        riskProfile: lead.score.riskProfile ?? "unknown",
+        fitScore: lead.fit?.fitScore ?? 0,
+        websiteReachable: derivedSignals.websiteReachable,
+        hasContactPage: null,
+        hasBookingCta: derivedSignals.hasBookingCta,
+        hasClearOffer: derivedSignals.hasClearOffer,
+        isMobileFriendly: derivedSignals.isMobileFriendly,
+        socialPlatformCount: 0,
+        ownerResponds: null,
+      });
+      return { ...lead, score: newScore };
+    } catch {
+      return lead;
+    }
+  }
+
   async function runDeepScan(lead: LeadUI): Promise<void> {
     if (deepScanLoading) return;
     setDeepScanLoading(true);
@@ -666,13 +737,36 @@ export default function Home() {
       }
       const data = await res.json();
       if (data.success) {
-        setDeepScanData({
+        const scanResult = {
           deepScore: data.deepScore,
           pageReachable: data.pageReachable,
+          scannedAt: new Date().toISOString(),
+          isFromCache: false,
           website: data.website,
           market: data.market,
           brand: data.brand,
-        });
+        };
+        const derivedSignals = deriveDeepSignals(scanResult);
+
+        // 1. Update display state
+        setDeepScanData(scanResult);
+
+        // 2. Rescore lead in-memory so outreach tab + score reflect deep signals immediately
+        const rescored = applyDeepScanToLead(lead, scanResult, derivedSignals);
+        setLeads((prev: LeadUI[]) => prev.map((l: LeadUI) => l.id === lead.id ? rescored : l));
+        setSelectedLead(rescored);
+
+        // 3. Persist to Supabase (fire-and-forget — don't block UX)
+        fetch("/api/deep-scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sourceId: lead.sourceId,
+            leadId: lead.id,
+            scanResult,
+            derivedSignals,
+          }),
+        }).catch(() => { /* ignore persistence errors */ });
       }
     } catch {
       // fail soft
@@ -685,13 +779,13 @@ export default function Home() {
     runId: number;
     leadId: string;
     patch: Partial<
-      Pick<LeadOutcomeUI, "contacted" | "replied" | "booked_call" | "closed" | "revenue" | "notes" | "followup_date">
+      Pick<LeadOutcomeUI, "contacted" | "replied" | "booked_call" | "closed" | "revenue" | "notes" | "followup_date" | "lost_reason" | "tonality" | "angle_type" | "score_at_outreach">
     >;
   }) {
     const { runId, leadId, patch } = args;
 
     // optimistic update
-    setOutcomesByLeadId((prev) => {
+    setOutcomesByLeadId((prev: Record<string, LeadOutcomeUI>) => {
       const existing = prev[leadId];
       const next: LeadOutcomeUI = {
         run_id: runId,
@@ -703,6 +797,10 @@ export default function Home() {
         revenue: existing?.revenue ?? null,
         notes: existing?.notes ?? null,
         followup_date: existing?.followup_date ?? null,
+        tonality: existing?.tonality ?? null,
+        angle_type: existing?.angle_type ?? null,
+        lost_reason: existing?.lost_reason ?? null,
+        score_at_outreach: existing?.score_at_outreach ?? null,
         ...patch,
       };
       return { ...prev, [leadId]: next };
@@ -721,8 +819,10 @@ export default function Home() {
         revenue: patch.revenue,
         notes: patch.notes,
         followupDate: patch.followup_date,
-        tonality: outreachVariant,
-        angleType: selectedLead ? getStructuredAngle(selectedLead as LeadUI, language).title : null,
+        tonality: patch.tonality !== undefined ? patch.tonality : outreachVariant,
+        angleType: patch.angle_type !== undefined ? patch.angle_type : (selectedLead ? getStructuredAngle(selectedLead as LeadUI, language).title : null),
+        lostReason: patch.lost_reason,
+        scoreAtOutreach: patch.score_at_outreach,
       };
 
       const res = await fetch("/api/outcomes", {
@@ -739,8 +839,8 @@ export default function Home() {
       const outcome = res.ok ? (data.outcome ?? null) : null;
 
       if (outcome) {
-        setOutcomesByLeadId((prev) => ({ ...prev, [leadId]: outcome }));
-        setChecklistState(prev => ({ ...prev, hasOutcome: true }));
+        setOutcomesByLeadId((prev: Record<string, LeadOutcomeUI>) => ({ ...prev, [leadId]: outcome }));
+        setChecklistState((prev: typeof checklistState) => ({ ...prev, hasOutcome: true }));
       }
     } finally {
       setIsSavingOutcome(false);
@@ -752,7 +852,7 @@ export default function Home() {
   // =====================
 
   const filteredLeads = useMemo(() => {
-    return leads.filter((l) => {
+    return leads.filter((l: LeadUI) => {
       if ((l.score.value ?? 0) < minScore) return false;
 
       const q = query.trim().toLowerCase();
@@ -769,7 +869,7 @@ export default function Home() {
   const sortedLeads = useMemo(() => {
     const arr = [...filteredLeads];
 
-    arr.sort((a, b) => {
+    arr.sort((a: LeadUI, b: LeadUI) => {
       if (sortBy === "confidence") {
         return (
           (b.classification.confidence ?? 0) -
@@ -791,7 +891,7 @@ export default function Home() {
 
     // Secondary sort = stronger opportunity insight (quiet leverage)
     const priority = { high: 3, medium: 2, low: 1 } as const;
-    arr.sort((a, b) => {
+    arr.sort((a: LeadUI, b: LeadUI) => {
       const ai = normalizeLegacyOrNewOpportunityInsight(a);
       const bi = normalizeLegacyOrNewOpportunityInsight(b);
       const av = priority[ai?.strength ?? "low"];
@@ -807,7 +907,7 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
 
   // Reset to page 1 whenever the sorted list changes
-  const sortedLeadsKey = sortedLeads.map(l => l.id).join(",");
+  const sortedLeadsKey = sortedLeads.map((l: LeadUI) => l.id).join(",");
   useEffect(() => { setCurrentPage(1); }, [sortedLeadsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalPages = Math.max(1, Math.ceil(sortedLeads.length / LEADS_PER_PAGE));
@@ -820,6 +920,47 @@ export default function Home() {
     const v = Number(sortedLeads?.[0]?.metadata?.runId ?? 0);
     return Number.isFinite(v) && v > 0 ? v : 0;
   }, [sortedLeads]);
+
+  const toggleSaveLead = (lead: LeadUI) => {
+    const oppInsight = getLocalizedOpportunityInsight(lead, language);
+    const isSaved = savedLeadIds.has(lead.id);
+    try {
+      const existing = JSON.parse(localStorage.getItem("vantio_saved_leads_v1") ?? "[]") as { id: string }[];
+      let updated: { id: string }[];
+      if (isSaved) {
+        updated = existing.filter((l) => l.id !== lead.id);
+      } else {
+        const entry = {
+          id: lead.id,
+          name: lead.company.name,
+          industry: lead.classification.primaryIndustry,
+          city: lead.company.city,
+          country: lead.company.country,
+          score: lead.score.value ?? 0,
+          opportunity: lead.score.opportunity ?? 0,
+          risk: lead.score.risk ?? 0,
+          riskProfile: lead.score.riskProfile ?? "unknown",
+          reputation: lead.score.breakdown?.reputation ?? 0,
+          digitalPresence: lead.score.breakdown?.digitalPresence ?? 0,
+          businessStrength: lead.score.breakdown?.businessStrength ?? 0,
+          rating: lead.metrics?.rating ?? null,
+          reviewCount: lead.metrics?.reviewCount ?? null,
+          website: lead.company.website ?? null,
+          opportunityMessage: oppInsight?.message ?? null,
+          opportunityType: oppInsight?.type ?? null,
+          fitScore: lead.fit?.fitScore ?? null,
+          matchedNeeds: lead.fit?.matchedNeeds ?? [],
+          hasBookingCta: null,
+          hasClearOffer: null,
+          isMobileFriendly: null,
+          socialPresence: lead.metrics?.socialPresence ?? null,
+        };
+        updated = [entry, ...existing.filter((l) => l.id !== lead.id)].slice(0, 100);
+      }
+      localStorage.setItem("vantio_saved_leads_v1", JSON.stringify(updated));
+      setSavedLeadIds(new Set(updated.map((l) => l.id)));
+    } catch { /* ignore */ }
+  };
 
   const selectedOutcome = useMemo(() => {
     if (!selectedLead) return null;
@@ -834,8 +975,41 @@ export default function Home() {
     if (!selectedLead?.metadata?.outreach) return;
 
     const dv = selectedLead.metadata.outreach.defaultVariant;
-    setOutreachVariant(dv === "direct" ? "direct" : "soft");
+    setOutreachVariant((["soft","consultative","direct","bold"].includes(dv ?? "") ? dv : "consultative") as OutreachVariant);
   }, [selectedLead]);
+
+  // Restore persisted deep scan when a lead is selected
+  useEffect(() => {
+    if (!selectedLead) return;
+    const sourceId = selectedLead.sourceId;
+    if (!sourceId) return;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/deep-scan?sourceId=${encodeURIComponent(sourceId)}`);
+        if (!res.ok) return;
+        const { data } = await res.json() as { data: {
+          scan_result: { deepScore: number; pageReachable: boolean; website: { scores: Record<string, number>; summary: string; signalCount: number }; market: { scores: Record<string, number>; competitorSummary: string; recommendation: string; signalCount: number }; brand: { scores: Record<string, number>; brandGrade: string; weakestArea: string; strengthArea: string; signalCount: number } };
+          derived_signals: { hasBookingCta: boolean | null; hasClearOffer: boolean | null; isMobileFriendly: boolean | null; websiteReachable: boolean };
+          scanned_at: string;
+        } | null };
+        if (!data?.scan_result) return;
+
+        // Restore display state
+        setDeepScanData({ ...data.scan_result, scannedAt: data.scanned_at, isFromCache: true });
+
+        // Rescore the lead with the persisted deep signals so outreach tab is accurate
+        const rescored = applyDeepScanToLead(selectedLead, data.scan_result, data.derived_signals);
+        if (rescored.score.value !== selectedLead.score.value) {
+          setLeads((prev: LeadUI[]) => prev.map((l: LeadUI) => l.id === selectedLead.id ? rescored : l));
+          setSelectedLead(rescored);
+        }
+      } catch {
+        // fail soft — no deep scan cached
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLead?.id]);
 
   useEffect(() => {
     if (!selectedLead) {
@@ -882,12 +1056,12 @@ export default function Home() {
         });
 
         if (data.updatedScore) {
-          setLeads((prev) =>
-            prev.map((l) =>
+          setLeads((prev: LeadUI[]) =>
+            prev.map((l: LeadUI) =>
               l.id === leadId ? { ...l, score: data.updatedScore } : l,
             ),
           );
-          setSelectedLead((prev) =>
+          setSelectedLead((prev: LeadUI | null) =>
             prev?.id === leadId ? { ...prev, score: data.updatedScore } : prev,
           );
         }
@@ -926,33 +1100,26 @@ export default function Home() {
     load();
   }, [activeRunId]);
 
+  // Checklist persistence — other fields (language, niche, location, socialPresence) use lazy useState initialisers
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
-
       const parsed = JSON.parse(raw) as {
-        language?: Language;
-        niche?: string;
-        location?: string;
-        socialPresence?: string;
+        checklistDismissed?: boolean;
+        checklistHasSearched?: boolean;
+        checklistHasSelected?: boolean;
+        checklistHasOutcome?: boolean;
       };
-
-      if (parsed.language === "en" || parsed.language === "sv")
-        setLanguage(parsed.language);
-      if (typeof parsed.niche === "string") setNiche(parsed.niche);
-      if (typeof parsed.location === "string") setLocation(parsed.location);
-
-      if (
-        parsed.socialPresence === "low" ||
-        parsed.socialPresence === "medium" ||
-        parsed.socialPresence === "high" ||
-        parsed.socialPresence === ""
-      ) {
-        setSocialPresence(parsed.socialPresence as SocialPresenceFilter);
-      }
+      if (parsed.checklistDismissed) setChecklistDismissed(true);
+      setChecklistState((prev: typeof checklistState) => ({
+        ...prev,
+        hasSearched: parsed.checklistHasSearched ?? false,
+        hasSelected: parsed.checklistHasSelected ?? false,
+        hasOutcome: parsed.checklistHasOutcome ?? false,
+      }));
     } catch (e) {
-      console.error("Failed to load state from localStorage:", e);
+      console.error("Failed to load checklist state:", e);
     }
   }, []);
 
@@ -970,8 +1137,8 @@ export default function Home() {
         // Pre-fill from most recent search if fields are still empty
         if (searches.length > 0) {
           const latest = searches[0];
-          setNiche(prev => prev === "" && latest.niche ? latest.niche : prev);
-          setLocation(prev => prev === "" && latest.location ? latest.location : prev);
+          setNiche((prev: string) => prev === "" && latest.niche ? latest.niche : prev);
+          setLocation((prev: string) => prev === "" && latest.location ? latest.location : prev);
         }
       } catch (e) {
         console.error("Error loading recent searches:", e);
@@ -994,9 +1161,9 @@ export default function Home() {
       .then((data: { profile?: { targetLocation?: string; businessName?: string } }) => {
         const geo = data?.profile?.targetLocation;
         if (geo && typeof geo === "string") {
-          setLocation((prev) => (prev === "" ? geo : prev));
+          setLocation((prev: string) => (prev === "" ? geo : prev));
         }
-        setChecklistState(prev => ({ ...prev, hasProfile: !!(data?.profile?.businessName) }));
+        setChecklistState((prev: typeof checklistState) => ({ ...prev, hasProfile: !!(data?.profile?.businessName) }));
       })
       .catch(() => {});
   }, []);
@@ -1010,12 +1177,16 @@ export default function Home() {
           niche,
           location,
           socialPresence,
+          checklistDismissed,
+          checklistHasSearched: checklistState.hasSearched,
+          checklistHasSelected: checklistState.hasSelected,
+          checklistHasOutcome: checklistState.hasOutcome,
         }),
       );
     } catch (e) {
       console.error("Failed to save state to localStorage:", e);
     }
-  }, [language, niche, location, socialPresence]);
+  }, [language, niche, location, socialPresence, checklistDismissed, checklistState.hasSearched, checklistState.hasSelected, checklistState.hasOutcome]);
 
   // =====================
   // HANDLERS
@@ -1040,7 +1211,7 @@ export default function Home() {
       "Primary Opportunity Insight",
     ];
 
-    const rows = sortedLeads.map((lead) => {
+    const rows = sortedLeads.map((lead: LeadUI) => {
       const insight = getLocalizedOpportunityInsight(lead, language);
       return [
         lead.company.name,
@@ -1061,7 +1232,7 @@ export default function Home() {
 
     const csvContent = [header, ...rows]
       .map((row) =>
-        row.map((field) => `"${String(field).replace(/"/g, '""')}"`).join(","),
+        row.map((field: string | number) => `"${String(field).replace(/"/g, '""')}"`).join(","),
       )
       .join("\n");
 
@@ -1082,7 +1253,7 @@ export default function Home() {
     setIsLoading(true);
     setSearchError(null);
     setHasSearched(true);
-    setChecklistState(prev => ({ ...prev, hasSearched: true }));
+    setChecklistState((prev: typeof checklistState) => ({ ...prev, hasSearched: true }));
 
     try {
       const providerLeads = await runProviderSearchAndFetchLeads({
@@ -1216,7 +1387,7 @@ export default function Home() {
             <div className="flex items-start justify-between gap-3 mb-3">
               <div>
                 <p className="text-[11px] uppercase tracking-widest text-[#c9a84c] mb-0.5">Getting started</p>
-                <p className="text-sm text-[#888] leading-snug">Complete these steps to get the most out of LeadGenOS.</p>
+                <p className="text-sm text-[#888] leading-snug">Complete these steps to get the most out of Vantio.</p>
               </div>
               <button type="button" onClick={() => setChecklistDismissed(true)} className="text-[#333] hover:text-[#555] text-lg leading-none mt-0.5 shrink-0" title="Dismiss">×</button>
             </div>
@@ -1276,8 +1447,8 @@ export default function Home() {
                       autoFocus
                       type="text"
                       value={saveSearchName}
-                      onChange={(e) => setSaveSearchName(e.target.value)}
-                      onKeyDown={(e) => {
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setSaveSearchName(e.target.value)}
+                      onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
                         if (e.key === "Enter") {
                           setSaveSearchName("");
                           setShowSaveSearchInput(false);
@@ -1309,7 +1480,7 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-              {recentSearches.map((s) => {
+              {recentSearches.map((s: SearchRecord) => {
                 const date = new Date(s.created_at);
                 const dateStr = date.toLocaleDateString(language === "sv" ? "sv-SE" : "en-GB", { day: "numeric", month: "short" });
                 const timeStr = date.toLocaleTimeString(language === "sv" ? "sv-SE" : "en-GB", { hour: "2-digit", minute: "2-digit" });
@@ -1383,7 +1554,7 @@ export default function Home() {
                 <input
                   type="text"
                   value={niche}
-                  onChange={(e) => setNiche(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setNiche(e.target.value)}
                   onFocus={() => setShowNicheDropdown(true)}
                   onBlur={() => setTimeout(() => setShowNicheDropdown(false), 150)}
                   placeholder="e.g. real estate, tattoo studio"
@@ -1392,7 +1563,7 @@ export default function Home() {
                 {showNicheDropdown && recentSearches.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border border-[#252525] bg-[#111] shadow-xl overflow-hidden">
                     <p className="text-[10px] uppercase tracking-widests text-[#444] px-3 pt-2.5 pb-1">Recent searches</p>
-                    {recentSearches.slice(0, 5).map((s, i) => (
+                    {recentSearches.slice(0, 5).map((s: SearchRecord, i: number) => (
                       <button key={i} type="button"
                         onMouseDown={() => { setNiche(s.niche || ""); setLocation(s.location || ""); setShowNicheDropdown(false); }}
                         className="w-full text-left px-3 py-2 text-[12px] text-[#888] hover:bg-[#1a1a1a] hover:text-[#c8c0b0] transition-colors flex items-center justify-between"
@@ -1411,7 +1582,7 @@ export default function Home() {
                 </label>
                 <select
                   value={provider}
-                  onChange={(e) => {
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) => {
                     const v = e.target.value as ProviderName;
                     setProvider(v);
                   }}
@@ -1434,7 +1605,7 @@ export default function Home() {
                 <input
                   type="text"
                   value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)}
                   onFocus={() => setShowLocationDropdown(true)}
                   onBlur={() => setTimeout(() => setShowLocationDropdown(false), 150)}
                   placeholder="e.g. Stockholm"
@@ -1443,7 +1614,7 @@ export default function Home() {
                 {showLocationDropdown && recentSearches.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border border-[#252525] bg-[#111] shadow-xl overflow-hidden">
                     <p className="text-[10px] uppercase tracking-widests text-[#444] px-3 pt-2.5 pb-1">Recent searches</p>
-                    {recentSearches.slice(0, 5).map((s, i) => (
+                    {recentSearches.slice(0, 5).map((s: SearchRecord, i: number) => (
                       <button key={i} type="button"
                         onMouseDown={() => { setNiche(s.niche || ""); setLocation(s.location || ""); setShowLocationDropdown(false); }}
                         className="w-full text-left px-3 py-2 text-[12px] text-[#888] hover:bg-[#1a1a1a] hover:text-[#c8c0b0] transition-colors flex items-center justify-between"
@@ -1462,8 +1633,8 @@ export default function Home() {
                 </label>
                 <select
                   value={socialPresence}
-                  onChange={(e) =>
-                    setSocialPresence(e.target.value as SocialPresenceFilter)
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                setSocialPresence(e.target.value as SocialPresenceFilter)
                   }
                   className="w-full rounded-lg bg-[#111111] border border-[#2a2a2a] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
@@ -1515,7 +1686,7 @@ export default function Home() {
                     min={0}
                     max={100}
                     value={minScore}
-                    onChange={(e) => setMinScore(Number(e.target.value))}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setMinScore(Number(e.target.value))}
                   />
                   <span className="w-8 text-right">{minScore}</span>
                 </label>
@@ -1524,7 +1695,7 @@ export default function Home() {
                   {t.ui.results.sortBy}
                   <select
                     value={sortBy}
-                    onChange={(e) =>
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) =>
                       setSortBy(
                         e.target.value as
                           | "score"
@@ -1554,7 +1725,7 @@ export default function Home() {
 
                 <input
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
                   placeholder={t.ui.results.searchPlaceholder}
                   className="flex-1 min-w-[180px] rounded-md bg-[#111111] border border-[#2a2a2a] px-2 py-1 text-xs"
                 />
@@ -1673,7 +1844,7 @@ export default function Home() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pagedLeads.map((lead) => {
+                  {pagedLeads.map((lead: LeadUI) => {
                     const isSelected = selectedLead?.id === lead.id;
                     const mainInsight = getLocalizedOpportunityInsight(
                       lead,
@@ -1717,7 +1888,7 @@ export default function Home() {
                     return (
                       <Fragment key={lead.id}>
                         <tr
-                          onClick={() => { setSelectedLead(lead); setChecklistState(prev => ({ ...prev, hasSelected: true })); }}
+                          onClick={() => { setSelectedLead(lead); setChecklistState((prev: typeof checklistState) => ({ ...prev, hasSelected: true })); }}
                           className={
                             "border-b border-[#252525] hover:bg-[#111111]/70 cursor-pointer " +
                             (isSelected ? "bg-[#111111]/90" : "")
@@ -1736,7 +1907,7 @@ export default function Home() {
                                 </span>
                                 {lead.company.website && (
                                   <a href={lead.company.website} target="_blank" rel="noreferrer"
-                                    onClick={e => e.stopPropagation()}
+                                    onClick={(e: MouseEvent) => e.stopPropagation()}
                                     className="text-[10px] text-[#c9a84c] hover:underline">
                                     Visit ↗
                                   </a>
@@ -1884,6 +2055,24 @@ export default function Home() {
                             </div>
                           </td>
 
+                          <td className="py-2 px-2 w-8">
+                            {!isSelected && (
+                              <button
+                                type="button"
+                                title={savedLeadIds.has(lead.id) ? "Remove from Contact Leads" : "Save to Contact Leads"}
+                                onClick={(e: MouseEvent) => { e.stopPropagation(); toggleSaveLead(lead); }}
+                                className="w-7 h-7 flex items-center justify-center rounded-lg border transition-all"
+                                style={{
+                                  borderColor: savedLeadIds.has(lead.id) ? "rgba(201,168,76,0.5)" : "#252525",
+                                  background: savedLeadIds.has(lead.id) ? "rgba(201,168,76,0.1)" : "transparent",
+                                  color: savedLeadIds.has(lead.id) ? "#c9a84c" : "#444",
+                                }}
+                              >
+                                {savedLeadIds.has(lead.id) ? "◈" : "◇"}
+                              </button>
+                            )}
+                          </td>
+
                         </tr>
 
                         {isSelected && detailLead && (
@@ -1895,7 +2084,7 @@ export default function Home() {
                                     <button
                                       key={tab.key}
                                       type="button"
-                                      onClick={(e) => {
+                                      onClick={(e: MouseEvent) => {
                                         e.stopPropagation();
                                         setDetailTab(tab.key);
                                       }}
@@ -1910,16 +2099,34 @@ export default function Home() {
                                     </button>
                                   ))}
 
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedLead(null);
-                                    }}
-                                    className="ml-auto text-[11px] px-2 py-1 rounded-md border border-[#2a2a2a] bg-[#111111]/70 hover:bg-[#1a1a1a]"
-                                  >
-                                    {t.ui.detail.clear}
-                                  </button>
+                                  <div className="ml-auto flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={(e: MouseEvent) => {
+                                        e.stopPropagation();
+                                        toggleSaveLead(detailLead);
+                                      }}
+                                      className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-md border transition-all"
+                                      style={{
+                                        borderColor: savedLeadIds.has(detailLead.id) ? "rgba(201,168,76,0.4)" : "#2a2a2a",
+                                        background: savedLeadIds.has(detailLead.id) ? "rgba(201,168,76,0.08)" : "rgba(17,17,17,0.7)",
+                                        color: savedLeadIds.has(detailLead.id) ? "#c9a84c" : "#666",
+                                      }}
+                                    >
+                                      <span>{savedLeadIds.has(detailLead.id) ? "◈" : "◇"}</span>
+                                      <span>{savedLeadIds.has(detailLead.id) ? "Saved" : "Save lead"}</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e: MouseEvent) => {
+                                        e.stopPropagation();
+                                        setSelectedLead(null);
+                                      }}
+                                      className="text-[11px] px-2 py-1 rounded-md border border-[#2a2a2a] bg-[#111111]/70 hover:bg-[#1a1a1a]"
+                                    >
+                                      {t.ui.detail.clear}
+                                    </button>
+                                  </div>
                                 </div>
 
                                 {detailTab === "overview" && (() => {
@@ -2201,8 +2408,35 @@ export default function Home() {
                                     {/* Deep Score */}
                                     <div className="rounded-xl border border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.04)] p-4">
                                       <div className="flex items-center justify-between mb-3">
-                                        <p className="text-[10px] uppercase tracking-widest text-[#8a6e30]">Deep Scan Score</p>
-                                        <span className="text-2xl font-bold text-[#c9a84c]">{deepScanData.deepScore}</span>
+                                        <div className="space-y-1">
+                                          <p className="text-[10px] uppercase tracking-widest text-[#8a6e30]">Deep Scan Score</p>
+                                          {deepScanData.scannedAt && (
+                                            <div className="flex items-center gap-1.5">
+                                              {deepScanData.isFromCache && (
+                                                <span className="text-[9px] px-1.5 py-0.5 rounded border border-[#c9a84c]/20 bg-[#c9a84c]/08 text-[#8a6e30]">cached</span>
+                                              )}
+                                              <p className="text-[10px] text-[#444]">
+                                                Scanned {(() => {
+                                                  const diff = Date.now() - new Date(deepScanData.scannedAt).getTime();
+                                                  const mins = Math.floor(diff / 60000);
+                                                  const hours = Math.floor(diff / 3600000);
+                                                  const days = Math.floor(diff / 86400000);
+                                                  return days > 0 ? `${days}d ago` : hours > 0 ? `${hours}h ago` : mins > 0 ? `${mins}m ago` : "just now";
+                                                })()}
+                                              </p>
+                                            </div>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                          <span className="text-2xl font-bold text-[#c9a84c]">{deepScanData.deepScore}</span>
+                                          {deepScanData.isFromCache && (
+                                            <button
+                                              type="button"
+                                              onClick={() => detailLead && runDeepScan(detailLead)}
+                                              className="text-[10px] px-2 py-1 rounded border border-[#252525] text-[#555] hover:border-[#444] hover:text-[#888] transition-colors"
+                                            >↻ Rescan</button>
+                                          )}
+                                        </div>
                                       </div>
                                       {!deepScanData.pageReachable && (
                                         <p className="text-[11px] text-[#555]">Website unreachable — scores based on available signals only.</p>
@@ -2218,8 +2452,9 @@ export default function Home() {
                                         )}
                                       </div>
                                       {Object.entries(deepScanData.website.scores).map(([key, val]) => {
-                                        const label = key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase());
-                                        const color = val >= 65 ? "#4ade80" : val >= 35 ? "#c9a84c" : "#f87171";
+                                        const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (s: string) => s.toUpperCase());
+                                        const score = val as number;
+                                        const color = score >= 65 ? "#4ade80" : score >= 35 ? "#c9a84c" : "#f87171";
                                         return (
                                           <div key={key} className="space-y-1">
                                             <div className="flex items-center justify-between">
@@ -2238,8 +2473,9 @@ export default function Home() {
                                     <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
                                       <p className="text-[10px] uppercase tracking-widest text-[#555]">Market Signals</p>
                                       {Object.entries(deepScanData.market.scores).map(([key, val]) => {
-                                        const label = key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase());
-                                        const color = val >= 65 ? "#4ade80" : val >= 35 ? "#c9a84c" : "#f87171";
+                                        const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (s: string) => s.toUpperCase());
+                                        const score = val as number;
+                                        const color = score >= 65 ? "#4ade80" : score >= 35 ? "#c9a84c" : "#f87171";
                                         return (
                                           <div key={key} className="space-y-1">
                                             <div className="flex items-center justify-between">
@@ -2264,8 +2500,9 @@ export default function Home() {
                                         <span className="text-[13px] font-bold text-[#c9a84c]">Grade: {deepScanData.brand.brandGrade}</span>
                                       </div>
                                       {Object.entries(deepScanData.brand.scores).map(([key, val]) => {
-                                        const label = key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase());
-                                        const color = val >= 65 ? "#4ade80" : val >= 35 ? "#c9a84c" : "#f87171";
+                                        const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (s: string) => s.toUpperCase());
+                                        const score = val as number;
+                                        const color = score >= 65 ? "#4ade80" : score >= 35 ? "#c9a84c" : "#f87171";
                                         return (
                                           <div key={key} className="space-y-1">
                                             <div className="flex items-center justify-between">
@@ -2335,131 +2572,199 @@ export default function Home() {
 
                                 {detailTab === "outreach" && (() => {
                                   const gap = (safeOutreach as { gap?: string } | null)?.gap ?? null;
-                                  const sellerType = (safeOutreach as { sellerType?: string } | null)?.sellerType ?? null;
+                                  const oppInsight = getLocalizedOpportunityInsight(detailLead, language);
                                   const difficulty = (safeOutreach as { difficulty?: string } | null)?.difficulty ?? null;
+                                  const structured = getStructuredAngle(detailLead, language);
+                                  const title = angleTitle || structured.title;
+                                  const why = angleWhy || structured.why;
+                                  const riskFlags = (detailLead.metadata as { riskFlags?: string[] } | undefined)?.riskFlags ?? [];
 
                                   type GapConfig = { label: string; color: string; icon: string; intervention: string; urgency: string };
                                   const gapConfig: Record<string, GapConfig> = {
-                                    VISIBILITY:    { label: "Visibility Gap",    color: "#818cf8", icon: "◎", intervention: "Build high-intent capture channels — search, retargeting, and demand-side content.", urgency: "Revenue is leaking because demand exists but has nowhere to land." },
-                                    CONVERSION:    { label: "Conversion Gap",    color: "#fb923c", icon: "⬡", intervention: "Fix the funnel — booking flow, tracking, and follow-up system.", urgency: "Interest is converting at a fraction of its potential. Each day this persists is lost revenue." },
-                                    INFRASTRUCTURE:{ label: "Infrastructure Gap",color: "#f87171", icon: "△", intervention: "Build the foundation — a single conversion-focused landing page with clear offer and CTA.", urgency: "There is no system to capture demand. Growth is impossible to scale without this." },
-                                    OPTIMIZATION:  { label: "Optimization Gap",  color: "#34d399", icon: "◈", intervention: "Sharpen conversion mechanics — tighten the CTA, proof structure, and acquisition loop.", urgency: "Strong baseline. Marginal improvements here compound into significant revenue lift." },
+                                    VISIBILITY:    { label: "Visibility Gap",    color: "#818cf8", icon: "◎", intervention: "Build high-intent capture channels — search, retargeting, and demand-side content.", urgency: "Demand exists in this market but isn't being captured. They are invisible to buyers who are actively looking." },
+                                    CONVERSION:    { label: "Conversion Gap",    color: "#fb923c", icon: "⬡", intervention: "Fix the funnel — booking flow, tracking, and follow-up sequence.", urgency: "Traffic exists but isn't converting. Visitors are arriving and leaving without taking action." },
+                                    INFRASTRUCTURE:{ label: "Infrastructure Gap",color: "#f87171", icon: "△", intervention: "Build the foundation — a conversion-focused page with clear offer and CTA.", urgency: "No system exists to capture demand. Any marketing spend right now is wasted." },
+                                    OPTIMIZATION:  { label: "Optimization Gap",  color: "#34d399", icon: "◈", intervention: "Sharpen conversion mechanics — tighten the CTA, proof structure, and acquisition loop.", urgency: "Strong baseline. Marginal improvements here compound into meaningful revenue lift." },
                                   };
                                   const gc = gap ? gapConfig[gap] ?? null : null;
 
-                                  const difficultyConfig: Record<string, { label: string; color: string; hint: string }> = {
-                                    LOW:    { label: "Low Friction",   color: "#4ade80", hint: "High receptivity expected. Lead direct with value." },
-                                    MEDIUM: { label: "Medium Friction", color: "#c9a84c", hint: "Qualified, but expect questions. Lead with curiosity." },
-                                    HIGH:   { label: "High Friction",   color: "#f87171", hint: "Resistant or saturated. Lead soft, offer a teardown." },
+                                  const difficultyConfig: Record<string, { label: string; color: string; hint: string; approach: string }> = {
+                                    LOW:    { label: "Low Friction",   color: "#4ade80", hint: "High receptivity expected.", approach: "Lead direct and confident with a specific observation. They are likely open to solutions." },
+                                    MEDIUM: { label: "Medium Friction", color: "#c9a84c", hint: "Qualified, but expect questions.", approach: "Lead with curiosity, not claims. Frame your offer around their specific gap rather than a generic pitch." },
+                                    HIGH:   { label: "High Friction",   color: "#f87171", hint: "Resistant or saturated.", approach: "Open soft with a free teardown or observation. Give value before asking for anything. Avoid any hard sell language." },
                                   };
                                   const dc = difficulty ? difficultyConfig[difficulty] ?? null : null;
+
+                                  const riskFlagMeta: Record<string, { label: string; implication: string }> = {
+                                    LOW_PROOF:               { label: "Low social proof",         implication: "They may be self-conscious about lack of reviews. Don't lead with 'your reputation' — lead with opportunity." },
+                                    NO_WEBSITE:              { label: "No website",               implication: "May not see digital marketing as relevant yet. Frame your offer as a foundation, not an upgrade." },
+                                    WEAK_SOCIAL:             { label: "Weak social presence",     implication: "Likely not active online. Email or direct contact will outperform social DMs." },
+                                    LOW_CLASS_CONF:          { label: "Classification uncertain", implication: "Signals are mixed — verify the business type before pitching a specific service." },
+                                    HIGH_RISK_SCORE:         { label: "High risk score",          implication: "Unstable indicators present. Consider a softer, trust-building first touch." },
+                                    SATURATED_COMPETITION:   { label: "Saturated market",         implication: "They may already be pitched often. Lead with differentiation, not standard offers." },
+                                    OPERATIONAL_INSTABILITY: { label: "Instability signals",      implication: "Business may be going through change. Approach with stability framing — protect and compound, not aggressive growth." },
+                                    MULTI_LOCATION:          { label: "Multiple locations",       implication: "Decision-maker may not be at street level. Research the right contact point before reaching out." },
+                                  };
+
+                                  // Contact channel recommendation based on signals
+                                  const hasWebsite = !!detailLead.company.website;
+                                  const socialLevel = detailLead.metrics?.socialPresence ?? "low";
+                                  const channelPrimary = !hasWebsite ? "Direct visit or phone" : socialLevel === "high" ? "Email or social DM" : "Email";
+                                  const channelNote = !hasWebsite
+                                    ? "No website detected — digital outreach will have low reach. A direct visit, phone call, or local referral will land significantly better."
+                                    : socialLevel === "high"
+                                    ? "Active social presence. Email is safest, but a thoughtful social DM referencing their content can stand out if crafted carefully."
+                                    : socialLevel === "medium"
+                                    ? "Some social presence. Email remains the strongest channel — social DM is a secondary option."
+                                    : "Low social presence. Email is the primary channel. Lead with a specific observation about their business to cut through.";
 
                                   return (
                                     <div className="space-y-3 pt-1">
 
-                                      {/* GOE Panel */}
-                                      {gc && (
-                                        <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: `${gc.color}30`, backgroundColor: `${gc.color}06` }}>
-                                          <div className="flex items-start justify-between gap-3">
-                                            <div>
-                                              <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-base" style={{ color: gc.color }}>{gc.icon}</span>
-                                                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: gc.color }}>{gc.label}</p>
-                                              </div>
-                                              <p className="text-[12px] text-[#888] leading-relaxed">{gc.urgency}</p>
-                                            </div>
-                                            {dc && (
-                                              <span className="flex-shrink-0 text-[10px] font-semibold px-2 py-1 rounded-full border" style={{ color: dc.color, borderColor: `${dc.color}40`, backgroundColor: `${dc.color}10` }}>
-                                                {dc.label}
-                                              </span>
-                                            )}
-                                          </div>
-                                          <div className="border-t pt-3" style={{ borderColor: `${gc.color}20` }}>
-                                            <p className="text-[10px] uppercase tracking-widest mb-1.5" style={{ color: `${gc.color}99` }}>Recommended Intervention</p>
-                                            <p className="text-[13px] text-[#f5f0e8] font-medium leading-relaxed">{gc.intervention}</p>
-                                          </div>
-                                          {dc && (
-                                            <p className="text-[11px] italic" style={{ color: `${gc.color}70` }}>{dc.hint}</p>
-                                          )}
+                                      {/* Deep scan indicator */}
+                                      {deepScanData && (
+                                        <div className="flex items-center gap-2 rounded-lg border border-[#c9a84c]/15 bg-[#c9a84c]/04 px-3 py-2">
+                                          <span className="text-[#c9a84c] text-[10px]">◉</span>
+                                          <p className="text-[10px] text-[#8a6e30]">
+                                            Angle and gap analysis reflects deep scan data
+                                            {deepScanData.scannedAt && (() => {
+                                              const diff = Date.now() - new Date(deepScanData.scannedAt).getTime();
+                                              const days = Math.floor(diff / 86400000);
+                                              const hours = Math.floor(diff / 3600000);
+                                              const mins = Math.floor(diff / 60000);
+                                              const label = days > 0 ? `${days}d ago` : hours > 0 ? `${hours}h ago` : mins > 0 ? `${mins}m ago` : "just now";
+                                              return ` · scanned ${label}`;
+                                            })()}
+                                          </p>
                                         </div>
                                       )}
 
-                                      {/* Angle from engine */}
-                                      {(() => {
-                                        const structured = getStructuredAngle(detailLead, language);
-                                        const title = angleTitle || structured.title;
-                                        const why = angleWhy || structured.why;
-                                        return (
-                                          <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] p-3 space-y-2">
-                                            <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.suggestedAngle}</p>
-                                            {title && (
-                                              <div className="flex items-center gap-2">
-                                                <span className="text-[10px] px-2 py-0.5 rounded-md border border-[#c9a84c]/30 bg-[#c9a84c]/8 text-[#c9a84c] font-medium tracking-wide">{title}</span>
-                                              </div>
-                                            )}
-                                            {why && (
-                                              <div className="rounded-md border border-[#1e1e1e] bg-[#111] px-3 py-2">
-                                                <p className="text-[10px] uppercase tracking-widest text-[#444] mb-1">Why this angle</p>
-                                                <p className="text-[11px] text-[#777] leading-relaxed">{why}</p>
-                                              </div>
-                                            )}
-                                          </div>
-                                        );
-                                      })()}
-
-                                      {/* Script */}
-                                      <div className="space-y-2">
-                                        <div className="flex items-center justify-between gap-2">
-                                          <div className="flex items-center gap-2">
-                                            <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.outreachScript}</p>
-                                            {safeOutreach && (
-                                              <div className="flex items-center gap-1">
-                                                {(["soft", "direct"] as const).map((v) => (
-                                                  <button key={v} type="button" onClick={() => setOutreachVariant(v)}
-                                                    className={"text-[10px] px-2 py-0.5 rounded-md border capitalize " + (outreachVariant === v ? "border-[#444] bg-[#1a1a1a] text-[#f5f0e8]" : "border-[#252525] text-[#555] hover:border-[#444]")}>
-                                                    {v}
-                                                  </button>
-                                                ))}
-                                              </div>
-                                            )}
-                                          </div>
-                                          <button type="button"
-                                            onClick={async () => { try { await navigator.clipboard.writeText(scriptText); toastSuccess("Copied to clipboard"); } catch (e) { console.error(e); toastError("Failed to copy"); } }}
-                                            disabled={!scriptText}
-                                            className="text-[11px] px-2.5 py-1 rounded-md border border-[#2a2a2a] bg-[#111] hover:bg-[#1a1a1a] disabled:opacity-40 transition-colors">
-                                            {t.ui.detail.copy}
-                                          </button>
-                                        </div>
-                                        <div className="bg-[#080808] border border-[#252525] rounded-xl p-4 max-h-64 overflow-auto">
-                                          <pre className="whitespace-pre-wrap text-[12px] text-[#c8c0b0] leading-relaxed font-sans">
-                                            {scriptText || t.ui.detail.clickLeadHint}
-                                          </pre>
-                                        </div>
-                                        {/* Deliverability score */}
-                                        {scriptText && (() => {
-                                          const SPAM_WORDS = ["free", "guaranteed", "limited time", "act now", "click here", "no obligation", "earn money", "make money", "winner", "congratulations", "urgent", "exclusive offer", "risk-free", "lowest price", "best price", "order now", "buy now", "special promotion", "incredible deal"];
-                                          const lower = scriptText.toLowerCase();
-                                          const hits = SPAM_WORDS.filter(w => lower.includes(w));
-                                          const score = Math.max(0, 100 - hits.length * 18);
-                                          const scoreColor = score >= 80 ? "#4ade80" : score >= 55 ? "#c9a84c" : "#f87171";
-                                          const scoreLabel = score >= 80 ? t.ui.detail.inboxReady : score >= 55 ? t.ui.detail.useWithCare : t.ui.detail.likelyFiltered;
-                                          return (
-                                            <div className="flex items-center gap-3 rounded-lg border border-[#1e1e1e] bg-[#0a0a0a] px-3 py-2">
-                                              <p className="text-[10px] uppercase tracking-widest text-[#444] flex-shrink-0">{t.ui.detail.deliverability}</p>
-                                              <div className="flex-1 h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
-                                                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${score}%`, backgroundColor: scoreColor }} />
-                                              </div>
-                                              <span className="text-[11px] font-bold flex-shrink-0" style={{ color: scoreColor }}>{score}</span>
-                                              <span className="text-[10px] flex-shrink-0" style={{ color: `${scoreColor}99` }}>{scoreLabel}</span>
-                                              {hits.length > 0 && (
-                                                <span className="text-[10px] text-[#f87171]/70 flex-shrink-0">
-                                                  ⚠ {hits.slice(0, 2).map(h => `"${h}"`).join(", ")}{hits.length > 2 ? ` +${hits.length - 2}` : ""}
-                                                </span>
-                                              )}
+                                      {/* Primary gap + friction */}
+                                      <div className="grid grid-cols-[1fr_auto] gap-2 items-start">
+                                        {gc ? (
+                                          <div className="rounded-xl border p-4 space-y-2.5" style={{ borderColor: `${gc.color}30`, backgroundColor: `${gc.color}05` }}>
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-sm" style={{ color: gc.color }}>{gc.icon}</span>
+                                              <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: gc.color }}>{gc.label}</p>
                                             </div>
-                                          );
-                                        })()}
+                                            <p className="text-[12px] text-[#888] leading-relaxed">{gc.urgency}</p>
+                                            <div className="border-t pt-2.5" style={{ borderColor: `${gc.color}20` }}>
+                                              <p className="text-[9px] uppercase tracking-widest mb-1" style={{ color: `${gc.color}80` }}>What to offer</p>
+                                              <p className="text-[12px] text-[#c8c0b0] leading-relaxed">{gc.intervention}</p>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <div className="rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] p-4">
+                                            <p className="text-[11px] text-[#555]">No gap classification available — score signals used for angle selection.</p>
+                                          </div>
+                                        )}
+                                        {dc && (
+                                          <div className="rounded-xl border px-3 py-3 flex flex-col items-center gap-1 min-w-[90px]" style={{ borderColor: `${dc.color}30`, backgroundColor: `${dc.color}05` }}>
+                                            <p className="text-[9px] uppercase tracking-widest text-center" style={{ color: `${dc.color}80` }}>Friction</p>
+                                            <p className="text-[12px] font-bold" style={{ color: dc.color }}>{dc.label}</p>
+                                            <p className="text-[10px] text-center leading-relaxed" style={{ color: `${dc.color}70` }}>{dc.hint}</p>
+                                          </div>
+                                        )}
                                       </div>
+
+                                      {/* Recommended angle */}
+                                      <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Recommended angle</p>
+                                          {title && <span className="text-[10px] px-2 py-0.5 rounded-md border border-[#c9a84c]/30 bg-[#c9a84c]/8 text-[#c9a84c] font-medium tracking-wide">{title}</span>}
+                                        </div>
+                                        {why && <p className="text-[12px] text-[#888] leading-relaxed">{why}</p>}
+                                        {dc && (
+                                          <div className="rounded-lg border border-[#1e1e1e] bg-[#111] px-3 py-2.5">
+                                            <p className="text-[9px] uppercase tracking-widest text-[#444] mb-1">How to open</p>
+                                            <p className="text-[12px] text-[#777] leading-relaxed">{dc.approach}</p>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Contact channel */}
+                                      <div className="rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] p-4 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Best contact channel</p>
+                                          <span className="text-[11px] font-medium text-[#c8c0b0]">{channelPrimary}</span>
+                                        </div>
+                                        <p className="text-[12px] text-[#666] leading-relaxed">{channelNote}</p>
+                                        {detailLead.company.website && (
+                                          <a href={detailLead.company.website} target="_blank" rel="noreferrer"
+                                            className="inline-flex items-center gap-1.5 text-[11px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors mt-1">
+                                            <span>↗</span> Visit website
+                                          </a>
+                                        )}
+                                      </div>
+
+                                      {/* Resistance signals */}
+                                      {riskFlags.length > 0 && (
+                                        <div className="rounded-xl border border-[#f87171]/15 bg-[#f87171]/03 p-4 space-y-2.5">
+                                          <p className="text-[10px] uppercase tracking-widests text-[#f87171]/60">Resistance signals — know before you reach out</p>
+                                          <div className="space-y-2">
+                                            {riskFlags.map((flag: string) => {
+                                              const meta = riskFlagMeta[flag];
+                                              if (!meta) return null;
+                                              return (
+                                                <div key={flag} className="flex items-start gap-2.5 rounded-lg border border-[#f87171]/10 bg-[#f87171]/04 px-3 py-2">
+                                                  <span className="text-[#f87171]/60 text-[10px] mt-0.5 shrink-0">⚠</span>
+                                                  <div>
+                                                    <p className="text-[11px] text-[#888] font-medium">{meta.label}</p>
+                                                    <p className="text-[11px] text-[#555] leading-relaxed mt-0.5">{meta.implication}</p>
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Lead strength summary */}
+                                      <div className="rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] p-4 space-y-2.5">
+                                        <p className="text-[10px] uppercase tracking-widests text-[#555]">Lead at a glance</p>
+                                        <div className="space-y-1.5">
+                                          {[
+                                            { label: "Reputation", value: detailLead.score.breakdown?.reputation ?? 0 },
+                                            { label: "Digital presence", value: detailLead.score.breakdown?.digitalPresence ?? 0 },
+                                            { label: "Stability", value: detailLead.score.breakdown?.businessStrength ?? 0 },
+                                            { label: "Opportunity", value: detailLead.score.opportunity ?? 0 },
+                                            { label: "Readiness", value: detailLead.score.readiness ?? 0 },
+                                            { label: "Risk", value: detailLead.score.risk ?? 0, invert: true },
+                                          ].map(({ label, value, invert }) => {
+                                            const display = invert ? 100 - value : value;
+                                            const color = display >= 70 ? "#4ade80" : display >= 45 ? "#c9a84c" : "#f87171";
+                                            return (
+                                              <div key={label} className="flex items-center gap-3">
+                                                <p className="text-[9px] uppercase tracking-widests text-[#444] w-24 shrink-0">{label}</p>
+                                                <div className="flex-1 h-1 rounded-full bg-[#1a1a1a]">
+                                                  <div className="h-full rounded-full transition-all" style={{ width: `${value}%`, backgroundColor: color }} />
+                                                </div>
+                                                <p className="text-[11px] font-bold w-6 text-right shrink-0" style={{ color }}>{value}</p>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                        {oppInsight?.message && (
+                                          <div className="rounded-lg border border-[#c9a84c]/15 bg-[#c9a84c]/04 px-3 py-2 mt-1">
+                                            <p className="text-[9px] uppercase tracking-widests text-[#8a6e30] mb-1">Key opportunity signal</p>
+                                            <p className="text-[12px] text-[#888]">{oppInsight.message}</p>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Write outreach CTA — bottom */}
+                                      <a
+                                        href="/contact-leads"
+                                        onClick={() => { toggleSaveLead(detailLead); }}
+                                        className="flex items-center justify-between w-full rounded-xl border border-[rgba(201,168,76,0.3)] bg-[rgba(201,168,76,0.05)] px-4 py-3.5 hover:border-[rgba(201,168,76,0.5)] hover:bg-[rgba(201,168,76,0.09)] transition-all group"
+                                      >
+                                        <div>
+                                          <p className="text-[12px] text-[#c9a84c] font-medium">Write outreach for this lead →</p>
+                                          <p className="text-[10px] text-[#8a6e30] mt-0.5">Opens Contact Leads — AI message composer with this lead&apos;s signals pre-loaded</p>
+                                        </div>
+                                        <span className="text-[#c9a84c] text-base group-hover:translate-x-0.5 transition-transform">✦</span>
+                                      </a>
+
                                     </div>
                                   );
                                 })()}
@@ -2476,12 +2781,39 @@ export default function Home() {
                                     { key: "closed",     label: "Closed",     icon: "✦" },
                                   ] as const;
 
-                                  const revenueVal = selectedOutcome?.revenue ?? null;
-                                  const notesVal   = selectedOutcome?.notes ?? "";
+                                  const revenueVal  = selectedOutcome?.revenue ?? null;
+                                  const notesVal    = selectedOutcome?.notes ?? "";
                                   const followupVal = selectedOutcome?.followup_date ?? "";
+                                  // Derive difficulty for auto follow-up calculation
+                                  const safeOutreachForTracking = (detailLead?.metadata?.outreach ?? null) as { difficulty?: string } | null;
+                                  const difficultyForTracking = safeOutreachForTracking?.difficulty ?? null;
+                                  const tonalityVal = selectedOutcome?.tonality ?? null;
+                                  const lostReason  = selectedOutcome?.lost_reason ?? null;
+                                  const scoreSnap   = selectedOutcome?.score_at_outreach ?? detailLead.score.value ?? null;
+
+                                  // Show lost reason picker when contacted but never progressed past contacted, or explicitly stalled
+                                  const showLostReason = contacted && !closed && stage <= 0;
+
+                                  const lostReasons: { key: LeadOutcomeUI["lost_reason"]; label: string }[] = [
+                                    { key: "no_response",    label: "No response" },
+                                    { key: "not_interested", label: "Not interested" },
+                                    { key: "has_provider",   label: "Already has provider" },
+                                    { key: "wrong_timing",   label: "Wrong timing" },
+                                  ];
 
                                   return (
                                     <div className="space-y-3 pt-1">
+
+                                      {/* Score snapshot */}
+                                      {scoreSnap !== null && (
+                                        <div className="rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] px-4 py-3 flex items-center justify-between">
+                                          <p className="text-[10px] uppercase tracking-widest text-[#444]">Score at outreach</p>
+                                          <span className={
+                                            "text-sm font-medium " +
+                                            (scoreSnap >= 70 ? "text-[#4ade80]" : scoreSnap >= 50 ? "text-[#c9a84c]" : "text-[#f87171]")
+                                          }>{scoreSnap}</span>
+                                        </div>
+                                      )}
 
                                       {/* Pipeline funnel */}
                                       <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4">
@@ -2497,7 +2829,19 @@ export default function Home() {
                                             return (
                                               <button key={key} type="button"
                                                 disabled={!canSave}
-                                                onClick={() => canSave && saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: buildOutcomePatch(key, !checked) })}
+                                                onClick={() => {
+                                                  if (!canSave) return;
+                                                  // Snapshot score on first contact
+                                                  const isFirstContact = key === "contacted" && !contacted;
+                                                  saveOutcome({
+                                                    runId: runIdNum,
+                                                    leadId: detailLead.id,
+                                                    patch: {
+                                                      ...buildOutcomePatch(key, !checked),
+                                                      ...(isFirstContact ? { score_at_outreach: detailLead.score.value ?? null } : {}),
+                                                    },
+                                                  });
+                                                }}
                                                 className={"flex-1 flex flex-col items-center gap-1.5 py-3 rounded-lg border transition-all " + (isCurrent ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)]" : isActive ? "border-[#4ade80]/30 bg-[#4ade80]/5" : "border-[#1a1a1a] bg-[#111] hover:border-[#252525]") + " disabled:cursor-not-allowed"}>
                                                 <span className={"text-base transition-colors " + (isCurrent ? "text-[#c9a84c]" : isActive ? "text-[#4ade80]" : "text-[#333]")}>{isActive ? (i < stage ? "✓" : icon) : icon}</span>
                                                 <span className={"text-[10px] tracking-wide " + (isActive ? "text-[#888]" : "text-[#333]")}>{label}</span>
@@ -2512,30 +2856,79 @@ export default function Home() {
                                         )}
                                       </div>
 
-                                      {/* Revenue input — shown once closed */}
+                                      {/* Lost reason — shown when contacted but stalled */}
+                                      {showLostReason && (
+                                        <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
+                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Why lost</p>
+                                          <div className="grid grid-cols-2 gap-1.5">
+                                            {lostReasons.map(({ key, label }) => (
+                                              <button
+                                                key={key}
+                                                type="button"
+                                                disabled={!canSave}
+                                                onClick={() => canSave && saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { lost_reason: lostReason === key ? null : key } })}
+                                                className={"px-3 py-2 rounded-lg border text-[11px] transition-all text-left " + (lostReason === key ? "border-[#f87171]/40 bg-[#f87171]/8 text-[#f87171]" : "border-[#1a1a1a] bg-[#111] text-[#555] hover:border-[#252525] hover:text-[#888]") + " disabled:cursor-not-allowed"}
+                                              >
+                                                {label}
+                                              </button>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Tonality used */}
+                                      <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
+                                        <p className="text-[10px] uppercase tracking-widests text-[#555]">Outreach tone</p>
+                                        <div className="grid grid-cols-2 gap-1.5">
+                                          {([
+                                            { key: "soft",         label: "Soft" },
+                                            { key: "consultative", label: "Consultative" },
+                                            { key: "direct",       label: "Direct" },
+                                            { key: "bold",         label: "Bold" },
+                                          ] as const).map((tone) => (
+                                            <button
+                                              key={tone.key}
+                                              type="button"
+                                              disabled={!canSave}
+                                              onClick={() => canSave && saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { tonality: tonalityVal === tone.key ? null : tone.key } })}
+                                              className={"py-2 rounded-lg border text-[11px] transition-all " + (tonalityVal === tone.key ? "border-[#c9a84c]/40 bg-[rgba(201,168,76,0.08)] text-[#c9a84c]" : "border-[#1a1a1a] bg-[#111] text-[#555] hover:border-[#252525] hover:text-[#888]") + " disabled:cursor-not-allowed"}
+                                            >
+                                              {tone.label}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+
+                                      {/* Revenue input */}
                                       <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
                                         <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.dealValue}</p>
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-[#555] text-sm">$</span>
-                                          <input
-                                            type="number"
-                                            min="0"
-                                            placeholder="0"
-                                            defaultValue={revenueVal ?? ""}
-                                            disabled={!canSave}
-                                            onBlur={(e) => {
-                                              if (!canSave) return;
-                                              const v = parseFloat(e.target.value);
-                                              saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { revenue: Number.isFinite(v) ? v : null } });
-                                            }}
-                                            className="flex-1 bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-sm text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40"
-                                          />
-                                        </div>
-                                        {closed && revenueVal && (
-                                          <p className="text-[11px] text-[#4ade80]">
-                                            ✦ ${revenueVal.toLocaleString()} closed
-                                          </p>
-                                        )}
+                                        {(() => {
+                                          const loc = (location ?? "").toLowerCase();
+                                          const sym = loc.includes("sweden") || loc.includes("sverige") || loc.includes("stockholm") || loc.includes("göteborg") || loc.includes("malmö") || loc.includes(", se") || loc.endsWith(" se") ? "kr" : loc.includes("uk") || loc.includes("london") || loc.includes("england") ? "£" : loc.includes("euro") || loc.includes("germany") || loc.includes("france") || loc.includes("spain") ? "€" : "$";
+                                          return (
+                                            <>
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-[#555] text-sm">{sym}</span>
+                                                <input
+                                                  type="number"
+                                                  min="0"
+                                                  placeholder="0"
+                                                  defaultValue={revenueVal ?? ""}
+                                                  disabled={!canSave}
+                                                  onBlur={(e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+                                                    if (!canSave) return;
+                                                    const v = parseFloat(e.target.value);
+                                                    saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { revenue: Number.isFinite(v) ? v : null } });
+                                                  }}
+                                                  className="flex-1 bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-sm text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40"
+                                                />
+                                              </div>
+                                              {closed && revenueVal && (
+                                                <p className="text-[11px] text-[#4ade80]">✦ {sym}{revenueVal.toLocaleString()} closed</p>
+                                              )}
+                                            </>
+                                          );
+                                        })()}
                                       </div>
 
                                       {/* Notes */}
@@ -2546,7 +2939,7 @@ export default function Home() {
                                           placeholder="Objections, context, follow-up reminders…"
                                           defaultValue={notesVal ?? ""}
                                           disabled={!canSave}
-                                          onBlur={(e) => {
+                                          onBlur={(e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
                                             if (!canSave) return;
                                             saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { notes: e.target.value.trim() || null } });
                                           }}
@@ -2555,35 +2948,55 @@ export default function Home() {
                                         <p className="text-[10px] text-[#333]">{t.ui.detail.savesOnBlur}</p>
                                       </div>
 
-                                      {/* Follow-up reminder */}
-                                      <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
-                                        <div className="flex items-center justify-between">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.followUpReminder}</p>
-                                          {followupVal && !closed && (() => {
-                                            const diff = Math.ceil((new Date(followupVal).getTime() - Date.now()) / 86400000);
-                                            const overdue = diff < 0;
-                                            const today = diff === 0;
-                                            return (
-                                              <span className={"text-[10px] px-2 py-0.5 rounded-full border " + (overdue ? "border-[#f87171]/30 text-[#f87171] bg-[#f87171]/5" : today ? "border-[#c9a84c]/30 text-[#c9a84c] bg-[#c9a84c]/5" : "border-[#4ade80]/20 text-[#4ade80] bg-[#4ade80]/5")}>
-                                                {overdue ? `${Math.abs(diff)}${t.ui.detail.overdueLabel}` : today ? t.ui.detail.todayLabel : `${t.ui.detail.inDaysLabel} ${diff}d`}
-                                              </span>
-                                            );
-                                          })()}
-                                        </div>
-                                        <input
-                                          type="date"
-                                          disabled={!canSave}
-                                          defaultValue={followupVal ?? ""}
-                                          onBlur={(e) => {
-                                            if (!canSave) return;
-                                            saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { followup_date: e.target.value || null } });
-                                          }}
-                                          className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-[12px] text-[#c8c0b0] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40 [color-scheme:dark]"
-                                        />
-                                        {!followupVal && (
-                                          <p className="text-[10px] text-[#333]">{t.ui.detail.followUpHint}</p>
-                                        )}
-                                      </div>
+                                      {/* Follow-up reminder — auto-suggested from friction level */}
+                                      {(() => {
+                                        const frictionDays: Record<string, number> = { LOW: 3, MEDIUM: 5, HIGH: 7 };
+                                        const suggestedDays = difficultyForTracking ? (frictionDays[difficultyForTracking] ?? 5) : 5;
+                                        const suggestedDate = (() => {
+                                          const d = new Date();
+                                          d.setDate(d.getDate() + suggestedDays);
+                                          return d.toISOString().slice(0, 10);
+                                        })();
+                                        const displayVal = followupVal || suggestedDate;
+                                        return (
+                                          <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                              <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.followUpReminder}</p>
+                                              {!followupVal && (
+                                                <span className="text-[9px] px-2 py-0.5 rounded-full border border-[#252525] text-[#444]">
+                                                  auto · {suggestedDays}d
+                                                </span>
+                                              )}
+                                              {followupVal && !closed && (() => {
+                                                const diff = Math.ceil((new Date(followupVal).getTime() - Date.now()) / 86400000);
+                                                const overdue = diff < 0;
+                                                const today = diff === 0;
+                                                return (
+                                                  <span className={"text-[10px] px-2 py-0.5 rounded-full border " + (overdue ? "border-[#f87171]/30 text-[#f87171] bg-[#f87171]/5" : today ? "border-[#c9a84c]/30 text-[#c9a84c] bg-[#c9a84c]/5" : "border-[#4ade80]/20 text-[#4ade80] bg-[#4ade80]/5")}>
+                                                    {overdue ? `${Math.abs(diff)}${t.ui.detail.overdueLabel}` : today ? t.ui.detail.todayLabel : `${t.ui.detail.inDaysLabel} ${diff}d`}
+                                                  </span>
+                                                );
+                                              })()}
+                                            </div>
+                                            <input
+                                              type="date"
+                                              disabled={!canSave}
+                                              defaultValue={displayVal}
+                                              key={displayVal}
+                                              onBlur={(e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+                                                if (!canSave) return;
+                                                saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { followup_date: e.target.value || null } });
+                                              }}
+                                              className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-[12px] text-[#c8c0b0] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40 [color-scheme:dark]"
+                                            />
+                                            <p className="text-[10px] text-[#333]">
+                                              {followupVal
+                                                ? t.ui.detail.followUpHint
+                                                : `${difficultyForTracking ? difficultyForTracking.charAt(0) + difficultyForTracking.slice(1).toLowerCase() : "Medium"} friction — edit to override`}
+                                            </p>
+                                          </div>
+                                        );
+                                      })()}
                                     </div>
                                   );
                                 })()}
@@ -2614,7 +3027,7 @@ export default function Home() {
                   {/* Prev */}
                   <button
                     type="button"
-                    onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); setSelectedLead(null); }}
+                    onClick={() => { setCurrentPage((p: number) => Math.max(1, p - 1)); setSelectedLead(null); }}
                     disabled={currentPage === 1}
                     className="w-8 h-8 text-[12px] rounded-lg flex items-center justify-center text-[#555] hover:text-[#888] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   >
@@ -2657,7 +3070,7 @@ export default function Home() {
                   {/* Next */}
                   <button
                     type="button"
-                    onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); setSelectedLead(null); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                    onClick={() => { setCurrentPage((p: number) => Math.min(totalPages, p + 1)); setSelectedLead(null); window.scrollTo({ top: 0, behavior: "smooth" }); }}
                     disabled={currentPage === totalPages}
                     className="w-8 h-8 text-[12px] rounded-lg flex items-center justify-center text-[#555] hover:text-[#888] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   >
@@ -2684,15 +3097,6 @@ export default function Home() {
         </section>
       </div>
 
-      {/* Floating feedback button */}
-      <a
-        href={`/contact?subject=Feedback`}
-        title={t.ui.feedback.tooltip}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-3.5 py-2 rounded-full border border-[#252525] bg-[#111] hover:border-[rgba(201,168,76,0.4)] hover:bg-[#181818] transition-all shadow-xl shadow-black/40 group"
-      >
-        <span className="text-[#444] group-hover:text-[#c9a84c] transition-colors text-sm">◎</span>
-        <span className="text-[11px] text-[#444] group-hover:text-[#888] transition-colors tracking-wide">{t.ui.feedback.buttonLabel}</span>
-      </a>
     </main>
   );
 }

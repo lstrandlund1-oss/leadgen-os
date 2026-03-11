@@ -17,6 +17,7 @@ type ProfileData = {
   acquisitionStyle: "aggressive" | "balanced" | "premium";
   budgetPreference: "low" | "medium" | "high";
   targetLocation: string;
+  offerDescription: string;
 };
 
 
@@ -60,6 +61,7 @@ export default function ProfilePage() {
     acquisitionStyle: "balanced",
     budgetPreference: "medium",
     targetLocation: "",
+    offerDescription: "",
   });
 
   const [capabilities, setCapabilities] = useState<Record<Capability, boolean>>(
@@ -100,6 +102,7 @@ export default function ProfilePage() {
                 data.profile.acquisitionStyle ?? "balanced",
               budgetPreference: data.profile.budgetPreference ?? "medium",
               targetLocation: data.profile.targetLocation ?? "",
+              offerDescription: data.profile.offerDescription ?? "",
             });
           }
           if (data.capabilities?.capabilities) {
@@ -137,6 +140,7 @@ export default function ProfilePage() {
           acquisitionStyle: profile.acquisitionStyle,
           budgetPreference: profile.budgetPreference,
           targetLocation: profile.targetLocation,
+          offerDescription: profile.offerDescription,
           capabilities,
         }),
       });
@@ -206,6 +210,25 @@ export default function ProfilePage() {
               />
               <p className="text-[11px] text-[#444]">
                 Pre-fills the location field when you search. Leave blank to search anywhere.
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase tracking-wide text-[#888]">
+                Your offer
+                <span className="ml-2 normal-case text-[#444]">— used by default in outreach generation</span>
+              </label>
+              <textarea
+                rows={4}
+                value={profile.offerDescription}
+                onChange={(e) =>
+                  setProfile((p: ProfileData) => ({ ...p, offerDescription: e.target.value }))
+                }
+                placeholder="e.g. We run Meta and Google ads, build high-converting landing pages, and set up full tracking for service businesses. We typically work with local businesses doing 1–10M SEK/year in revenue."
+                className="w-full bg-[#080808] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-[#f5f0e8] placeholder-slate-600 focus:outline-none focus:border-[#c9a84c] resize-none"
+              />
+              <p className="text-[11px] text-[#444]">
+                This is loaded automatically in Contact Leads when you generate outreach. You can always override it per message.
               </p>
             </div>
           </section>

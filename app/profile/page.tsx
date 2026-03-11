@@ -18,6 +18,22 @@ type ProfileData = {
   targetLocation: string;
 };
 
+type SavedLead = {
+  id: string;
+  name: string;
+  industry: string;
+  city: string;
+  country: string;
+  score: number;
+  opportunity: number;
+  risk: number;
+  fitScore: number | null;
+  website: string | null;
+  opportunityMessage: string | null;
+  matchedNeeds: string[];
+  socialPresence: string | null;
+};
+
 type OutcomeStats = {
   contacted: number;
   replied: number;
@@ -46,8 +62,21 @@ export default function ProfileOverviewPage() {
   const [capabilities, setCapabilities] = useState<Record<string, boolean>>({});
   const [stats, setStats] = useState<OutcomeStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [savedLeads, setSavedLeads] = useState<SavedLead[]>([]);
+  const [sidePanelLead, setSidePanelLead] = useState<SavedLead | null>(null);
+  const [leadNotes, setLeadNotes] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    // Load saved leads + notes from localStorage
+    try {
+      const raw = localStorage.getItem("vantio_saved_leads_v1");
+      if (raw) setSavedLeads(JSON.parse(raw) as SavedLead[]);
+    } catch { /* ignore */ }
+    try {
+      const notesRaw = localStorage.getItem("vantio_lead_notes_v1");
+      if (notesRaw) setLeadNotes(JSON.parse(notesRaw) as Record<string, string>);
+    } catch { /* ignore */ }
+
     async function load() {
       try {
         const [profileRes, outcomesRes] = await Promise.all([
@@ -101,6 +130,33 @@ export default function ProfileOverviewPage() {
   const profileDef = profile
     ? PROFILE_TYPE_DEFINITIONS[profile.profileType as ProfileTypeKey] ?? null
     : null;
+
+  const loc = (profile?.targetLocation ?? "").toLowerCase();
+  const currencySymbol =
+    loc.includes("sweden") || loc.includes("sverige") || loc.includes("stockholm") ||
+    loc.includes("göteborg") || loc.includes("malmö") || loc.includes(", se") || loc.endsWith(" se")
+      ? "kr"
+      : loc.includes("uk") || loc.includes("london") || loc.includes("england")
+      ? "£"
+      : loc.includes("euro") || loc.includes("germany") || loc.includes("france") || loc.includes("spain")
+      ? "€"
+      : "$";
+
+  const fmtRevenue = (v: number) =>
+    currencySymbol === "kr" ? `${v.toLocaleString()} kr` : `${currencySymbol}${v.toLocaleString()}`;
+
+  const saveNote = (leadId: string, note: string) => {
+    const updated = { ...leadNotes, [leadId]: note };
+    setLeadNotes(updated);
+    try { localStorage.setItem("vantio_lead_notes_v1", JSON.stringify(updated)); } catch { /* ignore */ }
+  };
+
+  const removeSavedLead = (leadId: string) => {
+    const updated = savedLeads.filter((l) => l.id !== leadId);
+    setSavedLeads(updated);
+    if (sidePanelLead?.id === leadId) setSidePanelLead(null);
+    try { localStorage.setItem("vantio_saved_leads_v1", JSON.stringify(updated)); } catch { /* ignore */ }
+  };
 
   const activeCapabilities = Object.entries(capabilities)
     .filter(([, v]) => v)
@@ -241,7 +297,7 @@ export default function ProfileOverviewPage() {
               <section className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-6 space-y-4">
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-[#c9a84c] mb-0.5">Getting started</p>
-                  <p className="text-[12px] text-[#555]">Complete these steps to get the most out of LeadGenOS.</p>
+                  <p className="text-[12px] text-[#555]">Complete these steps to get the most out of Vantio.</p>
                 </div>
                 <div className="space-y-2">
                   {[
@@ -296,8 +352,8 @@ export default function ProfileOverviewPage() {
                     {[
                       { label: "Leads tracked", value: String(stats.contacted), sub: "total outreach" },
                       { label: "Reply rate", value: conversionRate(stats.replied, stats.contacted), sub: "of contacted" },
-                      { label: "Total revenue", value: stats.totalRevenue > 0 ? `$${stats.totalRevenue.toLocaleString()}` : "—", sub: `${stats.closed} deal${stats.closed !== 1 ? "s" : ""} closed` },
-                      { label: "Avg deal size", value: stats.closed > 0 && stats.totalRevenue > 0 ? `$${Math.round(stats.totalRevenue / stats.closed).toLocaleString()}` : "—", sub: "per closed lead" },
+                      { label: "Total revenue", value: stats.totalRevenue > 0 ? fmtRevenue(stats.totalRevenue) : "—", sub: `${stats.closed} deal${stats.closed !== 1 ? "s" : ""} closed` },
+                      { label: "Avg deal size", value: stats.closed > 0 && stats.totalRevenue > 0 ? fmtRevenue(Math.round(stats.totalRevenue / stats.closed)) : "—", sub: "per closed lead" },
                     ].map((kpi) => (
                       <div key={kpi.label} className="rounded-xl border border-[#151515] bg-[#080808] p-3 space-y-1">
                         <p className="text-[9px] uppercase tracking-wide text-[#444]">{kpi.label}</p>
@@ -366,15 +422,15 @@ export default function ProfileOverviewPage() {
                     <div className="rounded-xl border border-[rgba(201,168,76,0.15)] bg-[rgba(201,168,76,0.03)] p-4 text-center space-y-1">
                       <p className="text-[9px] uppercase tracking-widest text-[#8a6e30]">Total Revenue</p>
                       <p className="text-2xl font-bold text-[#c9a84c]">
-                        {stats.totalRevenue > 0 ? `$${stats.totalRevenue.toLocaleString()}` : "—"}
+                        {stats.totalRevenue > 0 ? fmtRevenue(stats.totalRevenue) : "—"}
                       </p>
                       <p className="text-[10px] text-[#555]">{stats.closed} closed deal{stats.closed !== 1 ? "s" : ""}</p>
                     </div>
                     <div className="rounded-xl border border-[#151515] bg-[#080808] p-4 text-center space-y-1">
-                      <p className="text-[9px] uppercase tracking-widest text-[#444]">Avg Deal Size</p>
+                      <p className="text-[9px] uppercase tracking-widests text-[#444]">Avg Deal Size</p>
                       <p className="text-2xl font-bold text-[#f5f0e8]">
                         {stats.closed > 0 && stats.totalRevenue > 0
-                          ? `$${Math.round(stats.totalRevenue / stats.closed).toLocaleString()}`
+                          ? fmtRevenue(Math.round(stats.totalRevenue / stats.closed))
                           : "—"}
                       </p>
                       <p className="text-[10px] text-[#555]">per closed lead</p>
@@ -383,9 +439,236 @@ export default function ProfileOverviewPage() {
                 </>
               )}
             </section>
+
+            {/* ── Saved Leads ── */}
+            <section className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Saved</p>
+                  <h2 className="text-[15px] font-semibold text-[#c8c0b0]">
+                    Saved Leads
+                    {savedLeads.length > 0 && (
+                      <span className="ml-2 text-[11px] text-[#555] font-normal">{savedLeads.length}</span>
+                    )}
+                  </h2>
+                </div>
+                <Link
+                  href="/dashboard"
+                  className="text-[11px] px-3 py-1.5 rounded-lg border border-[#252525] text-[#666] hover:border-[rgba(201,168,76,0.25)] hover:text-[#c9a84c] transition-all"
+                >
+                  Dashboard →
+                </Link>
+              </div>
+
+              {savedLeads.length === 0 ? (
+                <div className="py-10 text-center space-y-2">
+                  <p className="text-2xl">◈</p>
+                  <p className="text-[13px] text-[#444]">No saved leads yet.</p>
+                  <p className="text-[11px] text-[#333]">Save leads from the dashboard to track them here.</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {savedLeads.map((lead) => {
+                    const hasNotes = !!(leadNotes[lead.id]?.trim());
+                    const score = lead.score ?? 0;
+                    const scoreColor = score >= 65 ? "#4ade80" : score >= 40 ? "#c9a84c" : "#f87171";
+                    return (
+                      <button
+                        key={lead.id}
+                        onClick={() => setSidePanelLead(lead)}
+                        className="w-full flex items-center gap-3 rounded-xl border border-[#1a1a1a] bg-[#080808] px-4 py-3 hover:border-[rgba(201,168,76,0.2)] hover:bg-[#0f0f0f] transition-all text-left group"
+                      >
+                        {/* Score pill */}
+                        <div
+                          className="shrink-0 w-9 h-9 rounded-lg border flex items-center justify-center text-[11px] font-bold tabular-nums"
+                          style={{ borderColor: `${scoreColor}30`, color: scoreColor, background: `${scoreColor}08` }}
+                        >
+                          {score}
+                        </div>
+
+                        {/* Name + location */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-medium text-[#d8d0c0] truncate">{lead.name}</p>
+                          <p className="text-[11px] text-[#555] truncate">
+                            {lead.industry}
+                            {lead.city ? ` · ${lead.city}` : ""}
+                          </p>
+                        </div>
+
+                        {/* Notes icon */}
+                        {hasNotes && (
+                          <div className="shrink-0 w-5 h-5 flex items-center justify-center text-[#8a6e30]" title="Has notes">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                              <polyline points="14,2 14,8 20,8"/>
+                              <line x1="16" y1="13" x2="8" y2="13"/>
+                              <line x1="16" y1="17" x2="8" y2="17"/>
+                            </svg>
+                          </div>
+                        )}
+
+                        {/* Arrow */}
+                        <svg className="shrink-0 text-[#333] group-hover:text-[#555] transition-colors" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="9,18 15,12 9,6"/>
+                        </svg>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
           </>
         )}
       </div>
+
+      {/* ── Side Panel ── */}
+      {sidePanelLead && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
+            onClick={() => setSidePanelLead(null)}
+          />
+
+          {/* Panel */}
+          <div className="fixed right-0 top-0 h-full w-full max-w-md bg-[#0a0a0a] border-l border-[#1a1a1a] z-50 flex flex-col overflow-hidden">
+
+            {/* Header */}
+            <div className="flex items-start justify-between p-6 border-b border-[#141414]">
+              <div className="flex-1 min-w-0 pr-4">
+                <p className="text-[10px] uppercase tracking-widest text-[#8a6e30] mb-1">Saved Lead</p>
+                <h3 className="text-[18px] font-medium text-[#f5f0e8] leading-tight" style={{ fontFamily: "var(--font-display), serif" }}>
+                  {sidePanelLead.name}
+                </h3>
+                <p className="text-[12px] text-[#555] mt-0.5">
+                  {sidePanelLead.industry}
+                  {sidePanelLead.city ? ` · ${sidePanelLead.city}` : ""}
+                  {sidePanelLead.country && sidePanelLead.country !== sidePanelLead.city ? `, ${sidePanelLead.country}` : ""}
+                </p>
+              </div>
+              <button
+                onClick={() => setSidePanelLead(null)}
+                className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg border border-[#252525] text-[#555] hover:text-[#888] hover:border-[#333] transition-all"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+
+              {/* Score row */}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: "Score", value: sidePanelLead.score ?? 0, color: (sidePanelLead.score ?? 0) >= 65 ? "#4ade80" : (sidePanelLead.score ?? 0) >= 40 ? "#c9a84c" : "#f87171", suffix: "/100" },
+                  { label: "Opportunity", value: sidePanelLead.opportunity ?? 0, color: "#c9a84c", suffix: "/100" },
+                  { label: "Risk", value: sidePanelLead.risk ?? 0, color: (sidePanelLead.risk ?? 0) >= 60 ? "#f87171" : (sidePanelLead.risk ?? 0) >= 30 ? "#c9a84c" : "#4ade80", suffix: "/100" },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-xl border border-[#151515] bg-[#080808] p-3 text-center space-y-1">
+                    <p className="text-[9px] uppercase tracking-wide text-[#444]">{s.label}</p>
+                    <p className="text-[20px] font-bold tabular-nums" style={{ color: s.color }}>{s.value}</p>
+                    <p className="text-[9px] text-[#333]">{s.suffix}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Fit score */}
+              {sidePanelLead.fitScore != null && (
+                <div className="rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] p-4 space-y-2">
+                  <p className="text-[10px] uppercase tracking-widests text-[#555]">Profile Fit</p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 bg-[#141414] rounded-full h-1.5">
+                      <div
+                        className="h-1.5 rounded-full transition-all"
+                        style={{
+                          width: `${sidePanelLead.fitScore}%`,
+                          backgroundColor: sidePanelLead.fitScore >= 65 ? "#4ade80" : sidePanelLead.fitScore >= 40 ? "#c9a84c" : "#f87171",
+                        }}
+                      />
+                    </div>
+                    <span className="text-[13px] font-bold text-[#f5f0e8] tabular-nums w-8 text-right">{sidePanelLead.fitScore}</span>
+                  </div>
+                  {sidePanelLead.matchedNeeds?.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {sidePanelLead.matchedNeeds.map((n) => (
+                        <span key={n} className="text-[10px] px-2 py-0.5 rounded-md border border-[#c9a84c]/20 bg-[rgba(201,168,76,0.05)] text-[#8a6e30]">{n}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Opportunity insight */}
+              {sidePanelLead.opportunityMessage && (
+                <div className="rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] p-4 space-y-1.5">
+                  <p className="text-[10px] uppercase tracking-widests text-[#555]">Opportunity Signal</p>
+                  <p className="text-[13px] text-[#c8c0b0] leading-relaxed">{sidePanelLead.opportunityMessage}</p>
+                </div>
+              )}
+
+              {/* Website */}
+              {sidePanelLead.website && (
+                <a
+                  href={sidePanelLead.website.startsWith("http") ? sidePanelLead.website : `https://${sidePanelLead.website}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] px-4 py-3 hover:border-[rgba(201,168,76,0.2)] hover:bg-[#0f0f0f] transition-all group"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-[#555] group-hover:text-[#8a6e30] transition-colors">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                      </svg>
+                    </span>
+                    <span className="text-[12px] text-[#666] group-hover:text-[#c9a84c] transition-colors">Visit website</span>
+                  </div>
+                  <svg className="text-[#333] group-hover:text-[#8a6e30] transition-colors" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="7" y1="17" x2="17" y2="7"/><polyline points="7,7 17,7 17,17"/>
+                  </svg>
+                </a>
+              )}
+
+              {/* Notes */}
+              <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
+                <p className="text-[10px] uppercase tracking-widests text-[#555]">Notes</p>
+                <textarea
+                  rows={4}
+                  placeholder="Objections, context, follow-up reminders…"
+                  defaultValue={leadNotes[sidePanelLead.id] ?? ""}
+                  onBlur={(e) => saveNote(sidePanelLead.id, e.target.value)}
+                  className="w-full bg-[#111] border border-[#1a1a1a] rounded-lg px-3 py-2 text-[12px] text-[#c8c0b0] placeholder-[#2a2a2a] focus:outline-none focus:border-[rgba(201,168,76,0.3)] transition-colors resize-none"
+                />
+                <p className="text-[10px] text-[#2a2a2a]">Saves on blur</p>
+              </div>
+            </div>
+
+            {/* Footer actions */}
+            <div className="p-4 border-t border-[#141414] flex gap-2">
+              <Link
+                href="/dashboard"
+                className="flex-1 py-2.5 rounded-xl border border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.05)] text-[#c9a84c] text-[12px] font-medium text-center hover:bg-[rgba(201,168,76,0.1)] transition-all"
+              >
+                Open in Dashboard →
+              </Link>
+              <button
+                onClick={() => removeSavedLead(sidePanelLead.id)}
+                className="px-4 py-2.5 rounded-xl border border-[#252525] text-[#555] text-[12px] hover:border-[#f87171]/30 hover:text-[#f87171] transition-all"
+                title="Unsave lead"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3,6 5,6 21,6"/>
+                  <path d="M19,6l-1,14a2,2 0 0,1-2,2H8a2,2 0 0,1-2-2L5,6"/>
+                  <path d="M10,11v6"/><path d="M14,11v6"/>
+                  <path d="M9,6V4a1,1 0 0,1,1-1h4a1,1 0 0,1,1,1v2"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

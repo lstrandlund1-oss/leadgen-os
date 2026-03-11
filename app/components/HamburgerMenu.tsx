@@ -41,6 +41,7 @@ export default function HamburgerMenu({
   const menuItems = [
     { label: "Home", href: "/", icon: "◇" },
     { label: "Dashboard", href: "/dashboard", icon: "◈" },
+    { label: "Contact Leads", href: "/contact-leads", icon: "✦" },
     { label: "Profile", href: "/profile", icon: "◈" },
     { label: "Analytics", href: "/analytics", icon: "◉" },
     { label: "Subscription Plans", href: "/plans", icon: "◆" },
@@ -132,7 +133,7 @@ export default function HamburgerMenu({
 
           <div className="h-[1px] w-full bg-[#1a1a1a]" />
           <div className="px-4 py-2">
-            <p className="text-[10px] text-[#333] tracking-widest uppercase">LeadGenOS Beta</p>
+            <p className="text-[10px] text-[#333] tracking-widest uppercase">Vantio Beta</p>
           </div>
         </div>
       )}

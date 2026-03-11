@@ -18,7 +18,7 @@ const FEATURES = [
   {
     icon: "✦",
     title: "Outreach Built In",
-    body: "Every lead comes with a tailored pitch angle and two script variants. Soft or direct — chosen based on the lead's risk profile and your style.",
+    body: "Every lead comes with a tailored pitch angle, gap analysis, and an AI-generated message — written around your offer and the lead's specific signals.",
   },
   {
     icon: "◇",
@@ -41,7 +41,7 @@ const STEPS = [
   {
     number: "01",
     title: "Set your profile",
-    body: "Tell LeadGenOS what you offer and who you serve. Your profile becomes the lens every score is seen through.",
+    body: "Tell Vantio what you offer and who you serve. Your profile becomes the lens every score is seen through.",
   },
   {
     number: "02",
@@ -56,14 +56,14 @@ const STEPS = [
   {
     number: "04",
     title: "Reach out with confidence",
-    body: "Copy the outreach script, send it, track the outcome. Your pipeline builds itself.",
+    body: "Save promising leads, generate a personalised AI message in seconds, send it, track the outcome. Your pipeline builds itself.",
   },
 ];
 
 const STATS = [
   { value: "< 3s", label: "Average time to score a lead" },
   { value: "4", label: "Gap types detected automatically" },
-  { value: "2×", label: "Script variants per lead — soft or direct" },
+  { value: "AI", label: "Messages written to your offer and the lead's signals" },
   { value: "100%", label: "Profile-matched — no generic lists" },
 ];
 
@@ -134,7 +134,7 @@ export default function LandingPage() {
         </h1>
 
         <p className="animate-fade-up-delay-3 mt-8 text-[15px] md:text-lg text-[#666] max-w-2xl leading-relaxed tracking-wide">
-          LeadGenOS finds local businesses and tells you exactly which ones are worth contacting — scored against your specific service, capability, and style.
+          Vantio finds local businesses and tells you exactly which ones are worth contacting — scored against your specific service, capability, and style.
         </p>
 
         <div className="animate-fade-up-delay-4 mt-10 flex flex-col sm:flex-row items-center gap-4">
@@ -238,7 +238,7 @@ export default function LandingPage() {
       {/* FEATURES */}
       <section className="px-6 md:px-12 py-24 max-w-6xl mx-auto">
         <div className="mb-16 text-center">
-          <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-4">What LeadGenOS does</p>
+          <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-4">What Vantio does</p>
           <h2 className="text-4xl md:text-5xl font-light" style={{ fontFamily: "var(--font-display), serif" }}>
             Not a lead list.{" "}
             <span className="italic" style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Lead intelligence.</span>
@@ -288,13 +288,13 @@ export default function LandingPage() {
       <section className="px-6 md:px-12 py-24 bg-[#060606] border-y border-[#111]">
         <div className="max-w-5xl mx-auto">
           <div className="mb-14 text-center">
-            <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-4">Why LeadGenOS is different</p>
+            <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-4">Why Vantio is different</p>
             <h2 className="text-4xl md:text-5xl font-light" style={{ fontFamily: "var(--font-display), serif" }}>
               Other tools give you names.{" "}
               <span className="italic" style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>We give you reasons.</span>
             </h2>
             <p className="mt-4 text-[14px] text-[#444] max-w-2xl mx-auto leading-relaxed">
-              Every other lead tool hands you a spreadsheet. LeadGenOS hands you a verdict — scored against your specific service, with a ready-to-send outreach script and a clear reason why this business is worth your time right now.
+              Every other lead tool hands you a spreadsheet. Vantio hands you a verdict — scored against your specific service, with a strategic pitch angle and an AI-generated outreach message written around your offer and the lead&apos;s signals.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-[#151515] rounded-2xl overflow-hidden border border-[#151515]">
@@ -306,11 +306,11 @@ export default function LandingPage() {
                 points: ["Name, phone, address", "No scoring or context", "Same list for everyone", "Manual research required", "No outreach guidance"],
               },
               {
-                label: "LeadGenOS",
+                label: "Vantio",
                 icon: "◈",
                 iconColor: "#c9a84c",
                 highlight: true,
-                points: ["Signal-driven lead score", "Gap type + pitch angle", "Matched to your profile", "Website signals auto-scanned", "Script generated, ready to send"],
+                points: ["Signal-driven lead score", "Gap type + pitch angle", "Matched to your profile", "Website signals auto-scanned", "AI message generated from your profile"],
               },
               {
                 label: "Manual research",
@@ -363,16 +363,16 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <span className="text-[#8a6e30] text-sm">◈</span>
-            <span className="text-sm text-[#333]" style={{ fontFamily: "var(--font-display), serif" }}>LeadGenOS</span>
+            <span className="text-sm text-[#333]" style={{ fontFamily: "var(--font-display), serif" }}>Vantio</span>
           </div>
           <div className="flex items-center gap-6 text-[12px] text-[#333]">
             <Link href="/plans" className="hover:text-[#c9a84c] transition-colors">Pricing</Link>
             <Link href="/login" className="hover:text-[#c9a84c] transition-colors">Get Access</Link>
-            <a href="mailto:hello@leadgenos.com" className="hover:text-[#c9a84c] transition-colors">Contact</a>
+            <a href="mailto:hello@vantio.com" className="hover:text-[#c9a84c] transition-colors">Contact</a>
             <Link href="/privacy" className="hover:text-[#c9a84c] transition-colors">Privacy</Link>
             <Link href="/terms" className="hover:text-[#c9a84c] transition-colors">Terms</Link>
           </div>
-          <p className="text-[11px] text-[#222] tracking-wide">© 2025 LeadGenOS. All rights reserved.</p>
+          <p className="text-[11px] text-[#222] tracking-wide">© 2025 Vantio. All rights reserved.</p>
         </div>
       </footer>
     </div>
