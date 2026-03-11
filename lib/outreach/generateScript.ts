@@ -291,6 +291,26 @@ export function generateScript(input: ScriptInput): OutreachPackage {
 
   const direct = directLines.join("\n\n");
 
+  // --- CONSULTATIVE VERSION (advisory, question-led) ---
+  const consultativeLine1 = `I was looking at ${input.industry ? `a ${input.industry} business` : "your business"} in ${input.city ?? "your area"} and had a thought.`;
+  const consultativeLines =
+    input.difficulty === "HIGH"
+      ? [consultativeLine1, line2, line3, line4, line6]
+      : [consultativeLine1, line2, line3, line4, line5, line6, line7];
+  const consultative = consultativeLines.join("\n\n");
+
+  // --- BOLD VERSION (provocative, pattern-interrupt) ---
+  const boldLine1 = `Most ${input.sellerType === "MARKETING" ? "marketing pitches" : "proposals"} you get are generic. This isn't one.`;
+  const boldLine6 =
+    input.difficulty === "HIGH"
+      ? "I'll show you the exact gap and how I'd close it — no fluff."
+      : "I can walk you through the exact changes and the impact they'd have. Interested?";
+  const boldLines =
+    input.difficulty === "HIGH"
+      ? [boldLine1, line2, line3, directLine4, boldLine6]
+      : [boldLine1, line2, line3, directLine4, line5, boldLine6];
+  const bold = boldLines.join("\n\n");
+
   return {
     sellerType: input.sellerType,
     gap: input.gap,
@@ -299,7 +319,7 @@ export function generateScript(input: ScriptInput): OutreachPackage {
     angleTitle: title,
     angleWhy: why,
 
-    variants: { soft, direct },
-    defaultVariant: input.difficulty === "HIGH" ? "soft" : "direct",
+    variants: { soft, consultative, direct, bold },
+    defaultVariant: "consultative",
   };
 }

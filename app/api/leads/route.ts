@@ -1,7 +1,7 @@
 // app/api/leads/route.ts
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
-import type { Lead, RawCompany, RiskProfile } from "@/lib/types";
+import type { Lead, RawCompany, RiskProfile, ScoreCategoryBreakdown } from "@/lib/types";
 import { classifyCompany } from "@/lib/classification";
 import { scoreLead } from "@/lib/scoring";
 import {
@@ -139,10 +139,11 @@ export async function POST(request: Request) {
     const rawWithPresence = { ...raw, socialPresence: chosenPresence };
 
     // Scoring API is now single-arg, and Lead.score expects ScoreResult (not {value, priority})
-    const scoreResult = scoreLead(
-      rawWithPresence as RawCompany,
+    const scoreResult = scoreLead({
+      raw: rawWithPresence as RawCompany,
       classification,
-    );
+      signals: { byKey: {}, byCategory: {}, counts: { total: 0, base: 0, light: 0, deep: 0 }, evidenceScore: 0 },
+    });
 
     const lead: Lead = {
       id: String(rawId),
@@ -174,6 +175,8 @@ export async function POST(request: Request) {
         readiness: getNum(scoreResult, "readiness") ?? 0,
         risk: getNum(scoreResult, "risk") ?? 0,
         riskProfile: getRiskProfile(scoreResult),
+        breakdown: (scoreResult as { breakdown?: ScoreCategoryBreakdown }).breakdown ?? { reputation: 0, digitalPresence: 0, businessStrength: 0, opportunityGap: 0, stabilityRisk: 0, evidenceConfidence: 0 },
+        reasons: (scoreResult as { reasons?: string[] }).reasons ?? [],
       },
 
       metadata: {
