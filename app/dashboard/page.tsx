@@ -64,7 +64,7 @@ type LeadOutcomeUI = {
   followup_date: string | null;
   tonality: "soft" | "consultative" | "direct" | "bold" | null;
   angle_type: string | null;
-  lost_reason: "no_response" | "not_interested" | "has_provider" | "wrong_timing" | null;
+  lost_reason: "no_response" | "not_interested" | "has_provider" | "wrong_timing" | "price_too_high" | "chose_competitor" | "other" | null;
   score_at_outreach: number | null;
 };
 
@@ -2264,83 +2264,85 @@ export default function Home() {
                                         )}
                                       </div>
 
-                                      {/* Score bars — full-width vertical stack */}
-                                      <div className="flex flex-col gap-2">
-                                        {[
-                                          { label: "Opp.", value: opp, color: opp >= 60 ? "#4ade80" : opp >= 35 ? "#c9a84c" : "#f87171", hint: "Growth potential" },
-                                          { label: "Ready", value: readiness, color: readiness >= 60 ? "#4ade80" : readiness >= 35 ? "#c9a84c" : "#f87171", hint: "Operational readiness" },
-                                          { label: "Risk", value: risk, color: risk >= 60 ? "#f87171" : risk >= 35 ? "#c9a84c" : "#4ade80", hint: "Engagement risk" },
-                                        ].map(({ label, value: v, color, hint }) => (
-                                          <div key={label} className="rounded-lg border border-[#252525] bg-[#111] p-3 space-y-2 w-full">
-                                            <div className="flex items-center justify-between">
-                                              <p className="text-[10px] uppercase tracking-widest text-[#555]">{label}</p>
-                                              <p className="text-sm font-bold" style={{ color }}>{v}</p>
+                                      {/* 2×2 compact score circles */}
+                                      <div className="grid grid-cols-2 gap-2">
+                                        {([
+                                          { short: "OPP",   label: "Opportunity", value: opp,        color: opp >= 60 ? "#4ade80" : opp >= 35 ? "#c9a84c" : "#f87171" },
+                                          { short: "READY", label: "Readiness",   value: readiness,  color: readiness >= 60 ? "#4ade80" : readiness >= 35 ? "#c9a84c" : "#f87171" },
+                                          { short: "RISK",  label: "Risk",        value: risk,       color: risk >= 60 ? "#f87171" : risk >= 35 ? "#c9a84c" : "#4ade80" },
+                                          { short: "FIT",   label: "Fit",         value: fit ?? 0,   color: (fit ?? 0) >= 65 ? "#4ade80" : (fit ?? 0) >= 40 ? "#c9a84c" : "#f87171" },
+                                        ] as { short: string; label: string; value: number; color: string }[]).map(({ short, label, value: v, color }) => (
+                                          <div key={short} className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3 flex items-center gap-3">
+                                            <div className="relative flex-shrink-0 w-11 h-11">
+                                              <svg viewBox="0 0 44 44" className="w-full h-full -rotate-90">
+                                                <circle cx="22" cy="22" r="18" fill="none" stroke="#1a1a1a" strokeWidth="3.5" />
+                                                <circle cx="22" cy="22" r="18" fill="none" stroke={color} strokeWidth="3.5"
+                                                  strokeDasharray={`${(v / 100) * 113.1} 113.1`} strokeLinecap="round" />
+                                              </svg>
+                                              <div className="absolute inset-0 flex items-center justify-center">
+                                                <span className="text-[11px] font-bold tabular-nums" style={{ color }}>{v}</span>
+                                              </div>
                                             </div>
-                                            <ScoreBar value={v} color={color} />
-                                            <p className="text-[10px] text-[#444] leading-tight">{hint}</p>
+                                            <div className="min-w-0">
+                                              <p className="text-[9px] uppercase tracking-widest text-[#444]">{short}</p>
+                                              <p className="text-[12px] text-[#888]">{label}</p>
+                                            </div>
                                           </div>
                                         ))}
                                       </div>
 
-                                      {/* Gap type diagnosis */}
-                                      {gapInfo && (
-                                        <div className="rounded-xl border p-3 w-full" style={{ borderColor: `${gapInfo.color}30`, backgroundColor: `${gapInfo.color}08` }}>
-                                          <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: gapInfo.color }}>◆ {gapInfo.label}</span>
-                                          <p className="text-[12px] text-[#aaa] leading-relaxed mt-1">{gapInfo.desc}</p>
+                                      {/* Gap + insight */}
+                                      {(gapInfo || detailInsight?.message) && (
+                                        <div className="space-y-2">
+                                          {gapInfo && (
+                                            <div className="rounded-xl border p-3" style={{ borderColor: `${gapInfo.color}30`, backgroundColor: `${gapInfo.color}06` }}>
+                                              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: gapInfo.color }}>◆ {gapInfo.label}</span>
+                                              <p className="text-[11px] text-[#666] mt-1 leading-snug break-words">{gapInfo.desc}</p>
+                                            </div>
+                                          )}
+                                          {detailInsight?.message && (
+                                            <div className="rounded-xl border border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.04)] p-3">
+                                              <p className="text-[13px] font-semibold text-[#e8c97a] break-words">⚡ {detailInsight.message}</p>
+                                            </div>
+                                          )}
                                         </div>
                                       )}
 
-                                      {/* Fit score */}
-                                      {fit !== null && (
-                                        <div className="rounded-xl border border-[#252525] bg-[#111] p-3">
-                                          <div className="flex items-center justify-between mb-2">
-                                            <p className="text-[10px] uppercase tracking-widest text-[#555]">Fit</p>
-                                            <p className="text-sm font-bold" style={{ color: fit >= 65 ? "#4ade80" : fit >= 40 ? "#c9a84c" : "#f87171" }}>{fit}/100</p>
-                                          </div>
-                                          <ScoreBar value={fit} color={fit >= 65 ? "#4ade80" : fit >= 40 ? "#c9a84c" : "#f87171"} />
-                                          <div className="flex flex-col gap-2 mt-2.5">
-                                            {(detailLead.fit?.matchedNeeds ?? []).length > 0 && (
-                                              <div>
-                                                <p className="text-[9px] uppercase tracking-widest text-[#4ade80]/70 mb-1">Can deliver</p>
-                                                <div className="flex flex-wrap gap-1">
-                                                  {(detailLead.fit?.matchedNeeds ?? []).map((n: string) => (
-                                                    <span key={n} className="text-[10px] px-1.5 py-0.5 rounded bg-[#4ade80]/10 border border-[#4ade80]/20 text-[#4ade80]">{n}</span>
-                                                  ))}
-                                                </div>
+                                      {/* Fit needs */}
+                                      {fit !== null && ((detailLead.fit?.matchedNeeds ?? []).length > 0 || (detailLead.fit?.missingNeeds ?? []).length > 0) && (
+                                        <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3 space-y-2">
+                                          {(detailLead.fit?.matchedNeeds ?? []).length > 0 && (
+                                            <div>
+                                              <p className="text-[9px] uppercase tracking-widest text-[#4ade80]/70 mb-1">✓ Can deliver</p>
+                                              <div className="flex flex-wrap gap-1">
+                                                {(detailLead.fit?.matchedNeeds ?? []).map((n: string) => (
+                                                  <span key={n} className="text-[10px] px-1.5 py-0.5 rounded bg-[#4ade80]/10 border border-[#4ade80]/20 text-[#4ade80]">{n}</span>
+                                                ))}
                                               </div>
-                                            )}
-                                            {(detailLead.fit?.missingNeeds ?? []).length > 0 && (
-                                              <div>
-                                                <p className="text-[9px] uppercase tracking-widest text-[#f87171]/70 mb-1">Can&apos;t cover</p>
-                                                <div className="flex flex-wrap gap-1">
-                                                  {(detailLead.fit?.missingNeeds ?? []).map((n: string) => (
-                                                    <span key={n} className="text-[10px] px-1.5 py-0.5 rounded bg-[#f87171]/10 border border-[#f87171]/20 text-[#f87171]">{n}</span>
-                                                  ))}
-                                                </div>
+                                            </div>
+                                          )}
+                                          {(detailLead.fit?.missingNeeds ?? []).length > 0 && (
+                                            <div>
+                                              <p className="text-[9px] uppercase tracking-widest text-[#f87171]/70 mb-1">✗ Can&apos;t cover</p>
+                                              <div className="flex flex-wrap gap-1">
+                                                {(detailLead.fit?.missingNeeds ?? []).map((n: string) => (
+                                                  <span key={n} className="text-[10px] px-1.5 py-0.5 rounded bg-[#f87171]/10 border border-[#f87171]/20 text-[#f87171]">{n}</span>
+                                                ))}
                                               </div>
-                                            )}
-                                          </div>
+                                            </div>
+                                          )}
                                         </div>
                                       )}
 
-                                      {/* Opportunity insight */}
-                                      {detailInsight?.message && (
-                                        <div className="rounded-xl border border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.04)] p-3">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#8a6e30] mb-1">{t.ui.detail.opportunityInsight}</p>
-                                          <p className="text-[13px] font-semibold text-[#e8c97a] break-words">⚡ {detailInsight.message}</p>
-                                        </div>
-                                      )}
-
-                                      {/* Risk flag — only shown when relevant */}
+                                      {/* Risk flag */}
                                       {hasRisk && (
                                         <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-3">
-                                          <p className="text-[10px] uppercase tracking-widest text-rose-400/70 mb-1">{t.ui.detail.risk}</p>
                                           <p className="text-[13px] font-semibold text-rose-300">{riskTitleFromProfile(detailLead.score.riskProfile, t)}</p>
-                                          <p className="mt-1 text-[11px] text-rose-400/60 leading-relaxed break-words">{riskMessage(language, detailLead)}</p>
+                                          <p className="mt-0.5 text-[11px] text-rose-400/60 leading-relaxed break-words">{riskMessage(language, detailLead)}</p>
                                         </div>
                                       )}
 
-                                      {/* Website — only shown when no website */}
+                                      {/* No website */}
                                       {!detailWebsiteUrl && (
                                         <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] px-3 py-2 flex items-center gap-2">
                                           <span className="text-[#f87171] text-xs">✗</span>
@@ -2634,204 +2636,103 @@ export default function Home() {
 
                                 {detailTab === "outreach" && (() => {
                                   const gap = (safeOutreach as { gap?: string } | null)?.gap ?? null;
-                                  const oppInsight = getLocalizedOpportunityInsight(detailLead, language);
                                   const difficulty = (safeOutreach as { difficulty?: string } | null)?.difficulty ?? null;
                                   const structured = getStructuredAngle(detailLead, language);
                                   const title = angleTitle || structured.title;
                                   const why = angleWhy || structured.why;
-                                  const riskFlags = (detailLead.metadata as { riskFlags?: string[] } | undefined)?.riskFlags ?? [];
 
-                                  type GapConfig = { label: string; color: string; icon: string; intervention: string; urgency: string };
+                                  type GapConfig = { label: string; color: string; icon: string; intervention: string };
                                   const gapConfig: Record<string, GapConfig> = {
-                                    VISIBILITY:    { label: "Visibility Gap",    color: "#818cf8", icon: "◎", intervention: "Build high-intent capture channels — search, retargeting, and demand-side content.", urgency: "Demand exists in this market but isn't being captured. They are invisible to buyers who are actively looking." },
-                                    CONVERSION:    { label: "Conversion Gap",    color: "#fb923c", icon: "⬡", intervention: "Fix the funnel — booking flow, tracking, and follow-up sequence.", urgency: "Traffic exists but isn't converting. Visitors are arriving and leaving without taking action." },
-                                    INFRASTRUCTURE:{ label: "Infrastructure Gap",color: "#f87171", icon: "△", intervention: "Build the foundation — a conversion-focused page with clear offer and CTA.", urgency: "No system exists to capture demand. Any marketing spend right now is wasted." },
-                                    OPTIMIZATION:  { label: "Optimization Gap",  color: "#34d399", icon: "◈", intervention: "Sharpen conversion mechanics — tighten the CTA, proof structure, and acquisition loop.", urgency: "Strong baseline. Marginal improvements here compound into meaningful revenue lift." },
+                                    VISIBILITY:    { label: "Visibility Gap",     color: "#818cf8", icon: "◎", intervention: "Build high-intent capture channels — search, retargeting, demand-side content." },
+                                    CONVERSION:    { label: "Conversion Gap",     color: "#fb923c", icon: "⬡", intervention: "Fix the funnel — booking flow, tracking, and follow-up sequence." },
+                                    INFRASTRUCTURE:{ label: "Infrastructure Gap", color: "#f87171", icon: "△", intervention: "Build the foundation — a conversion-focused page with clear offer and CTA." },
+                                    OPTIMIZATION:  { label: "Optimization Gap",   color: "#34d399", icon: "◆", intervention: "Sharpen what works — A/B test, optimise copy, tighten conversion paths." },
                                   };
                                   const gc = gap ? gapConfig[gap] ?? null : null;
 
-                                  const difficultyConfig: Record<string, { label: string; color: string; hint: string; approach: string }> = {
-                                    LOW:    { label: "Low Friction",   color: "#4ade80", hint: "High receptivity expected.", approach: "Lead direct and confident with a specific observation. They are likely open to solutions." },
-                                    MEDIUM: { label: "Medium Friction", color: "#c9a84c", hint: "Qualified, but expect questions.", approach: "Lead with curiosity, not claims. Frame your offer around their specific gap rather than a generic pitch." },
-                                    HIGH:   { label: "High Friction",   color: "#f87171", hint: "Resistant or saturated.", approach: "Open soft with a free teardown or observation. Give value before asking for anything. Avoid any hard sell language." },
+                                  const tones = [
+                                    { key: "soft",         label: "Soft",         desc: "Friendly, low-pressure. Best for cold or high-risk leads." },
+                                    { key: "consultative", label: "Consultative", desc: "Advisory tone. Lead with insight, not pitch." },
+                                    { key: "direct",       label: "Direct",       desc: "Assertive and confident. Best for warm or low-friction leads." },
+                                    { key: "bold",         label: "Bold",         desc: "Pattern-interrupt. Stands out but requires strong positioning." },
+                                  ];
+
+                                  const difficultyConfig: Record<string, { label: string; color: string; desc: string }> = {
+                                    LOW:    { label: "Low friction",    color: "#4ade80", desc: "Easy to engage — direct or bold tone recommended." },
+                                    MEDIUM: { label: "Medium friction", color: "#c9a84c", desc: "Approach carefully — consultative tone works well." },
+                                    HIGH:   { label: "High friction",   color: "#f87171", desc: "Hard to reach — soft or consultative tone only." },
                                   };
                                   const dc = difficulty ? difficultyConfig[difficulty] ?? null : null;
 
-                                  const riskFlagMeta: Record<string, { label: string; implication: string }> = {
-                                    LOW_PROOF:               { label: "Low social proof",         implication: "They may be self-conscious about lack of reviews. Don't lead with 'your reputation' — lead with opportunity." },
-                                    NO_WEBSITE:              { label: "No website",               implication: "May not see digital marketing as relevant yet. Frame your offer as a foundation, not an upgrade." },
-                                    WEAK_SOCIAL:             { label: "Weak social presence",     implication: "Likely not active online. Email or direct contact will outperform social DMs." },
-                                    LOW_CLASS_CONF:          { label: "Classification uncertain", implication: "Signals are mixed — verify the business type before pitching a specific service." },
-                                    HIGH_RISK_SCORE:         { label: "High risk score",          implication: "Unstable indicators present. Consider a softer, trust-building first touch." },
-                                    SATURATED_COMPETITION:   { label: "Saturated market",         implication: "They may already be pitched often. Lead with differentiation, not standard offers." },
-                                    OPERATIONAL_INSTABILITY: { label: "Instability signals",      implication: "Business may be going through change. Approach with stability framing — protect and compound, not aggressive growth." },
-                                    MULTI_LOCATION:          { label: "Multiple locations",       implication: "Decision-maker may not be at street level. Research the right contact point before reaching out." },
-                                  };
-
-                                  // Contact channel recommendation based on signals
-                                  const hasWebsite = !!detailLead.company.website;
-                                  const socialLevel = detailLead.metrics?.socialPresence ?? "low";
-                                  const channelPrimary = !hasWebsite ? "Direct visit or phone" : socialLevel === "high" ? "Email or social DM" : "Email";
-                                  const channelNote = !hasWebsite
-                                    ? "No website detected — digital outreach will have low reach. A direct visit, phone call, or local referral will land significantly better."
-                                    : socialLevel === "high"
-                                    ? "Active social presence. Email is safest, but a thoughtful social DM referencing their content can stand out if crafted carefully."
-                                    : socialLevel === "medium"
-                                    ? "Some social presence. Email remains the strongest channel — social DM is a secondary option."
-                                    : "Low social presence. Email is the primary channel. Lead with a specific observation about their business to cut through.";
+                                  const channelPrimary = !detailLead.company.website ? "Direct visit or phone" : "Email";
 
                                   return (
                                     <div className="space-y-3 pt-1">
 
-                                      {/* Deep scan indicator */}
-                                      {deepScanData && (
-                                        <div className="flex items-center gap-2 rounded-lg border border-[#c9a84c]/15 bg-[#c9a84c]/04 px-3 py-2">
-                                          <span className="text-[#c9a84c] text-[10px]">◉</span>
-                                          <p className="text-[10px] text-[#8a6e30]">
-                                            Angle and gap analysis reflects deep scan data
-                                            {deepScanData.scannedAt && (() => {
-                                              const diff = Date.now() - new Date(deepScanData.scannedAt).getTime();
-                                              const days = Math.floor(diff / 86400000);
-                                              const hours = Math.floor(diff / 3600000);
-                                              const mins = Math.floor(diff / 60000);
-                                              const label = days > 0 ? `${days}d ago` : hours > 0 ? `${hours}h ago` : mins > 0 ? `${mins}m ago` : "just now";
-                                              return ` · scanned ${label}`;
-                                            })()}
-                                          </p>
+                                      {/* Angle */}
+                                      {title && (
+                                        <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4">
+                                          <p className="text-[9px] uppercase tracking-widest text-[#555] mb-1.5">Angle</p>
+                                          <p className="text-[13px] font-semibold text-[#e8c97a] mb-1">{title}</p>
+                                          {why && <p className="text-[11px] text-[#666] leading-relaxed">{why}</p>}
                                         </div>
                                       )}
 
-                                      {/* Primary gap + friction */}
-                                      <div className="grid grid-cols-[1fr_auto] gap-2 items-start">
-                                        {gc ? (
-                                          <div className="rounded-xl border p-4 space-y-2.5" style={{ borderColor: `${gc.color}30`, backgroundColor: `${gc.color}05` }}>
-                                            <div className="flex items-center gap-2">
-                                              <span className="text-sm" style={{ color: gc.color }}>{gc.icon}</span>
-                                              <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: gc.color }}>{gc.label}</p>
-                                            </div>
-                                            <p className="text-[12px] text-[#888] leading-relaxed">{gc.urgency}</p>
-                                            <div className="border-t pt-2.5" style={{ borderColor: `${gc.color}20` }}>
-                                              <p className="text-[9px] uppercase tracking-widest mb-1" style={{ color: `${gc.color}80` }}>What to offer</p>
-                                              <p className="text-[12px] text-[#c8c0b0] leading-relaxed">{gc.intervention}</p>
-                                            </div>
+                                      {/* Gap intervention */}
+                                      {gc && (
+                                        <div className="rounded-xl border p-4" style={{ borderColor: `${gc.color}30`, backgroundColor: `${gc.color}06` }}>
+                                          <div className="flex items-center gap-2 mb-1.5">
+                                            <span style={{ color: gc.color }}>{gc.icon}</span>
+                                            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: gc.color }}>{gc.label}</p>
                                           </div>
-                                        ) : (
-                                          <div className="rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] p-4">
-                                            <p className="text-[11px] text-[#555]">No gap classification available — score signals used for angle selection.</p>
-                                          </div>
-                                        )}
-                                        {dc && (
-                                          <div className="rounded-xl border px-3 py-3 flex flex-col items-center gap-1 min-w-[90px]" style={{ borderColor: `${dc.color}30`, backgroundColor: `${dc.color}05` }}>
-                                            <p className="text-[9px] uppercase tracking-widest text-center" style={{ color: `${dc.color}80` }}>Friction</p>
-                                            <p className="text-[12px] font-bold" style={{ color: dc.color }}>{dc.label}</p>
-                                            <p className="text-[10px] text-center leading-relaxed" style={{ color: `${dc.color}70` }}>{dc.hint}</p>
-                                          </div>
-                                        )}
-                                      </div>
-
-                                      {/* Recommended angle */}
-                                      <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                                        <div className="flex items-center justify-between">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Angle</p>
-                                          {title && <span className="text-[10px] px-2 py-0.5 rounded-md border border-[#c9a84c]/30 bg-[#c9a84c]/8 text-[#c9a84c] font-medium tracking-wide">{title}</span>}
-                                        </div>
-                                        {why && <p className="text-[12px] text-[#888] leading-relaxed">{why}</p>}
-                                        {dc && (
-                                          <div className="rounded-lg border border-[#1e1e1e] bg-[#111] px-3 py-2.5">
-                                            <p className="text-[9px] uppercase tracking-widest text-[#444] mb-1">How to open</p>
-                                            <p className="text-[12px] text-[#777] leading-relaxed">{dc.approach}</p>
-                                          </div>
-                                        )}
-                                      </div>
-
-                                      {/* Contact channel */}
-                                      <div className="rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] p-4 space-y-2">
-                                        <div className="flex items-center justify-between">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Channel</p>
-                                          <span className="text-[11px] font-medium text-[#c8c0b0]">{channelPrimary}</span>
-                                        </div>
-                                        <p className="text-[12px] text-[#666] leading-relaxed">{channelNote}</p>
-                                        {detailLead.company.website && (
-                                          <a href={detailLead.company.website} target="_blank" rel="noreferrer"
-                                            className="inline-flex items-center gap-1.5 text-[11px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors mt-1">
-                                            <span>↗</span> Visit website
-                                          </a>
-                                        )}
-                                      </div>
-
-                                      {/* Resistance signals */}
-                                      {riskFlags.length > 0 && (
-                                        <div className="rounded-xl border border-[#f87171]/15 bg-[#f87171]/03 p-4 space-y-2.5">
-                                          <p className="text-[10px] uppercase tracking-widests text-[#f87171]/60">Resistance signals — know before you reach out</p>
-                                          <div className="space-y-2">
-                                            {riskFlags.map((flag: string) => {
-                                              const meta = riskFlagMeta[flag];
-                                              if (!meta) return null;
-                                              return (
-                                                <div key={flag} className="flex items-start gap-2.5 rounded-lg border border-[#f87171]/10 bg-[#f87171]/04 px-3 py-2">
-                                                  <span className="text-[#f87171]/60 text-[10px] mt-0.5 shrink-0">⚠</span>
-                                                  <div>
-                                                    <p className="text-[11px] text-[#888] font-medium">{meta.label}</p>
-                                                    <p className="text-[11px] text-[#555] leading-relaxed mt-0.5">{meta.implication}</p>
-                                                  </div>
-                                                </div>
-                                              );
-                                            })}
-                                          </div>
+                                          <p className="text-[11px] text-[#888] leading-relaxed">{gc.intervention}</p>
                                         </div>
                                       )}
 
-                                      {/* Lead strength summary */}
-                                      <div className="rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] p-4 space-y-2.5">
-                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Overview</p>
-                                        <div className="space-y-1.5">
-                                          {[
-                                            { label: "Reputation", value: detailLead.score.breakdown?.reputation ?? 0 },
-                                            { label: "Digital presence", value: detailLead.score.breakdown?.digitalPresence ?? 0 },
-                                            { label: "Stability", value: detailLead.score.breakdown?.businessStrength ?? 0 },
-                                            { label: "Opportunity", value: detailLead.score.opportunity ?? 0 },
-                                            { label: "Readiness", value: detailLead.score.readiness ?? 0 },
-                                            { label: "Risk", value: detailLead.score.risk ?? 0, invert: true },
-                                          ].map(({ label, value, invert }) => {
-                                            const display = invert ? 100 - value : value;
-                                            const color = display >= 70 ? "#4ade80" : display >= 45 ? "#c9a84c" : "#f87171";
+                                      {/* Friction + channel row */}
+                                      <div className="grid grid-cols-2 gap-2">
+                                        {dc && (
+                                          <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3">
+                                            <p className="text-[9px] uppercase tracking-widest text-[#444] mb-1">Friction</p>
+                                            <p className="text-[11px] font-semibold" style={{ color: dc.color }}>{dc.label}</p>
+                                            <p className="text-[10px] text-[#555] mt-1 leading-snug">{dc.desc}</p>
+                                          </div>
+                                        )}
+                                        <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3">
+                                          <p className="text-[9px] uppercase tracking-widest text-[#444] mb-1">Channel</p>
+                                          <p className="text-[11px] font-semibold text-[#c9a84c]">{channelPrimary}</p>
+                                          <p className="text-[10px] text-[#555] mt-1 leading-snug">Best first point of contact</p>
+                                        </div>
+                                      </div>
+
+                                      {/* Tone guide */}
+                                      <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-4">
+                                        <p className="text-[9px] uppercase tracking-widest text-[#444] mb-2.5">Tone guide</p>
+                                        <div className="space-y-2">
+                                          {tones.map((tone) => {
+                                            const isRecommended = dc
+                                              ? (difficulty === "HIGH" && (tone.key === "soft" || tone.key === "consultative"))
+                                                || (difficulty === "MEDIUM" && tone.key === "consultative")
+                                                || (difficulty === "LOW" && (tone.key === "direct" || tone.key === "bold"))
+                                              : false;
                                             return (
-                                              <div key={label} className="flex items-center gap-3">
-                                                <p className="text-[9px] uppercase tracking-widests text-[#444] w-24 shrink-0">{label}</p>
-                                                <div className="flex-1 h-1 rounded-full bg-[#1a1a1a]">
-                                                  <div className="h-full rounded-full transition-all" style={{ width: `${value}%`, backgroundColor: color }} />
+                                              <div key={tone.key} className={"flex items-start gap-2.5 rounded-lg p-2 " + (isRecommended ? "bg-[rgba(201,168,76,0.06)] border border-[rgba(201,168,76,0.15)]" : "")}>
+                                                <span className={"text-[10px] mt-0.5 " + (isRecommended ? "text-[#c9a84c]" : "text-[#333]")}>{isRecommended ? "★" : "○"}</span>
+                                                <div>
+                                                  <p className={"text-[11px] font-semibold " + (isRecommended ? "text-[#c9a84c]" : "text-[#666]")}>{tone.label}</p>
+                                                  <p className="text-[10px] text-[#444] leading-snug">{tone.desc}</p>
                                                 </div>
-                                                <p className="text-[11px] font-bold w-6 text-right shrink-0" style={{ color }}>{value}</p>
                                               </div>
                                             );
                                           })}
                                         </div>
-                                        {oppInsight?.message && (
-                                          <div className="rounded-lg border border-[#c9a84c]/15 bg-[#c9a84c]/04 px-3 py-2 mt-1">
-                                            <p className="text-[9px] uppercase tracking-widest text-[#8a6e30] mb-1">Signal</p>
-                                            <p className="text-[12px] text-[#888]">{oppInsight.message}</p>
-                                          </div>
-                                        )}
                                       </div>
-
-                                      {/* Write outreach CTA — bottom */}
-                                      <a
-                                        href="/contact-leads"
-                                        onClick={() => { toggleSaveLead(detailLead); }}
-                                        className="flex items-center justify-between w-full rounded-xl border border-[rgba(201,168,76,0.3)] bg-[rgba(201,168,76,0.05)] px-4 py-3.5 hover:border-[rgba(201,168,76,0.5)] hover:bg-[rgba(201,168,76,0.09)] transition-all group"
-                                      >
-                                        <div>
-                                          <p className="text-[12px] text-[#c9a84c] font-medium">Write outreach for this lead →</p>
-                                          <p className="text-[10px] text-[#8a6e30] mt-0.5">Opens Contact Leads — AI message composer with this lead&apos;s signals pre-loaded</p>
-                                        </div>
-                                        <span className="text-[#c9a84c] text-base group-hover:translate-x-0.5 transition-transform">✦</span>
-                                      </a>
 
                                     </div>
                                   );
                                 })()}
 
-                                {detailTab === "tracking" && (() => {
+                                                                {detailTab === "tracking" && (() => {
                                   const canSave = Number.isFinite(runIdNum) && runIdNum > 0;
 
                                   // Pipeline stage — furthest reached
@@ -2839,9 +2740,10 @@ export default function Home() {
                                   const stages = [
                                     { key: "contacted",  label: "Contacted",  icon: "✉" },
                                     { key: "replied",    label: "Replied",    icon: "↩" },
-                                    { key: "booked_call",label: "Call Booked",icon: "📅" },
+                                    { key: "booked_call",label: "Booked",     icon: "📅" },
                                     { key: "closed",     label: "Closed",     icon: "✦" },
                                   ] as const;
+                                  const isLost = !!lostReason;
 
                                   const revenueVal  = selectedOutcome?.revenue ?? null;
                                   const notesVal    = selectedOutcome?.notes ?? "";
@@ -2854,13 +2756,16 @@ export default function Home() {
                                   const scoreSnap   = selectedOutcome?.score_at_outreach ?? detailLead.score.value ?? null;
 
                                   // Show lost reason picker when contacted but never progressed past contacted, or explicitly stalled
-                                  const showLostReason = contacted && !closed && stage <= 0;
+                                  const showLostReason = (contacted && !closed) || isLost;
 
                                   const lostReasons: { key: LeadOutcomeUI["lost_reason"]; label: string }[] = [
-                                    { key: "no_response",    label: "No response" },
-                                    { key: "not_interested", label: "Not interested" },
-                                    { key: "has_provider",   label: "Already has provider" },
-                                    { key: "wrong_timing",   label: "Wrong timing" },
+                                    { key: "no_response",      label: "No response" },
+                                    { key: "not_interested",   label: "Not interested" },
+                                    { key: "has_provider",     label: "Has provider" },
+                                    { key: "wrong_timing",     label: "Wrong timing" },
+                                    { key: "price_too_high",   label: "Price too high" },
+                                    { key: "chose_competitor", label: "Chose competitor" },
+                                    { key: "other",            label: "Other" },
                                   ];
 
                                   return (
@@ -2890,10 +2795,9 @@ export default function Home() {
                                             const isCurrent = i === stage;
                                             return (
                                               <button key={key} type="button"
-                                                disabled={!canSave}
+                                                disabled={!canSave || isLost}
                                                 onClick={() => {
-                                                  if (!canSave) return;
-                                                  // Snapshot score on first contact
+                                                  if (!canSave || isLost) return;
                                                   const isFirstContact = key === "contacted" && !contacted;
                                                   saveOutcome({
                                                     runId: runIdNum,
@@ -2904,14 +2808,36 @@ export default function Home() {
                                                     },
                                                   });
                                                 }}
-                                                className={"flex-1 flex flex-col items-center gap-1.5 py-3 rounded-lg border transition-all " + (isCurrent ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)]" : isActive ? "border-[#4ade80]/30 bg-[#4ade80]/5" : "border-[#1a1a1a] bg-[#111] hover:border-[#252525]") + " disabled:cursor-not-allowed"}>
-                                                <span className={"text-base transition-colors " + (isCurrent ? "text-[#c9a84c]" : isActive ? "text-[#4ade80]" : "text-[#333]")}>{isActive ? (i < stage ? "✓" : icon) : icon}</span>
-                                                <span className={"text-[10px] tracking-wide " + (isActive ? "text-[#888]" : "text-[#333]")}>{label}</span>
+                                                className={"flex-1 flex flex-col items-center gap-1.5 py-2.5 rounded-lg border transition-all " + (isLost ? "opacity-30 cursor-not-allowed border-[#1a1a1a] bg-[#0d0d0d]" : isCurrent ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)]" : isActive ? "border-[#4ade80]/30 bg-[#4ade80]/5" : "border-[#1a1a1a] bg-[#111] hover:border-[#252525]") + " disabled:cursor-not-allowed"}>
+                                                <span className={"text-sm transition-colors " + (isLost ? "text-[#333]" : isCurrent ? "text-[#c9a84c]" : isActive ? "text-[#4ade80]" : "text-[#333]")}>{isActive ? (i < stage ? "✓" : icon) : icon}</span>
+                                                <span className={"text-[9px] tracking-wide " + (isLost ? "text-[#333]" : isActive ? "text-[#888]" : "text-[#333]")}>{label}</span>
                                               </button>
                                             );
                                           })}
+                                          {/* Lost button */}
+                                          <button
+                                            type="button"
+                                            disabled={!canSave}
+                                            onClick={() => {
+                                              if (!canSave) return;
+                                              if (isLost) {
+                                                // Un-mark as lost
+                                                saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { lost_reason: null } });
+                                              } else {
+                                                // Mark as lost with default reason — user picks reason below
+                                                saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { lost_reason: "no_response" } });
+                                              }
+                                            }}
+                                            className={"flex flex-col items-center gap-1.5 py-2.5 px-2.5 rounded-lg border transition-all disabled:cursor-not-allowed " + (isLost ? "border-[#f87171]/50 bg-[#f87171]/10 text-[#f87171]" : "border-[#1a1a1a] bg-[#111] text-[#555] hover:border-[#f87171]/30 hover:text-[#f87171]/70")}
+                                          >
+                                            <span className="text-sm">✗</span>
+                                            <span className="text-[9px] tracking-wide">Lost</span>
+                                          </button>
                                         </div>
-                                        {stage >= 0 && (
+                                        {isLost && (
+                                          <p className="text-[11px] text-[#f87171]/70 mt-2 text-center">Marked as lost — select reason below</p>
+                                        )}
+                                        {!isLost && stage >= 0 && (
                                           <p className="text-[11px] text-[#555] mt-2 text-center">
                                             {stage === 3 ? t.ui.detail.dealClosed : `${stage + 1} ${t.ui.detail.stagesReached}`}
                                           </p>
