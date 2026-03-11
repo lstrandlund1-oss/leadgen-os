@@ -1824,9 +1824,64 @@ export default function Home() {
             </div>
           ) : (
             <>
-              {/* ── LEADS TABLE ── */}
-              <div className="overflow-x-auto">
-              <div className="w-full overflow-x-auto -mx-0">
+              {/* ── LEADS TABLE (desktop) / CARDS (mobile) ── */}
+
+              {/* MOBILE CARD LIST */}
+              <div className="flex flex-col gap-2 sm:hidden">
+                {pagedLeads.map((lead) => {
+                  const isSelected = selectedLead?.id === lead.id;
+                  const insight = getLocalizedOpportunityInsight(lead, language);
+                  const gapLabel = insight?.type === "conversion_gap" ? t.ui.detail.whyNoBookingFlow
+                    : insight?.type === "visibility_gap" ? t.ui.detail.whyLowDigital
+                    : insight?.type === "foundation_gap" ? t.ui.detail.whyMissingInfra
+                    : insight?.type === "mature_competitor" ? t.ui.detail.whyAlreadyEstablished
+                    : lead.score.riskProfile === "unstable_business" ? t.ui.detail.whyUnstableSignals
+                    : (lead.score.value ?? 0) >= 80 ? t.ui.detail.whyTopTier
+                    : (lead.score.value ?? 0) >= 60 ? t.ui.detail.whyGoodValueFit
+                    : t.ui.detail.whyLowPriority;
+                  const scoreColor = (lead.score.value ?? 0) >= 80 ? "#4ade80" : (lead.score.value ?? 0) >= 60 ? "#c9a84c" : "#888";
+                  const fitColor = (lead.fit?.fitScore ?? 0) >= 65 ? "#4ade80" : (lead.fit?.fitScore ?? 0) >= 40 ? "#c9a84c" : "#f87171";
+                  const riskColor = (lead.score.risk ?? 0) >= 70 ? "#f87171" : (lead.score.risk ?? 0) >= 40 ? "#c9a84c" : "#4ade80";
+                  return (
+                    <div
+                      key={lead.id}
+                      onClick={() => { setSelectedLead(lead); setChecklistState((prev: typeof checklistState) => ({ ...prev, hasSelected: true })); }}
+                      className={"rounded-xl border cursor-pointer transition-colors p-3 " + (isSelected ? "border-[rgba(201,168,76,0.4)] bg-[#111]" : "border-[#1e1e1e] bg-[#0d0d0d] hover:border-[#2a2a2a] hover:bg-[#111]")}
+                    >
+                      {/* Row 1: name + score badge */}
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="min-w-0">
+                          <p className="font-medium text-[13px] truncate">{lead.company.name}</p>
+                          <p className="text-[10px] text-[#555] mt-0.5 truncate">
+                            {leadLocation(lead)} · {lead.classification.primaryIndustry.replaceAll("_", " ")}
+                          </p>
+                        </div>
+                        <span className="text-[12px] font-bold shrink-0 px-2 py-0.5 rounded-md" style={{ color: scoreColor, background: `${scoreColor}18`, border: `1px solid ${scoreColor}30` }}>
+                          {lead.score.value ?? 0}
+                        </span>
+                      </div>
+                      {/* Row 2: score metrics grid */}
+                      <div className="grid grid-cols-3 gap-1.5 mb-2">
+                        {[
+                          { label: "Fit", value: lead.fit?.fitScore ?? 0, color: fitColor },
+                          { label: "Opp", value: lead.score.opportunity ?? 0, color: "#818cf8" },
+                          { label: "Risk", value: lead.score.risk ?? 0, color: riskColor },
+                        ].map((m) => (
+                          <div key={m.label} className="rounded-lg bg-[#111] border border-[#1a1a1a] px-2 py-1.5 text-center">
+                            <p className="text-[11px] font-bold" style={{ color: m.color }}>{m.value}</p>
+                            <p className="text-[9px] text-[#444] uppercase tracking-wide">{m.label}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Row 3: insight */}
+                      <p className="text-[10px] text-[#555] leading-snug">⚡ {gapLabel}</p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* DESKTOP TABLE */}
+              <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-sm border-collapse min-w-[600px]">
                 <thead>
                   <tr className="bg-[#111111] border-b border-[#252525]">
@@ -1834,12 +1889,12 @@ export default function Home() {
                       {t.ui.table.company}
                     </th>
                     <th className="text-left py-2 px-3 w-[10%]">{t.ui.table.score}</th>
-                    <th className="text-left py-2 px-3 w-[8%] hidden sm:table-cell">Fit</th>
-                    <th className="text-left py-2 px-3 w-[12%] hidden sm:table-cell">
+                    <th className="text-left py-2 px-3 w-[8%]">Fit</th>
+                    <th className="text-left py-2 px-3 w-[12%]">
                       {t.ui.table.opportunity}
                     </th>
                     <th className="text-left py-2 px-3 w-[8%]">{t.ui.table.risk}</th>
-                    <th className="text-left py-2 px-3 hidden md:table-cell">
+                    <th className="text-left py-2 px-3">
                       {t.ui.table.insight}
                     </th>
                   </tr>
@@ -3010,7 +3065,6 @@ export default function Home() {
                   })}
                 </tbody>
               </table>
-              </div>
               </div>
 
               {/* ── PAGINATION BAR ── */}
