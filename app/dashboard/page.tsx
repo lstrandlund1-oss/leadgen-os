@@ -1413,7 +1413,7 @@ export default function Home() {
                   <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${done ? "border-[#4ade80] bg-[#4ade80]/10" : "border-[#333]"}`}>
                     {done && <span className="text-[9px] text-[#4ade80]">✓</span>}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 overflow-hidden">
                     <p className={`text-[12px] font-medium ${done ? "line-through text-[#444]" : "text-[#c8c0b0]"}`}>{label}</p>
                     <p className="text-[11px] text-[#444] mt-0.5">{sub}</p>
                   </div>
@@ -1513,7 +1513,7 @@ export default function Home() {
                     className="text-left rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] hover:border-[rgba(201,168,76,0.3)] hover:bg-[#111] transition-all p-3 space-y-2 group"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 overflow-hidden">
                         <p className="text-[13px] font-semibold text-[#f5f0e8] truncate group-hover:text-[#e8c97a] transition-colors">
                           {s.niche || "—"}
                         </p>
@@ -2145,10 +2145,10 @@ export default function Home() {
 
                         {isSelected && detailLead && (
                           <tr key={`${lead.id}-detail`} id={`lead-detail-${lead.id}`}>
-                            <td colSpan={6} className="p-0 overflow-hidden" style={{ maxWidth: 0 }}>
-                              <div className="border-b border-[#2a2a2a] bg-[#080808]/80 px-4 py-4 space-y-3 overflow-hidden">
+                            <td colSpan={6} className="p-0" style={{ maxWidth: "100%", width: "100%" }}>
+                              <div className="border-b border-[#2a2a2a] bg-[#080808]/80 px-3 py-4 space-y-3 w-full overflow-x-hidden">
                                 <div className="sm:hidden flex justify-between items-center mb-1"><span className="text-[12px] font-medium text-[#c8c0b0]">{detailLead.company.name}</span><button type="button" onClick={(e: MouseEvent) => { e.stopPropagation(); setSelectedLead(null); }} className="text-[11px] text-[#555] hover:text-[#888] px-2 py-1">✕ Close</button></div>
-                                <div className="flex gap-1 border-b border-[#252525] pb-0">
+                                <div className="flex gap-1 border-b border-[#252525] pb-0 overflow-x-auto scrollbar-none">
                                   {tabs.map((tab) => (
                                     <button
                                       key={tab.key}
@@ -2252,10 +2252,10 @@ export default function Home() {
                                             <span className="text-base font-bold" style={{ color: scoreColor }}>{value}</span>
                                           </div>
                                         </div>
-                                        <div className="flex-1 min-w-0">
+                                        <div className="flex-1 min-w-0 overflow-hidden">
                                           <p className="text-xs uppercase tracking-widest text-[#555] mb-0.5">Score</p>
                                           <p className="font-semibold text-sm" style={{ color: scoreColor }}>{scoreLabel}</p>
-                                          <p className="text-[11px] text-[#666] mt-1 leading-relaxed">
+                                          <p className="text-[11px] text-[#666] mt-1 leading-relaxed break-words">
                                             {getScoreReason(detailLead, language)}
                                           </p>
                                         </div>
@@ -2268,10 +2268,10 @@ export default function Home() {
                                       </div>
 
                                       {/* Three score bars */}
-                                      <div className="grid grid-cols-3 gap-2">
+                                      <div className="grid grid-cols-3 sm:grid-cols-3 gap-2">
                                         {[
                                           { label: "Opp.", value: opp,      color: opp >= 60 ? "#4ade80" : opp >= 35 ? "#c9a84c" : "#f87171",  hint: "Growth potential" },
-                                          { label: "Readiness",   value: readiness, color: readiness >= 60 ? "#4ade80" : readiness >= 35 ? "#c9a84c" : "#f87171", hint: "How operationally prepared they are" },
+                                          { label: "Ready",       value: readiness, color: readiness >= 60 ? "#4ade80" : readiness >= 35 ? "#c9a84c" : "#f87171", hint: "How operationally prepared they are" },
                                           { label: "Risk",        value: risk,      color: risk >= 60 ? "#f87171" : risk >= 35 ? "#c9a84c" : "#4ade80", hint: "How risky this engagement is" },
                                         ].map(({ label, value: v, color, hint }) => (
                                           <div key={label} className="rounded-lg border border-[#252525] bg-[#111] p-3 space-y-2">
@@ -2280,20 +2280,20 @@ export default function Home() {
                                               <p className="text-sm font-bold" style={{ color }}>{v}</p>
                                             </div>
                                             <ScoreBar value={v} color={color} />
-                                            <p className="text-[10px] text-[#444] leading-tight">{hint}</p>
+                                            <p className="text-[10px] text-[#444] leading-tight hidden sm:block">{hint}</p>
                                           </div>
                                         ))}
                                       </div>
 
                                       {/* Gap type diagnosis */}
                                       {gapInfo && (
-                                        <div className="rounded-xl border p-3" style={{ borderColor: `${gapInfo.color}30`, backgroundColor: `${gapInfo.color}08` }}>
+                                        <div className="rounded-xl border p-3 w-full overflow-hidden" style={{ borderColor: `${gapInfo.color}30`, backgroundColor: `${gapInfo.color}08` }}>
                                           <div className="flex items-center gap-2 mb-1">
                                             <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: gapInfo.color }}>
                                               ◆ {gapInfo.label}
                                             </span>
                                           </div>
-                                          <p className="text-[12px] text-[#aaa] leading-relaxed">{gapInfo.desc}</p>
+                                          <p className="text-[12px] text-[#aaa] leading-relaxed break-words">{gapInfo.desc}</p>
                                         </div>
                                       )}
 
@@ -2334,7 +2334,7 @@ export default function Home() {
                                       {detailInsight?.message && (
                                         <div className="rounded-xl border border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.04)] p-3">
                                           <p className="text-[10px] uppercase tracking-widest text-[#8a6e30] mb-1">{t.ui.detail.opportunityInsight}</p>
-                                          <p className="text-[13px] font-semibold text-[#e8c97a]">⚡ {detailInsight.message}</p>
+                                          <p className="text-[13px] font-semibold text-[#e8c97a] break-words">⚡ {detailInsight.message}</p>
                                         </div>
                                       )}
 
@@ -2343,7 +2343,7 @@ export default function Home() {
                                         <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-3">
                                           <p className="text-[10px] uppercase tracking-widest text-rose-400/70 mb-1">{t.ui.detail.risk}</p>
                                           <p className="text-[13px] font-semibold text-rose-300">{riskTitleFromProfile(detailLead.score.riskProfile, t)}</p>
-                                          <p className="mt-1 text-[11px] text-rose-400/60 leading-relaxed">{riskMessage(language, detailLead)}</p>
+                                          <p className="mt-1 text-[11px] text-rose-400/60 leading-relaxed break-words">{riskMessage(language, detailLead)}</p>
                                         </div>
                                       )}
 
