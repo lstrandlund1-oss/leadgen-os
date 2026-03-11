@@ -2236,64 +2236,57 @@ export default function Home() {
                                     <div className="space-y-3 pt-1">
 
                                       {/* Hero score row */}
-                                      <div className="flex items-center gap-4 rounded-xl border border-[#252525] bg-[#0d0d0d] p-4">
-                                        {/* Score circle */}
-                                        <div className="relative flex-shrink-0 w-16 h-16">
-                                          <svg viewBox="0 0 56 56" className="w-full h-full -rotate-90">
-                                            <circle cx="28" cy="28" r="24" fill="none" stroke="#1a1a1a" strokeWidth="4" />
-                                            <circle
-                                              cx="28" cy="28" r="24" fill="none"
-                                              stroke={scoreColor} strokeWidth="4"
-                                              strokeDasharray={`${(value / 100) * 150.8} 150.8`}
-                                              strokeLinecap="round"
-                                            />
-                                          </svg>
-                                          <div className="absolute inset-0 flex items-center justify-center">
-                                            <span className="text-base font-bold" style={{ color: scoreColor }}>{value}</span>
+                                      <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-3 w-full">
+                                        <div className="flex items-center gap-3 mb-2">
+                                          <div className="relative flex-shrink-0 w-12 h-12">
+                                            <svg viewBox="0 0 56 56" className="w-full h-full -rotate-90">
+                                              <circle cx="28" cy="28" r="24" fill="none" stroke="#1a1a1a" strokeWidth="5" />
+                                              <circle cx="28" cy="28" r="24" fill="none" stroke={scoreColor} strokeWidth="5"
+                                                strokeDasharray={`${(value / 100) * 150.8} 150.8`} strokeLinecap="round" />
+                                            </svg>
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                              <span className="text-[13px] font-bold" style={{ color: scoreColor }}>{value}</span>
+                                            </div>
+                                          </div>
+                                          <div className="min-w-0">
+                                            <p className="text-[10px] uppercase tracking-widest text-[#555]">Score</p>
+                                            <p className="font-semibold text-sm" style={{ color: scoreColor }}>{scoreLabel}</p>
                                           </div>
                                         </div>
-                                        <div className="flex-1 min-w-0 overflow-hidden">
-                                          <p className="text-xs uppercase tracking-widest text-[#555] mb-0.5">Score</p>
-                                          <p className="font-semibold text-sm" style={{ color: scoreColor }}>{scoreLabel}</p>
-                                          <p className="text-[11px] text-[#666] mt-1 leading-relaxed break-words">
-                                            {getScoreReason(detailLead, language)}
-                                          </p>
-                                        </div>
+                                        <p className="text-[11px] text-[#666] leading-relaxed">
+                                          {getScoreReason(detailLead, language)}
+                                        </p>
                                         {detailWebsiteUrl && (
                                           <a href={detailWebsiteUrl} target="_blank" rel="noreferrer"
-                                            className="flex-shrink-0 text-[11px] text-[#c9a84c] hover:text-[#e8c97a] underline-offset-2 hover:underline transition-colors">
+                                            className="inline-block mt-1.5 text-[11px] text-[#c9a84c] hover:underline">
                                             Visit site ↗
                                           </a>
                                         )}
                                       </div>
 
-                                      {/* Three score bars */}
-                                      <div className="grid grid-cols-3 sm:grid-cols-3 gap-2">
+                                      {/* Score bars — full-width vertical stack */}
+                                      <div className="flex flex-col gap-2">
                                         {[
-                                          { label: "Opp.", value: opp,      color: opp >= 60 ? "#4ade80" : opp >= 35 ? "#c9a84c" : "#f87171",  hint: "Growth potential" },
-                                          { label: "Ready",       value: readiness, color: readiness >= 60 ? "#4ade80" : readiness >= 35 ? "#c9a84c" : "#f87171", hint: "How operationally prepared they are" },
-                                          { label: "Risk",        value: risk,      color: risk >= 60 ? "#f87171" : risk >= 35 ? "#c9a84c" : "#4ade80", hint: "How risky this engagement is" },
+                                          { label: "Opp.", value: opp, color: opp >= 60 ? "#4ade80" : opp >= 35 ? "#c9a84c" : "#f87171", hint: "Growth potential" },
+                                          { label: "Ready", value: readiness, color: readiness >= 60 ? "#4ade80" : readiness >= 35 ? "#c9a84c" : "#f87171", hint: "Operational readiness" },
+                                          { label: "Risk", value: risk, color: risk >= 60 ? "#f87171" : risk >= 35 ? "#c9a84c" : "#4ade80", hint: "Engagement risk" },
                                         ].map(({ label, value: v, color, hint }) => (
-                                          <div key={label} className="rounded-lg border border-[#252525] bg-[#111] p-3 space-y-2">
+                                          <div key={label} className="rounded-lg border border-[#252525] bg-[#111] p-3 space-y-2 w-full">
                                             <div className="flex items-center justify-between">
                                               <p className="text-[10px] uppercase tracking-widest text-[#555]">{label}</p>
                                               <p className="text-sm font-bold" style={{ color }}>{v}</p>
                                             </div>
                                             <ScoreBar value={v} color={color} />
-                                            <p className="text-[10px] text-[#444] leading-tight hidden sm:block">{hint}</p>
+                                            <p className="text-[10px] text-[#444] leading-tight">{hint}</p>
                                           </div>
                                         ))}
                                       </div>
 
                                       {/* Gap type diagnosis */}
                                       {gapInfo && (
-                                        <div className="rounded-xl border p-3 w-full overflow-hidden" style={{ borderColor: `${gapInfo.color}30`, backgroundColor: `${gapInfo.color}08` }}>
-                                          <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: gapInfo.color }}>
-                                              ◆ {gapInfo.label}
-                                            </span>
-                                          </div>
-                                          <p className="text-[12px] text-[#aaa] leading-relaxed break-words">{gapInfo.desc}</p>
+                                        <div className="rounded-xl border p-3 w-full" style={{ borderColor: `${gapInfo.color}30`, backgroundColor: `${gapInfo.color}08` }}>
+                                          <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: gapInfo.color }}>◆ {gapInfo.label}</span>
+                                          <p className="text-[12px] text-[#aaa] leading-relaxed mt-1">{gapInfo.desc}</p>
                                         </div>
                                       )}
 
@@ -2305,10 +2298,10 @@ export default function Home() {
                                             <p className="text-sm font-bold" style={{ color: fit >= 65 ? "#4ade80" : fit >= 40 ? "#c9a84c" : "#f87171" }}>{fit}/100</p>
                                           </div>
                                           <ScoreBar value={fit} color={fit >= 65 ? "#4ade80" : fit >= 40 ? "#c9a84c" : "#f87171"} />
-                                          <div className="flex gap-3 mt-2.5">
+                                          <div className="flex flex-col gap-2 mt-2.5">
                                             {(detailLead.fit?.matchedNeeds ?? []).length > 0 && (
-                                              <div className="flex-1">
-                                                <p className="text-[9px] uppercase tracking-widest text-[#4ade80]/70 mb-1">You can deliver</p>
+                                              <div>
+                                                <p className="text-[9px] uppercase tracking-widest text-[#4ade80]/70 mb-1">Can deliver</p>
                                                 <div className="flex flex-wrap gap-1">
                                                   {(detailLead.fit?.matchedNeeds ?? []).map((n: string) => (
                                                     <span key={n} className="text-[10px] px-1.5 py-0.5 rounded bg-[#4ade80]/10 border border-[#4ade80]/20 text-[#4ade80]">{n}</span>
@@ -2317,8 +2310,8 @@ export default function Home() {
                                               </div>
                                             )}
                                             {(detailLead.fit?.missingNeeds ?? []).length > 0 && (
-                                              <div className="flex-1">
-                                                <p className="text-[9px] uppercase tracking-widest text-[#f87171]/70 mb-1">You can&apos;t cover</p>
+                                              <div>
+                                                <p className="text-[9px] uppercase tracking-widest text-[#f87171]/70 mb-1">Can&apos;t cover</p>
                                                 <div className="flex flex-wrap gap-1">
                                                   {(detailLead.fit?.missingNeeds ?? []).map((n: string) => (
                                                     <span key={n} className="text-[10px] px-1.5 py-0.5 rounded bg-[#f87171]/10 border border-[#f87171]/20 text-[#f87171]">{n}</span>
