@@ -1668,7 +1668,7 @@ export default function Home() {
 
         {/* Results */}
         <section className="bg-[#111111] border border-[#252525] rounded-2xl p-6 md:p-8 shadow-xl shadow-black/40 space-y-4 overflow-hidden">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="space-y-1">
               <h2 className="text-xl font-semibold">{t.ui.results.title}</h2>
               <p className="text-xs text-[#888]">
@@ -1826,19 +1826,20 @@ export default function Home() {
             <>
               {/* ── LEADS TABLE ── */}
               <div className="overflow-x-auto">
-              <table className="w-full text-sm border-collapse">
+              <div className="w-full overflow-x-auto -mx-0">
+              <table className="w-full text-sm border-collapse min-w-[600px]">
                 <thead>
                   <tr className="bg-[#111111] border-b border-[#252525]">
                     <th className="text-left py-2 px-3 w-[30%]">
                       {t.ui.table.company}
                     </th>
                     <th className="text-left py-2 px-3 w-[10%]">{t.ui.table.score}</th>
-                    <th className="text-left py-2 px-3 w-[8%]">Fit</th>
-                    <th className="text-left py-2 px-3 w-[12%]">
+                    <th className="text-left py-2 px-3 w-[8%] hidden sm:table-cell">Fit</th>
+                    <th className="text-left py-2 px-3 w-[12%] hidden sm:table-cell">
                       {t.ui.table.opportunity}
                     </th>
                     <th className="text-left py-2 px-3 w-[8%]">{t.ui.table.risk}</th>
-                    <th className="text-left py-2 px-3">
+                    <th className="text-left py-2 px-3 hidden md:table-cell">
                       {t.ui.table.insight}
                     </th>
                   </tr>
@@ -1896,7 +1897,7 @@ export default function Home() {
                         >
                           <td className="py-2 px-3">
                             <div>
-                              <span className="font-medium text-[13px]">
+                              <span className="font-medium text-[13px] truncate max-w-[140px] sm:max-w-none block">
                                 {lead.company.name}
                               </span>
                               <div className="flex flex-wrap items-center gap-1.5 mt-1">
@@ -1959,7 +1960,7 @@ export default function Home() {
                             })()}
                           </td>
 
-                          <td className="py-2 px-3">
+                          <td className="py-2 px-3 hidden sm:table-cell">
                             {lead.fit ? (
                               <>
                                 <div className={
@@ -2000,7 +2001,7 @@ export default function Home() {
                             )}
                           </td>
 
-                          <td className="py-2 px-3">
+                          <td className="py-2 px-3 hidden sm:table-cell">
                             <span className="text-[#c8c0b0] font-semibold">
                               {lead.score.opportunity ?? 0}
                             </span>
@@ -2028,7 +2029,7 @@ export default function Home() {
                             </p>
                           </td>
 
-                          <td className="py-2 px-3">
+                          <td className="py-2 px-3 hidden md:table-cell">
                             <div className="text-[11px] leading-snug">
                               <div className="text-[#c9a84c] font-semibold flex items-center gap-2">
                                 <span>⚡</span>
@@ -3009,6 +3010,7 @@ export default function Home() {
                   })}
                 </tbody>
               </table>
+              </div>
               </div>
 
               {/* ── PAGINATION BAR ── */}
