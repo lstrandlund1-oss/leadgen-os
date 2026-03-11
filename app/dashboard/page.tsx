@@ -978,6 +978,17 @@ export default function Home() {
     setOutreachVariant((["soft","consultative","direct","bold"].includes(dv ?? "") ? dv : "consultative") as OutreachVariant);
   }, [selectedLead]);
 
+  // Scroll to detail panel on mobile when a lead is selected
+  useEffect(() => {
+    if (!selectedLead) return;
+    const isMobile = window.innerWidth < 640;
+    if (!isMobile) return;
+    setTimeout(() => {
+      const el = document.getElementById(`lead-detail-${selectedLead.id}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  }, [selectedLead]);
+
   // Restore persisted deep scan when a lead is selected
   useEffect(() => {
     if (!selectedLead) return;
@@ -1880,10 +1891,10 @@ export default function Home() {
                 })}
               </div>
 
-              {/* DESKTOP TABLE */}
-              <div className="hidden sm:block overflow-x-auto">
+              {/* DESKTOP TABLE — hidden on mobile except when a lead is selected */}
+              <div className={selectedLead ? "block overflow-x-auto" : "hidden sm:block overflow-x-auto"}>
               <table className="w-full text-sm border-collapse min-w-[600px]">
-                <thead>
+                <thead className="hidden sm:table-header-group">
                   <tr className="bg-[#111111] border-b border-[#252525]">
                     <th className="text-left py-2 px-3 w-[30%]">
                       {t.ui.table.company}
@@ -1947,7 +1958,8 @@ export default function Home() {
                           onClick={() => { setSelectedLead(lead); setChecklistState((prev: typeof checklistState) => ({ ...prev, hasSelected: true })); }}
                           className={
                             "border-b border-[#252525] hover:bg-[#111111]/70 cursor-pointer " +
-                            (isSelected ? "bg-[#111111]/90" : "")
+                            (isSelected ? "bg-[#111111]/90" : "") +
+                            " hidden sm:table-row"
                           }
                         >
                           <td className="py-2 px-3">
@@ -2135,6 +2147,7 @@ export default function Home() {
                           <tr key={`${lead.id}-detail`} id={`lead-detail-${lead.id}`}>
                             <td colSpan={6} className="p-0 overflow-hidden" style={{ maxWidth: 0 }}>
                               <div className="border-b border-[#2a2a2a] bg-[#080808]/80 px-4 py-4 space-y-3 overflow-hidden">
+                                <div className="sm:hidden flex justify-between items-center mb-1"><span className="text-[12px] font-medium text-[#c8c0b0]">{detailLead.company.name}</span><button type="button" onClick={(e: MouseEvent) => { e.stopPropagation(); setSelectedLead(null); }} className="text-[11px] text-[#555] hover:text-[#888] px-2 py-1">✕ Close</button></div>
                                 <div className="flex gap-1 border-b border-[#252525] pb-0">
                                   {tabs.map((tab) => (
                                     <button
