@@ -1358,7 +1358,7 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <span className="text-[#c9a84c]">◈</span>
             <span className="text-lg font-light tracking-wide" style={{ fontFamily: "var(--font-display), serif" }}>
-              LeadGen<span style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>OS</span>
+              Van<span style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>tio</span>
             </span>
             <span className="ml-2 text-[10px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full border border-[rgba(201,168,76,0.3)] text-[#8a6e30]">Beta</span>
           </div>
@@ -2529,7 +2529,7 @@ export default function Home() {
                                   </div>
                                 )}
 
-                                {detailTab === "signals" && !deepScanData && detailLead?.company.website && !deepScanLoading && (
+                                {detailTab === "signals" && !deepScanData && !deepScanLoading && (
                                   <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 flex items-center justify-between">
                                     <div>
                                       <p className="text-[12px] text-[#888] font-medium">Deep Scan</p>
