@@ -1,14 +1,13 @@
 // lib/email/send.ts
 // Shared Resend email helper.
-// FROM address uses onboarding@resend.dev until a verified domain is set up.
-// Swap FROM_ADDRESS to "support@vantio.com" once domain is verified in Resend.
+// Domain vantioapp.com verified in Resend on 2026-03-12.
 
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ── Swap this when domain is verified ────────────────────────────────────────
-const FROM_ADDRESS = "Vantio <onboarding@resend.dev>";
+const FROM_ADDRESS = "Vantio <hello@vantioapp.com>";
 const SUPPORT_INBOX = process.env.SUPPORT_NOTIFY_EMAIL ?? "lstrandlund1@gmail.com";
 const APP_NAME = "Vantio";
 
