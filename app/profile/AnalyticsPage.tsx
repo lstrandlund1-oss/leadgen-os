@@ -12,6 +12,7 @@ type Outcome = {
   replied: boolean;
   booked_call: boolean;
   closed: boolean;
+  lost_reason: "no_response" | "not_interested" | "has_provider" | "wrong_timing" | "price_too_high" | "chose_competitor" | "other" | null;
   revenue: number | null;
   notes: string | null;
   tonality: "soft" | "direct" | "consultative" | "bold" | null;
@@ -79,6 +80,8 @@ export default function AnalyticsPage() {
         const replied = Math.random() < 0.22;
         const booked = replied && Math.random() < 0.45;
         const closed = booked && Math.random() < 0.6;
+        const lostReasonOptions = ["no_response", "not_interested", "has_provider", "wrong_timing", "price_too_high", "chose_competitor", "other"] as const;
+        const isLost = !replied && !closed && contacted && Math.random() < 0.35;
         rows.push({
           id: String(id++),
           lead_id: `lead-${id}`,
@@ -87,6 +90,7 @@ export default function AnalyticsPage() {
           replied,
           booked_call: booked,
           closed,
+          lost_reason: isLost ? lostReasonOptions[Math.floor(Math.random() * lostReasonOptions.length)] : null,
           revenue: null,
           notes: null,
           tonality: tonalities[Math.floor(Math.random() * 4)],
@@ -115,6 +119,25 @@ export default function AnalyticsPage() {
   const replied = filtered.filter((o) => o.replied).length;
   const booked = filtered.filter((o) => o.booked_call).length;
   const closed = filtered.filter((o) => o.closed).length;
+
+  // ── Lost leads stats ──
+  const LOST_REASON_LABELS: Record<string, string> = {
+    no_response:    "No response",
+    not_interested: "Not interested",
+    has_provider:   "Has provider",
+    wrong_timing:   "Wrong timing",
+    price_too_high: "Price too high",
+    chose_competitor:"Chose competitor",
+    other:          "Other",
+  };
+  const lostLeads = filtered.filter((o) => !!o.lost_reason);
+  const lostCount = lostLeads.length;
+  const winCount = filtered.filter((o) => o.closed).length;
+  const lostReasonBreakdown = Object.entries(LOST_REASON_LABELS).map(([key, label]) => ({
+    key, label,
+    count: lostLeads.filter((o) => o.lost_reason === key).length,
+  })).filter((r) => r.count > 0).sort((a, b) => b.count - a.count);
+  const topLostReason = lostReasonBreakdown[0] ?? null;
 
   // ── Tonality breakdown (all 4) ──
   const TONALITIES = [
@@ -199,7 +222,7 @@ export default function AnalyticsPage() {
           <div className="flex items-center gap-2.5">
             <span className="text-[#c9a84c]">◈</span>
             <Link href="/" className="text-[17px] font-light tracking-wide hover:opacity-80 transition-opacity" style={{ fontFamily: "var(--font-display), serif" }}>
-              LeadGen<span style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>OS</span>
+              Van<span style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>tio</span>
             </Link>
             <span className="text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full border border-[rgba(201,168,76,0.25)] text-[#8a6e30]">Beta</span>
           </div>
@@ -268,6 +291,7 @@ export default function AnalyticsPage() {
                 { label: "Leads Contacted", value: contacted.toString(), sub: `${total} total tracked` },
                 { label: "Reply Rate", value: `${pct(replied, contacted)}%`, sub: `${replied} replied` },
                 { label: "Close Rate", value: `${pct(closed, contacted)}%`, sub: `${closed} deals closed` },
+                { label: "Win / Lost", value: `${winCount} / ${lostCount}`, sub: lostCount > 0 ? `${pct(winCount, winCount + lostCount)}% win rate` : "No lost leads yet" },
               ].map((kpi) => (
                 <div key={kpi.label} className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-4 space-y-1">
                   <p className="text-[9px] uppercase tracking-widest text-[#444]">{kpi.label}</p>
@@ -572,6 +596,69 @@ export default function AnalyticsPage() {
               </section>
             )}
 
+            {/* ── Lost leads breakdown ── */}
+            {lostCount > 0 && (
+              <section className="rounded-2xl border border-[#f87171]/15 bg-[#f87171]/03 p-6 space-y-5">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.15em] text-[#f87171]/70 mb-1">Lost Leads</p>
+                    <h2 className="text-[15px] font-semibold text-[#c8c0b0]">Why Deals Are Being Lost</h2>
+                    <p className="text-[11px] text-[#444] mt-1">Patterns in your lost leads help you avoid the same mistakes.</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-[#444]">Win rate</p>
+                    <p className="text-[18px] font-bold" style={{ color: pct(winCount, winCount + lostCount) >= 50 ? "#4ade80" : pct(winCount, winCount + lostCount) >= 30 ? "#c9a84c" : "#f87171" }}>
+                      {pct(winCount, winCount + lostCount)}%
+                    </p>
+                    <p className="text-[10px] text-[#333]">{winCount}W / {lostCount}L</p>
+                  </div>
+                </div>
+
+                {/* Reason bars */}
+                <div className="space-y-2.5">
+                  {lostReasonBreakdown.map((r, i) => {
+                    const pctOfLost = pct(r.count, lostCount);
+                    const isTop = i === 0;
+                    return (
+                      <div key={r.key} className="space-y-1">
+                        <div className="flex items-center justify-between text-[12px]">
+                          <div className="flex items-center gap-2">
+                            {isTop && <span className="text-[10px] text-[#f87171]">▲</span>}
+                            <span className={isTop ? "text-[#f5f0e8] font-medium" : "text-[#888]"}>{r.label}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-[#555]">{pctOfLost}%</span>
+                            <span className="text-[#f87171] font-bold w-4 text-right">{r.count}</span>
+                          </div>
+                        </div>
+                        <div className="w-full bg-[#141414] rounded-full h-1.5">
+                          <div className="h-1.5 rounded-full transition-all duration-700 bg-[#f87171]/60"
+                            style={{ width: `${pctOfLost}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Insight from lost data */}
+                {topLostReason && (
+                  <div className="rounded-xl border border-[#f87171]/20 bg-[#f87171]/05 px-4 py-3 flex items-start gap-3">
+                    <span className="text-[#f87171] mt-0.5 shrink-0">→</span>
+                    <p className="text-[12px] text-[#888] leading-relaxed">
+                      <span className="font-semibold text-[#f87171]">{topLostReason.label}</span> is your most common loss reason at {pct(topLostReason.count, lostCount)}% of lost leads.
+                      {topLostReason.key === "no_response" && " Try a follow-up sequence — most deals need 3–5 touches before a reply."}
+                      {topLostReason.key === "price_too_high" && " Consider leading with ROI framing before discussing price on your next calls."}
+                      {topLostReason.key === "chose_competitor" && " Focus on differentiation — make your unique advantage clear earlier in the conversation."}
+                      {topLostReason.key === "wrong_timing" && " Add these leads to a 90-day re-approach queue — timing issues often resolve themselves."}
+                      {topLostReason.key === "has_provider" && " Ask why they're staying — dissatisfied clients of competitors are still viable leads."}
+                      {topLostReason.key === "not_interested" && " Review your targeting — not_interested at high volume may signal a fit or angle mismatch."}
+                      {topLostReason.key === "other" && " Log more specific reasons over time to build a clearer picture."}
+                    </p>
+                  </div>
+                )}
+              </section>
+            )}
+
             {/* ── Insight summary ── */}
             {(() => {
               const replyRate = pct(replied, contacted);
@@ -639,6 +726,15 @@ export default function AnalyticsPage() {
 
               if (contacted >= 10 && closed === 0) {
                 insights.push(`You have ${contacted} contacts but no closed deals yet. Getting on calls is where deals happen — focus on improving your booking rate.`);
+              }
+
+              if (lostCount >= 3 && topLostReason) {
+                const winRate = pct(winCount, winCount + lostCount);
+                if (winRate < 40) {
+                  insights.push(`Win rate is ${winRate}% with ${lostCount} lost leads. The biggest drop-off is "${topLostReason.label}" — addressing this one reason could meaningfully shift your results.`);
+                } else if (winRate >= 60) {
+                  insights.push(`Strong win rate of ${winRate}% across ${winCount + lostCount} resolved leads. Keep logging outcomes to maintain visibility on what's working.`);
+                }
               }
 
               return (
