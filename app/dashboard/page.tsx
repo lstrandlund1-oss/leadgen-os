@@ -1174,7 +1174,17 @@ export default function Home() {
         if (geo && typeof geo === "string") {
           setLocation((prev: string) => (prev === "" ? geo : prev));
         }
-        setChecklistState((prev: typeof checklistState) => ({ ...prev, hasProfile: !!(data?.profile?.businessName) }));
+        const hasProfile = !!(data?.profile?.businessName);
+        setChecklistState((prev: typeof checklistState) => ({ ...prev, hasProfile }));
+        // First-time user: no profile + never searched → redirect to onboarding
+        if (!hasProfile) {
+          try {
+            const stored = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}");
+            if (!stored.checklistHasSearched) {
+              window.location.href = "/onboarding";
+            }
+          } catch { /* skip */ }
+        }
       })
       .catch(() => {});
   }, []);
