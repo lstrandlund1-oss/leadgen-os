@@ -50,6 +50,16 @@ type WeeklyPoint = {
   closeRate: number;
 };
 
+const LOST_REASON_LABELS: Record<string, string> = {
+  no_response:     "No response",
+  not_interested:  "Not interested",
+  has_provider:    "Has provider",
+  wrong_timing:    "Wrong timing",
+  price_too_high:  "Price too high",
+  chose_competitor:"Chose competitor",
+  other:           "Other",
+};
+
 export default function AnalyticsPage() {
   const [outcomes, setOutcomes] = useState<Outcome[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,18 +131,9 @@ export default function AnalyticsPage() {
   const closed = filtered.filter((o) => o.closed).length;
 
   // ── Lost leads stats ──
-  const LOST_REASON_LABELS: Record<string, string> = {
-    no_response:    "No response",
-    not_interested: "Not interested",
-    has_provider:   "Has provider",
-    wrong_timing:   "Wrong timing",
-    price_too_high: "Price too high",
-    chose_competitor:"Chose competitor",
-    other:          "Other",
-  };
   const lostLeads = filtered.filter((o) => !!o.lost_reason);
   const lostCount = lostLeads.length;
-  const winCount = filtered.filter((o) => o.closed).length;
+  const winCount = closed; // reuse already-computed closed count
   const lostReasonBreakdown = Object.entries(LOST_REASON_LABELS).map(([key, label]) => ({
     key, label,
     count: lostLeads.filter((o) => o.lost_reason === key).length,
