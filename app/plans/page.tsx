@@ -10,26 +10,25 @@ const PLANS = [
     price: "$29",
     sub: "/ month",
     billing: "Beta pricing · locks in for 12 months",
-    description: "Explore signal-driven lead intelligence. Find and score leads — upgrade when you're ready to act.",
+    description: "Find and evaluate leads using signal-driven intelligence. Know who to contact before you pick up the phone.",
     highlight: false,
     badge: null,
     features: [
-      "50 lead searches / month",
-      "Full signal-driven scoring (OPP · RISK · FIT)",
-      "All 4 gap types detected",
-      "Lead detail panel with signals",
-      "Outcome tracking (contacted / replied / booked)",
-      "Saved leads + notes",
-      "Follow-up queue",
-      "CSV export",
-      "Swedish + English UI",
+      { text: "50 lead searches / month", note: null },
+      { text: "Opportunity, Risk & Fit scoring", note: "Know exactly why each lead scored high or low" },
+      { text: "Gap type detection", note: "Each lead is classified — Visibility, Conversion, Infrastructure, or Optimization — so you know what angle to use" },
+      { text: "Lead detail panel", note: "Deep-dive into signals, ratings, social presence, and website data for each lead" },
+      { text: "Outcome tracking", note: "Track where every lead sits in your pipeline" },
+      { text: "Saved leads & notes", note: null },
+      { text: "Follow-up queue", note: "See all leads with upcoming or overdue follow-up dates in one place" },
+      { text: "Lead collections", note: "Organise leads into named lists by client or campaign" },
+      { text: "CSV export", note: null },
     ],
     lockedFeatures: [
-      "Outreach generator — Operator+",
-      "In-platform email sending — Operator+",
-      "Message template library — Operator+",
-      "Deep website enrichment — Operator+",
-      "Revenue & analytics dashboard — Operator+",
+      "AI outreach generator",
+      "In-platform email sending",
+      "Website signal deep scan",
+      "Profile analytics & revenue tracking",
     ],
     cta: "Join Waitlist",
     href: null,
@@ -39,26 +38,23 @@ const PLANS = [
     price: "$79",
     sub: "/ month",
     billing: "Beta pricing · locks in for 12 months",
-    description: "Everything you need to find leads and close them — without leaving the platform.",
+    description: "Everything in Scout, plus the tools to act on your leads — without switching to another platform.",
     highlight: true,
     badge: "Most Popular",
     features: [
-      "Unlimited lead searches",
-      "Everything in Scout",
-      "Signal-driven outreach generator",
-      "Email · LinkedIn DM · Cold call scripts",
-      "In-platform email sending",
-      "Message template library",
-      "Deep website enrichment — 50 scans/month",
-      "Revenue tracking + pipeline analytics",
-      "Lead scoring explanation",
-      "Cross-language niche search",
-      "14-day result caching",
-      "Priority support",
+      { text: "Unlimited lead searches", note: null },
+      { text: "Everything in Scout", note: null },
+      { text: "AI outreach generator", note: "Signal-driven messages for email, LinkedIn DM, or cold call — tailored to each lead's gap type" },
+      { text: "Send outreach directly", note: "Send emails from within Vantio and log them automatically to the lead's activity history" },
+      { text: "Message template library", note: "Save your best messages and reuse them in one click" },
+      { text: "Website deep scan", note: "50 scans/month — checks booking flows, contact pages, mobile friendliness and more" },
+      { text: "Profile analytics", note: "Track reply rates, booking rates, close rates, and revenue across your pipeline" },
+      { text: "Lead scoring explanation", note: "See exactly why a lead scored the way it did, with the full evidence breakdown" },
+      { text: "Priority support", note: null },
     ],
     lockedFeatures: [
-      "Team members — Agency",
-      "Unlimited deep scans — Agency",
+      "Team members",
+      "Unlimited deep scans",
     ],
     cta: "Join Waitlist",
     href: null,
@@ -68,19 +64,18 @@ const PLANS = [
     price: "$199",
     sub: "/ month",
     billing: "Beta pricing · locks in for 12 months",
-    description: "Built for teams running outreach across multiple niches and clients at scale.",
+    description: "Built for teams running outreach for multiple clients across multiple niches at the same time.",
     highlight: false,
     badge: null,
     features: [
-      "Everything in Operator",
-      "Up to 5 team members",
-      "Deep enrichment — unlimited scans",
-      "Lead collections (named lists per client)",
-      "Bulk lead actions",
-      "Competitor density signals",
-      "CRM export integrations",
-      "Dedicated onboarding call",
-      "SLA support — 24h response",
+      { text: "Everything in Operator", note: null },
+      { text: "Up to 5 team members", note: "Each with their own profile, scoring, and outreach history" },
+      { text: "Unlimited website deep scans", note: null },
+      { text: "Bulk lead actions", note: "Mark multiple leads as contacted, export selections, or move them between collections in one action" },
+      { text: "Competitor density signals", note: "See how saturated a market is before you pitch" },
+      { text: "CSV import", note: "Score your own prospect lists with Vantio's signal engine" },
+      { text: "Onboarding call", note: "A 30-minute call to set up your team, configure your profiles, and get your first searches running" },
+      { text: "Priority email support", note: "We respond within 24 hours" },
     ],
     lockedFeatures: [],
     cta: "Join Waitlist",
@@ -88,26 +83,35 @@ const PLANS = [
   },
 ];
 
+
 const FAQ = [
   {
+    q: "What are the four gap types?",
+    a: "Vantio classifies every lead into one of four gap types based on their digital signals. Visibility Gap — demand exists but they're not capturing it. Conversion Gap — traffic or interest exists but leaks before becoming bookings. Infrastructure Gap — no digital foundation. Optimization Gap — strong base with clear room to sharpen. The gap type tells you exactly what angle to use in your outreach.",
+  },
+  {
     q: "When do paid plans launch?",
-    a: "We're in closed beta right now. Joining the waitlist locks in your early-access price for 12 months from launch — typically 30–40% below the public rate.",
+    a: "We're in beta right now. Joining the waitlist locks in your beta price for 12 months from launch — 30–40% below the public rate.",
   },
   {
     q: "Is there a free trial?",
-    a: "Beta users get full platform access while we're in testing. When we launch publicly, each paid plan includes a 7-day free trial — no card charged until day 8.",
+    a: "During beta, full platform access is available. When we launch publicly, each paid plan includes a 7-day free trial — no card charged until day 8.",
   },
   {
     q: "What counts as a 'lead search'?",
-    a: "One search = one niche + location query (e.g. \"barber shops in Malmö\"). Each search returns up to 25 scored leads. Loading more results from the same search doesn't use an additional search.",
+    a: "One search = one niche + location query (e.g. 'barber shops in Malmö'). Each search returns up to 25 scored leads. Paginating through the same search doesn't count as a new search.",
   },
   {
     q: "Can I switch plans later?",
-    a: "Yes. Upgrades take effect immediately, downgrades at the next billing cycle. No lock-in beyond the current month.",
+    a: "Yes. Upgrades apply immediately, downgrades at your next billing cycle. No lock-in beyond the current month.",
   },
   {
     q: "What's the difference between Scout and Operator?",
-    a: "Scout is built for occasional use — great for testing new niches or markets with a monthly search budget. Operator removes the search cap, adds deep enrichment, and is designed for people running outreach as a core part of their workflow.",
+    a: "Scout is the intelligence layer — find, score, and evaluate leads. Operator adds the action layer — AI outreach generation, in-platform email sending, website deep scans, and pipeline analytics. If you're running regular outreach and want to do it without switching tools, Operator is built for you.",
+  },
+  {
+    q: "Who is Agency for?",
+    a: "Teams. Freelancers who bring in colleagues, small agencies managing client prospecting across multiple niches, or anyone who needs more than one person working the same pipeline. The key additions are up to 5 team seats, unlimited deep scans, bulk lead actions, and an onboarding call.",
   },
 ];
 
@@ -216,16 +220,22 @@ export default function PlansPage() {
               </div>
 
               {/* Features */}
-              <ul className="space-y-2.5 flex-1 mb-8">
-                {plan.features.map((f, j) => (
-                  <li key={j} className="flex items-start gap-2.5 text-[12px] text-[#777]">
-                    <span className="text-[#8a6e30] mt-0.5 shrink-0 text-[10px]">✦</span>
-                    <span>{f}</span>
-                  </li>
-                ))}
+              <ul className="space-y-3 flex-1 mb-8">
+                {plan.features.map((f, j) => {
+                  const feat = typeof f === "string" ? { text: f, note: null } : f as { text: string; note: string | null };
+                  return (
+                    <li key={j} className="flex items-start gap-2.5">
+                      <span className="text-[#8a6e30] mt-0.5 shrink-0 text-[10px]">✦</span>
+                      <div>
+                        <p className="text-[12px] text-[#888]">{feat.text}</p>
+                        {feat.note && <p className="text-[10px] text-[#555] mt-0.5 leading-relaxed">{feat.note}</p>}
+                      </div>
+                    </li>
+                  );
+                })}
                 {"lockedFeatures" in plan && (plan as { lockedFeatures?: string[] }).lockedFeatures?.map((f, j) => (
-                  <li key={`locked-${j}`} className="flex items-start gap-2.5 text-[12px] text-[#444]">
-                    <span className="mt-0.5 shrink-0 text-[10px]">🔒</span>
+                  <li key={`locked-${j}`} className="flex items-start gap-2.5 text-[12px] text-[#333]">
+                    <span className="mt-0.5 shrink-0 text-[10px] opacity-40">🔒</span>
                     <span>{f}</span>
                   </li>
                 ))}
