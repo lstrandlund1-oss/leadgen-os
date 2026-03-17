@@ -2759,7 +2759,7 @@ export default function Home() {
                                             missing_needs: detailLead.fit?.missingNeeds ?? [],
                                             fit_score: detailLead.fit?.fitScore ?? 0,
                                           };
-                                          sessionStorage.setItem("vantio_outreach_lead", JSON.stringify(snapshot));
+                                          localStorage.setItem("vantio_outreach_lead", JSON.stringify(snapshot));
                                           window.location.href = "/outreach";
                                         }}
                                         className="flex items-center justify-between w-full px-4 py-3 rounded-xl border border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.04)] hover:bg-[rgba(201,168,76,0.08)] transition-all group">

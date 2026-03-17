@@ -83,7 +83,7 @@ export default function OutreachPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("vantio_outreach_lead");
+    const stored = localStorage.getItem("vantio_outreach_lead");
     if (stored) { try { setLead(JSON.parse(stored)); } catch { /* ignore */ } }
     const supabase = createSupabaseBrowser();
     supabase.auth.getUser().then(({ data }: { data: { user: { email?: string } | null } }) => {
