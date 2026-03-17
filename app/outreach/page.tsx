@@ -29,6 +29,18 @@ type LeadSnapshot = {
   signals: Record<string, unknown>; matched_needs: string[]; missing_needs: string[]; fit_score: number;
 };
 
+type SavedLeadItem = {
+  id: string;
+  run_id: number;
+  company_name: string;
+  industry: string | null;
+  city: string | null;
+  website: string | null;
+  rating: number | null;
+  review_count: number | null;
+  social_presence: string | null;
+};
+
 const CHANNEL_META: Record<OutreachChannel, { label: string; icon: string; note: string }> = {
   email:       { label: "Email",       icon: "✉",  note: "50–100 words · subject 1–4 words · offer-based CTA" },
   linkedin_dm: { label: "LinkedIn DM", icon: "◈",  note: "25–75 words · conversational · permission framing" },
@@ -81,14 +93,29 @@ export default function OutreachPage() {
   const [result, setResult] = useState<OutreachResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [savedLeads, setSavedLeads] = useState<SavedLeadItem[]>([]);
+  const [leadsLoading, setLeadsLoading] = useState(true);
+  const [leadSearch, setLeadSearch] = useState("");
 
   useEffect(() => {
-    const stored = localStorage.getItem("vantio_outreach_lead");
-    if (stored) { try { setLead(JSON.parse(stored)); } catch { /* ignore */ } }
     const supabase = createSupabaseBrowser();
     supabase.auth.getUser().then(({ data }: { data: { user: { email?: string } | null } }) => {
       if (data.user?.email) setUserEmail(data.user.email);
     });
+
+    // Fetch all saved leads from Supabase
+    fetch("/api/outreach/leads")
+      .then(r => r.json())
+      .then((d: { leads?: SavedLeadItem[] }) => {
+        setSavedLeads(d.leads ?? []);
+        // Pre-select lead if passed from dashboard
+        const stored = localStorage.getItem("vantio_outreach_lead");
+        if (stored) {
+          try { setLead(JSON.parse(stored) as LeadSnapshot); } catch { /* ignore */ }
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLeadsLoading(false));
   }, []);
 
   const generate = useCallback(async (regen = false) => {
@@ -205,38 +232,111 @@ ${result.message.body}`
           {/* Left col */}
           <div className="space-y-3">
 
-            {lead ? (
-              <div className="rounded-2xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-[9px] uppercase tracking-widest text-[#555] mb-1">Lead</p>
-                    <p className="text-[14px] font-semibold text-[#f5f0e8] truncate">{lead.company_name}</p>
-                    <p className="text-[11px] text-[#555] mt-0.5">{[lead.industry, lead.city].filter(Boolean).join(" · ") || "Unknown"}</p>
-                  </div>
-                  <Link href="/dashboard" className="text-[10px] text-[#444] hover:text-[#c9a84c] transition-colors whitespace-nowrap flex-shrink-0">← Change</Link>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[{label:"OPP",value:lead.opportunity,color:"#c9a84c"},{label:"RISK",value:lead.risk,color:"#f87171"},{label:"FIT",value:lead.fit_score,color:"#4ade80"}].map((s) => (
-                    <div key={s.label} className="rounded-lg border border-[#1a1a1a] bg-[#080808] py-2 text-center">
-                      <p className="text-[8px] uppercase tracking-widest text-[#444] mb-0.5">{s.label}</p>
-                      <p className="text-[14px] font-bold" style={{ color: s.color }}>{s.value}</p>
-                    </div>
-                  ))}
-                </div>
-                {(lead.matched_needs.length > 0 || lead.missing_needs.length > 0) && (
-                  <div className="flex flex-wrap gap-1.5 pt-2 border-t border-[#1a1a1a]">
-                    {lead.matched_needs.slice(0,3).map((n) => <span key={n} className="text-[9px] px-2 py-0.5 rounded-full border border-[#4ade80]/20 text-[#4ade80]/70 bg-[#4ade80]/04 capitalize">✓ {n}</span>)}
-                    {lead.missing_needs.slice(0,2).map((n) => <span key={n} className="text-[9px] px-2 py-0.5 rounded-full border border-[#f87171]/20 text-[#f87171]/70 bg-[#f87171]/04 capitalize">✗ {n}</span>)}
-                  </div>
+            {/* ── Lead picker ── */}
+            <div className="rounded-2xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[9px] uppercase tracking-widest text-[#555]">Lead</p>
+                {lead && (
+                  <button type="button" onClick={() => setLead(null)}
+                    className="text-[10px] text-[#444] hover:text-[#f87171] transition-colors">
+                    × Clear
+                  </button>
                 )}
               </div>
-            ) : (
-              <div className="rounded-2xl border border-[#252525] bg-[#0d0d0d] p-5 text-center space-y-2">
-                <p className="text-[13px] text-[#555]">No lead selected</p>
-                <p className="text-[11px] text-[#333]">Open a lead in the dashboard and click &ldquo;Generate outreach message&rdquo;</p>
-                <Link href="/dashboard" className="inline-block text-[12px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors mt-1">Go to Dashboard →</Link>
+
+              {/* Selected lead summary */}
+              {lead && (
+                <div className="rounded-xl border border-[#c9a84c]/30 bg-[rgba(201,168,76,0.04)] px-3 py-2.5">
+                  <p className="text-[12px] font-semibold text-[#e8c97a] truncate">{lead.company_name}</p>
+                  <p className="text-[10px] text-[#666] mt-0.5">{[lead.industry, lead.city].filter(Boolean).join(" · ") || "Unknown"}</p>
+                </div>
+              )}
+
+              {/* Search */}
+              <input
+                type="text"
+                value={leadSearch}
+                onChange={(e) => setLeadSearch(e.target.value)}
+                placeholder={leadsLoading ? "Loading leads…" : `Search ${savedLeads.length} saved leads`}
+                className="w-full bg-[#080808] border border-[#1e1e1e] rounded-lg px-3 py-2 text-[12px] text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors"
+              />
+
+              {/* Lead list */}
+              <div className="space-y-1 max-h-64 overflow-y-auto scrollbar-none">
+                {leadsLoading ? (
+                  <div className="py-4 text-center">
+                    <div className="w-4 h-4 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin mx-auto" />
+                  </div>
+                ) : savedLeads.length === 0 ? (
+                  <div className="py-4 text-center space-y-1.5">
+                    <p className="text-[12px] text-[#444]">No saved leads yet</p>
+                    <Link href="/dashboard" className="text-[11px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors">Run a search on the dashboard →</Link>
+                  </div>
+                ) : (
+                  savedLeads
+                    .filter(l => {
+                      if (!leadSearch.trim()) return true;
+                      const q = leadSearch.toLowerCase();
+                      return (
+                        l.company_name.toLowerCase().includes(q) ||
+                        (l.industry ?? "").toLowerCase().includes(q) ||
+                        (l.city ?? "").toLowerCase().includes(q)
+                      );
+                    })
+                    .slice(0, 30)
+                    .map((l) => {
+                      const isSelected = lead?.id === l.id;
+                      return (
+                        <button key={l.id} type="button"
+                          onClick={() => {
+                            // Convert SavedLeadItem to LeadSnapshot with defaults
+                            const snapshot: LeadSnapshot = {
+                              id: l.id,
+                              company_name: l.company_name,
+                              industry: l.industry,
+                              city: l.city,
+                              website: l.website,
+                              rating: l.rating,
+                              review_count: l.review_count,
+                              social_presence: l.social_presence as LeadSnapshot["social_presence"],
+                              opportunity: 50,
+                              readiness: 50,
+                              risk: 50,
+                              signals: {},
+                              matched_needs: [],
+                              missing_needs: [],
+                              fit_score: 0,
+                            };
+                            setLead(snapshot);
+                            setResult(null);
+                            setError(null);
+                            localStorage.setItem("vantio_outreach_lead", JSON.stringify(snapshot));
+                          }}
+                          className={"w-full text-left px-3 py-2.5 rounded-xl border transition-all " + (isSelected ? "border-[#c9a84c]/50 bg-[rgba(201,168,76,0.06)]" : "border-[#1a1a1a] hover:border-[#333] hover:bg-[#111]")}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className={"text-[12px] font-medium truncate " + (isSelected ? "text-[#e8c97a]" : "text-[#c8c0b0]")}>{l.company_name}</p>
+                              <p className="text-[10px] text-[#444] truncate">{[l.industry, l.city].filter(Boolean).join(" · ") || "Unknown"}</p>
+                            </div>
+                            {l.rating && <span className="text-[10px] text-[#555] flex-shrink-0">{l.rating}★</span>}
+                          </div>
+                        </button>
+                      );
+                    })
+                )}
               </div>
-            )}
+
+              {savedLeads.length > 0 && (
+                <p className="text-[9px] text-[#2d2d2d] text-center">
+                  {savedLeads.filter(l => {
+                    if (!leadSearch.trim()) return true;
+                    const q = leadSearch.toLowerCase();
+                    return l.company_name.toLowerCase().includes(q) || (l.industry ?? "").toLowerCase().includes(q) || (l.city ?? "").toLowerCase().includes(q);
+                  }).length} leads
+                  {leadSearch ? " matched" : " saved"}
+                </p>
+              )}
+            </div>
 
             {/* Objective */}
             <div className="rounded-2xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2.5">
