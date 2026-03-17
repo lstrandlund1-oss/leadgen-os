@@ -1,5 +1,6 @@
 // app/api/providers/search/route.ts
 import { NextResponse } from "next/server";
+import { normalizeNiche } from "@/lib/niche/synonyms";
 import type { ProviderName, ProviderSearchIntent } from "@/lib/providers/types";
 import { ingestFromProvider } from "@/lib/ingest/ingest";
 import { rateLimitDb } from "@/lib/rateLimitDb";
@@ -94,7 +95,7 @@ export async function POST(request: Request) {
 
     const intent: ProviderSearchIntent = {
       provider,
-      query: queryRaw.trim(),
+      query: normalizeNiche(queryRaw.trim()),
 
       // existing fields
       country: getString(body, "country"),

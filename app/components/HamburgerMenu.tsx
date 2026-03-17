@@ -67,8 +67,10 @@ export default function HamburgerMenu({
     { label: "Outreach",           href: "/outreach",     icon: "✦",  locked: !outreachUnlocked },
     { label: "Profile",            href: "/profile",      icon: "◈",  locked: false },
     { label: "Analytics",          href: "/analytics",    icon: "◉",  locked: false },
+  { label: "Follow-up Queue",    href: "/followups",    icon: "↩",  locked: false },
     { label: "Subscription Plans", href: "/plans",        icon: "◆",  locked: false },
     { label: "Contact & Support",  href: "/contact",      icon: "✉",  locked: false },
+  { label: "Settings",           href: "/settings",     icon: "⚙",  locked: false },
   ];
 
   return (

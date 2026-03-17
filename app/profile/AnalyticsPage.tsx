@@ -111,7 +111,7 @@ export default function AnalyticsPage() {
           booked_call: booked,
           closed,
           lost_reason: isLost ? MOCK_LOST_REASONS[Math.floor(Math.random() * MOCK_LOST_REASONS.length)] : null,
-          revenue: null,
+          revenue: closed ? Math.round(5000 + Math.random() * 15000) : null,
           notes: null,
           tonality: tonalities[Math.floor(Math.random() * 4)],
           angle_type: angles[Math.floor(Math.random() * angles.length)],
@@ -144,6 +144,8 @@ export default function AnalyticsPage() {
   const lostLeads = filtered.filter((o) => !!o.lost_reason);
   const lostCount = lostLeads.length;
   const winCount = closed; // reuse already-computed closed count
+  const totalRevenue = filtered.reduce((sum, o) => sum + (o.revenue ?? 0), 0);
+  const avgDeal = closed > 0 && totalRevenue > 0 ? Math.round(totalRevenue / closed) : 0;
   const lostReasonBreakdown = Object.entries(LOST_REASON_LABELS).map(([key, label]) => ({
     key, label,
     count: lostLeads.filter((o) => o.lost_reason === key).length,
@@ -290,12 +292,14 @@ export default function AnalyticsPage() {
           <>
 
             {/* ── KPI row ── */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {[
                 { label: "Leads Contacted", value: contacted.toString(), sub: `${total} total tracked` },
                 { label: "Reply Rate", value: `${pct(replied, contacted)}%`, sub: `${replied} replied` },
                 { label: "Close Rate", value: `${pct(closed, contacted)}%`, sub: `${closed} deals closed` },
                 { label: "Win / Lost", value: `${winCount} / ${lostCount}`, sub: lostCount > 0 ? `${pct(winCount, winCount + lostCount)}% win rate` : "No lost leads yet" },
+                { label: "Total Revenue", value: totalRevenue > 0 ? `$${totalRevenue.toLocaleString()}` : "—", sub: `${closed} deal${closed !== 1 ? "s" : ""} closed` },
+                { label: "Avg Deal Size", value: avgDeal > 0 ? `$${avgDeal.toLocaleString()}` : "—", sub: "per closed deal" },
               ].map((kpi) => (
                 <div key={kpi.label} className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-4 space-y-1">
                   <p className="text-[9px] uppercase tracking-widest text-[#444]">{kpi.label}</p>

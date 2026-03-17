@@ -93,6 +93,14 @@ export default function OutreachPage() {
   const [result, setResult] = useState<OutreachResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showSend, setShowSend] = useState(false);
+  const [sendTo, setSendTo] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState<"sent"|"error"|null>(null);
+  const [templates, setTemplates] = useState<Array<{id:string;name:string;channel:string;subject?:string;body:string}>>([]);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
   const [savedLeads, setSavedLeads] = useState<SavedLeadItem[]>([]);
   const [leadsLoading, setLeadsLoading] = useState(true);
   const [leadSearch, setLeadSearch] = useState("");
@@ -116,6 +124,14 @@ export default function OutreachPage() {
       })
       .catch(() => {})
       .finally(() => setLeadsLoading(false));
+
+    // Load saved templates
+    fetch("/api/outreach/templates")
+      .then(r => r.json())
+      .then((d: { templates?: Array<{id:string;name:string;channel:string;subject?:string;body:string}> }) => {
+        setTemplates(d.templates ?? []);
+      })
+      .catch(() => {});
   }, []);
 
   const generate = useCallback(async (regen = false) => {
@@ -169,7 +185,51 @@ ${result.message.body}`
     } catch { /* fail soft */ } finally { setRefining(null); }
   }, [result, refining]);
 
-  useEffect(() => { setResult(null); setError(null); }, [channel, tone, objective]);
+  useEffect(() => { setResult(null); setError(null); setShowSend(false); setSendResult(null); }, [channel, tone, objective]);
+
+  const sendOutreachEmail = useCallback(async () => {
+    if (!result || !sendTo.trim() || sending) return;
+    setSending(true); setSendResult(null);
+    try {
+      const res = await fetch("/api/outreach/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: sendTo.trim(),
+          subject: result.message.subject ?? `Re: ${lead?.company_name ?? "Your business"}`,
+          body: result.message.body,
+          company_name: lead?.company_name,
+        }),
+      });
+      setSendResult(res.ok ? "sent" : "error");
+    } catch { setSendResult("error"); }
+    finally { setSending(false); }
+  }, [result, sendTo, sending, lead]);
+
+  const saveTemplate = useCallback(async () => {
+    if (!result || !templateName.trim() || savingTemplate) return;
+    setSavingTemplate(true);
+    try {
+      const res = await fetch("/api/outreach/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: templateName.trim(),
+          channel: result.message.channel,
+          subject: result.message.subject,
+          body: result.message.body,
+          tone: result.brief.tone,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json() as { template: {id:string;name:string;channel:string;subject?:string;body:string} };
+        setTemplates(prev => [data.template, ...prev]);
+        setTemplateName("");
+        setShowTemplates(false);
+      }
+    } catch { /* fail soft */ }
+    finally { setSavingTemplate(false); }
+  }, [result, templateName, savingTemplate]);
 
   if (!unlocked) {
     return (
@@ -515,6 +575,7 @@ ${result.message.body}`
                     </div>
                   </div>
 
+                  {/* Primary actions */}
                   <div className="flex gap-2 pt-1">
                     <button type="button"
                       onClick={async () => {
@@ -527,10 +588,85 @@ ${result.message.body}` : result.message.body;
                       className="flex-1 py-2.5 rounded-xl border border-[#c9a84c]/30 text-[12px] font-semibold text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-all">
                       {copied ? "✓ Copied!" : "Copy message"}
                     </button>
-                    <button type="button" onClick={() => generate(true)}
-                      className="flex-1 py-2.5 rounded-xl border border-[#252525] text-[12px] text-[#555] hover:border-[#444] hover:text-[#888] transition-all">
-                      Regenerate ↺
+                    <button type="button" onClick={() => setShowSend(s => !s)}
+                      className={"flex-1 py-2.5 rounded-xl border text-[12px] font-semibold transition-all " + (showSend ? "border-[#4ade80]/30 text-[#4ade80] bg-[rgba(74,222,128,0.05)]" : "border-[#252525] text-[#555] hover:border-[#444] hover:text-[#888]")}>
+                      ✉ Send email
                     </button>
+                    <button type="button" onClick={() => generate(true)}
+                      className="px-3 py-2.5 rounded-xl border border-[#252525] text-[12px] text-[#555] hover:border-[#444] hover:text-[#888] transition-all">
+                      ↺
+                    </button>
+                  </div>
+
+                  {/* Send email panel */}
+                  {showSend && (
+                    <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+                      <p className="text-[9px] uppercase tracking-widest text-[#555]">Send via Vantio</p>
+                      <input
+                        type="email"
+                        value={sendTo}
+                        onChange={e => { setSendTo(e.target.value); setSendResult(null); }}
+                        placeholder="recipient@company.com"
+                        className="w-full bg-[#080808] border border-[#1e1e1e] rounded-lg px-3 py-2 text-[12px] text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors"
+                      />
+                      {sendResult === "sent" && <p className="text-[11px] text-[#4ade80]">✓ Email sent successfully</p>}
+                      {sendResult === "error" && <p className="text-[11px] text-[#f87171]">✗ Failed to send — check the address and try again</p>}
+                      <button type="button" onClick={sendOutreachEmail}
+                        disabled={!sendTo.trim() || sending}
+                        className="w-full py-2.5 rounded-xl bg-[#4ade80]/10 border border-[#4ade80]/30 text-[12px] font-semibold text-[#4ade80] hover:bg-[#4ade80]/15 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                        {sending ? "Sending…" : `Send to ${sendTo || "recipient"}`}
+                      </button>
+                      <p className="text-[10px] text-[#2d2d2d]">Sent from hello@vantioapp.com · logged to your outreach history</p>
+                    </div>
+                  )}
+
+                  {/* Save as template */}
+                  <div className="space-y-2">
+                    <button type="button" onClick={() => setShowTemplates(s => !s)}
+                      className="text-[10px] text-[#444] hover:text-[#666] transition-colors">
+                      {showTemplates ? "▾ Hide templates" : "▸ Save as template or load saved"}
+                    </button>
+
+                    {showTemplates && (
+                      <div className="rounded-xl border border-[#1e1e1e] bg-[#0a0a0a] p-4 space-y-3">
+                        {/* Save current */}
+                        <div className="space-y-2">
+                          <p className="text-[9px] uppercase tracking-widest text-[#444]">Save this message</p>
+                          <div className="flex gap-2">
+                            <input type="text" value={templateName} onChange={e => setTemplateName(e.target.value)}
+                              placeholder="Template name…"
+                              className="flex-1 bg-[#080808] border border-[#1e1e1e] rounded-lg px-3 py-2 text-[12px] text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors" />
+                            <button type="button" onClick={saveTemplate} disabled={!templateName.trim() || savingTemplate}
+                              className="px-3 py-2 rounded-lg border border-[#c9a84c]/30 text-[11px] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] disabled:opacity-40 transition-all">
+                              {savingTemplate ? "…" : "Save ✦"}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Saved templates list */}
+                        {templates.length > 0 && (
+                          <div className="space-y-1.5 pt-2 border-t border-[#141414]">
+                            <p className="text-[9px] uppercase tracking-widests text-[#333]">Saved templates</p>
+                            {templates.map(tmpl => (
+                              <button key={tmpl.id} type="button"
+                                onClick={() => {
+                                  setResult(prev => prev ? {
+                                    ...prev,
+                                    message: { ...prev.message, subject: tmpl.subject, body: tmpl.body, word_count: tmpl.body.split(/\s+/).length }
+                                  } : prev);
+                                  setShowTemplates(false);
+                                }}
+                                className="w-full text-left px-3 py-2 rounded-lg border border-[#1a1a1a] hover:border-[#333] transition-all group">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[11px] text-[#888] group-hover:text-[#c8c0b0] transition-colors">{tmpl.name}</p>
+                                  <span className="text-[9px] text-[#333] capitalize">{tmpl.channel}</span>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
