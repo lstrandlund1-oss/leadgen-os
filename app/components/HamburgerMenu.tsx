@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
+import { getEffectivePlan, canUseOutreach } from "@/lib/plan";
 
 type HamburgerMenuProps = {
   hasProfile?: boolean;
@@ -22,6 +23,9 @@ export default function HamburgerMenu({
   const router = useRouter();
   const supabase = createSupabaseBrowser();
 
+  const plan = getEffectivePlan();
+  const outreachUnlocked = canUseOutreach(plan);
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -39,13 +43,13 @@ export default function HamburgerMenu({
   }
 
   const menuItems = [
-    { label: "Home", href: "/", icon: "◇" },
-    { label: "Dashboard", href: "/dashboard", icon: "◈" },
-    { label: "Contact Leads", href: "/contact-leads", icon: "✦" },
-    { label: "Profile", href: "/profile", icon: "◈" },
-    { label: "Analytics", href: "/analytics", icon: "◉" },
-    { label: "Subscription Plans", href: "/plans", icon: "◆" },
-    { label: "Contact & Support", href: "/contact", icon: "✉" },
+    { label: "Home",               href: "/",             icon: "◇",  locked: false },
+    { label: "Dashboard",          href: "/dashboard",    icon: "◈",  locked: false },
+    { label: "Outreach",           href: "/outreach",     icon: "✦",  locked: !outreachUnlocked },
+    { label: "Profile",            href: "/profile",      icon: "◈",  locked: false },
+    { label: "Analytics",          href: "/analytics",    icon: "◉",  locked: false },
+    { label: "Subscription Plans", href: "/plans",        icon: "◆",  locked: false },
+    { label: "Contact & Support",  href: "/contact",      icon: "✉",  locked: false },
   ];
 
   return (
@@ -79,17 +83,31 @@ export default function HamburgerMenu({
           )}
 
           <div className="py-2">
-            {menuItems.map((item, i) => (
-              <Link
-                key={i}
-                href={item.href}
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 text-sm text-[#f5f0e8] hover:bg-[#1a1a1a] hover:text-[#e8c97a] transition-colors group"
-              >
-                <span className="text-[#8a6e30] group-hover:text-[#c9a84c] transition-colors text-xs">{item.icon}</span>
-                <span className="tracking-wide">{item.label}</span>
-              </Link>
-            ))}
+            {menuItems.map((item, i) =>
+              item.locked ? (
+                /* Locked item — visible but gated, clicking goes to plans */
+                <Link
+                  key={i}
+                  href="/plans"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 text-sm text-[#555] hover:bg-[#1a1a1a] hover:text-[#888] transition-colors group"
+                >
+                  <span className="text-[#3a3a3a] group-hover:text-[#555] transition-colors text-xs">{item.icon}</span>
+                  <span className="tracking-wide flex-1">{item.label}</span>
+                  <span className="text-[11px] text-[#444] group-hover:text-[#666] transition-colors" title="Operator+ only">🔒</span>
+                </Link>
+              ) : (
+                <Link
+                  key={i}
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 text-sm text-[#f5f0e8] hover:bg-[#1a1a1a] hover:text-[#e8c97a] transition-colors group"
+                >
+                  <span className="text-[#8a6e30] group-hover:text-[#c9a84c] transition-colors text-xs">{item.icon}</span>
+                  <span className="tracking-wide">{item.label}</span>
+                </Link>
+              )
+            )}
           </div>
 
           {/* Language switcher */}

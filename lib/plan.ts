@@ -24,3 +24,7 @@ export function deepEnrichmentLimit(plan: PlanTier): number | null {
   if (plan === "operator") return 50;     // 50/month
   return 0;                               // scout — no access
 }
+
+export function canUseOutreach(plan: PlanTier): boolean {
+  return plan === "operator" || plan === "agency";
+}

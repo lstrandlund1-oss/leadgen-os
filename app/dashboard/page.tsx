@@ -622,6 +622,7 @@ export default function Home() {
     brand: { scores: Record<string, number>; brandGrade: string; weakestArea: string; strengthArea: string };
   } | null>(null);
 
+  // Variant for outcome tracking
   type OutreachVariant = "soft" | "consultative" | "direct" | "bold";
   const [outreachVariant, setOutreachVariant] =
     useState<OutreachVariant>("consultative");
@@ -670,7 +671,7 @@ export default function Home() {
     }
   }
 
-  const outreach = selectedLead?.metadata?.outreach;
+    const outreach = selectedLead?.metadata?.outreach;
   const selectedVariant = outreachVariant; // or just use outreachVariant directly
   const outreachScript = outreach?.variants?.[selectedVariant] ?? "";
   const scriptText = outreachScript.trim();
@@ -976,6 +977,7 @@ export default function Home() {
 
     const dv = selectedLead.metadata.outreach.defaultVariant;
     setOutreachVariant((["soft","consultative","direct","bold"].includes(dv ?? "") ? dv : "consultative") as OutreachVariant);
+
   }, [selectedLead]);
 
   // Scroll to detail panel on mobile when a lead is selected
@@ -2651,12 +2653,11 @@ export default function Home() {
                                   const title = angleTitle || structured.title;
                                   const why = angleWhy || structured.why;
 
-                                  type GapConfig = { label: string; color: string; icon: string; intervention: string };
-                                  const gapConfig: Record<string, GapConfig> = {
-                                    VISIBILITY:    { label: "Visibility Gap",     color: "#818cf8", icon: "◎", intervention: "Build high-intent capture channels — search, retargeting, demand-side content." },
-                                    CONVERSION:    { label: "Conversion Gap",     color: "#fb923c", icon: "⬡", intervention: "Fix the funnel — booking flow, tracking, and follow-up sequence." },
-                                    INFRASTRUCTURE:{ label: "Infrastructure Gap", color: "#f87171", icon: "△", intervention: "Build the foundation — a conversion-focused page with clear offer and CTA." },
-                                    OPTIMIZATION:  { label: "Optimization Gap",   color: "#34d399", icon: "◆", intervention: "Sharpen what works — A/B test, optimise copy, tighten conversion paths." },
+                                  const gapConfig: Record<string, { label: string; color: string; icon: string; intervention: string }> = {
+                                    VISIBILITY:     { label: "Visibility Gap",     color: "#818cf8", icon: "◎", intervention: "Build high-intent capture channels — search, retargeting, demand-side content." },
+                                    CONVERSION:     { label: "Conversion Gap",     color: "#fb923c", icon: "⬡", intervention: "Fix the funnel — booking flow, tracking, and follow-up sequence." },
+                                    INFRASTRUCTURE: { label: "Infrastructure Gap", color: "#f87171", icon: "△", intervention: "Build the foundation — a conversion-focused page with clear offer and CTA." },
+                                    OPTIMIZATION:   { label: "Optimization Gap",   color: "#34d399", icon: "◆", intervention: "Sharpen what works — A/B test, optimise copy, tighten conversion paths." },
                                   };
                                   const gc = gap ? gapConfig[gap] ?? null : null;
 
@@ -2673,7 +2674,6 @@ export default function Home() {
                                     HIGH:   { label: "High friction",   color: "#f87171", desc: "Hard to reach — soft or consultative tone only." },
                                   };
                                   const dc = difficulty ? difficultyConfig[difficulty] ?? null : null;
-
                                   const channelPrimary = !detailLead.company.website ? "Direct visit or phone" : "Email";
 
                                   return (
@@ -2688,7 +2688,7 @@ export default function Home() {
                                         </div>
                                       )}
 
-                                      {/* Gap intervention */}
+                                      {/* Gap */}
                                       {gc && (
                                         <div className="rounded-xl border p-4" style={{ borderColor: `${gc.color}30`, backgroundColor: `${gc.color}06` }}>
                                           <div className="flex items-center gap-2 mb-1.5">
@@ -2699,7 +2699,7 @@ export default function Home() {
                                         </div>
                                       )}
 
-                                      {/* Friction + channel row */}
+                                      {/* Friction + channel */}
                                       <div className="grid grid-cols-2 gap-2">
                                         {dc && (
                                           <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3">
@@ -2738,11 +2738,43 @@ export default function Home() {
                                         </div>
                                       </div>
 
+                                      {/* Open in Outreach CTA */}
+                                      <button type="button"
+                                        onClick={() => {
+                                          // Store full lead snapshot in sessionStorage for outreach page
+                                          const snapshot = {
+                                            id: detailLead.id,
+                                            company_name: detailLead.company.name,
+                                            industry: detailLead.classification.primaryIndustry ?? null,
+                                            city: detailLead.company.city ?? null,
+                                            website: detailLead.company.website ?? null,
+                                            rating: detailLead.metrics.rating ?? null,
+                                            review_count: detailLead.metrics.reviewCount ?? null,
+                                            social_presence: detailLead.metrics.socialPresence ?? null,
+                                            opportunity: detailLead.score.opportunity,
+                                            readiness: detailLead.score.readiness,
+                                            risk: detailLead.score.risk,
+                                            signals: enrichmentData?.signals ?? {},
+                                            matched_needs: detailLead.fit?.matchedNeeds ?? [],
+                                            missing_needs: detailLead.fit?.missingNeeds ?? [],
+                                            fit_score: detailLead.fit?.fitScore ?? 0,
+                                          };
+                                          sessionStorage.setItem("vantio_outreach_lead", JSON.stringify(snapshot));
+                                          window.location.href = "/outreach";
+                                        }}
+                                        className="flex items-center justify-between w-full px-4 py-3 rounded-xl border border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.04)] hover:bg-[rgba(201,168,76,0.08)] transition-all group">
+                                        <div>
+                                          <p className="text-[12px] font-semibold text-[#c9a84c]">Generate outreach message</p>
+                                          <p className="text-[10px] text-[#555] mt-0.5">Signal-driven · 3-stage pipeline · Operator+</p>
+                                        </div>
+                                        <span className="text-[#8a6e30] group-hover:text-[#c9a84c] transition-colors text-sm">→</span>
+                                      </button>
+
                                     </div>
                                   );
                                 })()}
 
-                                                                {detailTab === "tracking" && (() => {
+                                {detailTab === "tracking" && (() => {
                                   const canSave = Number.isFinite(runIdNum) && runIdNum > 0;
 
                                   // Pipeline stage — furthest reached
