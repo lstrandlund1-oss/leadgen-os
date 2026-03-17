@@ -233,12 +233,7 @@ export default function PlansPage() {
                     </li>
                   );
                 })}
-                {"lockedFeatures" in plan && (plan as { lockedFeatures?: string[] }).lockedFeatures?.map((f, j) => (
-                  <li key={`locked-${j}`} className="flex items-start gap-2.5 text-[12px] text-[#333]">
-                    <span className="mt-0.5 shrink-0 text-[10px] opacity-40">🔒</span>
-                    <span>{f}</span>
-                  </li>
-                ))}
+
               </ul>
 
               {/* CTA */}
