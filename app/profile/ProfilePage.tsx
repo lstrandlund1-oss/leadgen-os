@@ -14,7 +14,7 @@ type ProfileData = {
   businessName: string;
   experienceLevel: "beginner" | "intermediate" | "advanced";
   targetBusinessSize: "small" | "medium" | "large";
-  acquisitionStyle: "aggressive" | "balanced" | "premium";
+  acquisitionStyle: "volume" | "balanced" | "selective";
   budgetPreference: "low" | "medium" | "high";
   targetLocation: string;
   offerDescription: string;
@@ -345,7 +345,7 @@ export default function ProfilePage() {
                   Acquisition Style
                 </label>
                 <div className="flex gap-2">
-                  {(["aggressive", "balanced", "premium"] as const).map(
+                  {(["volume", "balanced", "selective"] as const).map(
                     (v) => (
                       <button
                         key={v}

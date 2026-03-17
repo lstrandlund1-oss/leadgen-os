@@ -10,7 +10,7 @@ export const sv: TranslationSchema = {
     header: {
       title: "Hitta dina nästa kunder",
       subtitle:
-        "Sök i valfri nisch och plats — varje lead poängsätts, analyses och är redo att kontaktas.",
+        "Sök i valfri nisch och plats — varje lead poängsätts, analyseras och är redo att kontaktas.",
       languageLabel: "Språk",
     },
     filters: {

@@ -7,7 +7,7 @@ export const DEFAULT_USER_PROFILE_V1: UserProfileV1 = {
   serviceFocus: ["ads", "content"],
   experienceLevel: "intermediate",
   targetBusinessSize: "small",
-  acquisitionStyle: "aggressive",
+  acquisitionStyle: "volume",
   budgetPreference: "medium",
   notes: "Default Beta profile",
 };
