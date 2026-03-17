@@ -580,6 +580,7 @@ export default function Home() {
     "score" | "opportunity" | "risk" | "confidence" | "fit"
   >("score");
   const [minScore, setMinScore] = useState(0);
+  const [filterHasWebsite, setFilterHasWebsite] = useState<"any"|"yes"|"no">("any");
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -606,6 +607,7 @@ export default function Home() {
   const deepScanUnlocked = canUseDeepEnrichment(userPlan);
 
   const [enrichmentLoading, setEnrichmentLoading] = useState(false);
+  const [isRescoring, setIsRescoring] = useState(false);
   const [enrichmentData, setEnrichmentData] = useState<{
     reachable: boolean;
     detectedPlatforms: string[];
@@ -856,6 +858,9 @@ export default function Home() {
     return leads.filter((l: LeadUI) => {
       if ((l.score.value ?? 0) < minScore) return false;
 
+      if (filterHasWebsite === "yes" && !l.company.website) return false;
+      if (filterHasWebsite === "no" && !!l.company.website) return false;
+
       const q = query.trim().toLowerCase();
       if (q) {
         const hay =
@@ -865,7 +870,7 @@ export default function Home() {
 
       return true;
     });
-  }, [leads, minScore, query]);
+  }, [leads, minScore, query, filterHasWebsite]);
 
   const sortedLeads = useMemo(() => {
     const arr = [...filteredLeads];
@@ -971,6 +976,14 @@ export default function Home() {
   // =====================
   // EFFECTS
   // =====================
+
+  // Smooth rescoring transition — show "Analyzing…" for 1.5s on lead select
+  useEffect(() => {
+    if (!selectedLead) { setIsRescoring(false); return; }
+    setIsRescoring(true);
+    const t = setTimeout(() => setIsRescoring(false), 1500);
+    return () => clearTimeout(t);
+  }, [selectedLead?.id]);
 
   useEffect(() => {
     if (!selectedLead?.metadata?.outreach) return;
@@ -1746,6 +1759,19 @@ export default function Home() {
                   </select>
                 </label>
 
+                <label className="flex items-center gap-2 text-xs text-[#aaa]">
+                  Website
+                  <select
+                    value={filterHasWebsite}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) => setFilterHasWebsite(e.target.value as "any"|"yes"|"no")}
+                    className="rounded-md bg-[#111111] border border-[#2a2a2a] px-2 py-1"
+                  >
+                    <option value="any">Any</option>
+                    <option value="yes">Has website</option>
+                    <option value="no">No website</option>
+                  </select>
+                </label>
+
                 <input
                   value={query}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
@@ -2247,6 +2273,20 @@ export default function Home() {
                                   return (
                                     <div className="space-y-3 pt-1">
 
+                                      {/* Rescoring transition */}
+                                      {isRescoring && (
+                                        <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-6 flex flex-col items-center gap-3 text-center">
+                                          <div className="w-5 h-5 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin" />
+                                          <div>
+                                            <p className="text-[12px] text-[#888]">Analyzing signals…</p>
+                                            <p className="text-[10px] text-[#444] mt-0.5">Scoring this lead for your profile</p>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Score content — hidden while rescoring */}
+                                      <div className={isRescoring ? "opacity-0 pointer-events-none" : "space-y-3 transition-opacity duration-500"}>
+
                                       {/* Hero score row */}
                                       <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-3 w-full">
                                         <div className="flex items-center gap-3 mb-2">
@@ -2361,6 +2401,7 @@ export default function Home() {
                                           <p className="text-[11px] text-[#555]">{t.ui.detail.noWebsite}</p>
                                         </div>
                                       )}
+                                      </div>{/* end score content wrapper */}
                                     </div>
                                   );
                                 })()}
@@ -2413,14 +2454,24 @@ export default function Home() {
 
                                       {/* Score reasons */}
                                       {detailLead.score.reasons?.length > 0 && (
-                                        <div className="rounded-lg border border-[#252525] bg-[#111] p-3">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#555] mb-2">Why</p>
-                                          <div className="flex flex-wrap gap-1.5">
-                                            {detailLead.score.reasons.map((reason: string, i: number) => (
-                                              <span key={i} className="text-[11px] px-2 py-1 rounded-md border border-[#2a2a2a] bg-[#0d0d0d] text-[#c8c0b0]">
-                                                {reason}
-                                              </span>
-                                            ))}
+                                        <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-3 space-y-2">
+                                          <div className="flex items-center gap-2">
+                                            <p className="text-[9px] uppercase tracking-widest text-[#555]">Score evidence</p>
+                                            <div className="flex-1 h-[1px] bg-[#1a1a1a]" />
+                                          </div>
+                                          <div className="space-y-1.5">
+                                            {detailLead.score.reasons.map((reason: string, i: number) => {
+                                              const isPositive = /strong|high|good|great|excellent|active|present|above/i.test(reason);
+                                              const isNegative = /no |missing|low|weak|below|lacks|absent|poor/i.test(reason);
+                                              return (
+                                                <div key={i} className="flex items-start gap-2.5">
+                                                  <span className={`text-[10px] mt-0.5 flex-shrink-0 ${isPositive ? "text-[#4ade80]" : isNegative ? "text-[#f87171]" : "text-[#555]"}`}>
+                                                    {isPositive ? "✓" : isNegative ? "✗" : "·"}
+                                                  </span>
+                                                  <p className="text-[11px] text-[#888] leading-snug">{reason}</p>
+                                                </div>
+                                              );
+                                            })}
                                           </div>
                                         </div>
                                       )}
@@ -2475,6 +2526,7 @@ export default function Home() {
                                           )}
                                         </div>
                                       )}
+                                      </div>{/* end score content wrapper */}
                                     </div>
                                   );
                                 })()}

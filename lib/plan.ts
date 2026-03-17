@@ -28,3 +28,26 @@ export function deepEnrichmentLimit(plan: PlanTier): number | null {
 export function canUseOutreach(plan: PlanTier): boolean {
   return plan === "operator" || plan === "agency";
 }
+
+// Beta pricing tiers (locked in for 12 months from signup)
+export const BETA_PRICING: Record<PlanTier, { monthly: number; label: string }> = {
+  scout:    { monthly: 29,  label: "Scout Beta" },
+  operator: { monthly: 79,  label: "Operator Beta" },
+  agency:   { monthly: 199, label: "Agency Beta" },
+};
+
+// Full release pricing (after beta period)
+export const RELEASE_PRICING: Record<PlanTier, { monthly: number; label: string }> = {
+  scout:    { monthly: 49,  label: "Scout" },
+  operator: { monthly: 129, label: "Operator" },
+  agency:   { monthly: 349, label: "Agency" },
+};
+
+export function isBetaUser(betaJoinDate?: string | null): boolean {
+  if (!betaJoinDate) return false;
+  // Beta pricing locked for 12 months from join date
+  const joined = new Date(betaJoinDate);
+  const expires = new Date(joined);
+  expires.setFullYear(expires.getFullYear() + 1);
+  return new Date() < expires;
+}

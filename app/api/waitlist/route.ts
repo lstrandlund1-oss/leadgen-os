@@ -34,7 +34,11 @@ export async function POST(request: Request) {
     const { error } = await supabase.from("waitlist").upsert(
       {
         email: email.toLowerCase().trim(),
-        plan: plan ?? "pro",
+        plan: plan ?? "scout",
+        beta_user: true,
+        beta_plan: plan ?? "scout",
+        beta_join_date: new Date().toISOString(),
+        beta_source: "waitlist",
         created_at: new Date().toISOString(),
       },
       { onConflict: "email" }

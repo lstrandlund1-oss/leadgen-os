@@ -9,18 +9,20 @@ const PLANS = [
     name: "Scout",
     price: "$29",
     sub: "/ month",
-    billing: "Billed monthly · cancel anytime",
+    billing: "Beta pricing · locks in for 12 months",
     description: "For freelancers and solo operators starting with signal-driven outreach.",
     highlight: false,
     badge: null,
     features: [
       "50 lead searches per month",
-      "All 5 profile types (free)",
+      "All 5 profile types",
       "Full signal-driven scoring",
       "All 4 gap types detected",
-      "Outreach scripts (soft + direct)",
       "Outcome tracking + pipeline",
       "CSV export",
+    ],
+    lockedFeatures: [
+      "Outreach generator (Operator+)",
     ],
     cta: "Join Waitlist",
     href: null,
@@ -30,7 +32,7 @@ const PLANS = [
     name: "Operator",
     price: "$79",
     sub: "/ month",
-    billing: "Billed monthly · cancel anytime",
+    billing: "Beta pricing · locks in for 12 months",
     description: "For active service providers running consistent outreach every week.",
     highlight: true,
     badge: "Most Popular",
@@ -39,6 +41,8 @@ const PLANS = [
       "Light enrichment on every lead",
       "Geography-aware fit scoring",
       "Deep enrichment — 50 scans/month",
+      "Signal-driven outreach generator",
+      "Email · LinkedIn DM · Cold call scripts",
       "Pipeline analytics + revenue tracking",
       "Priority support",
     ],
@@ -50,7 +54,7 @@ const PLANS = [
     name: "Agency",
     price: "$199",
     sub: "/ month",
-    billing: "Billed monthly · cancel anytime",
+    billing: "Beta pricing · locks in for 12 months",
     description: "For teams and agencies running outreach at scale across multiple niches.",
     highlight: false,
     badge: null,
@@ -130,7 +134,7 @@ export default function PlansPage() {
         <Link href="/" className="flex items-center gap-2">
           <span className="text-[#c9a84c]">◈</span>
           <span className="text-lg font-light tracking-wide" style={{ fontFamily: "var(--font-display), serif" }}>
-            LeadGen<span style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>OS</span>
+            Van<span style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>tio</span>
           </span>
         </Link>
         <HamburgerMenu hasProfile={false} />
@@ -202,6 +206,12 @@ export default function PlansPage() {
                 {plan.features.map((f, j) => (
                   <li key={j} className="flex items-start gap-2.5 text-[12px] text-[#777]">
                     <span className="text-[#8a6e30] mt-0.5 shrink-0 text-[10px]">✦</span>
+                    <span>{f}</span>
+                  </li>
+                ))}
+                {"lockedFeatures" in plan && (plan as { lockedFeatures?: string[] }).lockedFeatures?.map((f, j) => (
+                  <li key={`locked-${j}`} className="flex items-start gap-2.5 text-[12px] text-[#444]">
+                    <span className="mt-0.5 shrink-0 text-[10px]">🔒</span>
                     <span>{f}</span>
                   </li>
                 ))}
