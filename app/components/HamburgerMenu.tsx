@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { useTheme } from "./ThemeProvider";
 import { getEffectivePlan, canUseOutreach } from "@/lib/plan";
-import { useTheme } from "./ThemeProvider";
 
 function ThemeToggleInline() {
   const { theme, toggle } = useTheme();
