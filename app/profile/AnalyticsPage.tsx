@@ -67,6 +67,10 @@ const TONALITIES = [
   { key: "bold" as const,         label: "Bold",         color: "#f97316" },
 ];
 
+const MOCK_ANGLES = ["Conversion system upgrade", "Visibility + demand capture", "Foundation-first fix", "Value-first teardown", "Direct growth system"];
+const MOCK_TONALITIES: ("soft" | "direct" | "consultative" | "bold")[] = ["soft", "consultative", "direct", "bold"];
+const MOCK_LOST_REASONS = ["no_response", "not_interested", "has_provider", "wrong_timing", "price_too_high", "chose_competitor", "other"] as const;
+
 export default function AnalyticsPage() {
   const [outcomes, setOutcomes] = useState<Outcome[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,8 +88,8 @@ export default function AnalyticsPage() {
   const mockOutcomes = useMemo<Outcome[]>(() => {
     const now = new Date();
     const rows: Outcome[] = [];
-    const angles = ["Conversion system upgrade", "Visibility + demand capture", "Foundation-first fix", "Value-first teardown", "Direct growth system"];
-    const tonalities: ("soft" | "direct" | "consultative" | "bold")[] = ["soft", "consultative", "direct", "bold"];
+    const angles = MOCK_ANGLES;
+    const tonalities = MOCK_TONALITIES;
     let id = 1;
     for (let week = 7; week >= 0; week--) {
       const base = new Date(now);
@@ -97,8 +101,7 @@ export default function AnalyticsPage() {
         const replied = Math.random() < 0.22;
         const booked = replied && Math.random() < 0.45;
         const closed = booked && Math.random() < 0.6;
-        const lostReasonOptions = ["no_response", "not_interested", "has_provider", "wrong_timing", "price_too_high", "chose_competitor", "other"] as const;
-        const isLost = !replied && !closed && contacted && Math.random() < 0.35;
+        const isLost = !replied && !closed && Math.random() < 0.35;
         rows.push({
           id: String(id++),
           lead_id: `lead-${id}`,
@@ -107,7 +110,7 @@ export default function AnalyticsPage() {
           replied,
           booked_call: booked,
           closed,
-          lost_reason: isLost ? lostReasonOptions[Math.floor(Math.random() * lostReasonOptions.length)] : null,
+          lost_reason: isLost ? MOCK_LOST_REASONS[Math.floor(Math.random() * MOCK_LOST_REASONS.length)] : null,
           revenue: null,
           notes: null,
           tonality: tonalities[Math.floor(Math.random() * 4)],
