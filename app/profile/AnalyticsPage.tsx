@@ -60,6 +60,13 @@ const LOST_REASON_LABELS: Record<string, string> = {
   other:           "Other",
 };
 
+const TONALITIES = [
+  { key: "soft" as const,         label: "Soft",         color: "#8b5cf6" },
+  { key: "consultative" as const, label: "Consultative", color: "#3b82f6" },
+  { key: "direct" as const,       label: "Direct",       color: "#c9a84c" },
+  { key: "bold" as const,         label: "Bold",         color: "#f97316" },
+];
+
 export default function AnalyticsPage() {
   const [outcomes, setOutcomes] = useState<Outcome[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,13 +148,6 @@ export default function AnalyticsPage() {
   const topLostReason = lostReasonBreakdown[0] ?? null;
 
   // ── Tonality breakdown (all 4) ──
-  const TONALITIES = [
-    { key: "soft" as const,         label: "Soft",         color: "#8b5cf6" },
-    { key: "consultative" as const, label: "Consultative", color: "#3b82f6" },
-    { key: "direct" as const,       label: "Direct",       color: "#c9a84c" },
-    { key: "bold" as const,         label: "Bold",         color: "#f97316" },
-  ];
-
   const tonalityStats = TONALITIES.map(({ key, label, color }) => {
     const rows = filtered.filter((o) => o.tonality === key);
     const c = rows.filter((o) => o.contacted).length;
