@@ -1,5 +1,5 @@
 // ==========================================
-// Shared Types for LeadGen OS
+// Shared Types for Vantio
 // ==========================================
 import type { Capability } from "@/lib/fit/needs";
 import type { OpportunityBucket } from "@/lib/scoring/buckets";
@@ -55,7 +55,7 @@ export type UserProfileV1 = {
   targetLocation?: string;
 
   // Strategy bias
-  acquisitionStyle: "aggressive" | "balanced" | "premium";
+  acquisitionStyle: "volume" | "balanced" | "selective";
 
   // Constraints
   budgetPreference: "low" | "medium" | "high";

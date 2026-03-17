@@ -88,12 +88,12 @@ export function scoreFit(
   const missing: Capability[] = [];
 
   // Profile-based modifiers (deterministic layer)
-  if (userProfile.acquisitionStyle === "aggressive") {
+  if (userProfile.acquisitionStyle === "volume") {
     profileModifier += 10;
     profileReasons.push(
       "Aggressive profile → higher tolerance for imperfect leads.",
     );
-  } else if (userProfile.acquisitionStyle === "premium") {
+  } else if (userProfile.acquisitionStyle === "selective") {
     profileModifier -= 10;
     profileReasons.push("Premium profile → stricter qualification standard.");
   }

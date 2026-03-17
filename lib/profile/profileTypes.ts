@@ -1,5 +1,5 @@
 // lib/profile/profileTypes.ts
-// Defines all supported user profile types for LeadGenOS Beta.
+// Defines all supported user profile types for Vantio Beta.
 // Each type has a display name, description, default capabilities,
 // default UserProfileV1 values, and a seller type mapping.
 
@@ -47,7 +47,7 @@ export const PROFILE_TYPE_DEFINITIONS: Record<
       serviceFocus: ["ads"],
       experienceLevel: "intermediate",
       targetBusinessSize: "small",
-      acquisitionStyle: "aggressive",
+      acquisitionStyle: "volume",
       budgetPreference: "medium",
     },
   },
@@ -147,7 +147,7 @@ export const PROFILE_TYPE_DEFINITIONS: Record<
       serviceFocus: ["ads", "content", "seo"],
       experienceLevel: "advanced",
       targetBusinessSize: "medium",
-      acquisitionStyle: "premium",
+      acquisitionStyle: "selective",
       budgetPreference: "high",
     },
   },

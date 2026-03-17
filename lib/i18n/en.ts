@@ -7,9 +7,9 @@ export const en: TranslationSchema = {
       visit: "Visit",
     },
     header: {
-      title: "LeadGen OS – Lead Finder",
+      title: "Find your next clients",
       subtitle:
-        "Provider runs. Deterministic scoring. Explainable Opportunity vs Risk.",
+        "Search any niche and location — every lead is scored, analyzed, and ready to contact.",
       languageLabel: "Language",
     },
     filters: {

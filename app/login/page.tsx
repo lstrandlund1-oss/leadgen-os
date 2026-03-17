@@ -130,7 +130,7 @@ function LoginForm() {
           <>Already have an account?{" "}<button type="button" onClick={() => switchMode("signin")} className="text-[#c9a84c] hover:text-[#e8c97a] transition-colors">Sign in</button></>
         )}
       </p>
-      <p className="text-center text-[11px] text-[#333] mt-4 tracking-wide">Beta access only — invites required</p>
+      <p className="text-center text-[11px] text-[#333] mt-4 tracking-wide">Free during beta · No credit card required</p>
     </div>
   );
 }

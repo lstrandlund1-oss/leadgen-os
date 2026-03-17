@@ -102,7 +102,7 @@ export default function OnboardingPage() {
     "beginner" | "intermediate" | "advanced"
   >("intermediate");
   const [acquisitionStyle, setAcquisitionStyle] = useState<
-    "aggressive" | "balanced" | "premium"
+    "volume" | "balanced" | "selective"
   >("balanced");
   const [targetBusinessSize, setTargetBusinessSize] = useState<
     "small" | "medium" | "large"
@@ -158,7 +158,7 @@ export default function OnboardingPage() {
             className="text-lg font-light tracking-wide"
             style={{ fontFamily: "var(--font-display), serif" }}
           >
-            LeadGenOS
+            Vantio
           </span>
         </Link>
         <p className="text-[12px] text-[#444] tracking-wide">
@@ -176,6 +176,16 @@ export default function OnboardingPage() {
 
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-2xl">
+          {/* Welcome banner — only on first step */}
+          {step === 0 && (
+            <div className="rounded-2xl border border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.04)] px-5 py-4 mb-8 text-center">
+              <p className="text-[11px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Welcome to Vantio</p>
+              <p className="text-[13px] text-[#888] leading-relaxed">
+                You&apos;re about to set up your lead intelligence profile. It takes under a minute and makes every result you see specific to your business.
+              </p>
+            </div>
+          )}
+
           {/* Step labels */}
           <div className="flex items-center gap-2 mb-10 justify-center">
             {STEPS.map((label, i) => (
@@ -207,14 +217,13 @@ export default function OnboardingPage() {
                   className="text-3xl md:text-4xl font-light mb-2"
                   style={{ fontFamily: "var(--font-display), serif" }}
                 >
-                  What do you{" "}
+                  Let&apos;s set up your{" "}
                   <span className="italic" style={{ color: "#c9a84c" }}>
-                    offer?
+                    profile
                   </span>
                 </h1>
                 <p className="text-[13px] text-[#666]">
-                  Choose the option that best describes your service. This
-                  shapes how leads are scored for you.
+                  This takes about 60 seconds. Your answers shape how every lead is scored and matched — so results are relevant to you, not generic.
                 </p>
               </div>
 
@@ -286,8 +295,7 @@ export default function OnboardingPage() {
                   </span>
                 </h1>
                 <p className="text-[13px] text-[#666]">
-                  Toggle what you offer. Only leads where your capabilities
-                  match their needs will score highly.
+                  Select what you can deliver. Leads are scored higher when their needs match your services — so you only see opportunities you can actually win.
                 </p>
               </div>
 
@@ -340,14 +348,13 @@ export default function OnboardingPage() {
                   className="text-3xl md:text-4xl font-light mb-2"
                   style={{ fontFamily: "var(--font-display), serif" }}
                 >
-                  How do you{" "}
+                  Almost{" "}
                   <span className="italic" style={{ color: "#c9a84c" }}>
-                    work?
+                    done
                   </span>
                 </h1>
                 <p className="text-[13px] text-[#666]">
-                  These preferences shape how leads are ranked and how outreach
-                  scripts are generated.
+                  A few final preferences to tune your results. You can change these anytime in your profile settings.
                 </p>
               </div>
 
@@ -377,7 +384,7 @@ export default function OnboardingPage() {
                     Acquisition Style
                   </label>
                   <div className="flex gap-2">
-                    {(["aggressive", "balanced", "premium"] as const).map(
+                    {(["volume", "balanced", "selective"] as const).map(
                       (v) => (
                         <button
                           key={v}
@@ -391,9 +398,9 @@ export default function OnboardingPage() {
                     )}
                   </div>
                   <p className="text-[11px] text-[#444]">
-                    {acquisitionStyle === "aggressive"
+                    {acquisitionStyle === "volume"
                       ? "Higher tolerance for imperfect leads — cast wide."
-                      : acquisitionStyle === "premium"
+                      : acquisitionStyle === "selective"
                         ? "Stricter qualification — only high-readiness leads."
                         : "Balanced scoring — best for most service providers."}
                   </p>
@@ -467,20 +474,20 @@ export default function OnboardingPage() {
                   className="text-3xl md:text-4xl font-light mb-4"
                   style={{ fontFamily: "var(--font-display), serif" }}
                 >
-                  Your intelligence layer is{" "}
+                  You&apos;re ready to find{" "}
                   <span className="italic" style={{ color: "#c9a84c" }}>
-                    active.
+                    clients.
                   </span>
                 </h1>
                 <p className="text-[14px] text-[#555] max-w-md mx-auto leading-relaxed">
-                  Every lead you find will now be scored, matched, and pitched specifically for your service type and capabilities. No two users see the same leads the same way.
+                  Your profile is saved. Every lead you find will be scored and matched to your service — so you spend time on the right prospects, not random ones.
                 </p>
               </div>
               <div className="grid grid-cols-3 gap-3 max-w-sm mx-auto">
                 {[
                   { icon: "◈", label: "Profile-matched scoring" },
-                  { icon: "⬡", label: "Gap type detection" },
-                  { icon: "◆", label: "Outreach scripts" },
+                  { icon: "⬡", label: "Signal analysis" },
+                  { icon: "◆", label: "Outreach generator" },
                 ].map((f) => (
                   <div key={f.label} className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3 text-center">
                     <p className="text-[#c9a84c] text-lg mb-1">{f.icon}</p>
