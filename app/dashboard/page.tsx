@@ -10,6 +10,7 @@ import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import type { TranslationSchema as Translations } from "@/lib/i18n/types";
 import type { SocialPresenceFilter } from "@/lib/providers/types";
 import { useToast } from "../components/ToastProvider";
+import { getSearchQueries } from "@/lib/niche/synonyms";
 import { rescoreWithLightSignals } from "@/lib/scoring/rescoreWithSignals";
 
 const STORAGE_KEY = "vantio_state_v1";
@@ -477,13 +478,19 @@ async function runProviderSearchAndFetchLeads(args: {
   const timeoutController = new AbortController();
   const timeoutId = setTimeout(() => timeoutController.abort(), 30000);
 
+  // Expand niche into synonym queries (e.g. "mäklare" → ["mäklare", "real estate"])
+  // Only expand on first page (no cursor) to avoid doubling paginated requests
+  const searchQueries = cursor ? [niche] : getSearchQueries(niche);
+  const primaryQuery = searchQueries[0];
+  const expandedQueries = searchQueries.slice(1);
+
   const searchRes = await fetch("/api/providers/search", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     signal: timeoutController.signal,
     body: JSON.stringify({
       provider,
-      query: niche,
+      query: primaryQuery,
       country: "Sweden",
       location: locationText || undefined,
       socialPresence: socialPresence,
@@ -518,10 +525,49 @@ async function runProviderSearchAndFetchLeads(args: {
     .json()
     .catch(() => ({}))) as RunLeadsResponse;
   const incoming = (leadsData?.leads ?? null) as unknown;
+  const primaryLeads: LeadUI[] = Array.isArray(incoming) ? (incoming as LeadUI[]) : [];
+
+  // ── Synonym expansion: fire secondary searches in parallel ──────────────
+  // e.g. if user searched "mäklare", also search "real estate" and merge
+  let expandedLeads: LeadUI[] = [];
+  if (expandedQueries.length > 0) {
+    const secondaryResults = await Promise.allSettled(
+      expandedQueries.map(async (q) => {
+        const res = await fetch("/api/providers/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            provider,
+            query: q,
+            country: "Sweden",
+            location: locationText || undefined,
+            socialPresence: socialPresence,
+            limit: 25,
+          }),
+        }).catch(() => null);
+        if (!res?.ok) return [];
+        const data = (await res.json().catch(() => ({}))) as ProviderSearchResponse;
+        const secRunId = typeof data.runId === "number" ? data.runId : null;
+        if (!secRunId) return [];
+        const secLeadsRes = await fetch(`/api/providers/runs/${secRunId}/leads`).catch(() => null);
+        if (!secLeadsRes?.ok) return [];
+        const secLeadsData = (await secLeadsRes.json().catch(() => ({}))) as RunLeadsResponse;
+        return Array.isArray(secLeadsData?.leads) ? (secLeadsData.leads as LeadUI[]) : [];
+      })
+    );
+    for (const result of secondaryResults) {
+      if (result.status === "fulfilled") expandedLeads = expandedLeads.concat(result.value);
+    }
+  }
+
+  // Deduplicate by company name (case-insensitive) — primary results take precedence
+  const seenNames = new Set(primaryLeads.map((l: LeadUI) => l.company.name.toLowerCase()));
+  const uniqueExpanded = expandedLeads.filter((l: LeadUI) => !seenNames.has(l.company.name.toLowerCase()));
+  const allLeads = [...primaryLeads, ...uniqueExpanded];
 
   return {
     runId,
-    leads: Array.isArray(incoming) ? (incoming as LeadUI[]) : [],
+    leads: allLeads,
     nextCursor: searchData.nextCursor ?? null,
     exhausted: searchData.exhausted ?? false,
   };
