@@ -29,8 +29,6 @@ export async function getCachedRun(
 
   return {
     hit: true,
-    cachedAt: existing.created_at,
-    ageDays,
     summary: {
       runId: existing.id,
       cached: true,
