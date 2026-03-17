@@ -2526,7 +2526,7 @@ export default function Home() {
                                           )}
                                         </div>
                                       )}
-                                      </div>{/* end score content wrapper */}
+                                      
                                     </div>
                                   );
                                 })()}
