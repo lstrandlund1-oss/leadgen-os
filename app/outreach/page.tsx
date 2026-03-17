@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import HamburgerMenu from "../components/HamburgerMenu";
 import { getEffectivePlan, canUseOutreach } from "@/lib/plan";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
@@ -76,7 +75,6 @@ const GAP_CONFIG: Record<string, { label: string; color: string; icon: string }>
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function OutreachPage() {
-  const searchParams = useSearchParams();
   const plan = getEffectivePlan();
   const unlocked = canUseOutreach(plan);
 
@@ -99,7 +97,7 @@ export default function OutreachPage() {
     }
 
     const supabase = createSupabaseBrowser();
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(({ data }: { data: { user: { email?: string } | null } }) => {
       if (data.user?.email) setUserEmail(data.user.email);
     });
   }, []);
