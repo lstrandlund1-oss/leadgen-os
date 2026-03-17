@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Force Turbopack cache invalidation
+  generateBuildId: async () => {
+    return Date.now().toString();
+  },
   // 1. Explicitly disable source map generation for production if not needed,
   // but keep default behavior for dev to avoid parsing errors.
   productionBrowserSourceMaps: false,
@@ -18,12 +22,3 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-
-
-
-
-
-
-
-
-
