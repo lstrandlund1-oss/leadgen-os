@@ -457,6 +457,7 @@ async function runProviderSearchAndFetchLeads(args: {
   socialPresence: SocialPresenceFilter;
   runId?: number | null;
   cursor?: string | null;
+  forceRefresh?: boolean;
 }): Promise<{
   runId: number;
   leads: LeadUI[];
@@ -497,6 +498,7 @@ async function runProviderSearchAndFetchLeads(args: {
       limit: 25,
       runId: runIdArg,
       cursor,
+      forceRefresh: args.forceRefresh ?? false,
     }),
   }).catch((err) => {
     if (err?.name === "AbortError") {
@@ -513,6 +515,8 @@ async function runProviderSearchAndFetchLeads(args: {
     .json()
     .catch(() => ({}))) as ProviderSearchResponse;
   const runId = typeof searchData.runId === "number" ? searchData.runId : null;
+  // Expose cache metadata for UI badge
+  const _cacheInfo = (searchData.summary as Record<string, unknown> | null) ?? null;
 
   if (!runId) return null;
 
@@ -570,6 +574,9 @@ async function runProviderSearchAndFetchLeads(args: {
     leads: allLeads,
     nextCursor: searchData.nextCursor ?? null,
     exhausted: searchData.exhausted ?? false,
+    cached: (_cacheInfo?.cached as boolean) ?? false,
+    ageDays: (_cacheInfo?.ageDays as number) ?? 0,
+    cachedAt: (_cacheInfo?.cachedAt as string) ?? null,
   };
 }
 
@@ -654,6 +661,7 @@ export default function Home() {
 
   const [enrichmentLoading, setEnrichmentLoading] = useState(false);
   const [isRescoring, setIsRescoring] = useState(false);
+  const [cacheInfo, setCacheInfo] = useState<{ cached: boolean; ageDays: number; cachedAt: string } | null>(null);
   const [enrichmentData, setEnrichmentData] = useState<{
     reachable: boolean;
     detectedPlatforms: string[];
@@ -1351,8 +1359,17 @@ export default function Home() {
         setNextCursor(providerLeads.nextCursor);
         setExhausted(providerLeads.exhausted);
         setSelectedLead(null);
+        // Store cache metadata for the results header badge
+        setCacheInfo(providerLeads.cached ? {
+          cached: true,
+          ageDays: providerLeads.ageDays ?? 0,
+          cachedAt: providerLeads.cachedAt ?? "",
+        } : null);
         if (providerLeads.leads.length > 0) {
-          toastSuccess(`Found ${providerLeads.leads.length} lead${providerLeads.leads.length !== 1 ? "s" : ""}`);
+          const cacheNote = providerLeads.cached && providerLeads.ageDays > 0
+            ? ` (from ${providerLeads.ageDays}d ago)`
+            : "";
+          toastSuccess(`Found ${providerLeads.leads.length} lead${providerLeads.leads.length !== 1 ? "s" : ""}${cacheNote}`);
         } else {
           toastInfo("No leads found — try a different niche or location");
         }
@@ -1759,6 +1776,39 @@ export default function Home() {
                   <span className="text-[#444] ml-1">· page {currentPage}/{totalPages}</span>
                 )}
               </p>
+              {cacheInfo?.cached && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full border border-[#252525] text-[#444] bg-[#0d0d0d]">
+                    ◎ Stored · {cacheInfo.ageDays === 0 ? "today" : `${cacheInfo.ageDays}d ago`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!niche || isLoading) return;
+                      setIsLoading(true);
+                      setCacheInfo(null);
+                      try {
+                        const fresh = await runProviderSearchAndFetchLeads({
+                          provider, niche, location, socialPresence, forceRefresh: true,
+                        });
+                        if (fresh) {
+                          setLeads(fresh.leads);
+                          setRunId(fresh.runId);
+                          setNextCursor(fresh.nextCursor);
+                          setExhausted(fresh.exhausted);
+                          setSelectedLead(null);
+                          toastSuccess(`Refreshed — ${fresh.leads.length} leads`);
+                        }
+                      } catch { /* ignore */ }
+                      finally { setIsLoading(false); }
+                    }}
+                    className="text-[10px] text-[#555] hover:text-[#c9a84c] transition-colors"
+                    title="Refresh from Google Places"
+                  >
+                    ↺ Refresh
+                  </button>
+                </div>
+              )}
 
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <label className="flex items-center gap-2 text-xs text-[#aaa]">

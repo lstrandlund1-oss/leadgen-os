@@ -128,7 +128,9 @@ export async function POST(request: Request) {
     const hasCursor =
       typeof intent.cursor === "string" && intent.cursor.trim().length > 0;
 
-    if (!hasCursor) {
+    const forceRefresh = body["forceRefresh"] === true;
+
+    if (!hasCursor && !forceRefresh) {
       const cached = await getCachedRun(intent);
 
       if (cached.hit && cached.summary) {

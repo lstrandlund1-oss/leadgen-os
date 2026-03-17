@@ -4,7 +4,9 @@ import type { IngestSummary } from "@/lib/ingest/types";
 import { intentHash } from "./intentHash";
 import { getProviderRunByIntentHash } from "@/lib/persistence";
 
-const CACHE_TTL_SECONDS = 24 * 60 * 60;
+// 14-day cache: serve stored results for 14 days, then re-fetch from Google Places
+// This protects the API quota while keeping signals reasonably fresh.
+const CACHE_TTL_SECONDS = 14 * 24 * 60 * 60; // 14 days
 
 export async function getCachedRun(
   intent: ProviderSearchIntent
@@ -21,12 +23,19 @@ export async function getCachedRun(
   if (existing.status !== "success") return { hit: false };
   if (isExpired(existing.created_at)) return { hit: false };
 
-  // Cache hit
+  // Cache hit — include age so the UI can display "Results from X days ago"
+  const ageMs = Date.now() - Date.parse(existing.created_at);
+  const ageDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
+
   return {
     hit: true,
+    cachedAt: existing.created_at,
+    ageDays,
     summary: {
       runId: existing.id,
       cached: true,
+      cachedAt: existing.created_at,
+      ageDays,
       status: "success",
       provider: intent.provider,
       requestId: existing.request_id ?? undefined,
@@ -47,4 +56,3 @@ function isExpired(createdAtIso: string): boolean {
   const ageSeconds = (Date.now() - createdMs) / 1000;
   return ageSeconds > CACHE_TTL_SECONDS;
 }
-
