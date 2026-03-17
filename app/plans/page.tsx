@@ -41,8 +41,8 @@ const PLANS = [
     highlight: true,
     badge: "Most Popular",
     features: [
-      { text: "Unlimited lead searches", note: null },
       { text: "Everything in Scout", note: null },
+      { text: "Unlimited lead searches", note: null },
       { text: "AI outreach generator", note: "Signal-driven messages for email, LinkedIn DM, or cold call — tailored to each lead's gap type" },
       { text: "Send outreach directly", note: "Send emails from within Vantio and log them automatically to the lead's activity history" },
       { text: "Message template library", note: "Save your best messages and reuse them in one click" },
