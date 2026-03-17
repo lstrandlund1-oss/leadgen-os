@@ -637,8 +637,9 @@ export default function Home() {
   >("score");
   const [minScore, setMinScore] = useState(0);
   const [filterHasWebsite, setFilterHasWebsite] = useState<"any"|"yes"|"no">("any");
-  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
-  const [showScoreModal, setShowScoreModal] = useState<string | null>(null); // lead id
+  const [showScoreModal, setShowScoreModal] = useState<string | null>(null);
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareIds, setCompareIds] = useState<string[]>([]);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<"contacted"|"replied"|"booked"|null>(null);
   const [query, setQuery] = useState("");
@@ -1941,6 +1942,13 @@ export default function Home() {
                 <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-[rgba(201,168,76,0.3)] bg-[rgba(201,168,76,0.06)] mb-2">
                   <p className="text-[12px] text-[#c9a84c] font-medium">{bulkSelected.size} selected</p>
                   <div className="flex gap-2 ml-auto">
+                    {bulkSelected.size >= 2 && bulkSelected.size <= 3 && (
+                      <button type="button"
+                        onClick={() => { setCompareIds([...bulkSelected]); setCompareMode(true); }}
+                        className="text-[11px] px-3 py-1.5 rounded-lg border border-[#818cf8]/30 text-[#818cf8] hover:bg-[rgba(129,140,248,0.08)] transition-all">
+                        ⊡ Compare
+                      </button>
+                    )}
                     {(["contacted","replied","booked"] as const).map(action => (
                       <button key={action} type="button"
                         onClick={async () => {
@@ -2093,6 +2101,22 @@ export default function Home() {
                             " hidden sm:table-row"
                           }
                         >
+                          <td className="py-2 px-2 w-8">
+                            <input type="checkbox"
+                              checked={bulkSelected.has(lead.id)}
+                              onChange={e => {
+                                e.stopPropagation();
+                                setBulkSelected(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(lead.id)) next.delete(lead.id);
+                                  else next.add(lead.id);
+                                  return next;
+                                });
+                              }}
+                              onClick={e => e.stopPropagation()}
+                              className="w-3.5 h-3.5 accent-[#c9a84c] cursor-pointer"
+                            />
+                          </td>
                           <td className="py-2 px-3">
                             <div>
                               <span className="font-medium text-[13px] truncate max-w-[140px] sm:max-w-none block">
@@ -2380,8 +2404,9 @@ export default function Home() {
                                       {/* Score content — hidden while rescoring */}
                                       <div className={isRescoring ? "opacity-0 pointer-events-none" : "space-y-3 transition-opacity duration-500"}>
 
-                                      {/* Hero score row */}
-                                      <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-3 w-full">
+                                      {/* Hero score row — click to open explanation modal */}
+                                      <button type="button" onClick={() => setShowScoreModal(detailLead.id)}
+                                        className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-3 w-full text-left hover:border-[rgba(201,168,76,0.3)] transition-colors group">
                                         <div className="flex items-center gap-3 mb-2">
                                           <div className="relative flex-shrink-0 w-12 h-12">
                                             <svg viewBox="0 0 56 56" className="w-full h-full -rotate-90">
@@ -2401,13 +2426,15 @@ export default function Home() {
                                         <p className="text-[11px] text-[#666] leading-relaxed">
                                           {getScoreReason(detailLead, language)}
                                         </p>
+                                        <p className="text-[10px] text-[#333] mt-1.5 group-hover:text-[#555] transition-colors">Tap for full breakdown →</p>
                                         {detailWebsiteUrl && (
                                           <a href={detailWebsiteUrl} target="_blank" rel="noreferrer"
+                                            onClick={e => e.stopPropagation()}
                                             className="inline-block mt-1.5 text-[11px] text-[#c9a84c] hover:underline">
                                             Visit site ↗
                                           </a>
                                         )}
-                                      </div>
+                                      </button>
 
                                       {/* 2×2 compact score circles */}
                                       <div className="grid grid-cols-2 gap-2">
@@ -2592,7 +2619,15 @@ export default function Home() {
 
                                       {safeEnrichment && !enrichmentLoading && (
                                         <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Web Signals</p>
+                                          <div className="flex items-center justify-between">
+                                            <p className="text-[10px] uppercase tracking-widest text-[#555]">Web Signals</p>
+                                            <button type="button"
+                                              onClick={() => detailLead && runDeepScan(detailLead)}
+                                              disabled={enrichmentLoading}
+                                              className="text-[10px] px-2 py-1 rounded border border-[#252525] text-[#555] hover:border-[#444] hover:text-[#888] disabled:opacity-40 transition-colors">
+                                              ↻ Re-scan
+                                            </button>
+                                          </div>
                                           <div className="grid grid-cols-2 gap-2">
                                             {[
                                               { key: "website_reachable",         label: "Reachable",        value: isReachable },
@@ -3157,6 +3192,34 @@ export default function Home() {
                                         <p className="text-[10px] text-[#333]">{t.ui.detail.savesOnBlur}</p>
                                       </div>
 
+                                      {/* Activity log — sent emails for this lead */}
+                                      {(() => {
+                                        const leadEmails = (() => {
+                                          try {
+                                            const key = `vantio_activity_${detailLead.id}`;
+                                            return JSON.parse(localStorage.getItem(key) ?? "[]") as Array<{ subject: string; to: string; sentAt: string; body: string }>;
+                                          } catch { return []; }
+                                        })();
+                                        if (leadEmails.length === 0) return null;
+                                        return (
+                                          <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+                                            <p className="text-[10px] uppercase tracking-widests text-[#555]">Sent messages</p>
+                                            <div className="space-y-2">
+                                              {leadEmails.map((e, i) => (
+                                                <div key={i} className="rounded-lg border border-[#1a1a1a] bg-[#080808] px-3 py-2.5 space-y-1">
+                                                  <div className="flex items-center justify-between gap-2">
+                                                    <p className="text-[12px] font-medium text-[#c8c0b0] truncate">{e.subject}</p>
+                                                    <p className="text-[10px] text-[#333] flex-shrink-0">{new Date(e.sentAt).toLocaleDateString()}</p>
+                                                  </div>
+                                                  <p className="text-[10px] text-[#444]">To: {e.to}</p>
+                                                  <p className="text-[11px] text-[#555] line-clamp-2 leading-relaxed">{e.body}</p>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        );
+                                      })()}
+
                                       {/* Follow-up reminder — auto-suggested from friction level */}
                                       {(() => {
                                         const frictionDays: Record<string, number> = { LOW: 3, MEDIUM: 5, HIGH: 7 };
@@ -3305,6 +3368,231 @@ export default function Home() {
           )}
         </section>
       </div>
+
+      {/* ── Score Explanation Modal ── */}
+      {showScoreModal && (() => {
+        const modalLead = leads.find((l: LeadUI) => l.id === showScoreModal);
+        if (!modalLead) return null;
+        const val = modalLead.score.value ?? 0;
+        const opp = modalLead.score.opportunity ?? 0;
+        const risk = modalLead.score.risk ?? 0;
+        const ready = modalLead.score.readiness ?? 0;
+        const fit = modalLead.fit?.fitScore ?? 0;
+        const color = val >= 70 ? "#4ade80" : val >= 45 ? "#c9a84c" : "#f87171";
+        const bd = modalLead.score.breakdown;
+        return (
+          <>
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[70]" onClick={() => setShowScoreModal(null)} />
+            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-[#0a0a0a] border border-[#252525] rounded-2xl z-[80] shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+              <div className="flex items-start justify-between p-6 border-b border-[#141414]">
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-[#8a6e30] mb-1">Score explanation</p>
+                  <h2 className="text-[17px] font-medium text-[#f5f0e8]" style={{ fontFamily: "var(--font-display), serif" }}>
+                    {modalLead.company.name}
+                  </h2>
+                </div>
+                <button onClick={() => setShowScoreModal(null)} className="text-[#444] hover:text-[#888] transition-colors text-xl leading-none mt-1">×</button>
+              </div>
+              <div className="p-6 space-y-5">
+                {/* Overall score */}
+                <div className="flex items-center gap-4 rounded-xl border border-[#1a1a1a] bg-[#080808] p-4">
+                  <div className="relative w-16 h-16 flex-shrink-0">
+                    <svg viewBox="0 0 56 56" className="w-full h-full -rotate-90">
+                      <circle cx="28" cy="28" r="24" fill="none" stroke="#1a1a1a" strokeWidth="5" />
+                      <circle cx="28" cy="28" r="24" fill="none" stroke={color} strokeWidth="5"
+                        strokeDasharray={`${(val / 100) * 150.8} 150.8`} strokeLinecap="round" />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-[15px] font-bold" style={{ color }}>{val}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-semibold" style={{ color }}>
+                      {val >= 70 ? "Strong Lead" : val >= 45 ? "Moderate Lead" : "Weak Lead"}
+                    </p>
+                    <p className="text-[12px] text-[#666] mt-1 leading-relaxed">{getScoreReason(modalLead, language)}</p>
+                  </div>
+                </div>
+
+                {/* Sub-scores */}
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: "Opportunity", value: opp, color: opp >= 60 ? "#4ade80" : opp >= 35 ? "#c9a84c" : "#f87171", desc: "Untapped potential for your services" },
+                    { label: "Readiness", value: ready, color: ready >= 60 ? "#4ade80" : ready >= 35 ? "#c9a84c" : "#f87171", desc: "How prepared they are to buy" },
+                    { label: "Risk", value: risk, color: risk >= 60 ? "#f87171" : risk >= 35 ? "#c9a84c" : "#4ade80", desc: "Likelihood of a difficult sale" },
+                    { label: "Profile Fit", value: fit, color: fit >= 65 ? "#4ade80" : fit >= 40 ? "#c9a84c" : "#f87171", desc: "Match to your capabilities" },
+                  ].map(s => (
+                    <div key={s.label} className="rounded-xl border border-[#1a1a1a] bg-[#080808] p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] text-[#666]">{s.label}</p>
+                        <p className="text-[14px] font-bold" style={{ color: s.color }}>{s.value}</p>
+                      </div>
+                      <div className="w-full h-1 bg-[#141414] rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${s.value}%`, backgroundColor: s.color }} />
+                      </div>
+                      <p className="text-[10px] text-[#444]">{s.desc}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Category breakdown */}
+                {bd && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] uppercase tracking-widests text-[#444]">Category breakdown</p>
+                    {([
+                      { key: "reputation", label: "Reputation", hint: "Reviews & ratings" },
+                      { key: "digitalPresence", label: "Digital presence", hint: "Website & social" },
+                      { key: "businessStrength", label: "Business strength", hint: "Stability signals" },
+                      { key: "opportunityGap", label: "Opportunity gap", hint: "Missing capabilities" },
+                      { key: "stabilityRisk", label: "Stability risk", hint: "Risk indicators" },
+                      { key: "evidenceConfidence", label: "Evidence confidence", hint: "Signal quality" },
+                    ] as const).map(({ key, label, hint }) => {
+                      const v = bd[key as keyof typeof bd] ?? 0;
+                      const c = v >= 70 ? "#4ade80" : v >= 40 ? "#c9a84c" : "#f87171";
+                      return (
+                        <div key={key} className="flex items-center gap-3">
+                          <div className="w-28 flex-shrink-0">
+                            <p className="text-[11px] text-[#666] truncate">{label}</p>
+                            <p className="text-[9px] text-[#333]">{hint}</p>
+                          </div>
+                          <div className="flex-1 h-1.5 bg-[#141414] rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all" style={{ width: `${v}%`, backgroundColor: c }} />
+                          </div>
+                          <p className="text-[11px] font-bold w-8 text-right" style={{ color: c }}>{v}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Evidence reasons */}
+                {modalLead.score.reasons?.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] uppercase tracking-widests text-[#444]">Evidence</p>
+                    <div className="space-y-1.5">
+                      {modalLead.score.reasons.map((r: string, i: number) => {
+                        const pos = /strong|high|good|great|active|present|above/i.test(r);
+                        const neg = /no |missing|low|weak|below|lacks/i.test(r);
+                        return (
+                          <div key={i} className="flex items-start gap-2.5">
+                            <span className={`text-[10px] mt-0.5 flex-shrink-0 ${pos ? "text-[#4ade80]" : neg ? "text-[#f87171]" : "text-[#555]"}`}>
+                              {pos ? "✓" : neg ? "✗" : "·"}
+                            </span>
+                            <p className="text-[12px] text-[#888] leading-snug">{r}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+
+      {/* ── Lead Comparison Modal ── */}
+      {compareMode && compareIds.length >= 2 && (() => {
+        const compareLeads = compareIds.map(id => leads.find((l: LeadUI) => l.id === id)).filter(Boolean) as LeadUI[];
+        if (compareLeads.length < 2) return null;
+        const metrics = [
+          { label: "Score",       key: (l: LeadUI) => l.score.value ?? 0,       color: (v: number) => v >= 70 ? "#4ade80" : v >= 45 ? "#c9a84c" : "#f87171" },
+          { label: "Opportunity", key: (l: LeadUI) => l.score.opportunity ?? 0,  color: (v: number) => v >= 60 ? "#4ade80" : v >= 35 ? "#c9a84c" : "#f87171" },
+          { label: "Risk",        key: (l: LeadUI) => l.score.risk ?? 0,         color: (v: number) => v >= 60 ? "#f87171" : v >= 35 ? "#c9a84c" : "#4ade80" },
+          { label: "Fit",         key: (l: LeadUI) => l.fit?.fitScore ?? 0,      color: (v: number) => v >= 65 ? "#4ade80" : v >= 40 ? "#c9a84c" : "#f87171" },
+          { label: "Readiness",   key: (l: LeadUI) => l.score.readiness ?? 0,    color: (v: number) => v >= 60 ? "#4ade80" : v >= 35 ? "#c9a84c" : "#f87171" },
+        ];
+        return (
+          <>
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[70]" onClick={() => setCompareMode(false)} />
+            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-[#0a0a0a] border border-[#252525] rounded-2xl z-[80] shadow-2xl max-h-[85vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-5 border-b border-[#141414]">
+                <div>
+                  <p className="text-[10px] uppercase tracking-widests text-[#8a6e30] mb-0.5">Comparison</p>
+                  <h2 className="text-[15px] font-medium text-[#f5f0e8]">Side-by-side comparison</h2>
+                </div>
+                <button onClick={() => setCompareMode(false)} className="text-[#444] hover:text-[#888] transition-colors text-xl leading-none">×</button>
+              </div>
+              <div className="p-5 space-y-4">
+                {/* Lead names header */}
+                <div className={"grid gap-3"} style={{ gridTemplateColumns: `140px repeat(${compareLeads.length}, 1fr)` }}>
+                  <div />
+                  {compareLeads.map(l => (
+                    <div key={l.id} className="rounded-xl border border-[#1a1a1a] bg-[#080808] p-3 text-center">
+                      <p className="text-[12px] font-semibold text-[#c8c0b0] truncate">{l.company.name}</p>
+                      <p className="text-[10px] text-[#444] mt-0.5 truncate">{l.classification.primaryIndustry.replace(/_/g, " ")}</p>
+                      {l.company.city && <p className="text-[10px] text-[#333]">{l.company.city}</p>}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Metrics */}
+                {metrics.map(m => {
+                  const vals = compareLeads.map(l => m.key(l));
+                  const maxVal = Math.max(...vals);
+                  return (
+                    <div key={m.label} className={"grid gap-3 items-center"} style={{ gridTemplateColumns: `140px repeat(${compareLeads.length}, 1fr)` }}>
+                      <p className="text-[11px] text-[#555]">{m.label}</p>
+                      {vals.map((v, i) => {
+                        const c = m.color(v);
+                        const isBest = v === maxVal && vals.filter(x => x === maxVal).length === 1;
+                        return (
+                          <div key={i} className={"rounded-xl border p-3 text-center " + (isBest ? "border-[rgba(201,168,76,0.3)] bg-[rgba(201,168,76,0.04)]" : "border-[#1a1a1a] bg-[#080808]")}>
+                            <p className="text-[16px] font-bold" style={{ color: c }}>{v}</p>
+                            <div className="w-full h-1 bg-[#1a1a1a] rounded-full overflow-hidden mt-1.5">
+                              <div className="h-full rounded-full" style={{ width: `${v}%`, backgroundColor: c }} />
+                            </div>
+                            {isBest && <p className="text-[9px] text-[#8a6e30] mt-1">Best</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+
+                {/* Gap type */}
+                <div className={"grid gap-3 items-start"} style={{ gridTemplateColumns: `140px repeat(${compareLeads.length}, 1fr)` }}>
+                  <p className="text-[11px] text-[#555]">Gap type</p>
+                  {compareLeads.map(l => {
+                    const gap = (l.metadata?.outreach as { gap?: string } | null)?.gap ?? null;
+                    return (
+                      <div key={l.id} className="rounded-xl border border-[#1a1a1a] bg-[#080808] p-3 text-center">
+                        <p className="text-[11px] text-[#888]">{gap ? gap.replace(/_/g, " ") : "—"}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Website */}
+                <div className={"grid gap-3 items-start"} style={{ gridTemplateColumns: `140px repeat(${compareLeads.length}, 1fr)` }}>
+                  <p className="text-[11px] text-[#555]">Website</p>
+                  {compareLeads.map(l => (
+                    <div key={l.id} className="rounded-xl border border-[#1a1a1a] bg-[#080808] p-3 text-center">
+                      {l.company.website
+                        ? <a href={l.company.website} target="_blank" rel="noreferrer" className="text-[11px] text-[#c9a84c] hover:underline" onClick={e => e.stopPropagation()}>Visit ↗</a>
+                        : <p className="text-[11px] text-[#333]">None</p>
+                      }
+                    </div>
+                  ))}
+                </div>
+
+                {/* Action buttons */}
+                <div className={"grid gap-3"} style={{ gridTemplateColumns: `140px repeat(${compareLeads.length}, 1fr)` }}>
+                  <p className="text-[11px] text-[#555]">Action</p>
+                  {compareLeads.map(l => (
+                    <button key={l.id} type="button"
+                      onClick={() => { setSelectedLead(l); setCompareMode(false); }}
+                      className="py-2 rounded-xl border border-[rgba(201,168,76,0.25)] text-[11px] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.06)] transition-all">
+                      Open lead →
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
     </main>
   );

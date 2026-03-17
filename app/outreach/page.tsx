@@ -239,7 +239,18 @@ ${result.message.body}`
           company_name: lead?.company_name,
         }),
       });
-      setSendResult(res.ok ? "sent" : "error");
+      if (res.ok && lead) {
+        setSendResult("sent");
+        // Log to per-lead activity in localStorage
+        try {
+          const key = `vantio_activity_${lead.id}`;
+          const existing = JSON.parse(localStorage.getItem(key) ?? "[]");
+          existing.unshift({ subject: result!.message.subject ?? "Outreach", to: sendTo.trim(), sentAt: new Date().toISOString(), body: result!.message.body });
+          localStorage.setItem(key, JSON.stringify(existing.slice(0, 20)));
+        } catch { /* ignore */ }
+      } else {
+        setSendResult("error");
+      }
     } catch { setSendResult("error"); }
     finally { setSending(false); }
   }, [result, sendTo, sending, lead]);
