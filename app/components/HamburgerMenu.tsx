@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { useTheme } from "./ThemeProvider";
 import { getEffectivePlan, canUseOutreach } from "@/lib/plan";
+import { useTheme } from "./ThemeProvider";
 
 function ThemeToggleInline() {
   const { theme, toggle } = useTheme();
@@ -84,7 +85,6 @@ export default function HamburgerMenu({
     { label: "Profile",            href: "/profile",      icon: "◈",  locked: false },
     { label: "Analytics",          href: "/analytics",    icon: "◉",  locked: false },
   { label: "Follow-up Queue",    href: "/followups",    icon: "↩",  locked: false },
-  { label: "Collections",          href: "/collections",  icon: "◆",  locked: false },
   { label: "Import Leads",          href: "/import",       icon: "↑",  locked: false },
   { label: "Collections",          href: "/collections",  icon: "◉",  locked: false },
     { label: "Subscription Plans", href: "/plans",        icon: "◆",  locked: false },

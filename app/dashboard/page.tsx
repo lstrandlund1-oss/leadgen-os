@@ -2101,10 +2101,10 @@ export default function Home() {
                             " hidden sm:table-row"
                           }
                         >
-                          <td className="py-2 px-2 w-8">
-                            <input type="checkbox"
-                              checked={bulkSelected.has(lead.id)}
-                              onChange={e => {
+                          <td className="py-2 pl-3 pr-1 w-6">
+                            <button
+                              type="button"
+                              onClick={e => {
                                 e.stopPropagation();
                                 setBulkSelected(prev => {
                                   const next = new Set(prev);
@@ -2113,9 +2113,22 @@ export default function Home() {
                                   return next;
                                 });
                               }}
-                              onClick={e => e.stopPropagation()}
-                              className="w-3.5 h-3.5 accent-[#c9a84c] cursor-pointer"
-                            />
+                              className="flex items-center justify-center w-4 h-4 focus:outline-none"
+                              title="Select lead"
+                            >
+                              {/* Diamond shape — rotated square */}
+                              <span
+                                className="block w-3 h-3 rotate-45 border transition-all duration-150"
+                                style={bulkSelected.has(lead.id) ? {
+                                  backgroundColor: "#c9a84c",
+                                  borderColor: "#c9a84c",
+                                  boxShadow: "0 0 6px rgba(201,168,76,0.4)"
+                                } : {
+                                  backgroundColor: "transparent",
+                                  borderColor: "#2a2a2a"
+                                }}
+                              />
+                            </button>
                           </td>
                           <td className="py-2 px-3">
                             <div>
@@ -2949,39 +2962,6 @@ export default function Home() {
                                         </div>
                                         <span className="text-[#8a6e30] group-hover:text-[#c9a84c] transition-colors text-sm">→</span>
                                       </button>
-
-                                      {/* Add to Collection */}
-                                      <div className="space-y-1.5">
-                                        <button type="button"
-                                          onClick={async () => {
-                                            // Quick add to first collection, or show picker
-                                            const res = await fetch("/api/collections");
-                                            const d = await res.json() as { collections?: Array<{id:string;name:string;color:string}> };
-                                            if (!d.collections?.length) {
-                                              window.location.href = "/collections";
-                                              return;
-                                            }
-                                            const coll = d.collections[0];
-                                            await fetch("/api/collections/items", {
-                                              method: "POST",
-                                              headers: { "Content-Type": "application/json" },
-                                              body: JSON.stringify({
-                                                collection_id: coll.id,
-                                                lead_id: detailLead.id,
-                                                run_id: runIdNum,
-                                                company_name: detailLead.company.name,
-                                              }),
-                                            });
-                                            toastSuccess(`Added to "${coll.name}"`);
-                                          }}
-                                          className="flex items-center justify-between w-full px-4 py-3 rounded-xl border border-[#252525] hover:border-[#333] transition-all group text-left">
-                                          <div>
-                                            <p className="text-[12px] font-medium text-[#888]">Add to collection</p>
-                                            <p className="text-[10px] text-[#444] mt-0.5">Group this lead with others</p>
-                                          </div>
-                                          <span className="text-[#333] group-hover:text-[#555] transition-colors text-sm">◆</span>
-                                        </button>
-                                      </div>
 
                                     </div>
                                   );

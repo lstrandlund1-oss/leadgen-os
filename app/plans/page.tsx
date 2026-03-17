@@ -21,7 +21,6 @@ const PLANS = [
       { text: "Outcome tracking", note: "Track where every lead sits in your pipeline" },
       { text: "Saved leads & notes", note: null },
       { text: "Follow-up queue", note: "See all leads with upcoming or overdue follow-up dates in one place" },
-      { text: "Lead collections", note: "Organise leads into named lists by client or campaign" },
       { text: "CSV export", note: null },
     ],
     lockedFeatures: [
@@ -50,7 +49,6 @@ const PLANS = [
       { text: "Website deep scan", note: "50 scans/month — checks booking flows, contact pages, mobile friendliness and more" },
       { text: "Profile analytics", note: "Track reply rates, booking rates, close rates, and revenue across your pipeline" },
       { text: "Lead scoring explanation", note: "See exactly why a lead scored the way it did, with the full evidence breakdown" },
-      { text: "Priority support", note: null },
     ],
     lockedFeatures: [
       "Team members",
@@ -74,7 +72,6 @@ const PLANS = [
       { text: "Bulk lead actions", note: "Mark multiple leads as contacted, export selections, or move them between collections in one action" },
       { text: "Competitor density signals", note: "See how saturated a market is before you pitch" },
       { text: "CSV import", note: "Score your own prospect lists with Vantio's signal engine" },
-      { text: "Onboarding call", note: "A 30-minute call to set up your team, configure your profiles, and get your first searches running" },
       { text: "Priority email support", note: "We respond within 24 hours" },
     ],
     lockedFeatures: [],
