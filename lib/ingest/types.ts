@@ -8,6 +8,8 @@ export type IngestSummary = {
 
     runId?: number | null;
     cached?: boolean;
+    cachedAt?: string;
+    ageDays?: number;
 
     provider: ProviderName;
     requestId?: string;

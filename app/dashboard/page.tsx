@@ -463,6 +463,9 @@ async function runProviderSearchAndFetchLeads(args: {
   leads: LeadUI[];
   nextCursor: string | null;
   exhausted: boolean;
+  cached: boolean;
+  ageDays: number;
+  cachedAt: string | null;
 } | null> {
   const niche = args.niche.trim();
   if (!niche) return null;
