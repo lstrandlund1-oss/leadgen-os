@@ -4,6 +4,7 @@ import { Cormorant_Garamond, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "./components/ToastProvider";
 import SupportChatWrapper from "./components/SupportChatWrapper";
+import { ThemeProvider, ThemeScript } from "./components/ThemeProvider";
 
 const cormorant = Cormorant_Garamond({
   variable: "--font-display",
@@ -66,11 +67,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${cormorant.variable} ${dmSans.variable} antialiased`}>
-        <ToastProvider>
-          {children}
-          <SupportChatWrapper />
-        </ToastProvider>
+      <head>
+        <ThemeScript />
+      </head>
+      <body className={`${cormorant.variable} ${dmSans.variable} antialiased`} suppressHydrationWarning>
+        <script dangerouslySetInnerHTML={{ __html: "(function(){try{var t=localStorage.getItem('vantio_theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');}catch(e){}})();" }} />
+        <ThemeProvider>
+          <ToastProvider>
+            {children}
+            <SupportChatWrapper />
+            </ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

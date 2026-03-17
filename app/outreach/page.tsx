@@ -111,18 +111,56 @@ export default function OutreachPage() {
       if (data.user?.email) setUserEmail(data.user.email);
     });
 
-    // Fetch all saved leads from Supabase
+    // Load saved leads — primary source is localStorage (same as profile page)
+    // Supplemented by Supabase API for any additional runs
+    const localRaw = localStorage.getItem("vantio_saved_leads_v1");
+    const localLeads: SavedLeadItem[] = [];
+    if (localRaw) {
+      try {
+        const parsed = JSON.parse(localRaw) as Array<{
+          id: string; name?: string; company_name?: string; industry?: string;
+          city?: string; website?: string | null; rating?: number | null;
+          review_count?: number | null; social_presence?: string | null; score?: number;
+        }>;
+        for (const l of parsed) {
+          localLeads.push({
+            id: l.id,
+            run_id: 0,
+            company_name: l.name ?? l.company_name ?? "Unknown",
+            industry: l.industry ?? null,
+            city: l.city ?? null,
+            website: l.website ?? null,
+            rating: l.rating ?? null,
+            review_count: l.review_count ?? null,
+            social_presence: l.social_presence ?? null,
+          });
+        }
+      } catch { /* ignore */ }
+    }
+
+    // Also fetch from Supabase to get any leads not in localStorage
     fetch("/api/outreach/leads")
       .then(r => r.json())
       .then((d: { leads?: SavedLeadItem[] }) => {
-        setSavedLeads(d.leads ?? []);
+        const supabaseLeads = d.leads ?? [];
+        // Merge: localStorage leads take precedence, add any Supabase leads not already present
+        const seenIds = new Set(localLeads.map(l => l.id));
+        const merged = [...localLeads, ...supabaseLeads.filter(l => !seenIds.has(l.id))];
+        setSavedLeads(merged);
         // Pre-select lead if passed from dashboard
         const stored = localStorage.getItem("vantio_outreach_lead");
         if (stored) {
           try { setLead(JSON.parse(stored) as LeadSnapshot); } catch { /* ignore */ }
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        // Fallback to localStorage only if API fails
+        setSavedLeads(localLeads);
+        const stored = localStorage.getItem("vantio_outreach_lead");
+        if (stored) {
+          try { setLead(JSON.parse(stored) as LeadSnapshot); } catch { /* ignore */ }
+        }
+      })
       .finally(() => setLeadsLoading(false));
 
     // Load saved templates

@@ -637,6 +637,10 @@ export default function Home() {
   >("score");
   const [minScore, setMinScore] = useState(0);
   const [filterHasWebsite, setFilterHasWebsite] = useState<"any"|"yes"|"no">("any");
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
+  const [showScoreModal, setShowScoreModal] = useState<string | null>(null); // lead id
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<"contacted"|"replied"|"booked"|null>(null);
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -664,7 +668,7 @@ export default function Home() {
 
   const [enrichmentLoading, setEnrichmentLoading] = useState(false);
   const [isRescoring, setIsRescoring] = useState(false);
-  const [cacheInfo, setCacheInfo] = useState<{ cached: boolean; ageDays: number; cachedAt: string } | null>(null);
+
   const [enrichmentData, setEnrichmentData] = useState<{
     reachable: boolean;
     detectedPlatforms: string[];
@@ -1362,17 +1366,9 @@ export default function Home() {
         setNextCursor(providerLeads.nextCursor);
         setExhausted(providerLeads.exhausted);
         setSelectedLead(null);
-        // Store cache metadata for the results header badge
-        setCacheInfo(providerLeads.cached ? {
-          cached: true,
-          ageDays: providerLeads.ageDays ?? 0,
-          cachedAt: providerLeads.cachedAt ?? "",
-        } : null);
+
         if (providerLeads.leads.length > 0) {
-          const cacheNote = providerLeads.cached && providerLeads.ageDays > 0
-            ? ` (from ${providerLeads.ageDays}d ago)`
-            : "";
-          toastSuccess(`Found ${providerLeads.leads.length} lead${providerLeads.leads.length !== 1 ? "s" : ""}${cacheNote}`);
+          toastSuccess(`Found ${providerLeads.leads.length} lead${providerLeads.leads.length !== 1 ? "s" : ""}`);
         } else {
           toastInfo("No leads found — try a different niche or location");
         }
@@ -1779,39 +1775,7 @@ export default function Home() {
                   <span className="text-[#444] ml-1">· page {currentPage}/{totalPages}</span>
                 )}
               </p>
-              {cacheInfo?.cached && (
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] px-2 py-0.5 rounded-full border border-[#252525] text-[#444] bg-[#0d0d0d]">
-                    ◎ Stored · {cacheInfo.ageDays === 0 ? "today" : `${cacheInfo.ageDays}d ago`}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!niche || isLoading) return;
-                      setIsLoading(true);
-                      setCacheInfo(null);
-                      try {
-                        const fresh = await runProviderSearchAndFetchLeads({
-                          provider, niche, location, socialPresence, forceRefresh: true,
-                        });
-                        if (fresh) {
-                          setLeads(fresh.leads);
-                          setRunId(fresh.runId);
-                          setNextCursor(fresh.nextCursor);
-                          setExhausted(fresh.exhausted);
-                          setSelectedLead(null);
-                          toastSuccess(`Refreshed — ${fresh.leads.length} leads`);
-                        }
-                      } catch { /* ignore */ }
-                      finally { setIsLoading(false); }
-                    }}
-                    className="text-[10px] text-[#555] hover:text-[#c9a84c] transition-colors"
-                    title="Refresh from Google Places"
-                  >
-                    ↺ Refresh
-                  </button>
-                </div>
-              )}
+
 
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <label className="flex items-center gap-2 text-xs text-[#aaa]">
@@ -1972,6 +1936,36 @@ export default function Home() {
             </div>
           ) : (
             <>
+              {/* ── Bulk action toolbar ── */}
+              {bulkSelected.size > 0 && (
+                <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-[rgba(201,168,76,0.3)] bg-[rgba(201,168,76,0.06)] mb-2">
+                  <p className="text-[12px] text-[#c9a84c] font-medium">{bulkSelected.size} selected</p>
+                  <div className="flex gap-2 ml-auto">
+                    {(["contacted","replied","booked"] as const).map(action => (
+                      <button key={action} type="button"
+                        onClick={async () => {
+                          setBulkAction(action);
+                          const activeRunId = sortedLeads.find((l: LeadUI) => bulkSelected.has(l.id))?.metadata?.runId;
+                          await Promise.all([...bulkSelected].map(id =>
+                            fetch("/api/outcomes", { method: "POST", headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ leadId: id, runId: activeRunId ?? 0, [action]: true }) })
+                          ));
+                          setBulkSelected(new Set());
+                          setBulkAction(null);
+                          toastSuccess(`Marked ${bulkSelected.size} leads as ${action}`);
+                        }}
+                        className="text-[11px] px-3 py-1.5 rounded-lg border border-[#c9a84c]/25 text-[#c9a84c] hover:bg-[rgba(201,168,76,0.1)] transition-all capitalize">
+                        Mark {action}
+                      </button>
+                    ))}
+                    <button type="button" onClick={() => setBulkSelected(new Set())}
+                      className="text-[11px] px-3 py-1.5 rounded-lg border border-[#252525] text-[#555] hover:border-[#444] transition-all">
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* ── LEADS TABLE (desktop) / CARDS (mobile) ── */}
 
               {/* MOBILE CARD LIST */}
@@ -2920,6 +2914,39 @@ export default function Home() {
                                         </div>
                                         <span className="text-[#8a6e30] group-hover:text-[#c9a84c] transition-colors text-sm">→</span>
                                       </button>
+
+                                      {/* Add to Collection */}
+                                      <div className="space-y-1.5">
+                                        <button type="button"
+                                          onClick={async () => {
+                                            // Quick add to first collection, or show picker
+                                            const res = await fetch("/api/collections");
+                                            const d = await res.json() as { collections?: Array<{id:string;name:string;color:string}> };
+                                            if (!d.collections?.length) {
+                                              window.location.href = "/collections";
+                                              return;
+                                            }
+                                            const coll = d.collections[0];
+                                            await fetch("/api/collections/items", {
+                                              method: "POST",
+                                              headers: { "Content-Type": "application/json" },
+                                              body: JSON.stringify({
+                                                collection_id: coll.id,
+                                                lead_id: detailLead.id,
+                                                run_id: runIdNum,
+                                                company_name: detailLead.company.name,
+                                              }),
+                                            });
+                                            toastSuccess(`Added to "${coll.name}"`);
+                                          }}
+                                          className="flex items-center justify-between w-full px-4 py-3 rounded-xl border border-[#252525] hover:border-[#333] transition-all group text-left">
+                                          <div>
+                                            <p className="text-[12px] font-medium text-[#888]">Add to collection</p>
+                                            <p className="text-[10px] text-[#444] mt-0.5">Group this lead with others</p>
+                                          </div>
+                                          <span className="text-[#333] group-hover:text-[#555] transition-colors text-sm">◆</span>
+                                        </button>
+                                      </div>
 
                                     </div>
                                   );

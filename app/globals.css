@@ -79,3 +79,51 @@ html {
 .animate-fade-up-delay-3 { animation: fadeUp 0.7s ease 0.35s forwards; opacity: 0; }
 .animate-fade-up-delay-4 { animation: fadeUp 0.7s ease 0.5s forwards; opacity: 0; }
 .animate-fade-up-delay-5 { animation: fadeUp 0.7s ease 0.65s forwards; opacity: 0; }
+/* ── Light theme ─────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --background: #faf8f4;
+  --foreground: #1a1510;
+  --gold: #b8942e;
+  --gold-light: #d4a832;
+  --gold-dim: #8a6e30;
+  --surface: #f0ece4;
+  --surface-2: #e8e2d6;
+  --border: #d4cfc4;
+  --border-gold: rgba(184, 148, 46, 0.35);
+}
+
+[data-theme="light"] body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Light theme card overrides — bg-[#0d0d0d] → light surface */
+[data-theme="light"] .bg-\[\#080808\]  { background-color: var(--surface) !important; }
+[data-theme="light"] .bg-\[\#0a0a0a\]  { background-color: var(--surface) !important; }
+[data-theme="light"] .bg-\[\#0d0d0d\]  { background-color: #f5f1e9 !important; }
+[data-theme="light"] .bg-\[\#111\]     { background-color: #ede8df !important; }
+[data-theme="light"] .bg-\[\#111111\]  { background-color: #ede8df !important; }
+[data-theme="light"] .bg-\[\#1a1a1a\]  { background-color: #e8e2d6 !important; }
+
+/* Light theme border overrides */
+[data-theme="light"] .border-\[\#151515\] { border-color: #d4cfc4 !important; }
+[data-theme="light"] .border-\[\#1a1a1a\] { border-color: #d4cfc4 !important; }
+[data-theme="light"] .border-\[\#252525\] { border-color: #c8c2b6 !important; }
+
+/* Light theme text overrides */
+[data-theme="light"] .text-\[\#f5f0e8\]  { color: #1a1510 !important; }
+[data-theme="light"] .text-\[\#c8c0b0\]  { color: #2d2520 !important; }
+[data-theme="light"] .text-\[\#888\]     { color: #5a5048 !important; }
+[data-theme="light"] .text-\[\#666\]     { color: #6b6058 !important; }
+[data-theme="light"] .text-\[\#555\]     { color: #7a7068 !important; }
+[data-theme="light"] .text-\[\#444\]     { color: #8a8078 !important; }
+[data-theme="light"] .text-\[\#333\]     { color: #9a9088 !important; }
+
+/* Light theme nav/backdrop */
+[data-theme="light"] .bg-\[\#080808\]\/90 { background-color: rgba(250, 248, 244, 0.92) !important; }
+[data-theme="light"] .bg-\[\#080808\]\/60 { background-color: rgba(200, 190, 175, 0.6) !important; }
+
+/* Smooth theme transition */
+*, *::before, *::after {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease;
+}

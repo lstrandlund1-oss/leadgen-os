@@ -4,7 +4,23 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
+import { useTheme } from "./ThemeProvider";
 import { getEffectivePlan, canUseOutreach } from "@/lib/plan";
+import { useTheme } from "./ThemeProvider";
+
+function ThemeToggleInline() {
+  const { theme, toggle } = useTheme();
+  return (
+    <button type="button" onClick={toggle}
+      className="flex items-center gap-2 text-[12px] text-[#555] hover:text-[#c9a84c] transition-colors">
+      {theme === "dark" ? (
+        <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>Light mode</>
+      ) : (
+        <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>Dark mode</>
+      )}
+    </button>
+  );
+}
 
 type HamburgerMenuProps = {
   hasProfile?: boolean;
@@ -24,6 +40,7 @@ export default function HamburgerMenu({
   const supabase = createSupabaseBrowser();
 
   const plan = getEffectivePlan();
+  const { theme, toggle: toggleTheme } = useTheme();
   const outreachUnlocked = canUseOutreach(plan);
 
   // Lock body scroll when open
@@ -68,6 +85,8 @@ export default function HamburgerMenu({
     { label: "Profile",            href: "/profile",      icon: "◈",  locked: false },
     { label: "Analytics",          href: "/analytics",    icon: "◉",  locked: false },
   { label: "Follow-up Queue",    href: "/followups",    icon: "↩",  locked: false },
+  { label: "Collections",          href: "/collections",  icon: "◆",  locked: false },
+  { label: "Collections",          href: "/collections",  icon: "◉",  locked: false },
     { label: "Subscription Plans", href: "/plans",        icon: "◆",  locked: false },
     { label: "Contact & Support",  href: "/contact",      icon: "✉",  locked: false },
   { label: "Settings",           href: "/settings",     icon: "⚙",  locked: false },
@@ -78,13 +97,13 @@ export default function HamburgerMenu({
       {/* Full-viewport backdrop — blocks all interaction with page behind */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-[#080808]/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[55] bg-[#080808]/70 backdrop-blur-sm"
           onClick={() => setOpen(false)}
           aria-hidden="true"
         />
       )}
 
-      <div ref={menuRef} className="relative z-50">
+      <div ref={menuRef} className="relative z-[60]">
         {/* Trigger */}
         <button
           type="button"
@@ -100,7 +119,7 @@ export default function HamburgerMenu({
 
         {/* Dropdown — z-50 sits above the backdrop */}
         {open && (
-          <div className="absolute right-0 mt-3 w-56 rounded-xl border border-[rgba(201,168,76,0.3)] bg-[#111] shadow-2xl overflow-hidden">
+          <div className="absolute right-0 mt-3 w-56 rounded-xl border border-[rgba(201,168,76,0.3)] bg-[#111] shadow-2xl overflow-hidden z-[60]">
             <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-[#c9a84c] to-transparent" />
 
             {userEmail && (
@@ -166,8 +185,25 @@ export default function HamburgerMenu({
             )}
 
             <div className="h-[1px] w-full bg-[#252525]" />
+            <div className="px-4 py-3 flex items-center justify-between">
+              <p className="text-[10px] uppercase tracking-widests text-[#555]">Theme</p>
+              <ThemeToggleInline />
+            </div>
+            <div className="h-[1px] w-full bg-[#252525]" />
             <div className="py-2">
+              {/* Theme toggle */}
+            <div className="px-4 py-2.5 flex items-center justify-between">
+              <p className="text-[11px] text-[#555]">{theme === "dark" ? "Dark mode" : "Light mode"}</p>
               <button
+                type="button"
+                onClick={toggleTheme}
+                className={"relative inline-flex h-5 w-9 items-center rounded-full border transition-colors " + (theme === "light" ? "bg-[rgba(184,148,46,0.2)] border-[#b8942e]" : "bg-[#111] border-[#252525]")}
+              >
+                <span className={"absolute h-3.5 w-3.5 rounded-full transition-transform " + (theme === "light" ? "translate-x-[18px] bg-[#b8942e]" : "translate-x-[3px] bg-[#444]")} />
+              </button>
+            </div>
+            <div className="h-[1px] w-full bg-[#1a1a1a]" />
+          <button
                 type="button"
                 onClick={handleSignOut}
                 className="flex items-center gap-3 px-4 py-3 w-full text-sm text-[#666] hover:bg-[#1a1a1a] hover:text-rose-400 transition-colors group"

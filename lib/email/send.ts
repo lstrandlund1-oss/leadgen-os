@@ -165,3 +165,132 @@ export async function sendSupportTicketConfirmation(opts: {
       : `We've received your support request.\n\nYou reported: "${opts.summary}"\n\nA human will follow up shortly.`,
   });
 }
+// ── Onboarding email sequence ──────────────────────────────────────────────
+
+export async function sendOnboardingDay1(opts: { to: string; firstName?: string }): Promise<EmailResult> {
+  const name = opts.firstName ?? "there";
+  return sendEmail({
+    to: opts.to,
+    subject: `Welcome to Vantio — your first search awaits`,
+    html: baseHtml(`
+      <h1>Welcome to Vantio, ${name}.</h1>
+      <p>You're in. Here's how to get your first scored lead in under 2 minutes:</p>
+      <p><strong style="color:#c8c0b0">1.</strong> Go to your dashboard and enter a niche — e.g. <em>restaurang</em>, <em>tandläkare</em>, or <em>fastighetsmäklare</em></p>
+      <p><strong style="color:#c8c0b0">2.</strong> Add a city — Stockholm, Göteborg, Malmö, wherever you work</p>
+      <p><strong style="color:#c8c0b0">3.</strong> Hit Generate Leads</p>
+      <p>Every result gets an Opportunity score, a Risk score, and a gap type — so you know exactly who to reach out to first.</p>
+      <a href="${process.env.NEXT_PUBLIC_BASE_URL ?? "https://vantioapp.com"}/dashboard" class="btn">Find my first leads →</a>
+      <hr class="divider"/>
+      <p style="font-size:12px;color:#444;">You're on beta access — full platform, no limits, no card required.</p>
+    `),
+    text: `Welcome to Vantio!\n\nYour first search takes under 2 minutes:\n1. Enter a niche (e.g. restaurang, tandläkare)\n2. Add a city\n3. Hit Generate Leads\n\nEvery result gets scored so you know who to contact first.\n\n${process.env.NEXT_PUBLIC_BASE_URL ?? "https://vantioapp.com"}/dashboard`,
+  });
+}
+
+export async function sendOnboardingDay3(opts: { to: string }): Promise<EmailResult> {
+  return sendEmail({
+    to: opts.to,
+    subject: `How to read a Vantio lead score`,
+    html: baseHtml(`
+      <h1>Three numbers that change how you prospect.</h1>
+      <p>Every lead in Vantio gets three scores:</p>
+      <p><strong style="color:#c9a84c">Opportunity (0–100)</strong> — How much untapped potential exists. High = clear gap between where they are and where they could be.</p>
+      <p><strong style="color:#f87171">Risk (0–100)</strong> — Signals of instability or strong competition. Low risk = safer bet. High risk doesn't mean skip — it means price accordingly.</p>
+      <p><strong style="color:#4ade80">Fit (0–100)</strong> — How well this lead's needs match your specific services. This is personalised to your profile — no two users see the same fit score for the same lead.</p>
+      <p>The sweet spot: <strong style="color:#c8c0b0">high opportunity + low risk + high fit</strong>. That's your best first call.</p>
+      <a href="${process.env.NEXT_PUBLIC_BASE_URL ?? "https://vantioapp.com"}/dashboard" class="btn">Review my leads →</a>
+    `),
+    text: `How to read a Vantio lead score:\n\nOpportunity — untapped potential\nRisk — instability signals\nFit — match to your specific services\n\nBest leads: high opportunity + low risk + high fit.\n\n${process.env.NEXT_PUBLIC_BASE_URL ?? "https://vantioapp.com"}/dashboard`,
+  });
+}
+
+export async function sendOnboardingDay7(opts: { to: string }): Promise<EmailResult> {
+  return sendEmail({
+    to: opts.to,
+    subject: `You've been on Vantio for a week — here's what to do next`,
+    html: baseHtml(`
+      <h1>One week in.</h1>
+      <p>If you've run your first search — great. If not, now's the time.</p>
+      <p>The single biggest thing you can do this week to get value from Vantio: <strong style="color:#c8c0b0">open a lead, read the gap type, and send one outreach message.</strong></p>
+      <p>Every lead has a gap type — Visibility, Conversion, Infrastructure, or Optimization. This tells you exactly what angle to lead with. You don't need to figure it out yourself.</p>
+      <p>On Operator plan, the outreach generator writes the message for you based on those signals. On Scout, you get the angle and script structure to write it yourself.</p>
+      <a href="${process.env.NEXT_PUBLIC_BASE_URL ?? "https://vantioapp.com"}/outreach" class="btn">Generate my first outreach →</a>
+      <hr class="divider"/>
+      <p style="font-size:12px;color:#444;">Questions? Just reply to this email — we read everything.</p>
+    `),
+    text: `One week on Vantio.\n\nThe best thing you can do: open a lead, read the gap type, send one outreach.\n\nEvery lead has a gap type (Visibility, Conversion, Infrastructure, Optimization) — it tells you exactly what angle to use.\n\n${process.env.NEXT_PUBLIC_BASE_URL ?? "https://vantioapp.com"}/outreach`,
+  });
+}
+
+// ── Template: Onboarding Day 1 — Welcome ─────────────────────────────────────
+export async function sendOnboardingDay1(opts: { to: string; name?: string }): Promise<EmailResult> {
+  const greeting = opts.name ? `Hi ${opts.name}` : "Welcome";
+  return sendEmail({
+    to: opts.to,
+    subject: `You're in — here's how to get your first leads`,
+    html: baseHtml(`
+      <h1>${greeting} — you're in.</h1>
+      <p>Vantio is live and your account is ready. Here's the fastest way to get value in the next 10 minutes:</p>
+      <p><strong style="color:#c8c0b0">Step 1 — Set your profile</strong><br/>Tell us your service type and capabilities. This shapes every lead score you see.</p>
+      <p><strong style="color:#c8c0b0">Step 2 — Run your first search</strong><br/>Enter a niche (e.g. "mäklare") and a city. Vantio scores every result against your profile.</p>
+      <p><strong style="color:#c8c0b0">Step 3 — Open a lead and read the signals</strong><br/>Each lead shows you exactly why it scored high — gap type, opportunity signals, readiness.</p>
+      <a href="${APP_NAME === "Vantio" ? "https://vantioapp.com/dashboard" : "#"}" class="btn">Go to Dashboard →</a>
+      <hr class="divider"/>
+      <p style="font-size:12px;color:#444;">Questions? Just reply to this email — we read everything.</p>
+    `),
+    text: `${greeting} — you're in.
+
+Step 1: Set your profile at vantioapp.com/profile/settings
+Step 2: Run your first search on the dashboard
+Step 3: Open a lead and read the signals
+
+Questions? Just reply to this email.`,
+  });
+}
+
+// ── Template: Onboarding Day 3 — How to read scores ──────────────────────────
+export async function sendOnboardingDay3(opts: { to: string }): Promise<EmailResult> {
+  return sendEmail({
+    to: opts.to,
+    subject: `How to read a Vantio score (and why it matters)`,
+    html: baseHtml(`
+      <h1>How to read a Vantio score.</h1>
+      <p>Every lead gets three scores. Here's what they mean:</p>
+      <p><strong style="color:#c9a84c">Opportunity (OPP)</strong> — How much untapped potential this business has. High = they need what you offer and haven't solved it yet.</p>
+      <p><strong style="color:#f87171">Risk</strong> — How likely this lead is to be a difficult or low-value sale. High risk = established competitor, unstable signals, or saturated market.</p>
+      <p><strong style="color:#4ade80">Fit</strong> — How well this lead matches your specific capabilities. This is calculated from your profile — it's unique to you.</p>
+      <p>The sweet spot: <strong style="color:#c8c0b0">high OPP, low Risk, high Fit.</strong></p>
+      <a href="https://vantioapp.com/dashboard" class="btn">See your leads →</a>
+    `),
+    text: `How to read a Vantio score.
+
+OPP = untapped potential
+Risk = difficulty of the sale
+Fit = match to your capabilities
+
+Sweet spot: high OPP, low Risk, high Fit.`,
+  });
+}
+
+// ── Template: Onboarding Day 7 — Outreach tips ───────────────────────────────
+export async function sendOnboardingDay7(opts: { to: string }): Promise<EmailResult> {
+  return sendEmail({
+    to: opts.to,
+    subject: `3 outreach tips from the data (Gong, Salesloft)`,
+    html: baseHtml(`
+      <h1>3 outreach tips backed by data.</h1>
+      <p>Based on Gong's analysis of 28M emails and Salesloft's 15M email dataset:</p>
+      <p><strong style="color:#c8c0b0">1. Never pitch on first touch.</strong><br/>Messages that pitch a product or service on first contact get 57% fewer replies. Lead with curiosity or a specific observation about their business.</p>
+      <p><strong style="color:#c8c0b0">2. Keep it under 100 words.</strong><br/>Shorter emails get more replies. 50–100 words for email, 25–75 for LinkedIn DM.</p>
+      <p><strong style="color:#c8c0b0">3. Offer value, not a meeting.</strong><br/>CTAs that offer something (a quick tip, a resource, an insight) outperform "let's hop on a call" by 3x.</p>
+      <p>Vantio's outreach generator applies all of these automatically — available on Operator plan.</p>
+      <a href="https://vantioapp.com/outreach" class="btn">Try the outreach generator →</a>
+    `),
+    text: `3 outreach tips:
+1. Never pitch on first touch (−57% reply rate)
+2. Keep it under 100 words
+3. Offer value, not a meeting
+
+Vantio's outreach generator applies all of these automatically.`,
+  });
+}
