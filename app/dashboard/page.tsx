@@ -1577,7 +1577,7 @@ export default function Home() {
     <main className="min-h-screen bg-[#080808] text-[#f5f0e8] flex flex-col items-center px-4">
 
       {/* Premium nav bar */}
-      <nav className="w-full border-b border-[#252525] bg-[#080808]/90 backdrop-blur-md mb-0">
+      <nav className="sticky top-0 z-50 w-full border-b border-[#252525] bg-[#080808]/90 backdrop-blur-md mb-0">
         <div className="max-w-4xl mx-auto px-0 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-[#c9a84c]">◈</span>

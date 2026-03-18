@@ -174,7 +174,7 @@ export default function NotificationBell({ emailNotifications }: { emailNotifica
         aria-label="Notifications"
         style={{
           position: "relative", display: "flex", alignItems: "center", justifyContent: "center",
-          width: 36, height: 36, borderRadius: 8,
+          width: 40, height: 40, borderRadius: 8,
           border: "1px solid #252525", background: "#111", cursor: "pointer",
           transition: "border-color 0.2s",
         }}
