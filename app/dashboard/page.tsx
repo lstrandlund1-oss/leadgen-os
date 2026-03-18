@@ -1613,8 +1613,6 @@ export default function Home() {
         )}
 
         {recentSearches.length > 0 && (
-
-        {recentSearches.length > 0 && (
           <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 shadow-xl shadow-black/40 space-y-3 relative z-0">
             {/* Profile completeness warning banner — only after profile API responds to prevent flicker */}
             {profileChecked && !checklistState.hasProfile && (
