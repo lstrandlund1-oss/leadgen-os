@@ -1199,13 +1199,19 @@ export default function Home() {
         checklistHasSelected?: boolean;
         checklistHasOutcome?: boolean;
       };
-      if (parsed.checklistDismissed) setChecklistDismissed(true);
-      setChecklistState((prev: typeof checklistState) => ({
-        ...prev,
-        hasSearched: parsed.checklistHasSearched ?? false,
-        hasSelected: parsed.checklistHasSelected ?? false,
-        hasOutcome: parsed.checklistHasOutcome ?? false,
-      }));
+      // Only restore checklist progress if it belongs to the current user.
+      // This prevents a new account on the same device inheriting another account's state.
+      const storedUid = (parsed as { userId?: string }).userId ?? "";
+      const currentUid = localStorage.getItem("vantio_uid") ?? "";
+      if (!storedUid || !currentUid || storedUid === currentUid) {
+        if (parsed.checklistDismissed) setChecklistDismissed(true);
+        setChecklistState((prev: typeof checklistState) => ({
+          ...prev,
+          hasSearched: parsed.checklistHasSearched ?? false,
+          hasSelected: parsed.checklistHasSelected ?? false,
+          hasOutcome: parsed.checklistHasOutcome ?? false,
+        }));
+      }
     } catch (e) {
       console.error("Failed to load checklist state:", e);
     }
@@ -1242,17 +1248,26 @@ export default function Home() {
   // Also check checklist completion
   const [checklistDismissed, setChecklistDismissed] = useState(false);
   const [checklistState, setChecklistState] = useState({ hasProfile: false, hasSearched: false, hasSelected: false, hasOutcome: false });
+  const [profileChecked, setProfileChecked] = useState(false); // true once profile API has responded
 
   useEffect(() => {
     fetch("/api/profile")
       .then((r) => r.json())
-      .then((data: { profile?: { targetLocation?: string; businessName?: string } }) => {
+      .then((data: { profile?: { targetLocation?: string; businessName?: string }; userId?: string }) => {
         const geo = data?.profile?.targetLocation;
         if (geo && typeof geo === "string") {
           setLocation((prev: string) => (prev === "" ? geo : prev));
         }
         const hasProfile = !!(data?.profile?.businessName);
+        // Store current user ID so checklist state can be user-scoped
+        const supabaseForUid = createSupabaseBrowser();
+        supabaseForUid.auth.getUser().then(({ data: authData }) => {
+          if (authData.user?.id) {
+            try { localStorage.setItem("vantio_uid", authData.user.id); } catch { /* ignore */ }
+          }
+        }).catch(() => {});
         setChecklistState((prev: typeof checklistState) => ({ ...prev, hasProfile }));
+        setProfileChecked(true); // profile API has responded — safe to show banner
         // First-time user: no profile → always redirect to onboarding.
         // We do NOT rely on localStorage because it can contain state from a
         // previous account on the same device (e.g. switching from Outlook to Gmail).
@@ -1268,6 +1283,7 @@ export default function Home() {
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
+          userId: (typeof window !== "undefined" ? (localStorage.getItem("vantio_uid") ?? "") : ""),
           language,
           niche,
           location,
@@ -1479,7 +1495,7 @@ export default function Home() {
 
         {/* Onboarding checklist — shown until all steps done or dismissed */}
         {!checklistDismissed && !(checklistState.hasProfile && checklistState.hasSearched && checklistState.hasSelected && checklistState.hasOutcome) && (
-          <section className="bg-[#0d0d0d] border border-[#252525] rounded-2xl p-4 md:p-5 shadow-xl shadow-black/40">
+          <section className="bg-[#0d0d0d] border border-[#252525] rounded-2xl p-4 md:p-5 shadow-xl shadow-black/40 relative z-0">
             <div className="flex items-start justify-between gap-3 mb-3">
               <div>
                 <p className="text-[11px] uppercase tracking-widest text-[#c9a84c] mb-0.5">Getting started</p>
@@ -1494,7 +1510,7 @@ export default function Home() {
                 { done: checklistState.hasSelected,  label: "Open a lead",            sub: "Click any lead to see signals, gap analysis, and outreach script", href: null },
                 { done: checklistState.hasOutcome,   label: "Log an outcome",         sub: "Mark a lead as contacted, replied, or booked", href: null },
               ].map(({ done, label, sub, href }) => (
-                <div key={label} className={`flex items-start gap-3 rounded-lg px-3 py-2.5 border transition-colors ${done ? "border-[#1a1a1a] opacity-50" : "border-[#252525] bg-[#111]"}`}>
+                <div key={label} className={`flex items-start gap-3 rounded-lg px-3 py-2.5 border transition-colors ${done ? "border-[#1a1a1a] opacity-50 pointer-events-none" : "border-[#252525] bg-[#111]"}`}>
                   <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${done ? "border-[#4ade80] bg-[#4ade80]/10" : "border-[#333]"}`}>
                     {done && <span className="text-[9px] text-[#4ade80]">✓</span>}
                   </div>
@@ -1512,9 +1528,9 @@ export default function Home() {
         )}
 
         {recentSearches.length > 0 && (
-          <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 shadow-xl shadow-black/40 space-y-3">
-            {/* Profile completeness warning banner */}
-            {!checklistState.hasProfile && (
+          <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 shadow-xl shadow-black/40 space-y-3 relative z-0">
+            {/* Profile completeness warning banner — only after profile API responds to prevent flicker */}
+            {profileChecked && !checklistState.hasProfile && (
               <div className="flex items-center justify-between gap-4 rounded-xl border border-[#c9a84c]/20 bg-[#c9a84c]/04 px-4 py-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <span className="text-[#c9a84c] text-base flex-shrink-0">⚠</span>
@@ -1626,7 +1642,7 @@ export default function Home() {
         {/* Filter Form */}
         <section className="bg-[#111111] border border-[#252525] rounded-2xl p-6 md:p-8 shadow-xl shadow-black/40 space-y-6">
           {/* Profile completeness banner — show here too when no saved searches exist */}
-          {!checklistState.hasProfile && recentSearches.length === 0 && (
+          {profileChecked && !checklistState.hasProfile && recentSearches.length === 0 && (
             <div className="flex items-center justify-between gap-4 rounded-xl border border-[#c9a84c]/20 bg-[#c9a84c]/04 px-4 py-3 -mb-2">
               <div className="flex items-center gap-3 min-w-0">
                 <span className="text-[#c9a84c] text-base flex-shrink-0">⚠</span>
@@ -1640,7 +1656,7 @@ export default function Home() {
               </a>
             </div>
           )}
-          <h2 className="text-xl font-semibold">{t.ui.filters.title}</h2>
+          <h2 className="text-xl font-semibold mt-3">{t.ui.filters.title}</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-1 relative">

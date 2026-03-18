@@ -97,13 +97,13 @@ export default function HamburgerMenu({
       {/* Full-viewport backdrop — blocks all interaction with page behind */}
       {open && (
         <div
-          className="fixed inset-0 z-[55] bg-[#080808]/70 backdrop-blur-sm"
+          className="fixed inset-0 z-[55] bg-[#080808]/70 backdrop-blur-sm pointer-events-auto"
           onClick={() => setOpen(false)}
           aria-hidden="true"
         />
       )}
 
-      <div ref={menuRef} className="relative z-[60]">
+      <div ref={menuRef} className="relative z-[60] isolate">
         {/* Trigger */}
         <button
           type="button"
@@ -119,7 +119,7 @@ export default function HamburgerMenu({
 
         {/* Dropdown — z-50 sits above the backdrop */}
         {open && (
-          <div className="absolute right-0 mt-3 w-56 rounded-xl border border-[rgba(201,168,76,0.3)] bg-[#111] shadow-2xl overflow-hidden z-[60]">
+          <div className="absolute right-0 mt-3 w-56 rounded-xl border border-[rgba(201,168,76,0.3)] bg-[#111] shadow-2xl overflow-hidden z-[60] pointer-events-auto">
             <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-[#c9a84c] to-transparent" />
 
             {userEmail && (
