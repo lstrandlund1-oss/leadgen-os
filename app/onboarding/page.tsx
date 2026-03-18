@@ -9,7 +9,6 @@ import {
   type ProfileTypeKey,
 } from "@/lib/profile/profileTypes";
 import type { Capability } from "@/lib/fit/needs";
-import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 
 const ALL_CAPABILITIES: Capability[] = [
   "ads",
@@ -63,53 +62,23 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
-  const [sessionChecked, setSessionChecked] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  // Redirect to dashboard if user already completed onboarding
+  const [checking, setChecking] = useState(true);
 
-  // Guard: if no session → login. If profile already exists → skip to dashboard.
   useEffect(() => {
-    let cancelled = false;
-
-    // Safety net: if anything hangs, unblock the UI after 4 seconds
-    const timeout = setTimeout(() => {
-      if (!cancelled) setSessionChecked(true);
-    }, 4000);
-
-    async function checkSession() {
-      try {
-        const supabase = createSupabaseBrowser();
-        // Use getSession (reads local cookie) — faster and more reliable than
-        // getUser() immediately after an email-confirmation redirect
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (!session) {
-          if (!cancelled) router.replace("/login?next=/onboarding");
-          return;
+    // Only check if already onboarded — middleware already guarantees a session exists.
+    // If this fetch fails for any reason, just show the form (safe fallback).
+    fetch("/api/profile")
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => {
+        if (json?.profile?.onboardingCompleted) {
+          router.replace("/dashboard");
+        } else {
+          setChecking(false);
         }
-
-        // Check if user already completed onboarding
-        try {
-          const res = await fetch("/api/profile");
-          if (res.ok) {
-            const json = await res.json();
-            if (json.profile?.onboardingCompleted) {
-              if (!cancelled) router.replace("/dashboard");
-              return;
-            }
-          }
-        } catch {
-          // Profile check failed — safe to show onboarding anyway
-        }
-
-        if (!cancelled) setSessionChecked(true);
-      } catch {
-        // Auth check failed — show onboarding rather than blocking forever
-        if (!cancelled) setSessionChecked(true);
-      }
-    }
-
-    checkSession().finally(() => clearTimeout(timeout));
-
-    return () => { cancelled = true; clearTimeout(timeout); };
+      })
+      .catch(() => setChecking(false));
   }, [router]);
 
   const [profileType, setProfileType] = useState<ProfileTypeKey>(
@@ -134,8 +103,6 @@ export default function OnboardingPage() {
     setProfileType(key);
     setCapabilities({ ...PROFILE_TYPE_DEFINITIONS[key].defaultCapabilities });
   }
-
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   async function handleFinish() {
     setSaving(true);
@@ -169,8 +136,7 @@ export default function OnboardingPage() {
     }
   }
 
-  // Show nothing while verifying session to avoid flash of content
-  if (!sessionChecked) {
+  if (checking) {
     return (
       <div className="min-h-screen bg-[#080808] flex items-center justify-center">
         <div className="w-5 h-5 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin" />
