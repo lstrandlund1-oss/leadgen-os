@@ -93,11 +93,13 @@ export default function HamburgerMenu({
         aria-hidden="true"
       />
 
-      {/* Close button clone — sits above backdrop at exact button position */}
+      {/* Close button — sits above backdrop at exact button position, mirrors the real button */}
       <button
         type="button"
         onClick={() => setOpen(false)}
         aria-label="Close menu"
+        onMouseEnter={e => (e.currentTarget.style.borderColor = "#c9a84c")}
+        onMouseLeave={e => (e.currentTarget.style.borderColor = "#8a6e30")}
         style={{
           position: "fixed",
           top: dropdownStyle.top - 48,
@@ -106,11 +108,12 @@ export default function HamburgerMenu({
           display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center",
           width: 40, height: 40, gap: 5, borderRadius: 8,
           border: "1px solid #8a6e30", background: "#111", cursor: "pointer",
+          transition: "border-color 0.2s",
         }}
       >
-        <span style={{ display: "block", width: 20, height: 1.5, background: "#f5f0e8", transformOrigin: "center", transform: "rotate(45deg) translateY(6.5px)" }} />
-        <span style={{ display: "block", width: 20, height: 1.5, background: "#f5f0e8", opacity: 0 }} />
-        <span style={{ display: "block", width: 20, height: 1.5, background: "#f5f0e8", transformOrigin: "center", transform: "rotate(-45deg) translateY(-6.5px)" }} />
+        <span style={{ display: "block", width: 20, height: 1.5, background: "#f5f0e8", transformOrigin: "center", transform: "rotate(45deg) translateY(6.5px)", transition: "all 0.3s" }} />
+        <span style={{ display: "block", width: 20, height: 1.5, background: "#f5f0e8", opacity: 0, transition: "all 0.3s" }} />
+        <span style={{ display: "block", width: 20, height: 1.5, background: "#f5f0e8", transformOrigin: "center", transform: "rotate(-45deg) translateY(-6.5px)", transition: "all 0.3s" }} />
       </button>
 
       {/* Dropdown */}
@@ -224,6 +227,7 @@ export default function HamburgerMenu({
   return (
     <>
       {/* Trigger — stays in normal DOM flow */}
+      {/* Real button — hidden when open (portal clone takes over), kept in DOM for position measurement */}
       <button
         ref={buttonRef}
         type="button"
@@ -235,13 +239,14 @@ export default function HamburgerMenu({
           width: 40, height: 40, gap: 5, borderRadius: 8,
           border: "1px solid #252525", background: "#111", cursor: "pointer",
           transition: "border-color 0.2s",
+          visibility: open ? "hidden" : "visible",
         }}
         onMouseEnter={e => (e.currentTarget.style.borderColor = "#8a6e30")}
-        onMouseLeave={e => (e.currentTarget.style.borderColor = open ? "#8a6e30" : "#252525")}
+        onMouseLeave={e => (e.currentTarget.style.borderColor = "#252525")}
       >
-        <span style={{ display: "block", width: 20, height: 1.5, background: "#f5f0e8", transition: "all 0.3s", transformOrigin: "center", transform: open ? "rotate(45deg) translateY(6.5px)" : "none" }} />
-        <span style={{ display: "block", width: 20, height: 1.5, background: "#f5f0e8", transition: "all 0.3s", opacity: open ? 0 : 1, transform: open ? "scaleX(0)" : "none" }} />
-        <span style={{ display: "block", width: 20, height: 1.5, background: "#f5f0e8", transition: "all 0.3s", transformOrigin: "center", transform: open ? "rotate(-45deg) translateY(-6.5px)" : "none" }} />
+        <span style={{ display: "block", width: 20, height: 1.5, background: "#f5f0e8" }} />
+        <span style={{ display: "block", width: 20, height: 1.5, background: "#f5f0e8" }} />
+        <span style={{ display: "block", width: 20, height: 1.5, background: "#f5f0e8" }} />
       </button>
 
       {/* Portal — renders directly on document.body, above everything */}
