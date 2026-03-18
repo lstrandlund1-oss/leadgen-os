@@ -24,7 +24,7 @@ export default function HamburgerMenu({
 }: HamburgerMenuProps) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [btnPos, setBtnPos] = useState({ top: 16, right: 16 });
+  const [btnPos, setBtnPos] = useState({ top: 16, left: 16 });
   const buttonRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
   const supabase = createSupabaseBrowser();
@@ -38,8 +38,7 @@ export default function HamburgerMenu({
     if (!open && buttonRef.current) {
       const r = buttonRef.current.getBoundingClientRect();
       // Use clientWidth to avoid scrollbar/zoom inconsistencies
-      const vw = document.documentElement.clientWidth;
-      setBtnPos({ top: r.top, right: vw - r.right });
+      setBtnPos({ top: r.top, left: r.left });
     }
     setOpen(o => !o);
   }
@@ -90,7 +89,7 @@ export default function HamburgerMenu({
         aria-hidden="true"
       />
 
-      {/* Animated button — positioned exactly over the real button, shows X state */}
+      {/* Close button — unicode ✕, always a perfect X */}
       <button
         type="button"
         onClick={() => setOpen(false)}
@@ -98,35 +97,24 @@ export default function HamburgerMenu({
         style={{
           position: "fixed",
           top: btnPos.top,
-          right: btnPos.right,
+          left: btnPos.left,
           zIndex: 99999,
           display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
           alignItems: "center",
+          justifyContent: "center",
           width: 40,
           height: 40,
-          gap: 5,
           borderRadius: 8,
           border: "1px solid #8a6e30",
           background: "#111",
           cursor: "pointer",
+          fontSize: 18,
+          color: "#f5f0e8",
+          lineHeight: 1,
+          boxSizing: "border-box",
         }}
       >
-        <span style={{
-          display: "block", width: 20, height: 1.5, background: "#f5f0e8",
-          transformOrigin: "center",
-          transform: "rotate(45deg) translateY(6.5px)",
-        }} />
-        <span style={{
-          display: "block", width: 20, height: 1.5, background: "#f5f0e8",
-          opacity: 0,
-        }} />
-        <span style={{
-          display: "block", width: 20, height: 1.5, background: "#f5f0e8",
-          transformOrigin: "center",
-          transform: "rotate(-45deg) translateY(-6.5px)",
-        }} />
+        ✕
       </button>
 
       {/* Dropdown */}
@@ -134,7 +122,7 @@ export default function HamburgerMenu({
         style={{
           position: "fixed",
           top: btnPos.top + 48,
-          right: btnPos.right,
+          left: btnPos.left - 184,
           zIndex: 99998,
           width: 224,
           maxHeight: "80vh",
