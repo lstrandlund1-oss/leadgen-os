@@ -9,6 +9,7 @@ import {
   type ProfileTypeKey,
 } from "@/lib/profile/profileTypes";
 import type { Capability } from "@/lib/fit/needs";
+import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 
 const ALL_CAPABILITIES: Capability[] = [
   "ads",
@@ -62,23 +63,46 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  // Redirect to dashboard if user already completed onboarding
-  const [checking, setChecking] = useState(true);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
 
+  // Guard: if no session → login. If profile already exists → skip to dashboard.
   useEffect(() => {
-    // Only check if already onboarded — middleware already guarantees a session exists.
-    // If this fetch fails for any reason, just show the form (safe fallback).
-    fetch("/api/profile")
-      .then((r) => r.ok ? r.json() : null)
-      .then((json) => {
-        if (json?.profile?.onboardingCompleted) {
-          router.replace("/dashboard");
-        } else {
-          setChecking(false);
+    const supabase = createSupabaseBrowser();
+
+    // Hard deadline — never wait more than 5s total for session + profile check
+    const deadline = setTimeout(() => setSessionChecked(true), 5000);
+
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (!data.user) {
+        clearTimeout(deadline);
+        router.replace("/login?next=/onboarding");
+        return;
+      }
+      // Check if user already has a saved profile — if so, skip onboarding
+      try {
+        const controller = new AbortController();
+        const profileTimeout = setTimeout(() => controller.abort(), 3000);
+        const res = await fetch("/api/profile", { signal: controller.signal });
+        clearTimeout(profileTimeout);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.profile?.businessName) {
+            clearTimeout(deadline);
+            router.replace("/dashboard");
+            return;
+          }
         }
-      })
-      .catch(() => setChecking(false));
+      } catch {
+        // Timeout or error — show onboarding anyway
+      }
+      clearTimeout(deadline);
+      setSessionChecked(true);
+    }).catch(() => {
+      // getUser itself failed — show onboarding as safe fallback
+      clearTimeout(deadline);
+      setSessionChecked(true);
+    });
   }, [router]);
 
   const [profileType, setProfileType] = useState<ProfileTypeKey>(
@@ -106,10 +130,13 @@ export default function OnboardingPage() {
 
   async function handleFinish() {
     setSaving(true);
-    setSaveError(null);
+    // 8-second timeout — prevents infinite save state if server hangs
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     try {
-      const res = await fetch("/api/profile", {
+      await fetch("/api/profile", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           profileType,
@@ -120,23 +147,24 @@ export default function OnboardingPage() {
           budgetPreference: "medium",
           targetLocation,
           capabilities,
-          onboardingCompleted: true,
         }),
       });
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error((json as { error?: string }).error ?? "Failed to save profile");
-      }
-      setStep(3);
     } catch (err) {
-      console.error(err);
-      setSaveError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      // Timeout or network error — still advance.
+      // Profile can be completed later from /settings.
+      console.warn("Profile save failed or timed out:", err);
+      setSaveFailed(true);
     } finally {
+      clearTimeout(timeoutId);
       setSaving(false);
+      // Always advance to the done screen regardless of server response.
+      // A failed save is recoverable — getting stuck here is not.
+      setStep(3);
     }
   }
 
-  if (checking) {
+  // Show nothing while verifying session to avoid flash of content
+  if (!sessionChecked) {
     return (
       <div className="min-h-screen bg-[#080808] flex items-center justify-center">
         <div className="w-5 h-5 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin" />
@@ -454,9 +482,6 @@ export default function OnboardingPage() {
                   {saving ? "Saving…" : "Create My Profile →"}
                 </button>
               </div>
-              {saveError && (
-                <p className="text-[12px] text-red-400 text-center mt-2">{saveError}</p>
-              )}
             </div>
           )}
 
@@ -496,7 +521,7 @@ export default function OnboardingPage() {
               </div>
               <button
                 type="button"
-                onClick={() => router.replace("/dashboard")}
+                onClick={() => router.push("/dashboard")}
                 className="inline-block px-10 py-4 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] tracking-wide hover:bg-[#e8c97a] transition-all shadow-lg shadow-[rgba(201,168,76,0.15)]"
               >
                 Find my first leads →
