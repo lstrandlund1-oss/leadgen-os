@@ -13,7 +13,6 @@ interface HamburgerMenuProps {
 }
 
 export default function HamburgerMenu({
-  language,
   userEmail,
 }: HamburgerMenuProps) {
   const [open, setOpen] = useState(false);
