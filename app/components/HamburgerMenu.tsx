@@ -37,7 +37,9 @@ export default function HamburgerMenu({
   function toggleMenu() {
     if (!open && buttonRef.current) {
       const r = buttonRef.current.getBoundingClientRect();
-      setBtnPos({ top: r.top, right: window.innerWidth - r.right });
+      // Use clientWidth to avoid scrollbar/zoom inconsistencies
+      const vw = document.documentElement.clientWidth;
+      setBtnPos({ top: r.top, right: vw - r.right });
     }
     setOpen(o => !o);
   }
