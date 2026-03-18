@@ -1199,18 +1199,16 @@ export default function Home() {
         checklistHasSelected?: boolean;
         checklistHasOutcome?: boolean;
       };
-      // Only restore checklist progress if it belongs to the current user.
-      // This prevents a new account on the same device inheriting another account's state.
+      // Only restore the dismiss preference — NOT hasSearched/hasSelected/hasOutcome.
+      // Those are derived from real data (Supabase searches + session actions)
+      // to prevent stale state from a previous session appearing on fresh accounts.
       const storedUid = (parsed as { userId?: string }).userId ?? "";
       const currentUid = localStorage.getItem("vantio_uid") ?? "";
-      if (!storedUid || !currentUid || storedUid === currentUid) {
+      if (storedUid && currentUid && storedUid === currentUid) {
         if (parsed.checklistDismissed) setChecklistDismissed(true);
-        setChecklistState((prev: typeof checklistState) => ({
-          ...prev,
-          hasSearched: parsed.checklistHasSearched ?? false,
-          hasSelected: parsed.checklistHasSelected ?? false,
-          hasOutcome: parsed.checklistHasOutcome ?? false,
-        }));
+      } else if (!storedUid) {
+        // Legacy state without userId — still respect dismiss, ignore progress
+        if (parsed.checklistDismissed) setChecklistDismissed(true);
       }
     } catch (e) {
       console.error("Failed to load checklist state:", e);
@@ -1228,6 +1226,10 @@ export default function Home() {
         };
         const searches = Array.isArray(data.searches) ? data.searches : [];
         setRecentSearches(searches);
+        // Derive hasSearched from real Supabase data — not localStorage
+        if (searches.length > 0) {
+          setChecklistState((prev: typeof checklistState) => ({ ...prev, hasSearched: true }));
+        }
         // Pre-fill from most recent search if fields are still empty
         if (searches.length > 0) {
           const latest = searches[0];
