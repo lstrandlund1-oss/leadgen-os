@@ -500,8 +500,8 @@ async function runProviderSearchAndFetchLeads(args: {
       location: locationText || undefined,
       socialPresence: socialPresence,
       limit: 25,
-      runId: runIdArg,
-      cursor,
+      ...(runIdArg != null ? { runId: runIdArg } : {}),
+      ...(cursor != null ? { cursor } : {}),
       forceRefresh: args.forceRefresh ?? false,
     }),
   }).catch((err) => {
