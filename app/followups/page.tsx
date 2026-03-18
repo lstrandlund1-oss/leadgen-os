@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import HamburgerMenu from "../components/HamburgerMenu";
+import HamburgerMenu from "@/app/components/HamburgerMenu";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 
 type FollowupLead = {

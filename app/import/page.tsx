@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import HamburgerMenu from "../components/HamburgerMenu";
+import HamburgerMenu from "@/app/components/HamburgerMenu";
 
 type ParsedRow = {
   name: string;

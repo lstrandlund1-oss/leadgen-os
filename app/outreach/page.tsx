@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import HamburgerMenu from "../components/HamburgerMenu";
+import HamburgerMenu from "@/app/components/HamburgerMenu";
 import { getEffectivePlan, canUseOutreach } from "@/lib/plan";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 
