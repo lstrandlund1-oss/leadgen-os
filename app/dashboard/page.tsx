@@ -1586,8 +1586,10 @@ export default function Home() {
             </span>
             <span className="ml-2 text-[10px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full border border-[rgba(201,168,76,0.3)] text-[#8a6e30]">Beta</span>
           </div>
-          <NotificationBell />
-          <HamburgerMenu hasProfile={true} language={language} onLanguageChange={setLanguage} userEmail={userEmail} />
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <HamburgerMenu hasProfile={true} language={language} onLanguageChange={setLanguage} userEmail={userEmail} />
+          </div>
         </div>
       </nav>
 
