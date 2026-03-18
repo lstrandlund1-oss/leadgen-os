@@ -86,19 +86,13 @@ const MOCK_LEAD = {
 
 export default function LandingPage() {
   const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
-  const [showDeletedBanner, setShowDeletedBanner] = useState(false);
-
-  useEffect(() => {
-    // Show confirmation banner if redirected after account deletion
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("account") === "deleted") {
-        setShowDeletedBanner(true);
-        // Clean the URL
-        window.history.replaceState({}, "", "/");
-      }
-    }
-  }, []);
+  const [showDeletedBanner, setShowDeletedBanner] = useState(() => {
+    // Read URL param on first render — no effect needed
+    if (typeof window === "undefined") return false;
+    const deleted = new URLSearchParams(window.location.search).get("account") === "deleted";
+    if (deleted) window.history.replaceState({}, "", "/");
+    return deleted;
+  });
 
   useEffect(() => {
     fetch("/api/waitlist")
