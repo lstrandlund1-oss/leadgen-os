@@ -78,8 +78,8 @@ export default function OnboardingPage() {
         const res = await fetch("/api/profile");
         if (res.ok) {
           const json = await res.json();
-          // businessName being set means the user completed onboarding before
-          if (json.profile?.businessName) {
+          // onboardingCompleted flag is set when the user finishes the onboarding flow
+          if (json.profile?.onboardingCompleted) {
             router.replace("/dashboard");
             return;
           }
@@ -114,10 +114,13 @@ export default function OnboardingPage() {
     setCapabilities({ ...PROFILE_TYPE_DEFINITIONS[key].defaultCapabilities });
   }
 
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   async function handleFinish() {
     setSaving(true);
+    setSaveError(null);
     try {
-      await fetch("/api/profile", {
+      const res = await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -129,11 +132,17 @@ export default function OnboardingPage() {
           budgetPreference: "medium",
           targetLocation,
           capabilities,
+          onboardingCompleted: true,
         }),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error((json as { error?: string }).error ?? "Failed to save profile");
+      }
       setStep(3);
     } catch (err) {
       console.error(err);
+      setSaveError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -458,6 +467,9 @@ export default function OnboardingPage() {
                   {saving ? "Saving…" : "Create My Profile →"}
                 </button>
               </div>
+              {saveError && (
+                <p className="text-[12px] text-red-400 text-center mt-2">{saveError}</p>
+              )}
             </div>
           )}
 
@@ -497,7 +509,7 @@ export default function OnboardingPage() {
               </div>
               <button
                 type="button"
-                onClick={() => router.push("/dashboard")}
+                onClick={() => router.replace("/dashboard")}
                 className="inline-block px-10 py-4 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] tracking-wide hover:bg-[#e8c97a] transition-all shadow-lg shadow-[rgba(201,168,76,0.15)]"
               >
                 Find my first leads →

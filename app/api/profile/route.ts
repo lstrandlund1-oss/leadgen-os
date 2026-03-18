@@ -76,6 +76,7 @@ export async function POST(request: Request) {
       budgetPreference,
       targetLocation,
       capabilities: capOverrides,
+      onboardingCompleted,
     }: {
       profileType?: string;
       businessName?: string;
@@ -85,6 +86,7 @@ export async function POST(request: Request) {
       budgetPreference?: UserProfileV1["budgetPreference"];
       targetLocation?: string;
       capabilities?: Partial<Record<Capability, boolean>>;
+      onboardingCompleted?: boolean;
     } = body;
 
     const validKey = isValidProfileTypeKey(profileType ?? "")
@@ -98,6 +100,7 @@ export async function POST(request: Request) {
       ...(acquisitionStyle ? { acquisitionStyle } : {}),
       ...(budgetPreference ? { budgetPreference } : {}),
       ...(targetLocation !== undefined ? { targetLocation } : {}),
+      ...(onboardingCompleted !== undefined ? { onboardingCompleted } : {}),
       profileType: validKey,
     });
 

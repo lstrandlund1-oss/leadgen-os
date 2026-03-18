@@ -65,6 +65,9 @@ export type UserProfileV1 = {
 
   // Free-text offer description — default context for outreach generation
   offerDescription?: string;
+
+  // Set to true once the user completes the onboarding flow
+  onboardingCompleted?: boolean;
 };
 
 // Classification block returned by rule-based and AI classifiers
