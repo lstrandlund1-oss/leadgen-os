@@ -1,10 +1,10 @@
 // app/auth/callback/route.ts
 // Handles the redirect from Supabase after email confirmation.
-// IMPORTANT: Must write session cookies directly onto the redirect response —
-// using next/headers cookieStore alone does NOT forward cookies on a redirect.
+// Exchanges the code for a session, detects new vs returning users,
+// sends day-1 onboarding email for new users, then redirects appropriately.
 
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { createSupabaseServer } from "@/lib/supabaseServer";
 import { sendOnboardingDay1 } from "@/lib/email/send";
 
 export async function GET(request: Request) {
@@ -12,54 +12,41 @@ export async function GET(request: Request) {
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/dashboard";
 
-  if (!code) {
-    return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`);
+  if (code) {
+    const supabase = await createSupabaseServer();
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (!error && data.user) {
+      // Detect new users by checking if they have a saved profile.
+      // We do NOT rely on the `next` param because email clients (Gmail, Outlook)
+      // can strip or rewrite query parameters on confirmation links.
+      let isNewUser = false;
+      try {
+        const { data: profileData } = await supabase
+          .from("user_profiles")
+          .select("id, profile_data")
+          .eq("id", data.user.id)
+          .maybeSingle();
+
+        // New user = no row in user_profiles, or row exists but no businessName set
+        const businessName = (profileData?.profile_data as Record<string, unknown> | null)?.businessName;
+        isNewUser = !profileData || !businessName;
+      } catch {
+        // If we can't check, default to respecting the `next` param
+        isNewUser = next.includes("onboarding");
+      }
+
+      // Send day-1 onboarding email for new signups (non-blocking)
+      if (isNewUser && data.user.email) {
+        const name = data.user.user_metadata?.full_name?.split(" ")[0] ?? undefined;
+        sendOnboardingDay1({ to: data.user.email, name }).catch(() => {});
+      }
+
+      // Route: new users always go to onboarding, returning users to dashboard or `next`
+      const destination = isNewUser ? "/onboarding" : (next !== "/onboarding" ? next : "/dashboard");
+      return NextResponse.redirect(`${origin}${destination}`);
+    }
   }
 
-  // Build the redirect response first, then write cookies onto it directly.
-  // This is the correct pattern for Next.js App Router — cookies set via
-  // next/headers are NOT forwarded on a NextResponse.redirect().
-  const redirectTo = next.startsWith("/") ? `${origin}${next}` : `${origin}/dashboard`;
-  const response = NextResponse.redirect(redirectTo);
-
-  const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "";
-  const supabaseKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? "";
-
-  const supabase = createServerClient(supabaseUrl, supabaseKey, {
-    cookies: {
-      getAll() {
-        return request.headers
-          .get("cookie")
-          ?.split(";")
-          .map((c) => {
-            const [name, ...rest] = c.trim().split("=");
-            return { name: name.trim(), value: rest.join("=") };
-          }) ?? [];
-      },
-      setAll(cookiesToSet) {
-        // Write every session cookie directly onto the redirect response
-        cookiesToSet.forEach(({ name, value, options }) => {
-          response.cookies.set(name, value, options);
-        });
-      },
-    },
-  });
-
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-
-  if (error || !data.user) {
-    console.error("auth/callback exchangeCodeForSession error:", error?.message);
-    return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`);
-  }
-
-  // Send day-1 onboarding email for new signups (non-blocking)
-  if (next.includes("onboarding") && data.user.email) {
-    const name = data.user.user_metadata?.full_name?.split(" ")[0] ?? undefined;
-    sendOnboardingDay1({ to: data.user.email, name }).catch(() => {});
-  }
-
-  // Return the redirect with session cookies attached
-  return response;
+  return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`);
 }

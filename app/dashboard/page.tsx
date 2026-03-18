@@ -1253,14 +1253,11 @@ export default function Home() {
         }
         const hasProfile = !!(data?.profile?.businessName);
         setChecklistState((prev: typeof checklistState) => ({ ...prev, hasProfile }));
-        // First-time user: no profile + never searched → redirect to onboarding
+        // First-time user: no profile → always redirect to onboarding.
+        // We do NOT rely on localStorage because it can contain state from a
+        // previous account on the same device (e.g. switching from Outlook to Gmail).
         if (!hasProfile) {
-          try {
-            const stored = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}");
-            if (!stored.checklistHasSearched) {
-              window.location.href = "/onboarding";
-            }
-          } catch { /* skip */ }
+          window.location.href = "/onboarding";
         }
       })
       .catch(() => {});
