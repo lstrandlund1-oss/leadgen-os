@@ -192,20 +192,25 @@ export function getStabilityRiskScore(input: {
   socialPresence: SocialPresence;
 }): number {
   let score = 0;
-  if (input.reviews >= 50) {
-    if (input.rating <= 3.2) score += 80;
-    else if (input.rating <= 3.5) score += 55;
-    else if (input.rating <= 3.8) score += 30;
-  } else if (input.reviews >= 20) {
-    if (input.rating <= 3.0) score += 75;
-    else if (input.rating <= 3.3) score += 45;
-    else if (input.rating <= 3.6) score += 22;
+
+  // Low evidence = uncertain, treat as risk
+  if (input.reviews < 3)  score += 45; // almost no data
+  else if (input.reviews < 8)  score += 30; // very few reviews
+  else if (input.reviews < 20) score += 15; // limited proof
+
+  // Bad rating on meaningful volume = real instability signal
+  if (input.reviews >= 20) {
+    if (input.rating <= 3.2)      score += 45;
+    else if (input.rating <= 3.5) score += 30;
+    else if (input.rating <= 3.8) score += 15;
   } else if (input.reviews >= 8) {
-    if (input.rating <= 3.0) score += 35;
-    else if (input.rating <= 3.3) score += 20;
+    if (input.rating <= 3.0)      score += 25;
+    else if (input.rating <= 3.3) score += 12;
   }
-  if (!input.hasWebsite) score += 5;
-  if (input.socialPresence === "low") score += 5;
+
+  // No online presence at all = higher risk
+  if (!input.hasWebsite && input.socialPresence === "low") score += 10;
+
   return clamp(round(score));
 }
 

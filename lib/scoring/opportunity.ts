@@ -1,168 +1,127 @@
 // lib/scoring/opportunity.ts
+//
+// Opportunity score = "how likely is this lead to become a client?"
+// Range: 0-100. Designed to SPREAD across the full range, not cluster at 80-100.
+//
+// Formula (additive, no sigmoid):
+//   gap strength    0-40  (what problem can you solve?)
+//   fit             0-30  (does your service match?)
+//   proof/trust     0-20  (reviews + rating = can they pay + are they real?)
+//   approachability 0-10  (is the timing right?)
+//   risk penalty    0-40  (deducted — high risk kills opportunity)
+
 import type { RiskProfile } from "@/lib/types";
 
 export type OpportunityInput = {
-  // gap / need strength
   gap: "VISIBILITY" | "CONVERSION" | "INFRASTRUCTURE" | "OPTIMIZATION";
-  fitScore: number; // 0-100
-
-  // proof / trust signals (not always present)
-  rating: number | null; // 1-5
-  reviewCount: number | null; // 0+
+  fitScore: number;           // 0-100
+  rating: number | null;
+  reviewCount: number | null;
   hasWebsite: boolean;
-
-  // presence (if you have it)
   socialPresence: "low" | "medium" | "high" | null;
-
-  // your existing risk output
-  risk: number; // 0-100
+  risk: number;               // 0-100
   riskProfile: RiskProfile;
-
-  // classification certainty
   classificationConfidence: number | null; // 0-100
 };
 
 export type OpportunityResult = {
-  opportunity: number; // 0-100 (always)
-  confidence: number; // 0-1 (always)
-  reasons: string[]; // short bullets
+  opportunity: number;   // 0-100
+  confidence: number;    // 0-1
+  reasons: string[];
 };
 
 function clamp(n: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, n));
 }
 
-function sigmoid(z: number) {
-  return 1 / (1 + Math.exp(-z));
-}
-
-function log1p(n: number) {
-  return Math.log(1 + Math.max(0, n));
-}
-
 export function scoreOpportunity(input: OpportunityInput): OpportunityResult {
-  // --- Evidence & confidence (missing data ≠ negative) ---
-  let evidence = 0;
-  let possible = 0;
-
-  const have = (v: unknown) => v !== null && v !== undefined;
-
-  // rating + reviews are optional; website/social often present; fitScore/risk always present
-  const evidenceWeights = {
-    rating: 0.15,
-    reviews: 0.2,
-    website: 0.15,
-    social: 0.1,
-    classConf: 0.1,
-    fit: 0.15,
-    risk: 0.15,
-  };
-
-  possible =
-    evidenceWeights.rating +
-    evidenceWeights.reviews +
-    evidenceWeights.website +
-    evidenceWeights.social +
-    evidenceWeights.classConf +
-    evidenceWeights.fit +
-    evidenceWeights.risk;
-
-  evidence += have(input.rating) ? evidenceWeights.rating : 0;
-  evidence += have(input.reviewCount) ? evidenceWeights.reviews : 0;
-  evidence += evidenceWeights.website; // always known (boolean)
-  evidence += have(input.socialPresence) ? evidenceWeights.social : 0;
-  evidence += have(input.classificationConfidence)
-    ? evidenceWeights.classConf
-    : 0;
-  evidence += evidenceWeights.fit; // always known
-  evidence += evidenceWeights.risk; // always known
-
-  const confidence = clamp((evidence / possible) * 100, 0, 100) / 100;
-
-  // --- Feature engineering (normalize to roughly -1..+1 where possible) ---
-  const fit = clamp(input.fitScore) / 100; // 0..1
-
-  // risk should penalize close-probability
-  const riskPenalty = clamp(input.risk) / 100; // 0..1
-
-  // reviews: use log so 10->50 isn’t treated the same as 500->540
-  const reviews = input.reviewCount ?? null;
-  const reviewsNorm =
-    reviews === null ? 0 : clamp(log1p(reviews) / log1p(500), 0, 1); // 0..1, saturates ~500
-
-  // rating: don’t over-trust; center around ~4.2 in many categories
-  const rating = input.rating ?? null;
-  const ratingNorm = rating === null ? 0 : clamp((rating - 4.2) / 1.0, -1, 1); // -1..+1
-
-  const website = input.hasWebsite ? 1 : 0;
-
-  const social =
-    input.socialPresence === "high"
-      ? 1
-      : input.socialPresence === "medium"
-        ? 0.4
-        : input.socialPresence === "low"
-          ? 0.1
-          : 0.25; // unknown defaults mildly positive (don’t punish unknown)
-
-  const classConf = clamp(input.classificationConfidence ?? 50) / 100; // default 0.5
-
-  // gap: this is SELLABILITY. big gap = easier sell (if not too risky)
-  const gapBoost =
-    input.gap === "INFRASTRUCTURE"
-      ? 0.9
-      : input.gap === "CONVERSION"
-        ? 0.75
-        : input.gap === "VISIBILITY"
-          ? 0.6
-          : 0.35; // OPTIMIZATION is harder to sell unless they’re mature
-
-  // riskProfile: subtle shaping, not absolute truth
-  const profileAdj =
-    input.riskProfile === "unstable_business"
-      ? -0.25
-      : input.riskProfile === "mature_competitor"
-        ? 0.1
-        : 0;
-
-  // --- Close probability model (logistic) ---
-  // Strong opinion: start with a logistic model now, because later you can fit weights from outcomes.
-  // This is the bridge between heuristic v1 and learned v2.
-  const z =
-    -0.4 + // base rate (closing isn’t default)
-    1.6 * fit + // fit matters a lot
-    1.1 * gapBoost + // sellable problem matters
-    0.35 * website + // website slightly helps (trust), but not huge
-    0.4 * social + // presence helps
-    0.55 * reviewsNorm + // proof helps
-    0.3 * ratingNorm + // rating helps a bit
-    0.3 * classConf + // certainty helps
-    profileAdj - // riskProfile modifier
-    1.4 * riskPenalty; // risk strongly hurts close-probability
-
-  const opportunity = clamp(Math.round(sigmoid(z) * 100), 0, 100);
-
-  // --- Reasons (keep short + believable) ---
   const reasons: string[] = [];
 
-  const riskProfileLabel = (
-    input.riskProfile ?? "unstable_business"
-  ).replaceAll("_", " ");
+  // ── 1. Gap strength (0-40) ────────────────────────────────────────────────
+  // How specific and monetisable is the problem you can solve?
+  // INFRASTRUCTURE = no website = clearest gap, easiest conversation starter
+  // CONVERSION     = has site but no CTA/tracking = strong gap
+  // VISIBILITY     = weak social/SEO = medium gap
+  // OPTIMIZATION   = already has everything = weakest gap, hardest sell
+  let gapScore = 0;
+  switch (input.gap) {
+    case "INFRASTRUCTURE": gapScore = 38; break;
+    case "CONVERSION":     gapScore = 30; break;
+    case "VISIBILITY":     gapScore = 20; break;
+    case "OPTIMIZATION":   gapScore = 8;  break;
+  }
+  reasons.push(`Gap: ${input.gap} (+${gapScore})`);
 
-  reasons.push(`Gap: ${input.gap.toLowerCase()} (sellable issue)`);
-  reasons.push(`Fit: ${Math.round(fit * 100)}/100`);
-  reasons.push(
-    `Risk: ${Math.round(riskPenalty * 100)}/100 (${riskProfileLabel})`,
-  );
+  // ── 2. Fit (0-30) ─────────────────────────────────────────────────────────
+  // Does your service type match what this business needs?
+  const fitScore = clamp(input.fitScore);
+  const fitPoints = Math.round((fitScore / 100) * 30);
+  reasons.push(`Fit: ${fitScore}/100 (+${fitPoints})`);
 
-  if (input.hasWebsite) reasons.push("Website present (trust)");
-  else reasons.push("No website (clear infrastructure gap)");
+  // ── 3. Proof / trust (0-20) ───────────────────────────────────────────────
+  // Reviews = they have real customers and revenue. Rating = they're stable.
+  // High reviews = can afford services. Low reviews = uncertain budget.
+  const reviews = input.reviewCount ?? 0;
+  const rating  = input.rating ?? 0;
 
-  if (reviews !== null) reasons.push(`Reviews: ${reviews} (proof)`);
-  else reasons.push("Reviews unknown (lower certainty)");
+  let proofScore = 0;
+  if (reviews >= 200) proofScore = 14;
+  else if (reviews >= 50)  proofScore = 10;
+  else if (reviews >= 20)  proofScore = 7;
+  else if (reviews >= 8)   proofScore = 4;
+  else                     proofScore = 1;
 
-  if (rating !== null) reasons.push(`Rating: ${rating.toFixed(1)}`);
-  else reasons.push("Rating unknown (lower certainty)");
+  // Rating bonus/penalty on top of proof
+  if (rating >= 4.5) proofScore = Math.min(20, proofScore + 4);
+  else if (rating >= 4.0) proofScore = Math.min(20, proofScore + 2);
+  else if (rating > 0 && rating < 3.5) proofScore = Math.max(0, proofScore - 3);
+
+  reasons.push(`Proof: ${reviews} reviews, ${rating.toFixed(1)}★ (+${proofScore})`);
+
+  // ── 4. Approachability (0-10) ─────────────────────────────────────────────
+  // Is the timing and profile right to pitch?
+  let approachScore = 0;
+  switch (input.riskProfile) {
+    case "owner_operator":      approachScore = 9;  break;
+    case "strong_local_brand":  approachScore = 7;  break;
+    case "early_stage":         approachScore = 6;  break;
+    case "seasonal":            approachScore = 5;  break;
+    case "franchise_or_chain":  approachScore = 4;  break;
+    case "high_regulation":     approachScore = 4;  break;
+    case "unknown":             approachScore = 5;  break;
+    case "mature_competitor":   approachScore = 2;  break;
+    case "unstable_business":   approachScore = 1;  break;
+    default:                    approachScore = 5;  break;
+  }
+  reasons.push(`Approachability: ${input.riskProfile} (+${approachScore})`);
+
+  // ── 5. Raw total before penalty ───────────────────────────────────────────
+  const rawTotal = gapScore + fitPoints + proofScore + approachScore; // max=100
+
+  // ── 6. Risk penalty (0-40 deducted) ───────────────────────────────────────
+  // risk 0-100 maps to penalty 0-40
+  // A lead with risk=50 loses 20 points. risk=80 loses 32 points.
+  const riskPenalty = Math.round((clamp(input.risk) / 100) * 40);
+  reasons.push(`Risk penalty: -${riskPenalty}`);
+
+  // ── 7. Hard caps for hopeless situations ─────────────────────────────────
+  let opportunity = clamp(rawTotal - riskPenalty);
+
+  if (input.riskProfile === "unstable_business") {
+    opportunity = Math.min(opportunity, 25);
+  }
+  if (input.riskProfile === "mature_competitor" && input.gap === "OPTIMIZATION") {
+    opportunity = Math.min(opportunity, 30);
+  }
+
+  // ── Confidence ───────────────────────────────────────────────────────────
+  // How much data do we actually have?
+  let dataPoints = 0;
+  if (input.rating !== null)   dataPoints++;
+  if (input.reviewCount !== null) dataPoints++;
+  if (input.socialPresence !== null) dataPoints++;
+  if (input.classificationConfidence !== null) dataPoints++;
+  const confidence = clamp((dataPoints + 3) / 7); // always at least 3/7
 
   return { opportunity, confidence, reasons };
 }
