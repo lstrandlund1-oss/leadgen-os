@@ -24,7 +24,7 @@ export default function HamburgerMenu({
 }: HamburgerMenuProps) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [dropdownStyle, setDropdownStyle] = useState({ top: 56, right: 16 });
+  const [btnPos, setBtnPos] = useState({ top: 16, right: 16 });
   const buttonRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
   const supabase = createSupabaseBrowser();
@@ -32,28 +32,21 @@ export default function HamburgerMenu({
   const { theme, toggle: toggleTheme } = useTheme();
   const outreachUnlocked = canUseOutreach(plan);
 
-  // Portal needs document to exist
   useEffect(() => { setMounted(true); }, []);
 
-  // Position dropdown relative to button
-  function measureAndOpen() {
-    if (buttonRef.current) {
+  function toggleMenu() {
+    if (!open && buttonRef.current) {
       const r = buttonRef.current.getBoundingClientRect();
-      setDropdownStyle({
-        top: r.bottom + 8,
-        right: window.innerWidth - r.right,
-      });
+      setBtnPos({ top: r.top, right: window.innerWidth - r.right });
     }
-    setOpen(true);
+    setOpen(o => !o);
   }
 
-  // Lock scroll
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [open]);
 
-  // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     document.addEventListener("keydown", handler);
@@ -79,13 +72,15 @@ export default function HamburgerMenu({
     { label: "Contact & Support",href: "/contact",    icon: "✉", locked: false },
   ];
 
-  const overlay = (
+  // The portal renders the backdrop, the animated button clone, and the dropdown
+  // All as direct children of document.body — guaranteed above everything
+  const portal = mounted && open ? createPortal(
     <>
-      {/* Backdrop — covers 100% of viewport, every element behind it is cosmetic */}
+      {/* Backdrop */}
       <div
         onClick={() => setOpen(false)}
         style={{
-          position: "fixed", inset: 0, zIndex: 99998,
+          position: "fixed", inset: 0, zIndex: 99997,
           background: "rgba(8,8,8,0.75)",
           backdropFilter: "blur(3px)",
           WebkitBackdropFilter: "blur(3px)",
@@ -93,36 +88,52 @@ export default function HamburgerMenu({
         aria-hidden="true"
       />
 
-      {/* Close button — sits above backdrop at exact button position, mirrors the real button */}
+      {/* Animated button — positioned exactly over the real button, shows X state */}
       <button
         type="button"
         onClick={() => setOpen(false)}
         aria-label="Close menu"
-        onMouseEnter={e => (e.currentTarget.style.borderColor = "#c9a84c")}
-        onMouseLeave={e => (e.currentTarget.style.borderColor = "#8a6e30")}
         style={{
           position: "fixed",
-          top: dropdownStyle.top - 48,
-          right: dropdownStyle.right,
+          top: btnPos.top,
+          right: btnPos.right,
           zIndex: 99999,
-          display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center",
-          width: 40, height: 40, gap: 5, borderRadius: 8,
-          border: "1px solid #8a6e30", background: "#111", cursor: "pointer",
-          transition: "border-color 0.2s",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          width: 40,
+          height: 40,
+          gap: 5,
+          borderRadius: 8,
+          border: "1px solid #8a6e30",
+          background: "#111",
+          cursor: "pointer",
         }}
       >
-        <span style={{ display: "block", width: 20, height: 1.5, background: "#f5f0e8", transformOrigin: "center", transform: "rotate(45deg) translateY(6.5px)", transition: "all 0.3s" }} />
-        <span style={{ display: "block", width: 20, height: 1.5, background: "#f5f0e8", opacity: 0, transition: "all 0.3s" }} />
-        <span style={{ display: "block", width: 20, height: 1.5, background: "#f5f0e8", transformOrigin: "center", transform: "rotate(-45deg) translateY(-6.5px)", transition: "all 0.3s" }} />
+        <span style={{
+          display: "block", width: 20, height: 1.5, background: "#f5f0e8",
+          transformOrigin: "center",
+          transform: "rotate(45deg) translateY(6.5px)",
+        }} />
+        <span style={{
+          display: "block", width: 20, height: 1.5, background: "#f5f0e8",
+          opacity: 0,
+        }} />
+        <span style={{
+          display: "block", width: 20, height: 1.5, background: "#f5f0e8",
+          transformOrigin: "center",
+          transform: "rotate(-45deg) translateY(-6.5px)",
+        }} />
       </button>
 
       {/* Dropdown */}
       <div
         style={{
           position: "fixed",
-          top: dropdownStyle.top,
-          right: dropdownStyle.right,
-          zIndex: 99999,
+          top: btnPos.top + 48,
+          right: btnPos.right,
+          zIndex: 99998,
           width: 224,
           maxHeight: "80vh",
           overflowY: "auto",
@@ -147,7 +158,8 @@ export default function HamburgerMenu({
         <div style={{ paddingTop: 8, paddingBottom: 8 }}>
           {menuItems.map((item, i) =>
             item.locked ? (
-              <Link key={i} href="/plans" onClick={() => setOpen(false)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", fontSize: 14, color: "#555", textDecoration: "none" }}
+              <Link key={i} href="/plans" onClick={() => setOpen(false)}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", fontSize: 14, color: "#555", textDecoration: "none" }}
                 onMouseEnter={e => (e.currentTarget.style.background = "#1a1a1a")}
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                 <span style={{ fontSize: 11, color: "#3a3a3a" }}>{item.icon}</span>
@@ -155,9 +167,10 @@ export default function HamburgerMenu({
                 <span style={{ fontSize: 11 }}>🔒</span>
               </Link>
             ) : (
-              <Link key={i} href={item.href} onClick={() => setOpen(false)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", fontSize: 14, color: "#f5f0e8", textDecoration: "none" }}
-                onMouseEnter={e => { e.currentTarget.style.background = "#1a1a1a"; e.currentTarget.style.color = "#e8c97a"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#f5f0e8"; }}>
+              <Link key={i} href={item.href} onClick={() => setOpen(false)}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", fontSize: 14, color: "#f5f0e8", textDecoration: "none" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "#1a1a1a"; (e.currentTarget as HTMLElement).style.color = "#e8c97a"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#f5f0e8"; }}>
                 <span style={{ fontSize: 11, color: "#8a6e30" }}>{item.icon}</span>
                 <span>{item.label}</span>
               </Link>
@@ -174,7 +187,8 @@ export default function HamburgerMenu({
                 {(["en", "sv"] as const).map(lang => (
                   <button key={lang} type="button" onClick={() => { onLanguageChange(lang); setOpen(false); }}
                     style={{
-                      flex: 1, padding: "6px 0", borderRadius: 6, border: `1px solid ${language === lang ? "#c9a84c" : "#252525"}`,
+                      flex: 1, padding: "6px 0", borderRadius: 6,
+                      border: `1px solid ${language === lang ? "#c9a84c" : "#252525"}`,
                       background: language === lang ? "rgba(201,168,76,0.1)" : "transparent",
                       color: language === lang ? "#c9a84c" : "#555",
                       fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", cursor: "pointer",
@@ -221,17 +235,17 @@ export default function HamburgerMenu({
           <p style={{ fontSize: 10, color: "#333", letterSpacing: "0.1em", textTransform: "uppercase" }}>Vantio Beta</p>
         </div>
       </div>
-    </>
-  );
+    </>,
+    document.body
+  ) : null;
 
   return (
     <>
-      {/* Trigger — stays in normal DOM flow */}
-      {/* Real button — hidden when open (portal clone takes over), kept in DOM for position measurement */}
+      {/* Real button — visible when closed, hidden (but in DOM) when open so portal clone shows */}
       <button
         ref={buttonRef}
         type="button"
-        onClick={() => open ? setOpen(false) : measureAndOpen()}
+        onClick={toggleMenu}
         aria-label={open ? "Close menu" : "Open menu"}
         aria-expanded={open}
         style={{
@@ -249,8 +263,7 @@ export default function HamburgerMenu({
         <span style={{ display: "block", width: 20, height: 1.5, background: "#f5f0e8" }} />
       </button>
 
-      {/* Portal — renders directly on document.body, above everything */}
-      {mounted && open && createPortal(overlay, document.body)}
+      {portal}
     </>
   );
 }
