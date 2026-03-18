@@ -1588,7 +1588,7 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell />
-            <HamburgerMenu hasProfile={true} language={language} onLanguageChange={setLanguage} userEmail={userEmail} />
+            <HamburgerMenu hasProfile={true} userEmail={userEmail} />
           </div>
         </div>
       </nav>

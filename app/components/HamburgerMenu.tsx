@@ -6,20 +6,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getEffectivePlan, canUseOutreach } from "@/lib/plan";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
-import { useTheme } from "./ThemeProvider";
-
-type Language = "en" | "sv";
 
 interface HamburgerMenuProps {
-  language?: Language;
-  onLanguageChange?: (lang: Language) => void;
   userEmail?: string;
   hasProfile?: boolean;
 }
 
 export default function HamburgerMenu({
   language,
-  onLanguageChange,
   userEmail,
 }: HamburgerMenuProps) {
   const [open, setOpen] = useState(false);
@@ -28,7 +22,6 @@ export default function HamburgerMenu({
   const router = useRouter();
   const supabase = createSupabaseBrowser();
   const plan = getEffectivePlan();
-  const { theme, toggle: toggleTheme } = useTheme();
   const outreachUnlocked = canUseOutreach(plan);
 
   function toggleMenu() {
@@ -165,48 +158,7 @@ export default function HamburgerMenu({
           )}
         </div>
 
-        {onLanguageChange && (
-          <>
-            <div style={{ height: 1, background: "#252525" }} />
-            <div style={{ padding: "10px 16px" }}>
-              <p style={{ fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", color: "#555", marginBottom: 8 }}>Language</p>
-              <div style={{ display: "flex", gap: 8 }}>
-                {(["en", "sv"] as const).map(lang => (
-                  <button key={lang} type="button" onClick={() => { onLanguageChange(lang); setOpen(false); }}
-                    style={{
-                      flex: 1, padding: "6px 0", borderRadius: 6,
-                      border: `1px solid ${language === lang ? "#c9a84c" : "#252525"}`,
-                      background: language === lang ? "rgba(201,168,76,0.1)" : "transparent",
-                      color: language === lang ? "#c9a84c" : "#555",
-                      fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", cursor: "pointer",
-                    }}>
-                    {lang}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
 
-        <div style={{ height: 1, background: "#252525" }} />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px" }}>
-          <span style={{ fontSize: 11, color: "#555" }}>{theme === "dark" ? "Dark mode" : "Light mode"}</span>
-          <button type="button" onClick={toggleTheme}
-            style={{
-              position: "relative", display: "inline-flex", alignItems: "center",
-              width: 36, height: 20, borderRadius: 10,
-              border: `1px solid ${theme === "light" ? "#b8942e" : "#252525"}`,
-              background: theme === "light" ? "rgba(184,148,46,0.2)" : "#111",
-              cursor: "pointer",
-            }}>
-            <span style={{
-              position: "absolute", width: 14, height: 14, borderRadius: "50%",
-              background: theme === "light" ? "#b8942e" : "#444",
-              transform: theme === "light" ? "translateX(18px)" : "translateX(3px)",
-              transition: "transform 0.15s",
-            }} />
-          </button>
-        </div>
 
         <div style={{ height: 1, background: "#1a1a1a" }} />
         <button type="button" onClick={handleSignOut}
