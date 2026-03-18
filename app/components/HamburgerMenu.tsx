@@ -93,6 +93,26 @@ export default function HamburgerMenu({
         aria-hidden="true"
       />
 
+      {/* Close button clone — sits above backdrop at exact button position */}
+      <button
+        type="button"
+        onClick={() => setOpen(false)}
+        aria-label="Close menu"
+        style={{
+          position: "fixed",
+          top: dropdownStyle.top - 48,
+          right: dropdownStyle.right,
+          zIndex: 99999,
+          display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center",
+          width: 40, height: 40, gap: 5, borderRadius: 8,
+          border: "1px solid #8a6e30", background: "#111", cursor: "pointer",
+        }}
+      >
+        <span style={{ display: "block", width: 20, height: 1.5, background: "#f5f0e8", transformOrigin: "center", transform: "rotate(45deg) translateY(6.5px)" }} />
+        <span style={{ display: "block", width: 20, height: 1.5, background: "#f5f0e8", opacity: 0 }} />
+        <span style={{ display: "block", width: 20, height: 1.5, background: "#f5f0e8", transformOrigin: "center", transform: "rotate(-45deg) translateY(-6.5px)" }} />
+      </button>
+
       {/* Dropdown */}
       <div
         style={{
@@ -215,7 +235,6 @@ export default function HamburgerMenu({
           width: 40, height: 40, gap: 5, borderRadius: 8,
           border: "1px solid #252525", background: "#111", cursor: "pointer",
           transition: "border-color 0.2s",
-          position: "relative", zIndex: open ? 99999 : "auto",
         }}
         onMouseEnter={e => (e.currentTarget.style.borderColor = "#8a6e30")}
         onMouseLeave={e => (e.currentTarget.style.borderColor = open ? "#8a6e30" : "#252525")}
