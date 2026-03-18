@@ -215,6 +215,7 @@ export default function HamburgerMenu({
           width: 40, height: 40, gap: 5, borderRadius: 8,
           border: "1px solid #252525", background: "#111", cursor: "pointer",
           transition: "border-color 0.2s",
+          position: "relative", zIndex: open ? 99999 : "auto",
         }}
         onMouseEnter={e => (e.currentTarget.style.borderColor = "#8a6e30")}
         onMouseLeave={e => (e.currentTarget.style.borderColor = open ? "#8a6e30" : "#252525")}
