@@ -86,6 +86,19 @@ const MOCK_LEAD = {
 
 export default function LandingPage() {
   const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
+  const [showDeletedBanner, setShowDeletedBanner] = useState(false);
+
+  useEffect(() => {
+    // Show confirmation banner if redirected after account deletion
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("account") === "deleted") {
+        setShowDeletedBanner(true);
+        // Clean the URL
+        window.history.replaceState({}, "", "/");
+      }
+    }
+  }, []);
 
   useEffect(() => {
     fetch("/api/waitlist")
@@ -95,6 +108,14 @@ export default function LandingPage() {
   }, []);
   return (
     <div className="min-h-screen bg-[#080808] text-[#f5f0e8] overflow-x-hidden">
+
+      {/* Account deleted confirmation banner */}
+      {showDeletedBanner && (
+        <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-4 px-5 py-3 bg-[#4ade80]/10 border-b border-[#4ade80]/20">
+          <p className="text-[13px] text-[#4ade80]">✓ Your account has been permanently deleted. Sorry to see you go.</p>
+          <button type="button" onClick={() => setShowDeletedBanner(false)} className="text-[#4ade80]/60 hover:text-[#4ade80] text-lg leading-none">×</button>
+        </div>
+      )}
 
       {/* NAV */}
       <nav className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-6 md:px-12 py-4 border-b border-[#181818] bg-[#080808]/90 backdrop-blur-md">
