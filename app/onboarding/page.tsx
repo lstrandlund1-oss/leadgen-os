@@ -67,28 +67,49 @@ export default function OnboardingPage() {
 
   // Guard: if no session → login. If profile already exists → skip to dashboard.
   useEffect(() => {
-    const supabase = createSupabaseBrowser();
-    supabase.auth.getUser().then(async ({ data }) => {
-      if (!data.user) {
-        router.replace("/login?next=/onboarding");
-        return;
-      }
-      // Check if user already has a saved profile — if so, skip onboarding
+    let cancelled = false;
+
+    // Safety net: if anything hangs, unblock the UI after 4 seconds
+    const timeout = setTimeout(() => {
+      if (!cancelled) setSessionChecked(true);
+    }, 4000);
+
+    async function checkSession() {
       try {
-        const res = await fetch("/api/profile");
-        if (res.ok) {
-          const json = await res.json();
-          // onboardingCompleted flag is set when the user finishes the onboarding flow
-          if (json.profile?.onboardingCompleted) {
-            router.replace("/dashboard");
-            return;
-          }
+        const supabase = createSupabaseBrowser();
+        // Use getSession (reads local cookie) — faster and more reliable than
+        // getUser() immediately after an email-confirmation redirect
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (!session) {
+          if (!cancelled) router.replace("/login?next=/onboarding");
+          return;
         }
+
+        // Check if user already completed onboarding
+        try {
+          const res = await fetch("/api/profile");
+          if (res.ok) {
+            const json = await res.json();
+            if (json.profile?.onboardingCompleted) {
+              if (!cancelled) router.replace("/dashboard");
+              return;
+            }
+          }
+        } catch {
+          // Profile check failed — safe to show onboarding anyway
+        }
+
+        if (!cancelled) setSessionChecked(true);
       } catch {
-        // If check fails, still show onboarding — safe fallback
+        // Auth check failed — show onboarding rather than blocking forever
+        if (!cancelled) setSessionChecked(true);
       }
-      setSessionChecked(true);
-    });
+    }
+
+    checkSession().finally(() => clearTimeout(timeout));
+
+    return () => { cancelled = true; clearTimeout(timeout); };
   }, [router]);
 
   const [profileType, setProfileType] = useState<ProfileTypeKey>(
