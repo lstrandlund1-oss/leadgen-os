@@ -583,6 +583,115 @@ async function runProviderSearchAndFetchLeads(args: {
   };
 }
 
+// ── Getting Started Side Panel ────────────────────────────────────────────────
+// Rendered as a fixed left-edge tab + slide-in drawer.
+// Uses fixed positioning so it is NEVER part of the page stacking context.
+function GettingStartedPanel({
+  checklistState,
+  onDismiss,
+}: {
+  checklistState: { hasProfile: boolean; hasSearched: boolean; hasSelected: boolean; hasOutcome: boolean };
+  onDismiss: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const steps = [
+    { done: checklistState.hasProfile,   label: "Set up your profile",   sub: "Tell us your business type and target market",            href: "/profile/settings" },
+    { done: checklistState.hasSearched,  label: "Run your first search",  sub: "Enter a niche + location and score your first leads",    href: null },
+    { done: checklistState.hasSelected,  label: "Open a lead",            sub: "Click any lead to see signals, gap analysis, and outreach script", href: null },
+    { done: checklistState.hasOutcome,   label: "Log an outcome",         sub: "Mark a lead as contacted, replied, or booked",           href: null },
+  ];
+  const doneCount = steps.filter(s => s.done).length;
+
+  return (
+    <>
+      {/* Left-edge trigger tab — always visible, never in flow */}
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        title="Getting started checklist"
+        style={{ zIndex: 8000 }}
+        className="fixed left-0 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1.5 px-1.5 py-3 rounded-r-xl border border-l-0 border-[rgba(201,168,76,0.3)] bg-[#0d0d0d] hover:bg-[#111] transition-all group"
+      >
+        <span className="text-[#c9a84c] text-xs">◈</span>
+        <span
+          className="text-[#8a6e30] group-hover:text-[#c9a84c] transition-colors"
+          style={{ writingMode: "vertical-rl", textOrientation: "mixed", fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase" }}
+        >
+          Getting started
+        </span>
+        <span className="text-[9px] font-bold text-[#c9a84c]">{doneCount}/4</span>
+      </button>
+
+      {/* Backdrop */}
+      {open && (
+        <div
+          className="fixed inset-0 bg-black/40"
+          style={{ zIndex: 8001 }}
+          onClick={() => setOpen(false)}
+        />
+      )}
+
+      {/* Slide-in panel from the left */}
+      <div
+        className="fixed top-0 left-0 h-full w-72 bg-[#0a0a0a] border-r border-[#1a1a1a] flex flex-col transition-transform duration-300 ease-out"
+        style={{ zIndex: 8002, transform: open ? "translateX(0)" : "translateX(-100%)" }}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between p-5 border-b border-[#141414]">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[#8a6e30] mb-1">Setup</p>
+            <h2 className="text-[16px] font-light text-[#f5f0e8]" style={{ fontFamily: "var(--font-display), serif" }}>
+              Getting <span className="italic" style={{ color: "#c9a84c" }}>started</span>
+            </h2>
+            <p className="text-[11px] text-[#444] mt-1">{doneCount} of 4 complete</p>
+          </div>
+          <button type="button" onClick={() => setOpen(false)} className="text-[#333] hover:text-[#666] text-xl leading-none mt-1">×</button>
+        </div>
+
+        {/* Progress bar */}
+        <div className="px-5 py-3 border-b border-[#141414]">
+          <div className="w-full h-1 bg-[#1a1a1a] rounded-full overflow-hidden">
+            <div
+              className="h-full bg-[#c9a84c] rounded-full transition-all duration-500"
+              style={{ width: `${(doneCount / 4) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Steps */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {steps.map(({ done, label, sub, href }) => (
+            <div key={label} className={"rounded-xl border p-3.5 transition-all " + (done ? "border-[#141414] opacity-50" : "border-[#252525] bg-[#0d0d0d]")}>
+              <div className="flex items-start gap-3">
+                <div className={"mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 " + (done ? "border-[#4ade80] bg-[#4ade80]/10" : "border-[#333]")}>
+                  {done && <span className="text-[9px] text-[#4ade80]">✓</span>}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={"text-[12px] font-medium " + (done ? "line-through text-[#444]" : "text-[#c8c0b0]")}>{label}</p>
+                  <p className="text-[11px] text-[#444] mt-0.5 leading-snug">{sub}</p>
+                  {!done && href && (
+                    <a href={href} className="text-[11px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors mt-1.5 inline-block" onClick={() => setOpen(false)}>
+                      Go →
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-[#141414]">
+          <button type="button" onClick={onDismiss}
+            className="w-full py-2.5 rounded-xl border border-[#252525] text-[12px] text-[#444] hover:border-[#333] hover:text-[#666] transition-all">
+            Dismiss checklist
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function Home() {
   const { success: toastSuccess, error: toastError, info: toastInfo } = useToast();
 
@@ -1495,39 +1604,15 @@ export default function Home() {
           </span>
         </nav>
 
-        {/* Onboarding checklist — shown until all steps done or dismissed */}
+        {/* Getting Started — fixed left-edge tab + slide-in panel, never conflicts with z-index */}
         {!checklistDismissed && !(checklistState.hasProfile && checklistState.hasSearched && checklistState.hasSelected && checklistState.hasOutcome) && (
-          <section className="bg-[#0d0d0d] border border-[#252525] rounded-2xl p-4 md:p-5 shadow-xl shadow-black/40 relative z-0">
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <div>
-                <p className="text-[11px] uppercase tracking-widest text-[#c9a84c] mb-0.5">Getting started</p>
-                <p className="text-sm text-[#888] leading-snug">Complete these steps to get the most out of Vantio.</p>
-              </div>
-              <button type="button" onClick={() => setChecklistDismissed(true)} className="text-[#333] hover:text-[#555] text-lg leading-none mt-0.5 shrink-0" title="Dismiss">×</button>
-            </div>
-            <div className="space-y-2">
-              {[
-                { done: checklistState.hasProfile,   label: "Set up your profile",    sub: "Tell us your business type and target market",  href: "/profile/settings" },
-                { done: checklistState.hasSearched,  label: "Run your first search",  sub: "Enter a niche + location and score your first leads",  href: null },
-                { done: checklistState.hasSelected,  label: "Open a lead",            sub: "Click any lead to see signals, gap analysis, and outreach script", href: null },
-                { done: checklistState.hasOutcome,   label: "Log an outcome",         sub: "Mark a lead as contacted, replied, or booked", href: null },
-              ].map(({ done, label, sub, href }) => (
-                <div key={label} className={`flex items-start gap-3 rounded-lg px-3 py-2.5 border transition-colors ${done ? "border-[#1a1a1a] opacity-50 pointer-events-none" : "border-[#252525] bg-[#111]"}`}>
-                  <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${done ? "border-[#4ade80] bg-[#4ade80]/10" : "border-[#333]"}`}>
-                    {done && <span className="text-[9px] text-[#4ade80]">✓</span>}
-                  </div>
-                  <div className="flex-1 min-w-0 overflow-hidden">
-                    <p className={`text-[12px] font-medium ${done ? "line-through text-[#444]" : "text-[#c8c0b0]"}`}>{label}</p>
-                    <p className="text-[11px] text-[#444] mt-0.5">{sub}</p>
-                  </div>
-                  {!done && href && (
-                    <a href={href} className="shrink-0 text-[11px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors mt-0.5">Go →</a>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
+          <GettingStartedPanel
+            checklistState={checklistState}
+            onDismiss={() => setChecklistDismissed(true)}
+          />
         )}
+
+        {recentSearches.length > 0 && (
 
         {recentSearches.length > 0 && (
           <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 shadow-xl shadow-black/40 space-y-3 relative z-0">
