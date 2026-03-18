@@ -23,7 +23,6 @@ export default function HamburgerMenu({
   userEmail,
 }: HamburgerMenuProps) {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [btnPos, setBtnPos] = useState({ top: 16, left: 16 });
   const buttonRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
@@ -31,8 +30,6 @@ export default function HamburgerMenu({
   const plan = getEffectivePlan();
   const { theme, toggle: toggleTheme } = useTheme();
   const outreachUnlocked = canUseOutreach(plan);
-
-  useEffect(() => { setMounted(true); }, []);
 
   function toggleMenu() {
     if (!open && buttonRef.current) {
@@ -75,7 +72,7 @@ export default function HamburgerMenu({
 
   // The portal renders the backdrop, the animated button clone, and the dropdown
   // All as direct children of document.body — guaranteed above everything
-  const portal = mounted && open ? createPortal(
+  const portal = (typeof window !== "undefined") && open ? createPortal(
     <>
       {/* Backdrop */}
       <div

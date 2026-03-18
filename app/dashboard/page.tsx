@@ -6,6 +6,7 @@ import type { ProviderName } from "@/lib/providers/types";
 import { getEffectivePlan, canUseDeepEnrichment } from "@/lib/plan";
 import { getTranslations } from "@/lib/i18n";
 import HamburgerMenu from "../components/HamburgerMenu";
+import NotificationBell from "../components/NotificationBell";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import type { TranslationSchema as Translations } from "@/lib/i18n/types";
 import type { SocialPresenceFilter } from "@/lib/providers/types";
@@ -1585,6 +1586,7 @@ export default function Home() {
             </span>
             <span className="ml-2 text-[10px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full border border-[rgba(201,168,76,0.3)] text-[#8a6e30]">Beta</span>
           </div>
+          <NotificationBell />
           <HamburgerMenu hasProfile={true} language={language} onLanguageChange={setLanguage} userEmail={userEmail} />
         </div>
       </nav>
