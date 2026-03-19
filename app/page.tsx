@@ -1011,12 +1011,12 @@ function SceneSection({ scrollY }: { scrollY: number }) {
   let sceneOpacity: number;
   if (!entered) {
     sceneOpacity = 0;
-  } else if (angleDeg < 65) {
-    sceneOpacity = Math.max(0, (angleDeg - 20) / (65 - 20));
-  } else if (angleDeg <= 115) {
+  } else if (angleDeg < 80) {
+    sceneOpacity = Math.max(0, (angleDeg - 20) / (80 - 20));
+  } else if (angleDeg <= 100) {
     sceneOpacity = 1;
   } else {
-    sceneOpacity = Math.max(0, 1 - (angleDeg - 115) / (160 - 115));
+    sceneOpacity = Math.max(0, 1 - (angleDeg - 100) / (160 - 100));
   }
 
   const galaxyDepth = Math.min(1, readableT);
