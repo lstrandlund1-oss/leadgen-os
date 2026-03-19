@@ -942,27 +942,29 @@ function SceneSection({ scrollY }: { scrollY: number }) {
   const activeQuery = activeCycle.query;
   const lead = activeCycle.leads[selectedLead] ?? activeCycle.leads[0];
 
-  // Three-phase physics tilt arc
-  // Scene sits at y=1307, viewport=1307. Entry~scrollY=0, mid~scrollY=931, exit~scrollY=1601
-  const vh = typeof window !== "undefined" ? window.innerHeight : 900;
-  const relativeScroll = Math.max(0, scrollY - vh * 0.8);
+  // Three-phase physics tilt arc — calibrated to actual scroll positions
+  // Scene section top = 1307px. Viewport = ~1307px.
+  // Scene enters view at scrollY=1307. Mid-screen ~scrollY=1580. Exits ~scrollY=1860.
+  // relativeScroll=0 when scene first becomes visible, grows as user scrolls through it.
+  const SCENE_TOP = 1307; // scene section offsetTop
+  const relativeScroll = Math.max(0, scrollY - SCENE_TOP);
 
-  // Phase 1 (0→300px scroll): flat 0deg → snaps fast to resting 18deg via easeOutQuart
-  // Phase 2 (300→900px): gentle hold near resting angle
-  // Phase 3 (900→1600px): tips forward past flat → -22deg toward viewer via easeInCubic
-  const p1 = Math.min(1, relativeScroll / 300);
-  const p3 = Math.max(0, (relativeScroll - 900) / 700);
+  // Phase 1 (rel 0→200px):  flat 0deg → snaps fast to 18deg — easeOutQuart
+  // Phase 2 (rel 200→400px): holds near resting
+  // Phase 3 (rel 400→800px): tips forward to -22deg — easeInCubic
+  const p1 = Math.min(1, relativeScroll / 200);
+  const p3 = Math.max(0, (relativeScroll - 400) / 400);
   const easeOutQ = (t: number) => 1 - Math.pow(1 - t, 4);
   const easeInC  = (t: number) => t * t * t;
-  const tiltFromEntry = easeOutQ(p1) * 18;          // 0 → 18deg fast
-  const tiltForward   = easeInC(p3) * -40;          // 0 → -22deg slow build
+  const tiltFromEntry = easeOutQ(p1) * 18;
+  const tiltForward   = easeInC(p3) * -40;
 
   const sceneTiltX = entered ? tiltFromEntry + tiltForward : 0;
-  const sceneTiltY = entered ? -8 + Math.sin(relativeScroll * 0.004) * 6 : -4;
+  const sceneTiltY = entered ? -8 + Math.sin(relativeScroll * 0.006) * 5 : -4;
   const sceneTiltZ = entered ? relativeScroll * 0.006 : 0;
-  const sceneTranslateY = entered ? -relativeScroll * 0.12 : 60;
-  const sceneScale = entered ? Math.max(0.85, 1 - relativeScroll * 0.00015) : 0.9;
-  const galaxyDepth = Math.min(1, relativeScroll / 800);
+  const sceneTranslateY = entered ? -relativeScroll * 0.10 : 60;
+  const sceneScale = entered ? Math.max(0.82, 1 - relativeScroll * 0.0002) : 0.9;
+  const galaxyDepth = Math.min(1, relativeScroll / 500);
 
   return (
     <section
