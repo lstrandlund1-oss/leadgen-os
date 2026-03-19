@@ -311,6 +311,24 @@ export default function LandingPage() {
     }))
   );
 
+  // Mote particles for the features section — diagonal drift, no scroll dependency
+  const [moteParticles] = useState(() =>
+    Array.from({ length: 32 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 1.2 + 0.4,
+      duration: Math.random() * 20 + 14,
+      delay: Math.random() * 12,
+      opacity: Math.random() * 0.18 + 0.04,
+      // Each mote drifts in a unique diagonal direction
+      driftX: (Math.random() - 0.5) * 28,
+      driftY: (Math.random() - 0.5) * 22,
+      // Some are diamond-shaped (rotate 45deg), some are soft circles
+      diamond: i % 3 === 0,
+    }))
+  );
+
   const [featuresRef, featuresVisible] = useReveal();
   const [stepsRef, stepsVisible] = useReveal();
   const [diffRef, diffVisible] = useReveal();
@@ -592,8 +610,23 @@ export default function LandingPage() {
       <StatBar />
 
       {/* FEATURES */}
-      <div ref={featuresRef}>
-        <section style={{ padding: "96px 24px", maxWidth: 1100, margin: "0 auto" }}>
+      <div ref={featuresRef} style={{ position: "relative", overflow: "hidden" }}>
+        {/* Mote particle field — diagonal slow drift, no scroll dependency */}
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0 }}>
+          {moteParticles.map(p => (
+            <div key={p.id} style={{
+              position: "absolute",
+              left: `${p.x}%`, top: `${p.y}%`,
+              width: p.size, height: p.size,
+              background: "rgba(201,168,76,0.9)",
+              borderRadius: p.diamond ? "0" : "50%",
+              transform: p.diamond ? "rotate(45deg)" : "none",
+              opacity: p.opacity,
+              animation: `moteDrift${p.id % 4} ${p.duration}s ease-in-out ${p.delay}s infinite alternate`,
+            }} />
+          ))}
+        </div>
+        <section style={{ padding: "96px 24px", maxWidth: 1100, margin: "0 auto", position: "relative", zIndex: 1 }}>
           <div style={{ marginBottom: 64, textAlign: "center", opacity: featuresVisible ? 1 : 0, transform: featuresVisible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
             <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 16 }}>What Vantio does</p>
             <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(32px,5vw,52px)", fontWeight: 300 }}>
@@ -715,6 +748,22 @@ export default function LandingPage() {
       </footer>
 
       <style>{`
+        @keyframes moteDrift0 {
+          from { transform: translate(0px, 0px) rotate(45deg); }
+          to   { transform: translate(18px, -14px) rotate(45deg); }
+        }
+        @keyframes moteDrift1 {
+          from { transform: translate(0px, 0px); }
+          to   { transform: translate(-14px, -20px); }
+        }
+        @keyframes moteDrift2 {
+          from { transform: translate(0px, 0px) rotate(45deg); }
+          to   { transform: translate(-20px, 10px) rotate(45deg); }
+        }
+        @keyframes moteDrift3 {
+          from { transform: translate(0px, 0px); }
+          to   { transform: translate(12px, 18px); }
+        }
         @keyframes particleDrift {
           from { transform: translateY(0px) scale(1); opacity: inherit; }
           to { transform: translateY(-14px) scale(1.2); opacity: inherit; }
