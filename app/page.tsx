@@ -618,6 +618,52 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
   const sceneTiltY = Math.min(0, -8 + scrollY * 0.005);
   const sceneScale = 1 - Math.min(scrollY * 0.0003, 0.1);
 
+  // ── SEQUENCE ENGINE ──
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    const runCycle = (leadIdx: number) => {
+      // Reset
+      setStage("idle");
+      setVisibleRows(0);
+      setScoreAnimate(false);
+
+      // Stage 1: start typing
+      timers.push(setTimeout(() => setStage("search"), 300));
+
+      // Stage 2: show results
+      timers.push(setTimeout(() => {
+        setStage("results");
+        for (let r = 0; r < MOCK_LEADS.length; r++) {
+          timers.push(setTimeout(() => setVisibleRows(r + 1), r * 200));
+        }
+      }, STAGE_SEARCH));
+
+      // Stage 3: select + score
+      timers.push(setTimeout(() => {
+        setStage("score");
+        setSelectedLead(leadIdx);
+        setTimeout(() => setScoreAnimate(true), 200);
+      }, STAGE_SEARCH + STAGE_RESULTS));
+
+      // Stage 4: pause then loop
+      timers.push(setTimeout(() => {
+        setStage("pause");
+      }, STAGE_SEARCH + STAGE_RESULTS + STAGE_SCORE));
+
+      timers.push(setTimeout(() => {
+        runCycle((leadIdx + 1) % MOCK_LEADS.length);
+      }, TOTAL_CYCLE));
+    };
+
+    const init = setTimeout(() => runCycle(0), 400);
+    return () => {
+      clearTimeout(init);
+      timers.forEach(clearTimeout);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const lead = MOCK_LEADS[selectedLead];
 
   return (
