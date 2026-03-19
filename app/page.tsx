@@ -265,191 +265,15 @@ function FeatureCard({ f, i, visible }: { f: typeof FEATURES[0]; i: number; visi
 
 
 
-// Node positions match the 2x2 grid card centres (as % of container)
-// Path snakes: 01 (top-left) → 02 (top-right) → 03 (bottom-right) → 04 (bottom-left)
 const STEP_COLORS_LIST = ["#c9a84c", "#818cf8", "#4ade80", "#f472b6"];
 
-function StepsSection({ visible }: { visible: boolean }) {
-  const [pulsePos, setPulsePos] = useState(0); // 0–1 along full path
-  const [activeNode, setActiveNode] = useState(-1);
-  const rafRef = useRef<number | null>(null);
-  const startRef = useRef<number | null>(null);
-  const DURATION = 6000; // 6 seconds per full cycle
-
-  useEffect(() => {
-    if (!visible) return;
-    // Small delay before starting so cards have time to appear
-    const startTimeout = setTimeout(() => {
-      const tick = (now: number) => {
-        if (!startRef.current) startRef.current = now;
-        const elapsed = (now - startRef.current) % DURATION;
-        const t = elapsed / DURATION;
-        setPulsePos(t);
-        // Light up nodes as pulse passes their position on the path
-        // Nodes are at roughly t=0, 0.33, 0.66, 1.0
-        if (t < 0.15) setActiveNode(0);
-        else if (t < 0.45) setActiveNode(1);
-        else if (t < 0.75) setActiveNode(2);
-        else setActiveNode(3);
-        rafRef.current = requestAnimationFrame(tick);
-      };
-      rafRef.current = requestAnimationFrame(tick);
-    }, 600);
-
-    return () => {
-      clearTimeout(startTimeout);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      startRef.current = null;
-    };
-  }, [visible]);
-
-  // SVG viewBox 1000x560, path through 2x2 grid
-  // Card centres: TL(250,140), TR(750,140), BR(750,420), BL(250,420)
-  // Path: starts at TL, curves through TR, BR, BL with smooth bezier arcs
-  const pathD = "M 250 140 C 400 140, 600 140, 750 140 C 750 140, 750 280, 750 420 C 600 420, 400 420, 250 420";
-  const totalPathLength = 1340; // approximate length for the path above
-
-  // Compute pulse XY position along path using parameterized points
-  const getPulsePoint = (t: number) => {
-    // Segment 1: TL→TR (t: 0→0.37)
-    if (t <= 0.37) {
-      const st = t / 0.37;
-      return { x: 250 + st * 500, y: 140 };
-    }
-    // Segment 2: TR→BR (t: 0.37→0.63)
-    if (t <= 0.63) {
-      const st = (t - 0.37) / 0.26;
-      return { x: 750, y: 140 + st * 280 };
-    }
-    // Segment 3: BR→BL (t: 0.63→1.0)
-    const st = (t - 0.63) / 0.37;
-    return { x: 750 - st * 500, y: 420 };
-  };
-
-  const pulse = getPulsePoint(pulsePos);
-  const nodes = [
-    { x: 250, y: 140 },
-    { x: 750, y: 140 },
-    { x: 750, y: 420 },
-    { x: 250, y: 420 },
-  ];
-
-  return (
-    <div style={{ position: "relative" }}>
-      {/* SVG path layer — sits behind cards */}
-      <svg
-        viewBox="0 0 1000 560"
-        style={{
-          position: "absolute", inset: 0, width: "100%", height: "100%",
-          pointerEvents: "none", zIndex: 0,
-          opacity: visible ? 1 : 0,
-          transition: "opacity 1s ease 0.5s",
-        }}
-        preserveAspectRatio="none"
-      >
-        <defs>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-            <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-          <filter id="pulseGlow">
-            <feGaussianBlur stdDeviation="5" result="coloredBlur" />
-            <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-        </defs>
-
-        {/* Base path — dim gold trace */}
-        <path
-          d={pathD}
-          fill="none"
-          stroke="rgba(201,168,76,0.12)"
-          strokeWidth="1.5"
-          strokeDasharray="6 6"
-        />
-
-        {/* Glowing path overlay — slightly brighter */}
-        <path
-          d={pathD}
-          fill="none"
-          stroke="rgba(201,168,76,0.06)"
-          strokeWidth="8"
-          filter="url(#glow)"
-        />
-
-        {/* Node rings — one per step */}
-        {nodes.map((n, i) => (
-          <g key={i}>
-            {/* Outer ripple — only on active node */}
-            {activeNode === i && (
-              <circle
-                cx={n.x} cy={n.y} r="22"
-                fill="none"
-                stroke={STEP_COLORS_LIST[i]}
-                strokeWidth="1"
-                opacity="0.3"
-                style={{ animation: "nodeRipple 1.2s ease-out infinite" }}
-              />
-            )}
-            {/* Static ring */}
-            <circle
-              cx={n.x} cy={n.y} r="10"
-              fill={activeNode === i ? STEP_COLORS_LIST[i] + "20" : "rgba(201,168,76,0.03)"}
-              stroke={activeNode === i ? STEP_COLORS_LIST[i] : "rgba(201,168,76,0.2)"}
-              strokeWidth="1"
-              style={{ transition: "all 0.3s ease" }}
-            />
-            {/* Centre dot */}
-            <circle
-              cx={n.x} cy={n.y} r="3"
-              fill={activeNode === i ? STEP_COLORS_LIST[i] : "rgba(201,168,76,0.3)"}
-              filter={activeNode === i ? "url(#glow)" : "none"}
-              style={{ transition: "all 0.3s ease" }}
-            />
-          </g>
-        ))}
-
-        {/* Travelling pulse dot */}
-        {visible && (
-          <g>
-            {/* Glow halo */}
-            <circle
-              cx={pulse.x} cy={pulse.y} r="12"
-              fill="rgba(201,168,76,0.08)"
-              filter="url(#pulseGlow)"
-            />
-            {/* Bright core */}
-            <circle
-              cx={pulse.x} cy={pulse.y} r="4"
-              fill="#e8c97a"
-              filter="url(#pulseGlow)"
-            />
-            {/* Trail */}
-            <circle
-              cx={pulse.x} cy={pulse.y} r="6"
-              fill="none"
-              stroke="rgba(201,168,76,0.4)"
-              strokeWidth="1"
-            />
-          </g>
-        )}
-      </svg>
-
-      {/* Cards grid — on top of SVG */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 28, position: "relative", zIndex: 1 }}>
-        {STEPS.map((s, i) => (
-          <StepCard key={i} s={s} i={i} visible={visible} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function StepCard({ s, i, visible }: { s: typeof STEPS[0]; i: number; visible: boolean }) {
+// Individual step card — flashes when its pipeline node is active
+function StepCard({ s, i, visible, nodeActive }: {
+  s: typeof STEPS[0]; i: number; visible: boolean; nodeActive: boolean;
+}) {
   const [mouse, setMouse] = useState<{ x: number; y: number } | null>(null);
   const [hovered, setHovered] = useState(false);
-
-  const STEP_COLORS = ["#c9a84c", "#818cf8", "#4ade80", "#f472b6"];
-  const accent = STEP_COLORS[i % STEP_COLORS.length];
+  const accent = STEP_COLORS_LIST[i];
 
   return (
     <div
@@ -460,16 +284,21 @@ function StepCard({ s, i, visible }: { s: typeof STEPS[0]; i: number; visible: b
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); setMouse(null); }}
       style={{
-        display: "flex", gap: 24, padding: 28,
-        borderRadius: 18, border: `1px solid ${hovered ? accent + "40" : "#111"}`,
-        background: hovered ? "#0f0f0f" : "#0a0a0a",
-        position: "relative", overflow: "hidden",
+        display: "flex", gap: 28, padding: 32,
+        borderRadius: 18, position: "relative", overflow: "hidden",
+        border: `1px solid ${nodeActive ? accent + "60" : hovered ? accent + "35" : "#151515"}`,
+        background: nodeActive ? accent + "06" : hovered ? "#0f0f0f" : "#0a0a0a",
         opacity: visible ? 1 : 0,
         transform: visible
-          ? hovered ? "translateY(-3px) scale(1.01)" : "none"
-          : "translateY(40px)",
-        transition: `opacity 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 100}ms, transform 0.3s cubic-bezier(0.16,1,0.3,1), border-color 0.3s ease, background 0.3s ease`,
-        boxShadow: hovered ? `0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px ${accent}18` : "none",
+          ? (hovered ? "translateX(4px)" : "none")
+          : "translateY(30px)",
+        transition: `opacity 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 120}ms,
+          transform 0.35s cubic-bezier(0.16,1,0.3,1),
+          border-color 0.4s ease,
+          background 0.4s ease`,
+        boxShadow: nodeActive
+          ? `0 0 30px ${accent}12, 0 8px 32px rgba(0,0,0,0.4)`
+          : hovered ? `0 8px 32px rgba(0,0,0,0.4)` : "none",
         cursor: "default",
       }}
     >
@@ -477,47 +306,47 @@ function StepCard({ s, i, visible }: { s: typeof STEPS[0]; i: number; visible: b
       {mouse && (
         <div style={{
           position: "absolute",
-          left: mouse.x - 100, top: mouse.y - 100,
-          width: 200, height: 200, borderRadius: "50%",
-          background: `radial-gradient(circle, ${accent}14 0%, transparent 70%)`,
+          left: mouse.x - 120, top: mouse.y - 120,
+          width: 240, height: 240, borderRadius: "50%",
+          background: `radial-gradient(circle, ${accent}12 0%, transparent 70%)`,
           pointerEvents: "none", transition: "none",
         }} />
       )}
 
-      {/* Top accent line */}
+      {/* Left accent flash on node active */}
       <div style={{
-        position: "absolute", top: 0, left: "8%", right: "8%", height: 1,
-        background: `linear-gradient(90deg, transparent, ${accent}, transparent)`,
-        opacity: hovered ? 0.5 : 0,
-        transition: "opacity 0.3s ease",
+        position: "absolute", left: 0, top: "15%", bottom: "15%", width: 2,
+        background: `linear-gradient(to bottom, transparent, ${accent}, transparent)`,
+        opacity: nodeActive ? 0.7 : hovered ? 0.3 : 0,
+        transition: "opacity 0.4s ease",
+        borderRadius: 2,
       }} />
 
       {/* Step number */}
-      <div style={{ flexShrink: 0, position: "relative" }}>
+      <div style={{ flexShrink: 0, width: 64, display: "flex", alignItems: "flex-start", justifyContent: "flex-start", paddingTop: 4 }}>
         <span style={{
           fontFamily: "var(--font-display), serif",
-          fontSize: 56, fontWeight: 300, lineHeight: 1,
-          color: hovered ? accent : "#1e1e1e",
-          transition: "color 0.3s ease",
-          display: "block",
-          filter: hovered ? `drop-shadow(0 0 12px ${accent}50)` : "none",
+          fontSize: 52, fontWeight: 300, lineHeight: 1,
+          color: nodeActive ? accent : hovered ? accent + "cc" : "#222",
+          transition: "color 0.4s ease, filter 0.4s ease",
+          filter: nodeActive ? `drop-shadow(0 0 10px ${accent}70)` : "none",
         }}>
           {s.number}
         </span>
       </div>
 
       {/* Content */}
-      <div style={{ paddingTop: 8 }}>
+      <div style={{ flex: 1, paddingTop: 4 }}>
         <h3 style={{
-          fontFamily: "var(--font-display), serif", fontSize: 18, fontWeight: 500,
-          marginBottom: 8,
-          color: hovered ? "#f5f0e8" : "#e8e0d0",
+          fontFamily: "var(--font-display), serif", fontSize: 19, fontWeight: 500,
+          marginBottom: 10,
+          color: nodeActive ? "#f5f0e8" : hovered ? "#f5f0e8" : "#e8e0d0",
           transition: "color 0.3s ease",
         }}>
           {s.title}
         </h3>
         <p style={{
-          fontSize: 13, lineHeight: 1.7,
+          fontSize: 13, lineHeight: 1.75,
           color: hovered ? "#666" : "#555",
           transition: "color 0.3s ease",
         }}>
@@ -527,6 +356,151 @@ function StepCard({ s, i, visible }: { s: typeof STEPS[0]; i: number; visible: b
     </div>
   );
 }
+
+function StepsSection({ visible }: { visible: boolean }) {
+  const [t, setT] = useState(0); // 0–1 along full pipeline
+  const [activeNode, setActiveNode] = useState(-1);
+  const rafRef = useRef<number | null>(null);
+  const startRef = useRef<number | null>(null);
+  const DURATION = 6000;
+
+  useEffect(() => {
+    if (!visible) return;
+    const delay = setTimeout(() => {
+      const tick = (now: number) => {
+        if (!startRef.current) startRef.current = now;
+        const elapsed = (now - startRef.current) % DURATION;
+        const progress = elapsed / DURATION;
+        setT(progress);
+        // 4 equal segments — node activates as pulse enters its zone
+        const node = Math.floor(progress * 4);
+        setActiveNode(Math.min(node, 3));
+        rafRef.current = requestAnimationFrame(tick);
+      };
+      rafRef.current = requestAnimationFrame(tick);
+    }, 700);
+    return () => {
+      clearTimeout(delay);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      startRef.current = null;
+    };
+  }, [visible]);
+
+  // Vertical pipeline: runs down left side, 4 nodes evenly spaced
+  // ViewBox: 80 wide × 600 tall. Nodes at y = 75, 225, 375, 525 (x=40)
+  const NODE_Y = [75, 225, 375, 525];
+  const NODE_X = 40;
+  const TOTAL_H = 600;
+
+  // Pulse Y position travels top → bottom
+  const pulseY = t * (NODE_Y[3] - NODE_Y[0]) + NODE_Y[0];
+  // Trail: last 12% of the path behind the pulse
+  const trailY = Math.max(NODE_Y[0], pulseY - 0.12 * (NODE_Y[3] - NODE_Y[0]));
+
+  return (
+    <div style={{ display: "flex", gap: 0, alignItems: "stretch", position: "relative" }}>
+
+      {/* Vertical pipeline SVG — left column */}
+      <div style={{
+        width: 80, flexShrink: 0,
+        opacity: visible ? 1 : 0,
+        transition: "opacity 1s ease 0.4s",
+        position: "relative",
+      }}>
+        <svg viewBox={`0 0 80 ${TOTAL_H}`} style={{ width: "100%", height: "100%" }} preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <filter id="pipeGlow">
+              <feGaussianBlur stdDeviation="4" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+            <filter id="dotGlow">
+              <feGaussianBlur stdDeviation="5" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+            <linearGradient id="trailGrad" x1="0" y1="0" x2="0" y2="1" gradientUnits="userSpaceOnUse"
+              y1={trailY} y2={pulseY}>
+              <stop offset="0%" stopColor="rgba(201,168,76,0)" />
+              <stop offset="100%" stopColor="rgba(201,168,76,0.7)" />
+            </linearGradient>
+          </defs>
+
+          {/* Pipe outer glow */}
+          <line x1={NODE_X} y1={NODE_Y[0]} x2={NODE_X} y2={NODE_Y[3]}
+            stroke="rgba(201,168,76,0.08)" strokeWidth="12" filter="url(#pipeGlow)" />
+
+          {/* Pipe body — dark tube */}
+          <line x1={NODE_X} y1={NODE_Y[0]} x2={NODE_X} y2={NODE_Y[3]}
+            stroke="#0d0d0d" strokeWidth="6" />
+
+          {/* Pipe wall — thin gold lines either side */}
+          <line x1={NODE_X - 3} y1={NODE_Y[0]} x2={NODE_X - 3} y2={NODE_Y[3]}
+            stroke="rgba(201,168,76,0.18)" strokeWidth="1" />
+          <line x1={NODE_X + 3} y1={NODE_Y[0]} x2={NODE_X + 3} y2={NODE_Y[3]}
+            stroke="rgba(201,168,76,0.18)" strokeWidth="1" />
+
+          {/* Glowing trail behind pulse */}
+          <line
+            x1={NODE_X} y1={trailY}
+            x2={NODE_X} y2={pulseY}
+            stroke="url(#trailGrad)"
+            strokeWidth="4"
+          />
+
+          {/* Node indicators */}
+          {NODE_Y.map((ny, i) => (
+            <g key={i}>
+              {/* Outer ripple on active */}
+              <circle cx={NODE_X} cy={ny} r={activeNode === i ? 18 : 0}
+                fill="none"
+                stroke={STEP_COLORS_LIST[i]}
+                strokeWidth="1"
+                opacity={activeNode === i ? 0.25 : 0}
+                style={{ transition: "all 0.3s ease" }}
+              />
+              {/* Connector tick to card */}
+              <line x1={NODE_X + 8} y1={ny} x2={76} y2={ny}
+                stroke={activeNode === i ? STEP_COLORS_LIST[i] : "rgba(201,168,76,0.15)"}
+                strokeWidth="1"
+                style={{ transition: "stroke 0.4s ease" }}
+              />
+              {/* Node ring */}
+              <circle cx={NODE_X} cy={ny} r="8"
+                fill={activeNode === i ? STEP_COLORS_LIST[i] + "25" : "#0d0d0d"}
+                stroke={activeNode === i ? STEP_COLORS_LIST[i] : "rgba(201,168,76,0.3)"}
+                strokeWidth="1.5"
+                style={{ transition: "all 0.4s ease" }}
+              />
+              {/* Centre dot */}
+              <circle cx={NODE_X} cy={ny} r="3"
+                fill={activeNode === i ? STEP_COLORS_LIST[i] : "rgba(201,168,76,0.4)"}
+                filter={activeNode === i ? "url(#pipeGlow)" : "none"}
+                style={{ transition: "all 0.4s ease" }}
+              />
+            </g>
+          ))}
+
+          {/* Pulse dot */}
+          <circle cx={NODE_X} cy={pulseY} r="10"
+            fill="rgba(201,168,76,0.1)"
+            filter="url(#dotGlow)"
+          />
+          <circle cx={NODE_X} cy={pulseY} r="4"
+            fill="#e8c97a"
+            filter="url(#dotGlow)"
+          />
+        </svg>
+      </div>
+
+      {/* Cards — stacked vertically, full order guaranteed */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+        {STEPS.map((s, i) => (
+          <StepCard key={i} s={s} i={i} visible={visible} nodeActive={activeNode === i} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 
 function ScoreBar({ label, value, color, delay = 0, animate }: { label: string; value: number; color: string; delay?: number; animate: boolean }) {
   const [width, setWidth] = useState(0);
@@ -915,7 +889,7 @@ export default function LandingPage() {
 
       {/* HOW IT WORKS */}
       <div ref={stepsRef}>
-        <section id="how-it-works" style={{ padding: "112px 24px", maxWidth: 1200, margin: "0 auto" }}>
+        <section id="how-it-works" style={{ padding: "112px 48px", maxWidth: 960, margin: "0 auto" }}>
           <div style={{ marginBottom: 64, textAlign: "center", opacity: stepsVisible ? 1 : 0, transform: stepsVisible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
             <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 16 }}>The process</p>
             <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(32px,5vw,52px)", fontWeight: 300 }}>
