@@ -522,62 +522,315 @@ function ScoreBar({ label, value, color, delay = 0, animate }: { label: string; 
   );
 }
 
-export default function LandingPage() {
-  const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
-  const [scrollY, setScrollY] = useState(0);
-  const [cardAnimate, setCardAnimate] = useState(false);
-  const [chipsVisible, setChipsVisible] = useState(false);
-  const [scanPos, setScanPos] = useState(-10);
-  const [tick, setTick] = useState(0);
+// ── SEQUENCE DATA ──
+const MOCK_LEADS = [
+  { name: "Bloom & Co Studio",   industry: "Beauty Salon",    city: "London",     score: 74, fit: 81, opp: 68, risk: 22, gap: "CONVERSION",     gapColor: "#fb923c", verdict: "Strong Lead",  verdictColor: "#4ade80" },
+  { name: "Peak Performance Gym", industry: "Fitness Centre", city: "Manchester", score: 61, fit: 55, opp: 70, risk: 35, gap: "VISIBILITY",      gapColor: "#818cf8", verdict: "Good Lead",    verdictColor: "#c9a84c" },
+  { name: "Harbour View Hotel",  industry: "Hospitality",     city: "Bristol",    score: 88, fit: 92, opp: 85, risk: 10, gap: "INFRASTRUCTURE", gapColor: "#60a5fa", verdict: "Top Lead",     verdictColor: "#4ade80" },
+  { name: "Spark Digital Agency",industry: "Marketing",       city: "Edinburgh",  score: 45, fit: 38, opp: 50, risk: 55, gap: "OPTIMISATION",   gapColor: "#f472b6", verdict: "Weak Lead",    verdictColor: "#f87171" },
+  { name: "Verde Kitchen",       industry: "Restaurant",      city: "Birmingham", score: 79, fit: 84, opp: 74, risk: 18, gap: "CONVERSION",     gapColor: "#fb923c", verdict: "Strong Lead",  verdictColor: "#4ade80" },
+];
 
-  // Two particle layers for galaxy depth effect
+const SEARCH_QUERY = "beauty salons · london";
+
+// Animated typing text
+function TypedText({ text, started }: { text: string; started: boolean }) {
+  const [displayed, setDisplayed] = useState("");
+  useEffect(() => {
+    if (!started) { setDisplayed(""); return; }
+    let i = 0;
+    setDisplayed("");
+    const iv = setInterval(() => {
+      i++;
+      setDisplayed(text.slice(0, i));
+      if (i >= text.length) clearInterval(iv);
+    }, 55);
+    return () => clearInterval(iv);
+  }, [started, text]);
+  return <>{displayed}<span style={{ opacity: displayed.length < text.length ? 1 : 0, transition: "opacity 0.1s" }}>|</span></>;
+}
+
+// Mini score bar for the expanded card
+function MiniBar({ label, value, color, animate, delay }: { label: string; value: number; color: string; animate: boolean; delay: number }) {
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    if (!animate) { setW(0); return; }
+    const t = setTimeout(() => setW(value), delay);
+    return () => clearTimeout(t);
+  }, [animate, value, delay]);
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, marginBottom: 3 }}>
+        <span style={{ color: "#555" }}>{label}</span>
+        <span style={{ color, fontWeight: 700 }}>{value}</span>
+      </div>
+      <div style={{ height: 4, background: "#1a1a1a", borderRadius: 999, overflow: "hidden" }}>
+        <div style={{ width: `${w}%`, height: "100%", background: color, borderRadius: 999, transition: "width 1s cubic-bezier(0.16,1,0.3,1)" }} />
+      </div>
+    </div>
+  );
+}
+
+// Stage durations in ms
+const STAGE_SEARCH   = 1600;  // typing
+const STAGE_RESULTS  = 2200;  // results cascade in
+const STAGE_SCORE    = 3200;  // selected card expands + scores
+const STAGE_PAUSE    = 1000;  // hold before reset
+const TOTAL_CYCLE    = STAGE_SEARCH + STAGE_RESULTS + STAGE_SCORE + STAGE_PAUSE;
+
+function HeroScene({ scrollY, waitlistCount, heroTextOpacity }: {
+  scrollY: number;
+  waitlistCount: number | null;
+  heroTextOpacity: number;
+}) {
+  const [stage, setStage] = useState<"idle"|"search"|"results"|"score"|"pause">("idle");
+  const [selectedLead, setSelectedLead] = useState(0);
+  const [scoreAnimate, setScoreAnimate] = useState(false);
+  const [visibleRows, setVisibleRows] = useState(0);
+
+  // Galaxy particles — kept from old hero
   const [nearParticles] = useState(() =>
     Array.from({ length: 40 }, (_, i) => ({
-      id: i, x: Math.random() * 100, y: Math.random() * 120,
+      id: i, x: Math.random() * 100, y: Math.random() * 100,
       size: Math.random() * 1.5 + 0.4,
       duration: Math.random() * 10 + 6, delay: Math.random() * 8,
       opacity: Math.random() * 0.2 + 0.04,
-      driftX: (Math.random() - 0.5) * 0.03,
-    }))
-  );
-  const [deepParticles] = useState(() =>
-    Array.from({ length: 25 }, (_, i) => ({
-      id: i + 100, x: Math.random() * 100, y: Math.random() * 120,
-      size: Math.random() * 3 + 1.5,
-      duration: Math.random() * 18 + 12, delay: Math.random() * 10,
-      baseOpacity: Math.random() * 0.12 + 0.02,
-      rotationOffset: Math.random() * 360,
     }))
   );
 
-  // Mote particles for the features section — diagonal drift, no scroll dependency
-  const [moteParticles] = useState(() =>
-    Array.from({ length: 32 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: Math.random() * 1.2 + 0.4,
-      duration: Math.random() * 20 + 14,
-      delay: Math.random() * 12,
-      opacity: Math.random() * 0.3 + 0.12,
-      // Each mote drifts in a unique diagonal direction
-      driftX: (Math.random() - 0.5) * 28,
-      driftY: (Math.random() - 0.5) * 22,
-      // Some are diamond-shaped (rotate 45deg), some are soft circles
-      diamond: i % 3 === 0,
-    }))
+  const lead = MOCK_LEADS[selectedLead];
+
+  return (
+    <section style={{
+      position: "relative", minHeight: "100vh",
+      display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      padding: "100px 24px 60px", overflow: "hidden",
+      background: "#080808",
+    }}>
+      {/* Ambient glow */}
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(201,168,76,0.1) 0%, transparent 65%)" }} />
+
+      {/* Scrolling grid */}
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.018, backgroundImage: "linear-gradient(#c9a84c 1px, transparent 1px), linear-gradient(90deg, #c9a84c 1px, transparent 1px)", backgroundSize: "72px 72px", transform: `translateY(${scrollY * 0.08}px)` }} />
+
+      {/* Galaxy near layer */}
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", transform: `rotate(${fieldRotation}deg)`, transformOrigin: "50% 40%" }}>
+        {nearParticles.map(p => (
+          <div key={p.id} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, width: p.size + galaxyDepth * 0.8, height: p.size + galaxyDepth * 0.8, borderRadius: "50%", background: "#c9a84c", opacity: p.opacity + galaxyDepth * 0.12, animation: `particleDrift ${p.duration}s ease-in-out ${p.delay}s infinite alternate` }} />
+        ))}
+      </div>
+      {/* Galaxy deep layer */}
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", transform: `rotate(${-fieldRotation * 0.4}deg)`, transformOrigin: "50% 40%" }}>
+        {deepParticles.map(p => (
+          <div key={p.id} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, width: p.size * (1 + galaxyDepth * 1.2), height: p.size * (1 + galaxyDepth * 1.2), borderRadius: "50%", background: "radial-gradient(circle, #e8c97a 0%, #c9a84c 60%, transparent 100%)", opacity: p.baseOpacity + galaxyDepth * 0.3, animation: `starPulse ${p.duration}s ease-in-out ${p.delay}s infinite alternate`, boxShadow: galaxyDepth > 0.3 ? `0 0 ${4 + galaxyDepth * 8}px rgba(201,168,76,${galaxyDepth * 0.4})` : "none" }} />
+        ))}
+      </div>
+
+      {/* ── HERO TEXT ── */}
+      <div style={{ opacity: heroTextOpacity, transform: `translateY(${scrollY * -0.04}px)`, transition: "opacity 0.05s linear", pointerEvents: heroTextOpacity < 0.05 ? "none" : "auto", width: "100%", textAlign: "center", position: "relative", zIndex: 10, marginBottom: 48 }}>
+        <div className="animate-fade-up-delay-1" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", borderRadius: 999, border: "1px solid rgba(201,168,76,0.25)", background: "rgba(201,168,76,0.04)", marginBottom: 28 }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#c9a84c", display: "inline-block", animation: "pulse 2s infinite" }} />
+          <span style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "#c9a84c" }}>
+            {waitlistCount !== null ? `${waitlistCount} service providers in early access` : "Closed Beta — Limited Access"}
+          </span>
+        </div>
+        <h1 className="animate-fade-up-delay-2" style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(38px, 6vw, 72px)", fontWeight: 300, lineHeight: 1.05, letterSpacing: "-0.02em", maxWidth: 800, margin: "0 auto 20px" }}>
+          The intelligence layer
+          <br />
+          <em style={{ fontStyle: "italic", fontWeight: 600, background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            your outreach is missing.
+          </em>
+        </h1>
+        <p className="animate-fade-up-delay-3" style={{ fontSize: 15, color: "#666", maxWidth: 500, margin: "0 auto 32px", lineHeight: 1.7 }}>
+          Vantio finds local businesses and tells you exactly which ones are worth contacting — scored against your service, capability, and style.
+        </p>
+        <div className="animate-fade-up-delay-4" style={{ display: "flex", flexWrap: "wrap", gap: 14, justifyContent: "center" }}>
+          <Link href="/login" style={{ padding: "13px 28px", borderRadius: 10, background: "#c9a84c", color: "#080808", fontWeight: 700, fontSize: 14, letterSpacing: "0.06em", textDecoration: "none", boxShadow: "0 8px 40px rgba(201,168,76,0.22)" }}>
+            Request Early Access
+          </Link>
+          <Link href="#how-it-works" style={{ fontSize: 13, color: "#555", textDecoration: "none", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 8 }}>
+            See how it works <span style={{ color: "#8a6e30" }}>↓</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* ── 3D SCENE ── */}
+      <div className="animate-fade-up-delay-5" style={{
+        width: "100%", maxWidth: 860,
+        perspective: "1200px",
+        position: "relative", zIndex: 5,
+      }}>
+        <div style={{
+          transform: `rotateX(${sceneTiltX}deg) rotateY(${sceneTiltY}deg) scale(${sceneScale})`,
+          transformStyle: "preserve-3d",
+          transition: "transform 0.12s linear",
+          transformOrigin: "50% 50%",
+        }}>
+          {/* Surface panel */}
+          <div style={{
+            background: "#0c0c0c",
+            border: "1px solid #222",
+            borderRadius: 20,
+            overflow: "hidden",
+            boxShadow: "0 40px 120px rgba(0,0,0,0.8), 0 0 0 1px rgba(201,168,76,0.06), inset 0 1px 0 rgba(255,255,255,0.03)",
+          }}>
+            {/* Surface grid */}
+            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.025, backgroundImage: "linear-gradient(#c9a84c 1px, transparent 1px), linear-gradient(90deg, #c9a84c 1px, transparent 1px)", backgroundSize: "40px 40px", borderRadius: 20 }} />
+
+            {/* Top chrome bar */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 20px", borderBottom: "1px solid #1a1a1a", background: "rgba(255,255,255,0.01)" }}>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#2a2a2a" }} />
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#2a2a2a" }} />
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#2a2a2a" }} />
+              <div style={{ flex: 1, margin: "0 16px", height: 24, background: "#111", borderRadius: 6, display: "flex", alignItems: "center", paddingLeft: 10, gap: 6 }}>
+                <span style={{ fontSize: 9, color: "#333", letterSpacing: "0.06em" }}>◈</span>
+                <span style={{ fontSize: 10, color: "#333", letterSpacing: "0.04em" }}>vantioapp.com</span>
+              </div>
+            </div>
+
+            {/* App content */}
+            <div style={{ padding: "20px 24px", minHeight: 380 }}>
+
+              {/* Search bar */}
+              <div style={{
+                display: "flex", alignItems: "center", gap: 12, marginBottom: 20,
+                background: "#111", border: "1px solid", borderColor: stage === "search" ? "rgba(201,168,76,0.4)" : "#1e1e1e",
+                borderRadius: 10, padding: "10px 16px",
+                boxShadow: stage === "search" ? "0 0 20px rgba(201,168,76,0.08)" : "none",
+                transition: "border-color 0.3s ease, box-shadow 0.3s ease",
+              }}>
+                <span style={{ fontSize: 12, color: "#444" }}>🔍</span>
+                <span style={{ fontSize: 13, color: stage === "idle" ? "#333" : "#e8e0d0", fontFamily: "var(--font-body), sans-serif", letterSpacing: "0.01em", flex: 1 }}>
+                  {stage === "idle" ? (
+                    <span style={{ color: "#333" }}>Search niche + location…</span>
+                  ) : (
+                    <TypedText text={SEARCH_QUERY} started={stage !== "idle"} />
+                  )}
+                </span>
+                <div style={{
+                  padding: "4px 12px", borderRadius: 6, background: stage === "results" || stage === "score" || stage === "pause" ? "#c9a84c" : "#1e1e1e",
+                  transition: "background 0.4s ease",
+                  fontSize: 10, color: stage === "results" || stage === "score" || stage === "pause" ? "#080808" : "#444",
+                  fontWeight: 600, letterSpacing: "0.06em",
+                }}>
+                  SCAN
+                </div>
+              </div>
+
+              {/* Results status bar */}
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14,
+                opacity: stage === "results" || stage === "score" || stage === "pause" ? 1 : 0,
+                transition: "opacity 0.4s ease",
+              }}>
+                <span style={{ fontSize: 10, color: "#555", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  {MOCK_LEADS.length} leads found · scored against your profile
+                </span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {["Score ↓", "Fit", "Gap"].map(f => (
+                    <span key={f} style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, background: "#111", border: "1px solid #1e1e1e", color: "#444", letterSpacing: "0.06em" }}>{f}</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Lead rows */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {MOCK_LEADS.map((l, i) => {
+                  const isSelected = stage === "score" || stage === "pause";
+                  const isThisOne = isSelected && i === selectedLead;
+                  const rowVisible = i < visibleRows;
+
+                  return (
+                    <div key={i} style={{
+                      borderRadius: 10,
+                      border: `1px solid ${isThisOne ? "rgba(201,168,76,0.3)" : "#1a1a1a"}`,
+                      background: isThisOne ? "rgba(201,168,76,0.04)" : "#0d0d0d",
+                      overflow: "hidden",
+                      opacity: rowVisible ? 1 : 0,
+                      transform: rowVisible ? "none" : "translateY(10px)",
+                      transition: `opacity 0.4s ease ${i * 60}ms, transform 0.4s ease ${i * 60}ms, border-color 0.4s ease, background 0.4s ease`,
+                      boxShadow: isThisOne ? "0 4px 24px rgba(201,168,76,0.08)" : "none",
+                    }}>
+                      {/* Row header — always visible */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px" }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                            <p style={{ fontSize: 12, fontWeight: 600, color: isThisOne ? "#f5f0e8" : "#888", whiteSpace: "nowrap", transition: "color 0.3s" }}>{l.name}</p>
+                            <span style={{ fontSize: 8, color: "#444", border: "1px solid #252525", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" }}>{l.industry}</span>
+                          </div>
+                          <p style={{ fontSize: 10, color: "#444" }}>📍 {l.city}</p>
+                        </div>
+                        {/* Score pill */}
+                        <div style={{ textAlign: "center", minWidth: 36 }}>
+                          <p style={{ fontSize: 16, fontWeight: 700, color: "#c9a84c", fontFamily: "var(--font-display), serif", lineHeight: 1 }}>{l.score}</p>
+                          <p style={{ fontSize: 8, color: "#444", textTransform: "uppercase", letterSpacing: "0.06em" }}>score</p>
+                        </div>
+                        {/* Verdict */}
+                        <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 6, color: l.verdictColor, background: `${l.verdictColor}14`, border: `1px solid ${l.verdictColor}30`, whiteSpace: "nowrap" }}>
+                          {l.verdict}
+                        </span>
+                        {/* Gap badge */}
+                        <span style={{ fontSize: 8, padding: "2px 8px", borderRadius: 4, color: l.gapColor, background: `${l.gapColor}12`, border: `1px solid ${l.gapColor}25`, whiteSpace: "nowrap" }}>
+                          ⬡ {l.gap}
+                        </span>
+                      </div>
+
+                      {/* Expanded detail — only for selected lead in score stage */}
+                      {isThisOne && (
+                        <div style={{ padding: "0 14px 14px", borderTop: "1px solid rgba(201,168,76,0.08)" }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 20px", marginTop: 12, marginBottom: 12 }}>
+                            <MiniBar label="Fit" value={l.fit} color="#4ade80" animate={scoreAnimate} delay={100} />
+                            <MiniBar label="Opportunity" value={l.opp} color="#818cf8" animate={scoreAnimate} delay={250} />
+                            <MiniBar label="Risk" value={l.risk} color="#f87171" animate={scoreAnimate} delay={400} />
+                            <MiniBar label="Score" value={l.score} color="#c9a84c" animate={scoreAnimate} delay={550} />
+                          </div>
+                          <div style={{
+                            display: "flex", alignItems: "center", gap: 8, padding: "7px 10px",
+                            background: `${l.gapColor}08`, border: `1px solid ${l.gapColor}20`, borderRadius: 7,
+                            opacity: scoreAnimate ? 1 : 0, transition: "opacity 0.5s ease 0.8s",
+                          }}>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: l.gapColor, letterSpacing: "0.1em", textTransform: "uppercase" }}>⬡ {l.gap} GAP DETECTED</span>
+                            <span style={{ fontSize: 9, color: "#555" }}>— use this as your pitch angle</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Scanning indicator */}
+              <div style={{
+                marginTop: 16, display: "flex", alignItems: "center", gap: 8,
+                opacity: stage === "search" ? 1 : 0, transition: "opacity 0.3s ease",
+              }}>
+                <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#c9a84c", animation: "pulse 1s infinite" }} />
+                <span style={{ fontSize: 10, color: "#555", letterSpacing: "0.1em", textTransform: "uppercase" }}>Scanning signals…</span>
+              </div>
+
+            </div>
+          </div>
+
+          {/* Scene underglow */}
+          <div style={{ position: "absolute", bottom: -40, left: "5%", right: "5%", height: 80, background: "radial-gradient(ellipse, rgba(201,168,76,0.15) 0%, transparent 70%)", filter: "blur(20px)", pointerEvents: "none" }} />
+        </div>
+      </div>
+
+      {/* Scroll indicator */}
+      <div style={{ position: "absolute", bottom: 28, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, opacity: Math.max(0, 1 - scrollY / 200) }}>
+        <div style={{ width: 1, height: 36, background: "linear-gradient(to bottom, transparent, rgba(201,168,76,0.4))" }} />
+        <span style={{ fontSize: 9, color: "#333", letterSpacing: "0.2em", textTransform: "uppercase" }}>scroll</span>
+      </div>
+    </section>
   );
+}
 
-  const [featuresRef, featuresVisible] = useReveal();
-  const [stepsRef, stepsVisible] = useReveal();
-  const [diffRef, diffVisible] = useReveal();
-  const [ctaRef, ctaVisible] = useReveal();
 
-  useEffect(() => {
-    fetch("/api/waitlist").then(r => r.json()).then(d => {
-      if (typeof d.count === "number" && d.count > 0) setWaitlistCount(d.count);
-    }).catch(() => {});
-  }, []);
+export default function LandingPage() {
+  const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
+  const [scrollY, setScrollY] = useState(0);
+
 
   useEffect(() => {
     const onScroll = () => setScrollY(window.scrollY);
@@ -585,40 +838,12 @@ export default function LandingPage() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => {
-    const t1 = setTimeout(() => setCardAnimate(true), 800);
-    const t2 = setTimeout(() => setChipsVisible(true), 1000);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, []);
 
-  // RAF ticker for chip orbit animation
-  useEffect(() => {
-    let raf: number;
-    const animate = () => { setTick(t => t + 1); raf = requestAnimationFrame(animate); };
-    raf = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(raf);
-  }, []);
 
-  // Scanning line RAF
-  useEffect(() => {
-    if (!cardAnimate) return;
-    let pos = -10;
-    let raf: number;
-    const animate = () => { pos += 0.5; if (pos > 110) pos = -10; setScanPos(pos); raf = requestAnimationFrame(animate); };
-    raf = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(raf);
-  }, [cardAnimate]);
 
-  const scrollProgress = Math.min(1, scrollY / 500);
-  const cardScatter = Math.min(1, scrollY / 400);
-  const cardFloat = -scrollY * 0.10;
-  const cardRotate = Math.min(scrollY * 0.006, 4);
-  const cardScale = 1 - cardScatter * 0.06;
+
+
   const heroTextOpacity = Math.max(0, 1 - scrollY * 0.003);
-  // Galaxy depth — particles grow and brighten as user scrolls
-  const galaxyDepth = Math.min(1, scrollY / 800);
-  // Slow field rotation driven by scroll
-  const fieldRotation = scrollY * 0.015;
 
   return (
     <div style={{ minHeight: "100vh", background: "#080808", color: "#f5f0e8", overflowX: "hidden" }}>
@@ -639,213 +864,13 @@ export default function LandingPage() {
       </nav>
 
       {/* HERO */}
-      <section style={{ position: "relative", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "120px 24px 80px", textAlign: "center", overflow: "hidden" }}>
+      <HeroScene
+        scrollY={scrollY}
+        waitlistCount={waitlistCount}
+        heroTextOpacity={heroTextOpacity}
+      />
 
-        {/* Ambient glow */}
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(201,168,76,0.1) 0%, transparent 65%)" }} />
-
-        {/* Scrolling grid */}
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.018, backgroundImage: "linear-gradient(#c9a84c 1px, transparent 1px), linear-gradient(90deg, #c9a84c 1px, transparent 1px)", backgroundSize: "72px 72px", transform: `translateY(${scrollY * 0.08}px)` }} />
-
-        {/* ── GALAXY PARTICLE SYSTEM ── */}
-        {/* Near layer — small ambient particles */}
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", transform: `rotate(${fieldRotation}deg)`, transformOrigin: "50% 40%" }}>
-          {nearParticles.map(p => (
-            <div key={p.id} style={{
-              position: "absolute", left: `${p.x}%`, top: `${p.y}%`,
-              width: p.size + galaxyDepth * 0.8,
-              height: p.size + galaxyDepth * 0.8,
-              borderRadius: "50%", background: "#c9a84c",
-              opacity: p.opacity + galaxyDepth * 0.15,
-              animation: `particleDrift ${p.duration}s ease-in-out ${p.delay}s infinite alternate`,
-            }} />
-          ))}
-        </div>
-
-        {/* Deep layer — larger gold stars that intensify with scroll */}
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", transform: `rotate(${-fieldRotation * 0.4}deg)`, transformOrigin: "50% 40%" }}>
-          {deepParticles.map(p => (
-            <div key={p.id} style={{
-              position: "absolute", left: `${p.x}%`, top: `${p.y}%`,
-              width: p.size * (1 + galaxyDepth * 1.2),
-              height: p.size * (1 + galaxyDepth * 1.2),
-              borderRadius: "50%",
-              background: `radial-gradient(circle, #e8c97a 0%, #c9a84c 60%, transparent 100%)`,
-              opacity: p.baseOpacity + galaxyDepth * 0.35,
-              animation: `starPulse ${p.duration}s ease-in-out ${p.delay}s infinite alternate`,
-              boxShadow: galaxyDepth > 0.3 ? `0 0 ${4 + galaxyDepth * 8}px rgba(201,168,76,${galaxyDepth * 0.4})` : "none",
-            }} />
-          ))}
-        </div>
-
-        { /* Hero text group — fades out on scroll */ }
-        <div style={{ opacity: heroTextOpacity, transform: `translateY(${scrollY * -0.04}px)`, transition: "opacity 0.05s linear", pointerEvents: heroTextOpacity < 0.05 ? "none" : "auto", width: "100%" }}>
-        {/* Badge */}
-        <div className="animate-fade-up-delay-1" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", borderRadius: 999, border: "1px solid rgba(201,168,76,0.25)", background: "rgba(201,168,76,0.04)", marginBottom: 32 }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#c9a84c", display: "inline-block", animation: "pulse 2s infinite" }} />
-          <span style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "#c9a84c" }}>
-            {waitlistCount !== null ? `${waitlistCount} service providers in early access` : "Closed Beta — Limited Access"}
-          </span>
-        </div>
-
-        {/* Headline */}
-        <h1 className="animate-fade-up-delay-2" style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(42px, 8vw, 86px)", fontWeight: 300, lineHeight: 1.05, letterSpacing: "-0.02em", maxWidth: 900, margin: "0 auto 32px" }}>
-          The intelligence layer
-          <br />
-          <em style={{ fontStyle: "italic", fontWeight: 600, background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            your outreach is missing.
-          </em>
-        </h1>
-
-        <p className="animate-fade-up-delay-3" style={{ fontSize: 16, color: "#666", maxWidth: 560, margin: "0 auto 40px", lineHeight: 1.7, letterSpacing: "0.02em" }}>
-          Vantio finds local businesses and tells you exactly which ones are worth contacting — scored against your specific service, capability, and style.
-        </p>
-
-        <div className="animate-fade-up-delay-4" style={{ display: "flex", flexWrap: "wrap", gap: 16, justifyContent: "center", marginBottom: 64 }}>
-          <Link href="/login" style={{ padding: "14px 32px", borderRadius: 10, background: "#c9a84c", color: "#080808", fontWeight: 700, fontSize: 14, letterSpacing: "0.06em", textDecoration: "none", boxShadow: "0 8px 40px rgba(201,168,76,0.22)" }}>
-            Request Early Access
-          </Link>
-          <Link href="#how-it-works" style={{ fontSize: 13, color: "#555", textDecoration: "none", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 8 }}>
-            See how it works <span style={{ color: "#8a6e30" }}>↓</span>
-          </Link>
-        </div>
-        </div>{/* end hero text fade wrapper */}
-
-        {/* ── HERO CARD + ORBITAL CHIPS ── */}
-        <div className="animate-fade-up-delay-5" style={{ position: "relative", width: "100%", maxWidth: 460, margin: "0 auto" }}>
-
-          {/* ORBITAL FEATURE CHIPS */}
-          {ORBITAL_CHIPS.map((chip, i) => {
-            const angleRad = (chip.angle * Math.PI) / 180;
-            // Gentle floating using tick — each chip drifts independently
-            const floatOffset = Math.sin(tick * chip.driftSpeed + i * 1.2) * 8;
-            const floatX = Math.cos(tick * chip.driftSpeed * 0.7 + i) * 4;
-            // Scatter outward on scroll
-            const scatterMultiplier = 1 + cardScatter * 0.5;
-            const x = Math.cos(angleRad) * chip.radius * scatterMultiplier;
-            const y = Math.sin(angleRad) * chip.radius * scatterMultiplier + floatOffset;
-            // Scroll parallax — chips at different depths move at different rates
-            const parallaxY = scrollY * (0.04 + i * 0.015) * (i % 2 === 0 ? 1 : -1);
-
-            return (
-              <div key={chip.label} style={{
-                position: "absolute",
-                left: "50%",
-                top: "50%",
-                transform: `translate(calc(-50% + ${x + floatX}px), calc(-50% + ${y + parallaxY}px))`,
-                opacity: chipsVisible ? Math.max(0, 1 - scrollProgress * 0.6) : 0,
-                transition: chipsVisible
-                  ? `opacity 0.8s ease ${chip.delay}ms, transform 0.05s linear`
-                  : `opacity 0.8s ease ${chip.delay}ms`,
-                pointerEvents: "none",
-                zIndex: 2,
-                whiteSpace: "nowrap",
-              }}>
-                <div style={{
-                  background: "rgba(10,10,10,0.92)",
-                  border: `1px solid ${chip.color}30`,
-                  borderRadius: 12,
-                  padding: "8px 12px",
-                  backdropFilter: "blur(8px)",
-                  boxShadow: `0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px ${chip.color}15`,
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                    <span style={{ fontSize: 11, color: chip.color }}>{chip.icon}</span>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: "#e8e0d0", letterSpacing: "0.02em" }}>{chip.label}</span>
-                  </div>
-                  <p style={{ fontSize: 9, color: "#555", letterSpacing: "0.08em", textTransform: "uppercase" }}>{chip.sub}</p>
-                </div>
-                {/* Connector line from chip to card */}
-                <div style={{
-                  position: "absolute",
-                  width: 1,
-                  height: Math.abs(y) * 0.3,
-                  background: `linear-gradient(${y > 0 ? "to top" : "to bottom"}, transparent, ${chip.color}20)`,
-                  left: "50%",
-                  top: y > 0 ? "auto" : "100%",
-                  bottom: y > 0 ? "100%" : "auto",
-                  transform: "translateX(-50%)",
-                  opacity: 0.5,
-                }} />
-              </div>
-            );
-          })}
-
-          {/* MAIN SCORE CARD */}
-          <div style={{
-            borderRadius: 20,
-            border: "1px solid #1e1e1e",
-            background: "#0d0d0d",
-            padding: 22,
-            textAlign: "left",
-            boxShadow: "0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(201,168,76,0.06)",
-            transform: `translateY(${cardFloat}px) rotateX(${cardRotate}deg) scale(${cardScale})`,
-            transformStyle: "preserve-3d",
-            transition: "transform 0.08s linear",
-            position: "relative",
-            overflow: "hidden",
-            zIndex: 3,
-          }}>
-            {/* Scanning line */}
-            <div style={{ position: "absolute", left: 0, right: 0, top: `${scanPos}%`, height: 1, background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.4), transparent)", pointerEvents: "none" }} />
-            {/* Corner glow */}
-            <div style={{ position: "absolute", top: -40, right: -40, width: 120, height: 120, borderRadius: "50%", background: "radial-gradient(circle, rgba(201,168,76,0.07) 0%, transparent 70%)", pointerEvents: "none" }} />
-
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <p style={{ fontSize: 15, fontWeight: 600, color: "#f5f0e8" }}>{MOCK_LEAD.name}</p>
-                  <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 999, border: "1px solid #252525", color: "#555" }}>{MOCK_LEAD.industry}</span>
-                </div>
-                <p style={{ fontSize: 11, color: "#444" }}>📍 {MOCK_LEAD.city}</p>
-              </div>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 8, color: MOCK_LEAD.verdictColor, background: `${MOCK_LEAD.verdictColor}14`, border: `1px solid ${MOCK_LEAD.verdictColor}30` }}>
-                {MOCK_LEAD.verdict}
-              </span>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px", marginBottom: 16 }}>
-              <ScoreBar label="Score" value={MOCK_LEAD.score} color="#c9a84c" delay={900} animate={cardAnimate} />
-              <ScoreBar label="Fit" value={MOCK_LEAD.fit} color="#4ade80" delay={1100} animate={cardAnimate} />
-              <ScoreBar label="Opportunity" value={MOCK_LEAD.opportunity} color="#818cf8" delay={1300} animate={cardAnimate} />
-              <ScoreBar label="Risk" value={MOCK_LEAD.risk} color="#f87171" delay={1500} animate={cardAnimate} />
-            </div>
-
-            <div style={{ borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10, background: `${MOCK_LEAD.gapColor}08`, border: `1px solid ${MOCK_LEAD.gapColor}20`, marginBottom: 14 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: MOCK_LEAD.gapColor }}>⬡ {MOCK_LEAD.gap} GAP</span>
-              <span style={{ fontSize: 10, color: "#555" }}>— no booking flow detected</span>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 4, border: "1px solid #1a1a1a", borderRadius: 14, background: "#0a0a0a", padding: "10px 8px" }}>
-              {[
-                { label: "Contacted", value: "12", icon: "✉", color: "#4ade80" },
-                { label: "Replied", value: "5", icon: "↩", color: "#4ade80" },
-                { label: "Calls", value: "2", icon: "📅", color: "#4ade80" },
-                { label: "Closed", value: "1", icon: "✦", color: "#c9a84c" },
-              ].map(item => (
-                <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                  <span style={{ fontSize: 11, color: item.color }}>{item.icon}</span>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: "#f5f0e8" }}>{item.value}</span>
-                  <span style={{ fontSize: 9, color: "#444", letterSpacing: "0.05em" }}>{item.label}</span>
-                </div>
-              ))}
-            </div>
-
-            <p style={{ fontSize: 10, color: "#2a2a2a", textAlign: "center", marginTop: 12, letterSpacing: "0.18em", textTransform: "uppercase" }}>Live intelligence · scored in seconds</p>
-          </div>
-
-          {/* Card underglow */}
-          <div style={{ position: "absolute", bottom: -30, left: "10%", right: "10%", height: 60, background: "radial-gradient(ellipse, rgba(201,168,76,0.14) 0%, transparent 70%)", pointerEvents: "none", filter: "blur(14px)", transform: `scale(${1 + cardScatter * 0.3})`, transition: "transform 0.1s linear" }} />
-        </div>
-
-        {/* Scroll indicator */}
-        <div style={{ position: "absolute", bottom: 32, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, opacity: Math.max(0, 1 - scrollY / 200) }}>
-          <div style={{ width: 1, height: 40, background: "linear-gradient(to bottom, transparent, rgba(201,168,76,0.4))" }} />
-          <span style={{ fontSize: 9, color: "#333", letterSpacing: "0.2em", textTransform: "uppercase" }}>scroll</span>
-        </div>
-      </section>
-
-      {/* STAT BAR */}
+            {/* STAT BAR */}
       <StatBar />
 
       {/* FEATURES */}
