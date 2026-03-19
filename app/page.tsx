@@ -263,6 +263,91 @@ function FeatureCard({ f, i, visible }: { f: typeof FEATURES[0]; i: number; visi
   );
 }
 
+
+function StepCard({ s, i, visible }: { s: typeof STEPS[0]; i: number; visible: boolean }) {
+  const [mouse, setMouse] = useState<{ x: number; y: number } | null>(null);
+  const [hovered, setHovered] = useState(false);
+
+  const STEP_COLORS = ["#c9a84c", "#818cf8", "#4ade80", "#f472b6"];
+  const accent = STEP_COLORS[i % STEP_COLORS.length];
+
+  return (
+    <div
+      onMouseMove={e => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        setMouse({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); setMouse(null); }}
+      style={{
+        display: "flex", gap: 24, padding: 28,
+        borderRadius: 18, border: `1px solid ${hovered ? accent + "40" : "#111"}`,
+        background: hovered ? "#0f0f0f" : "#0a0a0a",
+        position: "relative", overflow: "hidden",
+        opacity: visible ? 1 : 0,
+        transform: visible
+          ? hovered ? "translateY(-3px) scale(1.01)" : "none"
+          : "translateY(40px)",
+        transition: `opacity 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 100}ms, transform 0.3s cubic-bezier(0.16,1,0.3,1), border-color 0.3s ease, background 0.3s ease`,
+        boxShadow: hovered ? `0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px ${accent}18` : "none",
+        cursor: "default",
+      }}
+    >
+      {/* Mouse spotlight */}
+      {mouse && (
+        <div style={{
+          position: "absolute",
+          left: mouse.x - 100, top: mouse.y - 100,
+          width: 200, height: 200, borderRadius: "50%",
+          background: `radial-gradient(circle, ${accent}14 0%, transparent 70%)`,
+          pointerEvents: "none", transition: "none",
+        }} />
+      )}
+
+      {/* Top accent line */}
+      <div style={{
+        position: "absolute", top: 0, left: "8%", right: "8%", height: 1,
+        background: `linear-gradient(90deg, transparent, ${accent}, transparent)`,
+        opacity: hovered ? 0.5 : 0,
+        transition: "opacity 0.3s ease",
+      }} />
+
+      {/* Step number */}
+      <div style={{ flexShrink: 0, position: "relative" }}>
+        <span style={{
+          fontFamily: "var(--font-display), serif",
+          fontSize: 56, fontWeight: 300, lineHeight: 1,
+          color: hovered ? accent : "#1e1e1e",
+          transition: "color 0.3s ease",
+          display: "block",
+          filter: hovered ? `drop-shadow(0 0 12px ${accent}50)` : "none",
+        }}>
+          {s.number}
+        </span>
+      </div>
+
+      {/* Content */}
+      <div style={{ paddingTop: 8 }}>
+        <h3 style={{
+          fontFamily: "var(--font-display), serif", fontSize: 18, fontWeight: 500,
+          marginBottom: 8,
+          color: hovered ? "#f5f0e8" : "#e8e0d0",
+          transition: "color 0.3s ease",
+        }}>
+          {s.title}
+        </h3>
+        <p style={{
+          fontSize: 13, lineHeight: 1.7,
+          color: hovered ? "#666" : "#555",
+          transition: "color 0.3s ease",
+        }}>
+          {s.body}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function ScoreBar({ label, value, color, delay = 0, animate }: { label: string; value: number; color: string; delay?: number; animate: boolean }) {
   const [width, setWidth] = useState(0);
   useEffect(() => {
@@ -658,17 +743,9 @@ export default function LandingPage() {
               <em style={{ fontStyle: "italic", background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>signed client.</em>
             </h2>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px,1fr))", gap: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
             {STEPS.map((s, i) => (
-              <div key={i} style={{ display: "flex", gap: 24, padding: 24, borderRadius: 18, border: "1px solid #111", opacity: stepsVisible ? 1 : 0, transform: stepsVisible ? "none" : "translateY(40px)", transition: `all 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 100}ms` }}>
-                <div style={{ flexShrink: 0 }}>
-                  <span style={{ fontFamily: "var(--font-display), serif", fontSize: 52, fontWeight: 300, color: "#1a1a1a", lineHeight: 1 }}>{s.number}</span>
-                </div>
-                <div style={{ paddingTop: 8 }}>
-                  <h3 style={{ fontFamily: "var(--font-display), serif", fontSize: 18, fontWeight: 500, marginBottom: 8, color: "#e8e0d0" }}>{s.title}</h3>
-                  <p style={{ fontSize: 13, color: "#555", lineHeight: 1.7 }}>{s.body}</p>
-                </div>
-              </div>
+              <StepCard key={i} s={s} i={i} visible={stepsVisible} />
             ))}
           </div>
         </section>
