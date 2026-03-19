@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import HamburgerMenu from "./components/HamburgerMenu";
 
@@ -28,26 +28,32 @@ const STATS = [
 ];
 
 const MOCK_LEAD = {
-  name: "Bloom & Co Studio",
-  industry: "Beauty Salon",
-  city: "London",
+  name: "Bloom & Co Studio", industry: "Beauty Salon", city: "London",
   score: 74, fit: 81, opportunity: 68, risk: 22,
-  gap: "CONVERSION", gapColor: "#fb923c",
-  verdict: "Strong Lead", verdictColor: "#4ade80",
+  gap: "CONVERSION", gapColor: "#fb923c", verdict: "Strong Lead", verdictColor: "#4ade80",
 };
 
-// Scroll-reveal hook
+// Callback-ref reveal hook — avoids accessing ref.current during render
 function useReveal() {
-  const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } }, { threshold: 0.12 });
-    obs.observe(el);
-    return () => obs.disconnect();
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
+  const callbackRef = useCallback((node: HTMLDivElement | null) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
+    }
+    if (!node) return;
+    observerRef.current = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setVisible(true);
+        observerRef.current?.disconnect();
+      }
+    }, { threshold: 0.12 });
+    observerRef.current.observe(node);
   }, []);
-  return { ref, visible };
+
+  return { callbackRef, visible };
 }
 
 // Animated score bar
@@ -60,7 +66,7 @@ function ScoreBar({ label, value, color, delay = 0, animate }: { label: string; 
   }, [animate, value, delay]);
   return (
     <div>
-      <div className="flex justify-between text-[10px] mb-1">
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 4 }}>
         <span style={{ color: "#555" }}>{label}</span>
         <span style={{ color, fontWeight: 700 }}>{value}</span>
       </div>
@@ -94,7 +100,9 @@ export default function LandingPage() {
   const ctaReveal = useReveal();
 
   useEffect(() => {
-    fetch("/api/waitlist").then(r => r.json()).then(d => { if (typeof d.count === "number" && d.count > 0) setWaitlistCount(d.count); }).catch(() => {});
+    fetch("/api/waitlist").then(r => r.json()).then(d => {
+      if (typeof d.count === "number" && d.count > 0) setWaitlistCount(d.count);
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -103,28 +111,25 @@ export default function LandingPage() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Trigger card animation shortly after mount
   useEffect(() => {
     const t = setTimeout(() => setCardAnimate(true), 800);
     return () => clearTimeout(t);
   }, []);
 
-  // Scanning line animation
   useEffect(() => {
     if (!cardAnimate) return;
     let pos = -10;
     let raf: number;
-    const animate = () => {
+    const tick = () => {
       pos += 0.6;
       if (pos > 110) pos = -10;
       setScanPos(pos);
-      raf = requestAnimationFrame(animate);
+      raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(animate);
+    raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [cardAnimate]);
 
-  // Hero card parallax values
   const cardFloat = -scrollY * 0.12;
   const cardRotate = scrollY * 0.008;
   const orbitalOffset = scrollY * 0.06;
@@ -150,28 +155,13 @@ export default function LandingPage() {
       {/* HERO */}
       <section style={{ position: "relative", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "120px 24px 80px", textAlign: "center", overflow: "hidden" }}>
 
-        {/* Ambient glow */}
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(201,168,76,0.1) 0%, transparent 65%)" }} />
-
-        {/* Animated grid */}
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.018, backgroundImage: "linear-gradient(#c9a84c 1px, transparent 1px), linear-gradient(90deg, #c9a84c 1px, transparent 1px)", backgroundSize: "72px 72px", transform: `translateY(${scrollY * 0.08}px)` }} />
 
-        {/* Floating particles */}
         {particles.map(p => (
-          <div key={p.id} style={{
-            position: "absolute",
-            left: `${p.x}%`, top: `${p.y}%`,
-            width: p.size, height: p.size,
-            borderRadius: "50%",
-            background: "#c9a84c",
-            opacity: p.opacity,
-            animation: `particleFloat ${p.duration}s ease-in-out ${p.delay}s infinite alternate`,
-            transform: `translateY(${scrollY * (p.id % 3 === 0 ? -0.04 : 0.03)}px)`,
-            pointerEvents: "none",
-          }} />
+          <div key={p.id} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, width: p.size, height: p.size, borderRadius: "50%", background: "#c9a84c", opacity: p.opacity, animation: `particleFloat ${p.duration}s ease-in-out ${p.delay}s infinite alternate`, transform: `translateY(${scrollY * (p.id % 3 === 0 ? -0.04 : 0.03)}px)`, pointerEvents: "none" }} />
         ))}
 
-        {/* Badge */}
         <div className="animate-fade-up-delay-1" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", borderRadius: 999, border: "1px solid rgba(201,168,76,0.25)", background: "rgba(201,168,76,0.04)", marginBottom: 32 }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#c9a84c", display: "inline-block", animation: "pulse 2s infinite" }} />
           <span style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "#c9a84c" }}>
@@ -179,7 +169,6 @@ export default function LandingPage() {
           </span>
         </div>
 
-        {/* Headline */}
         <h1 className="animate-fade-up-delay-2" style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(42px, 8vw, 86px)", fontWeight: 300, lineHeight: 1.05, letterSpacing: "-0.02em", maxWidth: 900, margin: "0 auto 32px" }}>
           The intelligence layer
           <br />
@@ -201,17 +190,11 @@ export default function LandingPage() {
           </Link>
         </div>
 
-        {/* HERO SCORE CARD — 3D floating */}
+        {/* FLOATING SCORE CARD */}
         <div className="animate-fade-up-delay-5" style={{ position: "relative", width: "100%", maxWidth: 460, margin: "0 auto" }}>
 
-          {/* Orbital signal panels — appear on scroll */}
-          <div style={{
-            position: "absolute", top: "10%", left: -160,
-            transform: `translateY(${orbitalOffset}px)`,
-            opacity: Math.min(1, scrollY / 200),
-            transition: "opacity 0.3s",
-            pointerEvents: "none",
-          }}>
+          {/* Orbital panels */}
+          <div style={{ position: "absolute", top: "10%", left: -160, transform: `translateY(${orbitalOffset}px)`, opacity: Math.min(1, scrollY / 200), transition: "opacity 0.3s", pointerEvents: "none" }}>
             <div style={{ background: "#0d0d0d", border: "1px solid #1e1e1e", borderRadius: 12, padding: "10px 14px", width: 140 }}>
               <p style={{ fontSize: 9, color: "#555", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 6 }}>Gap Detected</p>
               <p style={{ fontSize: 12, color: "#fb923c", fontWeight: 600 }}>⬡ Conversion</p>
@@ -219,13 +202,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div style={{
-            position: "absolute", top: "30%", right: -150,
-            transform: `translateY(${-orbitalOffset * 0.7}px)`,
-            opacity: Math.min(1, scrollY / 300),
-            transition: "opacity 0.3s",
-            pointerEvents: "none",
-          }}>
+          <div style={{ position: "absolute", top: "30%", right: -150, transform: `translateY(${-orbitalOffset * 0.7}px)`, opacity: Math.min(1, scrollY / 300), transition: "opacity 0.3s", pointerEvents: "none" }}>
             <div style={{ background: "#0d0d0d", border: "1px solid #1e1e1e", borderRadius: 12, padding: "10px 14px", width: 130 }}>
               <p style={{ fontSize: 9, color: "#555", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 6 }}>Fit Score</p>
               <p style={{ fontSize: 22, color: "#4ade80", fontWeight: 700, fontFamily: "var(--font-display), serif" }}>81</p>
@@ -234,32 +211,11 @@ export default function LandingPage() {
           </div>
 
           {/* Main card */}
-          <div style={{
-            borderRadius: 20,
-            border: "1px solid #1e1e1e",
-            background: "#0d0d0d",
-            padding: 22,
-            textAlign: "left",
-            boxShadow: "0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(201,168,76,0.06)",
-            transform: `translateY(${cardFloat}px) rotateX(${cardRotate}deg)`,
-            transformStyle: "preserve-3d",
-            transition: "transform 0.1s linear",
-            position: "relative",
-            overflow: "hidden",
-          }}>
-            {/* Scanning line */}
-            <div style={{
-              position: "absolute", left: 0, right: 0, top: `${scanPos}%`,
-              height: 1,
-              background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.4), transparent)",
-              pointerEvents: "none",
-              transition: "none",
-            }} />
+          <div style={{ borderRadius: 20, border: "1px solid #1e1e1e", background: "#0d0d0d", padding: 22, textAlign: "left", boxShadow: "0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(201,168,76,0.06)", transform: `translateY(${cardFloat}px) rotateX(${cardRotate}deg)`, transformStyle: "preserve-3d", transition: "transform 0.1s linear", position: "relative", overflow: "hidden" }}>
 
-            {/* Corner glow */}
+            <div style={{ position: "absolute", left: 0, right: 0, top: `${scanPos}%`, height: 1, background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.4), transparent)", pointerEvents: "none", transition: "none" }} />
             <div style={{ position: "absolute", top: -40, right: -40, width: 120, height: 120, borderRadius: "50%", background: "radial-gradient(circle, rgba(201,168,76,0.07) 0%, transparent 70%)", pointerEvents: "none" }} />
 
-            {/* Header */}
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
@@ -273,7 +229,6 @@ export default function LandingPage() {
               </span>
             </div>
 
-            {/* Score bars */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px", marginBottom: 16 }}>
               <ScoreBar label="Score" value={MOCK_LEAD.score} color="#c9a84c" delay={900} animate={cardAnimate} />
               <ScoreBar label="Fit" value={MOCK_LEAD.fit} color="#4ade80" delay={1100} animate={cardAnimate} />
@@ -281,13 +236,11 @@ export default function LandingPage() {
               <ScoreBar label="Risk" value={MOCK_LEAD.risk} color="#f87171" delay={1500} animate={cardAnimate} />
             </div>
 
-            {/* Gap chip */}
             <div style={{ borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10, background: `${MOCK_LEAD.gapColor}08`, border: `1px solid ${MOCK_LEAD.gapColor}20`, marginBottom: 14 }}>
               <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: MOCK_LEAD.gapColor }}>⬡ {MOCK_LEAD.gap} GAP</span>
               <span style={{ fontSize: 10, color: "#555" }}>— no booking flow detected</span>
             </div>
 
-            {/* Pipeline */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 4, border: "1px solid #1a1a1a", borderRadius: 14, background: "#0a0a0a", padding: "10px 8px" }}>
               {[
                 { label: "Contacted", value: "12", icon: "✉", color: "#4ade80" },
@@ -306,11 +259,9 @@ export default function LandingPage() {
             <p style={{ fontSize: 10, color: "#2a2a2a", textAlign: "center", marginTop: 12, letterSpacing: "0.18em", textTransform: "uppercase" }}>Live intelligence · scored in seconds</p>
           </div>
 
-          {/* Card glow beneath */}
           <div style={{ position: "absolute", bottom: -30, left: "10%", right: "10%", height: 60, background: "radial-gradient(ellipse, rgba(201,168,76,0.12) 0%, transparent 70%)", pointerEvents: "none", filter: "blur(12px)" }} />
         </div>
 
-        {/* Scroll indicator */}
         <div style={{ position: "absolute", bottom: 32, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, opacity: Math.max(0, 1 - scrollY / 200) }}>
           <div style={{ width: 1, height: 40, background: "linear-gradient(to bottom, transparent, rgba(201,168,76,0.4))" }} />
           <span style={{ fontSize: 9, color: "#333", letterSpacing: "0.2em", textTransform: "uppercase" }}>scroll</span>
@@ -319,20 +270,18 @@ export default function LandingPage() {
 
       {/* STAT BAR */}
       <section style={{ borderTop: "1px solid #141414", borderBottom: "1px solid #141414", background: "#0a0a0a" }}>
-        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px 24px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 32, textAlign: "center" }}>
-            {STATS.map((s, i) => (
-              <div key={i}>
-                <p style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(28px,4vw,40px)", fontWeight: 300, marginBottom: 4, background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 60%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{s.value}</p>
-                <p style={{ fontSize: 11, color: "#444", letterSpacing: "0.08em", textTransform: "uppercase" }}>{s.label}</p>
-              </div>
-            ))}
-          </div>
+        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px 24px", display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 32, textAlign: "center" }}>
+          {STATS.map((s, i) => (
+            <div key={i}>
+              <p style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(28px,4vw,40px)", fontWeight: 300, marginBottom: 4, background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 60%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{s.value}</p>
+              <p style={{ fontSize: 11, color: "#444", letterSpacing: "0.08em", textTransform: "uppercase" }}>{s.label}</p>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* FEATURES */}
-      <div ref={featuresReveal.ref}>
+      <div ref={featuresReveal.callbackRef}>
         <section style={{ padding: "96px 24px", maxWidth: 1100, margin: "0 auto" }}>
           <div style={{ marginBottom: 64, textAlign: "center", opacity: featuresReveal.visible ? 1 : 0, transform: featuresReveal.visible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
             <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 16 }}>What Vantio does</p>
@@ -343,17 +292,11 @@ export default function LandingPage() {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
             {FEATURES.map((f, i) => (
-              <div key={i} style={{
-                padding: 28, borderRadius: 18, border: "1px solid #151515", background: "#0d0d0d",
-                opacity: featuresReveal.visible ? 1 : 0,
-                transform: featuresReveal.visible ? "none" : "translateY(40px)",
-                transition: `all 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 80}ms`,
-                cursor: "default",
-              }}
+              <div key={i} style={{ padding: 28, borderRadius: 18, border: "1px solid #151515", background: "#0d0d0d", opacity: featuresReveal.visible ? 1 : 0, transform: featuresReveal.visible ? "none" : "translateY(40px)", transition: `all 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 80}ms`, cursor: "default" }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(201,168,76,0.2)"; (e.currentTarget as HTMLElement).style.background = "#101010"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "#151515"; (e.currentTarget as HTMLElement).style.background = "#0d0d0d"; }}
               >
-                <div style={{ fontSize: 20, color: "#4a3a1a", marginBottom: 16, transition: "color 0.3s" }}>{f.icon}</div>
+                <div style={{ fontSize: 20, color: "#4a3a1a", marginBottom: 16 }}>{f.icon}</div>
                 <h3 style={{ fontFamily: "var(--font-display), serif", fontSize: 18, fontWeight: 500, marginBottom: 10, color: "#e8e0d0" }}>{f.title}</h3>
                 <p style={{ fontSize: 13, color: "#555", lineHeight: 1.7 }}>{f.body}</p>
               </div>
@@ -362,13 +305,12 @@ export default function LandingPage() {
         </section>
       </div>
 
-      {/* DIVIDER */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px" }}>
         <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.12), transparent)" }} />
       </div>
 
       {/* HOW IT WORKS */}
-      <div ref={stepsReveal.ref}>
+      <div ref={stepsReveal.callbackRef}>
         <section id="how-it-works" style={{ padding: "96px 24px", maxWidth: 1100, margin: "0 auto" }}>
           <div style={{ marginBottom: 64, textAlign: "center", opacity: stepsReveal.visible ? 1 : 0, transform: stepsReveal.visible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
             <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 16 }}>The process</p>
@@ -379,12 +321,7 @@ export default function LandingPage() {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px,1fr))", gap: 24 }}>
             {STEPS.map((s, i) => (
-              <div key={i} style={{
-                display: "flex", gap: 24, padding: 24, borderRadius: 18, border: "1px solid #111",
-                opacity: stepsReveal.visible ? 1 : 0,
-                transform: stepsReveal.visible ? "none" : "translateY(40px)",
-                transition: `all 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 100}ms`,
-              }}>
+              <div key={i} style={{ display: "flex", gap: 24, padding: 24, borderRadius: 18, border: "1px solid #111", opacity: stepsReveal.visible ? 1 : 0, transform: stepsReveal.visible ? "none" : "translateY(40px)", transition: `all 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 100}ms` }}>
                 <div style={{ flexShrink: 0 }}>
                   <span style={{ fontFamily: "var(--font-display), serif", fontSize: 52, fontWeight: 300, color: "#1a1a1a", lineHeight: 1 }}>{s.number}</span>
                 </div>
@@ -399,7 +336,7 @@ export default function LandingPage() {
       </div>
 
       {/* DIFFERENTIATOR */}
-      <div ref={diffReveal.ref}>
+      <div ref={diffReveal.callbackRef}>
         <section style={{ padding: "96px 24px", background: "#060606", borderTop: "1px solid #111", borderBottom: "1px solid #111" }}>
           <div style={{ maxWidth: 1000, margin: "0 auto" }}>
             <div style={{ marginBottom: 56, textAlign: "center", opacity: diffReveal.visible ? 1 : 0, transform: diffReveal.visible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
@@ -437,12 +374,9 @@ export default function LandingPage() {
       </div>
 
       {/* CTA */}
-      <div ref={ctaReveal.ref}>
+      <div ref={ctaReveal.callbackRef}>
         <section style={{ padding: "96px 24px" }}>
-          <div style={{
-            maxWidth: 800, margin: "0 auto", borderRadius: 24, border: "1px solid rgba(201,168,76,0.15)", background: "#0d0d0d", padding: "72px 48px", textAlign: "center", position: "relative", overflow: "hidden",
-            opacity: ctaReveal.visible ? 1 : 0, transform: ctaReveal.visible ? "none" : "translateY(40px)", transition: "all 0.9s cubic-bezier(0.16,1,0.3,1)",
-          }}>
+          <div style={{ maxWidth: 800, margin: "0 auto", borderRadius: 24, border: "1px solid rgba(201,168,76,0.15)", background: "#0d0d0d", padding: "72px 48px", textAlign: "center", position: "relative", overflow: "hidden", opacity: ctaReveal.visible ? 1 : 0, transform: ctaReveal.visible ? "none" : "translateY(40px)", transition: "all 0.9s cubic-bezier(0.16,1,0.3,1)" }}>
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(201,168,76,0.05) 0%, transparent 70%)" }} />
             <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 24 }}>Join the beta</p>
             <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(32px,5vw,52px)", fontWeight: 300, marginBottom: 24 }}>
@@ -483,7 +417,6 @@ export default function LandingPage() {
         }
         @media (max-width: 768px) {
           nav { padding: 14px 20px !important; }
-          section { padding-left: 16px !important; padding-right: 16px !important; }
         }
       `}</style>
     </div>
