@@ -33,26 +33,26 @@ const MOCK_LEAD = {
   gap: "CONVERSION", gapColor: "#fb923c", verdict: "Strong Lead", verdictColor: "#4ade80",
 };
 
-// Returns [callbackRef, isVisible] as a tuple — ESLint can't conflate these
-function useReveal(): [( node: HTMLDivElement | null) => void, boolean] {
+// Orbital feature chips — positioned around the card
+const ORBITAL_CHIPS = [
+  { icon: "◈", label: "Signal Scoring", sub: "4 dimensions", color: "#c9a84c", angle: -140, radius: 230, driftSpeed: 0.018, delay: 900 },
+  { icon: "✦", label: "Outreach Built In", sub: "AI-generated", color: "#818cf8", angle: -35, radius: 260, driftSpeed: 0.013, delay: 1100 },
+  { icon: "⬡", label: "Pipeline Tracking", sub: "All stages", color: "#4ade80", angle: 145, radius: 240, driftSpeed: 0.020, delay: 1300 },
+  { icon: "◆", label: "Fit Matching", sub: "Profile-tuned", color: "#fb923c", angle: 40, radius: 250, driftSpeed: 0.015, delay: 1500 },
+  { icon: "◉", label: "Deep Scanning", sub: "Auto-enriched", color: "#f472b6", angle: -85, radius: 270, driftSpeed: 0.011, delay: 1700 },
+];
+
+function useReveal(): [(node: HTMLDivElement | null) => void, boolean] {
   const [visible, setVisible] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
-
   const callbackRef = useCallback((node: HTMLDivElement | null) => {
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-      observerRef.current = null;
-    }
+    if (observerRef.current) { observerRef.current.disconnect(); observerRef.current = null; }
     if (!node) return;
     observerRef.current = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
-        setVisible(true);
-        observerRef.current?.disconnect();
-      }
+      if (entry.isIntersecting) { setVisible(true); observerRef.current?.disconnect(); }
     }, { threshold: 0.12 });
     observerRef.current.observe(node);
   }, []);
-
   return [callbackRef, visible];
 }
 
@@ -80,20 +80,30 @@ export default function LandingPage() {
   const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
   const [scrollY, setScrollY] = useState(0);
   const [cardAnimate, setCardAnimate] = useState(false);
+  const [chipsVisible, setChipsVisible] = useState(false);
   const [scanPos, setScanPos] = useState(-10);
-  const [particles] = useState(() =>
-    Array.from({ length: 28 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: Math.random() * 2 + 0.5,
-      duration: Math.random() * 12 + 8,
-      delay: Math.random() * 6,
-      opacity: Math.random() * 0.25 + 0.05,
+  const [tick, setTick] = useState(0);
+
+  // Two particle layers for galaxy depth effect
+  const [nearParticles] = useState(() =>
+    Array.from({ length: 40 }, (_, i) => ({
+      id: i, x: Math.random() * 100, y: Math.random() * 120,
+      size: Math.random() * 1.5 + 0.4,
+      duration: Math.random() * 10 + 6, delay: Math.random() * 8,
+      opacity: Math.random() * 0.2 + 0.04,
+      driftX: (Math.random() - 0.5) * 0.03,
+    }))
+  );
+  const [deepParticles] = useState(() =>
+    Array.from({ length: 25 }, (_, i) => ({
+      id: i + 100, x: Math.random() * 100, y: Math.random() * 120,
+      size: Math.random() * 3 + 1.5,
+      duration: Math.random() * 18 + 12, delay: Math.random() * 10,
+      baseOpacity: Math.random() * 0.12 + 0.02,
+      rotationOffset: Math.random() * 360,
     }))
   );
 
-  // Destructure into plain variables — linter sees no ref object in render scope
   const [featuresRef, featuresVisible] = useReveal();
   const [stepsRef, stepsVisible] = useReveal();
   const [diffRef, diffVisible] = useReveal();
@@ -112,27 +122,38 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
-    const t = setTimeout(() => setCardAnimate(true), 800);
-    return () => clearTimeout(t);
+    const t1 = setTimeout(() => setCardAnimate(true), 800);
+    const t2 = setTimeout(() => setChipsVisible(true), 1000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
+  // RAF ticker for chip orbit animation
+  useEffect(() => {
+    let raf: number;
+    const animate = () => { setTick(t => t + 1); raf = requestAnimationFrame(animate); };
+    raf = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // Scanning line RAF
   useEffect(() => {
     if (!cardAnimate) return;
     let pos = -10;
     let raf: number;
-    const tick = () => {
-      pos += 0.6;
-      if (pos > 110) pos = -10;
-      setScanPos(pos);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
+    const animate = () => { pos += 0.5; if (pos > 110) pos = -10; setScanPos(pos); raf = requestAnimationFrame(animate); };
+    raf = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(raf);
   }, [cardAnimate]);
 
-  const cardFloat = -scrollY * 0.12;
-  const cardRotate = scrollY * 0.008;
-  const orbitalOffset = scrollY * 0.06;
+  const scrollProgress = Math.min(1, scrollY / 500);
+  const cardScatter = Math.min(1, scrollY / 400);
+  const cardFloat = -scrollY * 0.10;
+  const cardRotate = Math.min(scrollY * 0.006, 4);
+  const cardScale = 1 - cardScatter * 0.06;
+  // Galaxy depth — particles grow and brighten as user scrolls
+  const galaxyDepth = Math.min(1, scrollY / 800);
+  // Slow field rotation driven by scroll
+  const fieldRotation = scrollY * 0.015;
 
   return (
     <div style={{ minHeight: "100vh", background: "#080808", color: "#f5f0e8", overflowX: "hidden" }}>
@@ -155,13 +176,44 @@ export default function LandingPage() {
       {/* HERO */}
       <section style={{ position: "relative", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "120px 24px 80px", textAlign: "center", overflow: "hidden" }}>
 
+        {/* Ambient glow */}
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(201,168,76,0.1) 0%, transparent 65%)" }} />
+
+        {/* Scrolling grid */}
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.018, backgroundImage: "linear-gradient(#c9a84c 1px, transparent 1px), linear-gradient(90deg, #c9a84c 1px, transparent 1px)", backgroundSize: "72px 72px", transform: `translateY(${scrollY * 0.08}px)` }} />
 
-        {particles.map(p => (
-          <div key={p.id} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, width: p.size, height: p.size, borderRadius: "50%", background: "#c9a84c", opacity: p.opacity, animation: `particleFloat ${p.duration}s ease-in-out ${p.delay}s infinite alternate`, transform: `translateY(${scrollY * (p.id % 3 === 0 ? -0.04 : 0.03)}px)`, pointerEvents: "none" }} />
-        ))}
+        {/* ── GALAXY PARTICLE SYSTEM ── */}
+        {/* Near layer — small ambient particles */}
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", transform: `rotate(${fieldRotation}deg)`, transformOrigin: "50% 40%" }}>
+          {nearParticles.map(p => (
+            <div key={p.id} style={{
+              position: "absolute", left: `${p.x}%`, top: `${p.y}%`,
+              width: p.size + galaxyDepth * 0.8,
+              height: p.size + galaxyDepth * 0.8,
+              borderRadius: "50%", background: "#c9a84c",
+              opacity: p.opacity + galaxyDepth * 0.15,
+              animation: `particleDrift ${p.duration}s ease-in-out ${p.delay}s infinite alternate`,
+            }} />
+          ))}
+        </div>
 
+        {/* Deep layer — larger gold stars that intensify with scroll */}
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", transform: `rotate(${-fieldRotation * 0.4}deg)`, transformOrigin: "50% 40%" }}>
+          {deepParticles.map(p => (
+            <div key={p.id} style={{
+              position: "absolute", left: `${p.x}%`, top: `${p.y}%`,
+              width: p.size * (1 + galaxyDepth * 1.2),
+              height: p.size * (1 + galaxyDepth * 1.2),
+              borderRadius: "50%",
+              background: `radial-gradient(circle, #e8c97a 0%, #c9a84c 60%, transparent 100%)`,
+              opacity: p.baseOpacity + galaxyDepth * 0.35,
+              animation: `starPulse ${p.duration}s ease-in-out ${p.delay}s infinite alternate`,
+              boxShadow: galaxyDepth > 0.3 ? `0 0 ${4 + galaxyDepth * 8}px rgba(201,168,76,${galaxyDepth * 0.4})` : "none",
+            }} />
+          ))}
+        </div>
+
+        {/* Badge */}
         <div className="animate-fade-up-delay-1" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", borderRadius: 999, border: "1px solid rgba(201,168,76,0.25)", background: "rgba(201,168,76,0.04)", marginBottom: 32 }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#c9a84c", display: "inline-block", animation: "pulse 2s infinite" }} />
           <span style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "#c9a84c" }}>
@@ -169,6 +221,7 @@ export default function LandingPage() {
           </span>
         </div>
 
+        {/* Headline */}
         <h1 className="animate-fade-up-delay-2" style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(42px, 8vw, 86px)", fontWeight: 300, lineHeight: 1.05, letterSpacing: "-0.02em", maxWidth: 900, margin: "0 auto 32px" }}>
           The intelligence layer
           <br />
@@ -190,28 +243,84 @@ export default function LandingPage() {
           </Link>
         </div>
 
-        {/* FLOATING SCORE CARD */}
+        {/* ── HERO CARD + ORBITAL CHIPS ── */}
         <div className="animate-fade-up-delay-5" style={{ position: "relative", width: "100%", maxWidth: 460, margin: "0 auto" }}>
 
-          <div style={{ position: "absolute", top: "10%", left: -160, transform: `translateY(${orbitalOffset}px)`, opacity: Math.min(1, scrollY / 200), transition: "opacity 0.3s", pointerEvents: "none" }}>
-            <div style={{ background: "#0d0d0d", border: "1px solid #1e1e1e", borderRadius: 12, padding: "10px 14px", width: 140 }}>
-              <p style={{ fontSize: 9, color: "#555", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 6 }}>Gap Detected</p>
-              <p style={{ fontSize: 12, color: "#fb923c", fontWeight: 600 }}>⬡ Conversion</p>
-              <p style={{ fontSize: 10, color: "#444", marginTop: 3 }}>No booking flow</p>
-            </div>
-          </div>
+          {/* ORBITAL FEATURE CHIPS */}
+          {ORBITAL_CHIPS.map((chip, i) => {
+            const angleRad = (chip.angle * Math.PI) / 180;
+            // Gentle floating using tick — each chip drifts independently
+            const floatOffset = Math.sin(tick * chip.driftSpeed + i * 1.2) * 8;
+            const floatX = Math.cos(tick * chip.driftSpeed * 0.7 + i) * 4;
+            // Scatter outward on scroll
+            const scatterMultiplier = 1 + cardScatter * 0.5;
+            const x = Math.cos(angleRad) * chip.radius * scatterMultiplier;
+            const y = Math.sin(angleRad) * chip.radius * scatterMultiplier + floatOffset;
+            // Scroll parallax — chips at different depths move at different rates
+            const parallaxY = scrollY * (0.04 + i * 0.015) * (i % 2 === 0 ? 1 : -1);
 
-          <div style={{ position: "absolute", top: "30%", right: -150, transform: `translateY(${-orbitalOffset * 0.7}px)`, opacity: Math.min(1, scrollY / 300), transition: "opacity 0.3s", pointerEvents: "none" }}>
-            <div style={{ background: "#0d0d0d", border: "1px solid #1e1e1e", borderRadius: 12, padding: "10px 14px", width: 130 }}>
-              <p style={{ fontSize: 9, color: "#555", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 6 }}>Fit Score</p>
-              <p style={{ fontSize: 22, color: "#4ade80", fontWeight: 700, fontFamily: "var(--font-display), serif" }}>81</p>
-              <p style={{ fontSize: 10, color: "#444" }}>Profile match ✓</p>
-            </div>
-          </div>
+            return (
+              <div key={chip.label} style={{
+                position: "absolute",
+                left: "50%",
+                top: "50%",
+                transform: `translate(calc(-50% + ${x + floatX}px), calc(-50% + ${y + parallaxY}px))`,
+                opacity: chipsVisible ? Math.max(0, 1 - scrollProgress * 0.6) : 0,
+                transition: chipsVisible
+                  ? `opacity 0.8s ease ${chip.delay}ms, transform 0.05s linear`
+                  : `opacity 0.8s ease ${chip.delay}ms`,
+                pointerEvents: "none",
+                zIndex: 2,
+                whiteSpace: "nowrap",
+              }}>
+                <div style={{
+                  background: "rgba(10,10,10,0.92)",
+                  border: `1px solid ${chip.color}30`,
+                  borderRadius: 12,
+                  padding: "8px 12px",
+                  backdropFilter: "blur(8px)",
+                  boxShadow: `0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px ${chip.color}15`,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                    <span style={{ fontSize: 11, color: chip.color }}>{chip.icon}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: "#e8e0d0", letterSpacing: "0.02em" }}>{chip.label}</span>
+                  </div>
+                  <p style={{ fontSize: 9, color: "#555", letterSpacing: "0.08em", textTransform: "uppercase" }}>{chip.sub}</p>
+                </div>
+                {/* Connector line from chip to card */}
+                <div style={{
+                  position: "absolute",
+                  width: 1,
+                  height: Math.abs(y) * 0.3,
+                  background: `linear-gradient(${y > 0 ? "to top" : "to bottom"}, transparent, ${chip.color}20)`,
+                  left: "50%",
+                  top: y > 0 ? "auto" : "100%",
+                  bottom: y > 0 ? "100%" : "auto",
+                  transform: "translateX(-50%)",
+                  opacity: 0.5,
+                }} />
+              </div>
+            );
+          })}
 
-          <div style={{ borderRadius: 20, border: "1px solid #1e1e1e", background: "#0d0d0d", padding: 22, textAlign: "left", boxShadow: "0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(201,168,76,0.06)", transform: `translateY(${cardFloat}px) rotateX(${cardRotate}deg)`, transformStyle: "preserve-3d", transition: "transform 0.1s linear", position: "relative", overflow: "hidden" }}>
-
+          {/* MAIN SCORE CARD */}
+          <div style={{
+            borderRadius: 20,
+            border: "1px solid #1e1e1e",
+            background: "#0d0d0d",
+            padding: 22,
+            textAlign: "left",
+            boxShadow: "0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(201,168,76,0.06)",
+            transform: `translateY(${cardFloat}px) rotateX(${cardRotate}deg) scale(${cardScale})`,
+            transformStyle: "preserve-3d",
+            transition: "transform 0.08s linear",
+            position: "relative",
+            overflow: "hidden",
+            zIndex: 3,
+          }}>
+            {/* Scanning line */}
             <div style={{ position: "absolute", left: 0, right: 0, top: `${scanPos}%`, height: 1, background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.4), transparent)", pointerEvents: "none" }} />
+            {/* Corner glow */}
             <div style={{ position: "absolute", top: -40, right: -40, width: 120, height: 120, borderRadius: "50%", background: "radial-gradient(circle, rgba(201,168,76,0.07) 0%, transparent 70%)", pointerEvents: "none" }} />
 
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
@@ -257,9 +366,11 @@ export default function LandingPage() {
             <p style={{ fontSize: 10, color: "#2a2a2a", textAlign: "center", marginTop: 12, letterSpacing: "0.18em", textTransform: "uppercase" }}>Live intelligence · scored in seconds</p>
           </div>
 
-          <div style={{ position: "absolute", bottom: -30, left: "10%", right: "10%", height: 60, background: "radial-gradient(ellipse, rgba(201,168,76,0.12) 0%, transparent 70%)", pointerEvents: "none", filter: "blur(12px)" }} />
+          {/* Card underglow */}
+          <div style={{ position: "absolute", bottom: -30, left: "10%", right: "10%", height: 60, background: "radial-gradient(ellipse, rgba(201,168,76,0.14) 0%, transparent 70%)", pointerEvents: "none", filter: "blur(14px)", transform: `scale(${1 + cardScatter * 0.3})`, transition: "transform 0.1s linear" }} />
         </div>
 
+        {/* Scroll indicator */}
         <div style={{ position: "absolute", bottom: 32, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, opacity: Math.max(0, 1 - scrollY / 200) }}>
           <div style={{ width: 1, height: 40, background: "linear-gradient(to bottom, transparent, rgba(201,168,76,0.4))" }} />
           <span style={{ fontSize: 9, color: "#333", letterSpacing: "0.2em", textTransform: "uppercase" }}>scroll</span>
@@ -409,12 +520,20 @@ export default function LandingPage() {
       </footer>
 
       <style>{`
-        @keyframes particleFloat {
-          from { transform: translateY(0px) scale(1); }
-          to { transform: translateY(-18px) scale(1.3); }
+        @keyframes particleDrift {
+          from { transform: translateY(0px) scale(1); opacity: inherit; }
+          to { transform: translateY(-14px) scale(1.2); opacity: inherit; }
         }
-        @media (max-width: 768px) {
+        @keyframes starPulse {
+          from { transform: scale(1); }
+          to { transform: scale(1.4); }
+        }
+        @media (max-width: 900px) {
           nav { padding: 14px 20px !important; }
+        }
+        @media (max-width: 700px) {
+          /* Hide orbital chips on small screens — they overlap badly */
+          .orbital-chip { display: none; }
         }
       `}</style>
     </div>
