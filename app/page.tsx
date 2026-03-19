@@ -1003,6 +1003,22 @@ function SceneSection({ scrollY }: { scrollY: number }) {
   // Moves up at 0.4x scroll speed so it feels like it's floating past you
   const sceneTranslateY = entered ? -scrollY * 0.4 : 80;
   const sceneScale = entered ? 1 : 0.95;
+
+  // Opacity follows the zone boundaries — mirrors the speed curve
+  // Entry zone (t 0→FAST): fade in 0→1
+  // Readable zone (t FAST→FAST+SLOW): hold at 1
+  // Exit zone (t FAST+SLOW→1): fade out 1→0
+  let sceneOpacity: number;
+  if (!entered) {
+    sceneOpacity = 0;
+  } else if (t < FAST) {
+    sceneOpacity = t / FAST; // linear fade in during fast entry
+  } else if (t < FAST + SLOW) {
+    sceneOpacity = 1; // full opacity in readable zone
+  } else {
+    sceneOpacity = 1 - (t - FAST - SLOW) / FAST; // linear fade out during fast exit
+  }
+
   const galaxyDepth = Math.min(1, readableT);
 
   return (
@@ -1023,10 +1039,8 @@ function SceneSection({ scrollY }: { scrollY: number }) {
         width: "100%", maxWidth: "min(1100px, 92vw)",
         perspective: "1400px",
         position: "relative", zIndex: 5,
-        opacity: entered ? 1 : 0,
-        transition: entered
-          ? "opacity 0.6s ease 0.1s"
-          : "none",
+        opacity: sceneOpacity,
+        transition: "none",
       }}>
         <div style={{
           transform: `translateY(${sceneTranslateY}px) rotateX(${sceneTiltX}deg) rotateY(${sceneTiltY}deg) rotateZ(${sceneTiltZ}deg) scale(${sceneScale})`,
