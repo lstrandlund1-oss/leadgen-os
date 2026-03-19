@@ -417,8 +417,7 @@ function StepsSection({ visible }: { visible: boolean }) {
               <feGaussianBlur stdDeviation="5" result="blur" />
               <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
             </filter>
-            <linearGradient id="trailGrad" x1="0" y1="0" x2="0" y2="1" gradientUnits="userSpaceOnUse"
-              y1={trailY} y2={pulseY}>
+            <linearGradient id="trailGrad" x1="0" x2="0" y1={trailY} y2={pulseY} gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="rgba(201,168,76,0)" />
               <stop offset="100%" stopColor="rgba(201,168,76,0.7)" />
             </linearGradient>
@@ -554,7 +553,10 @@ function TypedText({ text, started }: { text: string; started: boolean }) {
 function MiniBar({ label, value, color, animate, delay }: { label: string; value: number; color: string; animate: boolean; delay: number }) {
   const [w, setW] = useState(0);
   useEffect(() => {
-    if (!animate) { setW(0); return; }
+    if (!animate) {
+      const t = setTimeout(() => setW(0), 0);
+      return () => clearTimeout(t);
+    }
     const t = setTimeout(() => setW(value), delay);
     return () => clearTimeout(t);
   }, [animate, value, delay]);
@@ -578,12 +580,14 @@ const STAGE_SCORE    = 3200;  // selected card expands + scores
 const STAGE_PAUSE    = 1000;  // hold before reset
 const TOTAL_CYCLE    = STAGE_SEARCH + STAGE_RESULTS + STAGE_SCORE + STAGE_PAUSE;
 
+type HeroStage = "idle" | "search" | "results" | "score" | "pause";
+
 function HeroScene({ scrollY, waitlistCount, heroTextOpacity }: {
   scrollY: number;
   waitlistCount: number | null;
   heroTextOpacity: number;
 }) {
-  const [stage, setStage] = useState<"idle"|"search"|"results"|"score"|"pause">("idle");
+  const [stage, setStage] = useState<HeroStage>("idle");
   const [selectedLead, setSelectedLead] = useState(0);
   const [scoreAnimate, setScoreAnimate] = useState(false);
   const [visibleRows, setVisibleRows] = useState(0);
@@ -597,6 +601,12 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity }: {
       opacity: Math.random() * 0.2 + 0.04,
     }))
   );
+
+  const galaxyDepth = Math.min(1, scrollY / 800);
+  const fieldRotation = scrollY * 0.015;
+  const sceneTiltX = Math.max(2, 18 - scrollY * 0.012);
+  const sceneTiltY = Math.min(0, -8 + scrollY * 0.005);
+  const sceneScale = 1 - Math.min(scrollY * 0.0003, 0.1);
 
   const lead = MOCK_LEADS[selectedLead];
 
@@ -737,7 +747,7 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity }: {
               {/* Lead rows */}
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {MOCK_LEADS.map((l, i) => {
-                  const isSelected = stage === "score" || stage === "pause";
+                  const isSelected = (stage as HeroStage) === "score" || (stage as HeroStage) === "pause";
                   const isThisOne = isSelected && i === selectedLead;
                   const rowVisible = i < visibleRows;
 
@@ -831,6 +841,31 @@ export default function LandingPage() {
   const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
   const [scrollY, setScrollY] = useState(0);
 
+  const [moteParticles] = useState(() =>
+    Array.from({ length: 32 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 1.2 + 0.4,
+      duration: Math.random() * 20 + 14,
+      delay: Math.random() * 12,
+      opacity: Math.random() * 0.3 + 0.12,
+      driftX: (Math.random() - 0.5) * 28,
+      driftY: (Math.random() - 0.5) * 22,
+      diamond: i % 3 === 0,
+    }))
+  );
+
+  const [featuresRef, featuresVisible] = useReveal();
+  const [stepsRef, stepsVisible] = useReveal();
+  const [diffRef, diffVisible] = useReveal();
+  const [ctaRef, ctaVisible] = useReveal();
+
+  useEffect(() => {
+    fetch("/api/waitlist").then(r => r.json()).then(d => {
+      if (typeof d.count === "number" && d.count > 0) setWaitlistCount(d.count);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrollY(window.scrollY);
