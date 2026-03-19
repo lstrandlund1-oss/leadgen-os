@@ -655,6 +655,7 @@ function HeroText({ scrollY, heroTextOpacity, waitlistCount }: {
           transition: "transform 0.08s ease-out",
           display: "block",
           textAlign: "left",
+          paddingLeft: "6%",
         }}>
           <span style={{
             fontFamily: "var(--font-display), serif",
@@ -675,6 +676,7 @@ function HeroText({ scrollY, heroTextOpacity, waitlistCount }: {
           transition: "transform 0.08s ease-out",
           display: "block",
           textAlign: "right",
+          paddingRight: "6%",
         }}>
           <em style={{
             fontFamily: "var(--font-display), serif",
