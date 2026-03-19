@@ -716,50 +716,13 @@ function GoldText({ children, style = {}, as: Tag = "span" }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   as?: any;
 }) {
-  const ref = useRef<HTMLElement>(null);
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
-
-  const handleMove = (e: React.MouseEvent) => {
-    const rect = ref.current?.getBoundingClientRect();
-    if (!rect) return;
-    setPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-  };
-
-  // Spotlight: a tight radial brightness/glow centred on the cursor
-  // Works on ALL text types — uses filter + mask rather than background-clip
-  // brightness raises the local area, drop-shadow adds the warm gold corona
-  const spotlightFilter = pos
-    ? `brightness(1.5) drop-shadow(0 0 6px rgba(232,201,122,0.8)) drop-shadow(0 0 14px rgba(201,168,76,0.4))`
-    : "none";
-
   return (
     <Tag
-      ref={ref}
-      onMouseMove={handleMove}
-      onMouseLeave={() => setPos(null)}
       style={{
         ...style,
-        cursor: "default",
-        display: style.display || "inline-block",
-        position: "relative",
-        filter: spotlightFilter,
-        transition: pos ? "none" : "filter 0.5s ease",
+        filter: "drop-shadow(0 0 8px rgba(201,168,76,0.45)) drop-shadow(0 0 20px rgba(201,168,76,0.18))",
       }}
     >
-      {/* Mouse-position mask layer — clips the brightness boost to cursor area only */}
-      {pos && (
-        <span
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: `radial-gradient(90px circle at ${pos.x}px ${pos.y}px, rgba(255,255,255,0.12) 0%, transparent 100%)`,
-            pointerEvents: "none",
-            mixBlendMode: "overlay",
-            borderRadius: "inherit",
-          }}
-        />
-      )}
       {children}
     </Tag>
   );
@@ -1788,3 +1751,4 @@ export default function LandingPage() {
     </div>
   );
 }
+  
