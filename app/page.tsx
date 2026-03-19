@@ -994,8 +994,9 @@ function SceneSection({ scrollY }: { scrollY: number }) {
   const sceneTiltY = entered ? Math.sin(readableT * Math.PI) * -6 : 0;
   const sceneTiltZ = entered ? Math.sin(readableT * Math.PI * 0.5) * 3 : 0;
 
-  // No translate — the arc handles entry/exit naturally via the tilt
-  const sceneTranslateY = 0;
+  // Scene travels upward as user scrolls down — simple linear scroll parallax
+  // Moves up at 0.4x scroll speed so it feels like it's floating past you
+  const sceneTranslateY = entered ? -scrollY * 0.4 : 80;
   const sceneScale = entered ? 1 : 0.95;
   const galaxyDepth = Math.min(1, readableT);
 
