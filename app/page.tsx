@@ -174,6 +174,95 @@ function useReveal(): [(node: HTMLDivElement | null) => void, boolean] {
   return [callbackRef, visible];
 }
 
+
+// Each feature card tracks mouse position to render a spotlight glow
+function FeatureCard({ f, i, visible }: { f: typeof FEATURES[0]; i: number; visible: boolean }) {
+  const [mouse, setMouse] = useState<{ x: number; y: number } | null>(null);
+  const [hovered, setHovered] = useState(false);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMouse({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  };
+
+  const ICON_COLORS = ["#c9a84c", "#818cf8", "#4ade80", "#fb923c", "#f472b6", "#60a5fa"];
+  const iconColor = ICON_COLORS[i % ICON_COLORS.length];
+
+  return (
+    <div
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); setMouse(null); }}
+      style={{
+        padding: 28, borderRadius: 18, position: "relative", overflow: "hidden",
+        border: `1px solid ${hovered ? "rgba(201,168,76,0.35)" : "#151515"}`,
+        background: hovered ? "#111" : "#0d0d0d",
+        opacity: visible ? 1 : 0,
+        transform: visible
+          ? hovered ? "translateY(-4px) scale(1.01)" : "none"
+          : "translateY(40px)",
+        transition: `opacity 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 80}ms, transform 0.3s cubic-bezier(0.16,1,0.3,1), border-color 0.3s ease, background 0.3s ease`,
+        boxShadow: hovered
+          ? "0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,168,76,0.1)"
+          : "none",
+        cursor: "default",
+      }}
+    >
+      {/* Mouse-tracked spotlight glow */}
+      {mouse && (
+        <div style={{
+          position: "absolute",
+          left: mouse.x - 120, top: mouse.y - 120,
+          width: 240, height: 240,
+          borderRadius: "50%",
+          background: `radial-gradient(circle, rgba(201,168,76,0.10) 0%, transparent 70%)`,
+          pointerEvents: "none",
+          transition: "none",
+        }} />
+      )}
+
+      {/* Top-edge gold line that appears on hover */}
+      <div style={{
+        position: "absolute", top: 0, left: "10%", right: "10%", height: 1,
+        background: `linear-gradient(90deg, transparent, ${iconColor}, transparent)`,
+        opacity: hovered ? 0.6 : 0,
+        transition: "opacity 0.3s ease",
+      }} />
+
+      {/* Icon */}
+      <div style={{
+        fontSize: 22, marginBottom: 18,
+        color: hovered ? iconColor : "#4a3a1a",
+        transform: hovered ? "scale(1.25) translateY(-1px)" : "scale(1)",
+        transition: "all 0.3s cubic-bezier(0.16,1,0.3,1)",
+        display: "inline-block",
+        filter: hovered ? `drop-shadow(0 0 8px ${iconColor}60)` : "none",
+      }}>
+        {f.icon}
+      </div>
+
+      {/* Title */}
+      <h3 style={{
+        fontFamily: "var(--font-display), serif", fontSize: 18, fontWeight: 500,
+        marginBottom: 10,
+        color: hovered ? "#f5f0e8" : "#e8e0d0",
+        transition: "color 0.3s ease",
+      }}>
+        {f.title}
+      </h3>
+
+      {/* Body */}
+      <p style={{
+        fontSize: 13, lineHeight: 1.7,
+        color: hovered ? "#666" : "#555",
+        transition: "color 0.3s ease",
+      }}>
+        {f.body}
+      </p>
+    </div>
+  );
+}
+
 function ScoreBar({ label, value, color, delay = 0, animate }: { label: string; value: number; color: string; delay?: number; animate: boolean }) {
   const [width, setWidth] = useState(0);
   useEffect(() => {
@@ -514,14 +603,7 @@ export default function LandingPage() {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
             {FEATURES.map((f, i) => (
-              <div key={i} style={{ padding: 28, borderRadius: 18, border: "1px solid #151515", background: "#0d0d0d", opacity: featuresVisible ? 1 : 0, transform: featuresVisible ? "none" : "translateY(40px)", transition: `all 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 80}ms`, cursor: "default" }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(201,168,76,0.2)"; (e.currentTarget as HTMLElement).style.background = "#101010"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "#151515"; (e.currentTarget as HTMLElement).style.background = "#0d0d0d"; }}
-              >
-                <div style={{ fontSize: 20, color: "#4a3a1a", marginBottom: 16 }}>{f.icon}</div>
-                <h3 style={{ fontFamily: "var(--font-display), serif", fontSize: 18, fontWeight: 500, marginBottom: 10, color: "#e8e0d0" }}>{f.title}</h3>
-                <p style={{ fontSize: 13, color: "#555", lineHeight: 1.7 }}>{f.body}</p>
-              </div>
+              <FeatureCard key={i} f={f} i={i} visible={featuresVisible} />
             ))}
           </div>
         </section>
