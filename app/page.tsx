@@ -942,27 +942,62 @@ function SceneSection({ scrollY }: { scrollY: number }) {
   const activeQuery = activeCycle.query;
   const lead = activeCycle.leads[selectedLead] ?? activeCycle.leads[0];
 
-  // Three-phase physics tilt arc
-  // Hero is exactly 100vh, so scene is visible from scrollY≈0 upward.
-  // relativeScroll = scrollY directly — starts as soon as user scrolls.
-  // Phase 1 (0→300px):   0° → 18° fast snap — easeOutQuart
-  // Phase 2 (300→700px):  holds at 18°
-  // Phase 3 (700→1400px): 18° → -22° tips toward viewer — easeInCubic
-  const relativeScroll = scrollY;
+  // Full 180° arc — _ → / → I → \ → _
+  // Scene visible scrollY 0→1600px. Map that to 0→180° rotation on X axis.
+  // rotateX(90°) = upright flat on screen (fully readable)
+  // rotateX(0°)  = flat on floor (edge-on, entering from below)
+  // rotateX(180°)= flat on ceiling (edge-on, exiting above)
+  //
+  // Speed curve: sine ease — fast entry (0→45°), slow middle (45→135°), fast exit (135→180°)
+  // sine(t*π) peaks at t=0.5, so d(angle)/d(scroll) is fastest at edges, slowest in middle.
+  //
+  // SCROLL_TOTAL: total scroll pixels for full 180° arc
+  // We want the "readable zone" (45°→135°) to occupy ~60% of scroll travel
+  // and entry/exit 45° each to occupy ~20%
+  const SCROLL_TOTAL = 1600; // total scroll px for full arc
+  const t = Math.min(1, scrollY / SCROLL_TOTAL); // 0→1
 
-  const p1 = Math.min(1, relativeScroll / 300);
-  const p3 = Math.max(0, (relativeScroll - 700) / 700);
-  const easeOutQ = (t: number) => 1 - Math.pow(1 - t, 4);
-  const easeInC  = (t: number) => t * t * t;
-  const tiltFromEntry = easeOutQ(p1) * 18;
-  const tiltForward   = easeInC(p3) * -40;
+  // Sine-based easing: slow in middle, fast at edges
+  // Map t (0→1) to angle (0→180°) with sine ease
+  // A pure linear map gives 0→180° uniformly — we want to compress middle
+  // Use: angle = 180 * (t - sin(2πt)/(2π)) — this slows the middle
+  // Simpler: split into 3 zones with different speeds
+  const FAST = 0.20;  // first 20% of scroll = 0→45° (fast)
+  const SLOW = 0.60;  // next  60% of scroll = 45→135° (slow, readable zone)
+  // last 20% = 135→180° (fast exit)
 
-  const sceneTiltX = entered ? tiltFromEntry + tiltForward : 0;
-  const sceneTiltY = entered ? -8 + Math.sin(relativeScroll * 0.004) * 5 : -4;
-  const sceneTiltZ = entered ? relativeScroll * 0.004 : 0;
-  const sceneTranslateY = entered ? -relativeScroll * 0.08 : 60;
-  const sceneScale = entered ? Math.max(0.84, 1 - relativeScroll * 0.00012) : 0.9;
-  const galaxyDepth = Math.min(1, relativeScroll / 800);
+  let angleDeg: number;
+  if (t < FAST) {
+    // Zone 1: 0→45° fast — easeInOutQuad compressed
+    const z = t / FAST; // 0→1
+    const eased = z * z * (3 - 2 * z); // smoothstep
+    angleDeg = eased * 45;
+  } else if (t < FAST + SLOW) {
+    // Zone 2: 45→135° slow — linear through readable zone
+    const z = (t - FAST) / SLOW; // 0→1
+    angleDeg = 45 + z * 90;
+  } else {
+    // Zone 3: 135→180° fast — easeInOutQuad compressed
+    const z = (t - FAST - SLOW) / FAST; // 0→1
+    const eased = z * z * (3 - 2 * z);
+    angleDeg = 135 + eased * 45;
+  }
+
+  // Convert: rotateX(90°) = upright. rotateX(0°) = floor. rotateX(180°) = ceiling.
+  // CSS rotateX increases rotation toward viewer at top.
+  // angleDeg=0 → rotateX(90°) flat on floor → we want rotateX going from 90 → 0 → -90
+  // Map: rotateX = 90 - angleDeg  (0°→90° means floor→upright, 90°→180° means upright→ceiling)
+  const sceneTiltX = entered ? 90 - angleDeg : 90;
+
+  // Subtle Y sway and Z lean during the readable zone only
+  const readableT = Math.max(0, Math.min(1, (t - FAST) / SLOW));
+  const sceneTiltY = entered ? Math.sin(readableT * Math.PI) * -6 : 0;
+  const sceneTiltZ = entered ? Math.sin(readableT * Math.PI * 0.5) * 3 : 0;
+
+  // No translate — the arc handles entry/exit naturally via the tilt
+  const sceneTranslateY = 0;
+  const sceneScale = entered ? 1 : 0.95;
+  const galaxyDepth = Math.min(1, readableT);
 
   return (
     <section
