@@ -365,7 +365,7 @@ function StepCard({ s, i, visible, nodeActive, nodeGlow = 0 }: {
 function StepsSection({ visible, scrollY }: { visible: boolean; scrollY: number }) {
   // Scroll-driven: section starts entering view ~scrollY 1400, fully exits ~3400
   // Map scrollY to t: 0→1 across a 1600px scroll window starting when section enters
-  const SCROLL_START = 1693;  // when step 2 is fully visible
+  const SCROLL_START = 2250;  // when step 2 is fully visible
   const SCROLL_RANGE = 900;   // complete animation in 900px of scroll (fast, all within visible window)
   const t = visible
     ? Math.max(0, Math.min(1, (scrollY - SCROLL_START) / SCROLL_RANGE))
