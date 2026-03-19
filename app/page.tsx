@@ -33,8 +33,8 @@ const MOCK_LEAD = {
   gap: "CONVERSION", gapColor: "#fb923c", verdict: "Strong Lead", verdictColor: "#4ade80",
 };
 
-// Callback-ref reveal hook — avoids accessing ref.current during render
-function useReveal() {
+// Returns [callbackRef, isVisible] as a tuple — ESLint can't conflate these
+function useReveal(): [( node: HTMLDivElement | null) => void, boolean] {
   const [visible, setVisible] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
@@ -53,10 +53,9 @@ function useReveal() {
     observerRef.current.observe(node);
   }, []);
 
-  return { callbackRef, visible };
+  return [callbackRef, visible];
 }
 
-// Animated score bar
 function ScoreBar({ label, value, color, delay = 0, animate }: { label: string; value: number; color: string; delay?: number; animate: boolean }) {
   const [width, setWidth] = useState(0);
   useEffect(() => {
@@ -94,10 +93,11 @@ export default function LandingPage() {
     }))
   );
 
-  const featuresReveal = useReveal();
-  const stepsReveal = useReveal();
-  const diffReveal = useReveal();
-  const ctaReveal = useReveal();
+  // Destructure into plain variables — linter sees no ref object in render scope
+  const [featuresRef, featuresVisible] = useReveal();
+  const [stepsRef, stepsVisible] = useReveal();
+  const [diffRef, diffVisible] = useReveal();
+  const [ctaRef, ctaVisible] = useReveal();
 
   useEffect(() => {
     fetch("/api/waitlist").then(r => r.json()).then(d => {
@@ -193,7 +193,6 @@ export default function LandingPage() {
         {/* FLOATING SCORE CARD */}
         <div className="animate-fade-up-delay-5" style={{ position: "relative", width: "100%", maxWidth: 460, margin: "0 auto" }}>
 
-          {/* Orbital panels */}
           <div style={{ position: "absolute", top: "10%", left: -160, transform: `translateY(${orbitalOffset}px)`, opacity: Math.min(1, scrollY / 200), transition: "opacity 0.3s", pointerEvents: "none" }}>
             <div style={{ background: "#0d0d0d", border: "1px solid #1e1e1e", borderRadius: 12, padding: "10px 14px", width: 140 }}>
               <p style={{ fontSize: 9, color: "#555", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 6 }}>Gap Detected</p>
@@ -210,10 +209,9 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Main card */}
           <div style={{ borderRadius: 20, border: "1px solid #1e1e1e", background: "#0d0d0d", padding: 22, textAlign: "left", boxShadow: "0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(201,168,76,0.06)", transform: `translateY(${cardFloat}px) rotateX(${cardRotate}deg)`, transformStyle: "preserve-3d", transition: "transform 0.1s linear", position: "relative", overflow: "hidden" }}>
 
-            <div style={{ position: "absolute", left: 0, right: 0, top: `${scanPos}%`, height: 1, background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.4), transparent)", pointerEvents: "none", transition: "none" }} />
+            <div style={{ position: "absolute", left: 0, right: 0, top: `${scanPos}%`, height: 1, background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.4), transparent)", pointerEvents: "none" }} />
             <div style={{ position: "absolute", top: -40, right: -40, width: 120, height: 120, borderRadius: "50%", background: "radial-gradient(circle, rgba(201,168,76,0.07) 0%, transparent 70%)", pointerEvents: "none" }} />
 
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
@@ -281,9 +279,9 @@ export default function LandingPage() {
       </section>
 
       {/* FEATURES */}
-      <div ref={featuresReveal.callbackRef}>
+      <div ref={featuresRef}>
         <section style={{ padding: "96px 24px", maxWidth: 1100, margin: "0 auto" }}>
-          <div style={{ marginBottom: 64, textAlign: "center", opacity: featuresReveal.visible ? 1 : 0, transform: featuresReveal.visible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
+          <div style={{ marginBottom: 64, textAlign: "center", opacity: featuresVisible ? 1 : 0, transform: featuresVisible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
             <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 16 }}>What Vantio does</p>
             <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(32px,5vw,52px)", fontWeight: 300 }}>
               Not a lead list.{" "}
@@ -292,7 +290,7 @@ export default function LandingPage() {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
             {FEATURES.map((f, i) => (
-              <div key={i} style={{ padding: 28, borderRadius: 18, border: "1px solid #151515", background: "#0d0d0d", opacity: featuresReveal.visible ? 1 : 0, transform: featuresReveal.visible ? "none" : "translateY(40px)", transition: `all 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 80}ms`, cursor: "default" }}
+              <div key={i} style={{ padding: 28, borderRadius: 18, border: "1px solid #151515", background: "#0d0d0d", opacity: featuresVisible ? 1 : 0, transform: featuresVisible ? "none" : "translateY(40px)", transition: `all 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 80}ms`, cursor: "default" }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(201,168,76,0.2)"; (e.currentTarget as HTMLElement).style.background = "#101010"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "#151515"; (e.currentTarget as HTMLElement).style.background = "#0d0d0d"; }}
               >
@@ -310,9 +308,9 @@ export default function LandingPage() {
       </div>
 
       {/* HOW IT WORKS */}
-      <div ref={stepsReveal.callbackRef}>
+      <div ref={stepsRef}>
         <section id="how-it-works" style={{ padding: "96px 24px", maxWidth: 1100, margin: "0 auto" }}>
-          <div style={{ marginBottom: 64, textAlign: "center", opacity: stepsReveal.visible ? 1 : 0, transform: stepsReveal.visible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
+          <div style={{ marginBottom: 64, textAlign: "center", opacity: stepsVisible ? 1 : 0, transform: stepsVisible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
             <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 16 }}>The process</p>
             <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(32px,5vw,52px)", fontWeight: 300 }}>
               From search to{" "}
@@ -321,7 +319,7 @@ export default function LandingPage() {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px,1fr))", gap: 24 }}>
             {STEPS.map((s, i) => (
-              <div key={i} style={{ display: "flex", gap: 24, padding: 24, borderRadius: 18, border: "1px solid #111", opacity: stepsReveal.visible ? 1 : 0, transform: stepsReveal.visible ? "none" : "translateY(40px)", transition: `all 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 100}ms` }}>
+              <div key={i} style={{ display: "flex", gap: 24, padding: 24, borderRadius: 18, border: "1px solid #111", opacity: stepsVisible ? 1 : 0, transform: stepsVisible ? "none" : "translateY(40px)", transition: `all 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 100}ms` }}>
                 <div style={{ flexShrink: 0 }}>
                   <span style={{ fontFamily: "var(--font-display), serif", fontSize: 52, fontWeight: 300, color: "#1a1a1a", lineHeight: 1 }}>{s.number}</span>
                 </div>
@@ -336,17 +334,17 @@ export default function LandingPage() {
       </div>
 
       {/* DIFFERENTIATOR */}
-      <div ref={diffReveal.callbackRef}>
+      <div ref={diffRef}>
         <section style={{ padding: "96px 24px", background: "#060606", borderTop: "1px solid #111", borderBottom: "1px solid #111" }}>
           <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-            <div style={{ marginBottom: 56, textAlign: "center", opacity: diffReveal.visible ? 1 : 0, transform: diffReveal.visible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
+            <div style={{ marginBottom: 56, textAlign: "center", opacity: diffVisible ? 1 : 0, transform: diffVisible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
               <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 16 }}>Why Vantio is different</p>
               <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(28px,4.5vw,48px)", fontWeight: 300 }}>
                 Other tools give you names.{" "}
                 <em style={{ fontStyle: "italic", background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>We give you reasons.</em>
               </h2>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 1, background: "#151515", borderRadius: 18, overflow: "hidden", border: "1px solid #151515", opacity: diffReveal.visible ? 1 : 0, transition: "all 1s cubic-bezier(0.16,1,0.3,1) 0.2s" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 1, background: "#151515", borderRadius: 18, overflow: "hidden", border: "1px solid #151515", opacity: diffVisible ? 1 : 0, transition: "all 1s cubic-bezier(0.16,1,0.3,1) 0.2s" }}>
               {[
                 { label: "Typical lead lists", icon: "✗", iconColor: "#f87171", highlight: false, points: ["Name, phone, address", "No scoring or context", "Same list for everyone", "Manual research required", "No outreach guidance"] },
                 { label: "Vantio", icon: "◈", iconColor: "#c9a84c", highlight: true, points: ["Signal-driven lead score", "Gap type + pitch angle", "Matched to your profile", "Website signals auto-scanned", "AI message from your profile"] },
@@ -374,9 +372,9 @@ export default function LandingPage() {
       </div>
 
       {/* CTA */}
-      <div ref={ctaReveal.callbackRef}>
+      <div ref={ctaRef}>
         <section style={{ padding: "96px 24px" }}>
-          <div style={{ maxWidth: 800, margin: "0 auto", borderRadius: 24, border: "1px solid rgba(201,168,76,0.15)", background: "#0d0d0d", padding: "72px 48px", textAlign: "center", position: "relative", overflow: "hidden", opacity: ctaReveal.visible ? 1 : 0, transform: ctaReveal.visible ? "none" : "translateY(40px)", transition: "all 0.9s cubic-bezier(0.16,1,0.3,1)" }}>
+          <div style={{ maxWidth: 800, margin: "0 auto", borderRadius: 24, border: "1px solid rgba(201,168,76,0.15)", background: "#0d0d0d", padding: "72px 48px", textAlign: "center", position: "relative", overflow: "hidden", opacity: ctaVisible ? 1 : 0, transform: ctaVisible ? "none" : "translateY(40px)", transition: "all 0.9s cubic-bezier(0.16,1,0.3,1)" }}>
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(201,168,76,0.05) 0%, transparent 70%)" }} />
             <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 24 }}>Join the beta</p>
             <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(32px,5vw,52px)", fontWeight: 300, marginBottom: 24 }}>
