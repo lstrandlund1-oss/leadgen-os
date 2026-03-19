@@ -39,7 +39,7 @@ const ORBITAL_CHIPS = [
   { icon: "✦", label: "Outreach Built In", sub: "AI-generated", color: "#818cf8", angle: -35, radius: 260, driftSpeed: 0.013, delay: 1100 },
   { icon: "⬡", label: "Pipeline Tracking", sub: "All stages", color: "#4ade80", angle: 145, radius: 240, driftSpeed: 0.020, delay: 1300 },
   { icon: "◆", label: "Fit Matching", sub: "Profile-tuned", color: "#fb923c", angle: 40, radius: 250, driftSpeed: 0.015, delay: 1500 },
-  { icon: "◉", label: "Deep Scanning", sub: "Auto-enriched", color: "#f472b6", angle: -85, radius: 270, driftSpeed: 0.011, delay: 1700 },
+  { icon: "◉", label: "Deep Scanning", sub: "Auto-enriched", color: "#f472b6", angle: 95, radius: 260, driftSpeed: 0.011, delay: 1700 },
 ];
 
 function useReveal(): [(node: HTMLDivElement | null) => void, boolean] {
@@ -150,6 +150,7 @@ export default function LandingPage() {
   const cardFloat = -scrollY * 0.10;
   const cardRotate = Math.min(scrollY * 0.006, 4);
   const cardScale = 1 - cardScatter * 0.06;
+  const heroTextOpacity = Math.max(0, 1 - scrollY * 0.003);
   // Galaxy depth — particles grow and brighten as user scrolls
   const galaxyDepth = Math.min(1, scrollY / 800);
   // Slow field rotation driven by scroll
@@ -213,6 +214,8 @@ export default function LandingPage() {
           ))}
         </div>
 
+        { /* Hero text group — fades out on scroll */ }
+        <div style={{ opacity: heroTextOpacity, transform: `translateY(${scrollY * -0.04}px)`, transition: "opacity 0.05s linear", pointerEvents: heroTextOpacity < 0.05 ? "none" : "auto", width: "100%" }}>
         {/* Badge */}
         <div className="animate-fade-up-delay-1" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", borderRadius: 999, border: "1px solid rgba(201,168,76,0.25)", background: "rgba(201,168,76,0.04)", marginBottom: 32 }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#c9a84c", display: "inline-block", animation: "pulse 2s infinite" }} />
@@ -242,6 +245,7 @@ export default function LandingPage() {
             See how it works <span style={{ color: "#8a6e30" }}>↓</span>
           </Link>
         </div>
+        </div>{/* end hero text fade wrapper */}
 
         {/* ── HERO CARD + ORBITAL CHIPS ── */}
         <div className="animate-fade-up-delay-5" style={{ position: "relative", width: "100%", maxWidth: 460, margin: "0 auto" }}>
