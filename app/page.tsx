@@ -648,27 +648,40 @@ function HeroText({ scrollY, heroTextOpacity, waitlistCount }: {
         {/* Breathing gold field sits behind both lines */}
         <GoldField />
 
-        {/* Line 1 — lighter parallax */}
+        {/* Line 1 — BIG, glowing, light source effect */}
         <div style={{
           position: "relative", zIndex: 1,
           transform: `translate(${line1X}px, ${line1Y}px)`,
           transition: "transform 0.08s ease-out",
           display: "block",
+          marginBottom: 2,
         }}>
           <span style={{
             fontFamily: "var(--font-display), serif",
-            fontSize: "clamp(38px, 6vw, 72px)",
-            fontWeight: 300, lineHeight: 1.05,
-            letterSpacing: "0.06em",
+            fontSize: "clamp(56px, 9vw, 108px)",
+            fontWeight: 700, lineHeight: 0.95,
+            letterSpacing: "0.04em",
             textTransform: "uppercase",
             color: "#f5f0e8",
             display: "block",
+            // Soft text-shadow glow — like the text is emitting light
+            textShadow: "0 0 60px rgba(201,168,76,0.35), 0 0 120px rgba(201,168,76,0.15), 0 0 200px rgba(201,168,76,0.06)",
           }}>
             The intelligence layer
           </span>
         </div>
 
-        {/* Line 2 — heavier parallax, italic gold — drifts further creating depth */}
+        {/* Animated rule — draws itself in */}
+        <div style={{
+          height: 1,
+          background: "linear-gradient(90deg, transparent 0%, rgba(201,168,76,0.5) 40%, rgba(201,168,76,0.5) 60%, transparent 100%)",
+          marginBottom: 14,
+          transform: `translate(${(line1X + line2X) / 2}px, 0)`,
+          transition: "transform 0.08s ease-out",
+          animation: "ruleDrawIn 1.2s cubic-bezier(0.16,1,0.3,1) 0.8s both",
+        }} />
+
+        {/* Line 2 — smaller, gold, drifts further for depth */}
         <div style={{
           position: "relative", zIndex: 1,
           transform: `translate(${line2X}px, ${line2Y}px)`,
@@ -677,9 +690,9 @@ function HeroText({ scrollY, heroTextOpacity, waitlistCount }: {
         }}>
           <span style={{
             fontFamily: "var(--font-display), serif",
-            fontSize: "clamp(38px, 6vw, 72px)",
-            fontWeight: 600, lineHeight: 1.05,
-            letterSpacing: "0.06em",
+            fontSize: "clamp(22px, 3.2vw, 46px)",
+            fontWeight: 300, lineHeight: 1.1,
+            letterSpacing: "0.18em",
             textTransform: "uppercase",
             fontStyle: "normal",
             background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)",
@@ -723,9 +736,9 @@ function GoldField() {
 
   // 5 orbs, each with unique frequency, amplitude and phase
   const orbs = [
-    { cx: 50 + Math.sin(t * 0.17) * 12,      cy: 48 + Math.cos(t * 0.13) * 8,   r: 38, opacity: 0.13, color: "#c9a84c" },
-    { cx: 42 + Math.cos(t * 0.11) * 16,      cy: 55 + Math.sin(t * 0.19) * 10,  r: 28, opacity: 0.09, color: "#e8c97a" },
-    { cx: 58 + Math.sin(t * 0.23 + 1.2) * 14,cy: 44 + Math.cos(t * 0.09) * 12,  r: 22, opacity: 0.10, color: "#c9a84c" },
+    { cx: 50 + Math.sin(t * 0.17) * 12,      cy: 38 + Math.cos(t * 0.13) * 8,   r: 42, opacity: 0.18, color: "#c9a84c" },
+    { cx: 42 + Math.cos(t * 0.11) * 16,      cy: 35 + Math.sin(t * 0.19) * 10,  r: 30, opacity: 0.11, color: "#e8c97a" },
+    { cx: 58 + Math.sin(t * 0.23 + 1.2) * 14,cy: 34 + Math.cos(t * 0.09) * 12,  r: 24, opacity: 0.12, color: "#c9a84c" },
     { cx: 50 + Math.cos(t * 0.07 + 2.1) * 20, cy: 52 + Math.sin(t * 0.15) * 7,  r: 32, opacity: 0.07, color: "#8a6e30" },
     { cx: 48 + Math.sin(t * 0.31 + 0.5) * 10, cy: 46 + Math.cos(t * 0.21) * 14, r: 18, opacity: 0.11, color: "#e8c97a" },
   ];
@@ -1249,13 +1262,17 @@ export default function LandingPage() {
             Van<span style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>tio</span>
           </span>
         </Link>
-        {/* Beta badge — centred in nav */}
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "4px 12px", borderRadius: 999, border: "1px solid rgba(201,168,76,0.2)", background: "rgba(201,168,76,0.04)" }}>
+
+        {/* Beta badge — right of logo */}
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(201,168,76,0.2)", background: "rgba(201,168,76,0.04)" }}>
           <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#c9a84c", display: "inline-block", animation: "pulse 2s infinite", flexShrink: 0 }} />
           <span style={{ fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: "#c9a84c", whiteSpace: "nowrap" }}>
             Closed Beta
           </span>
         </div>
+
+        {/* Spacer pushes nav links to the right */}
+        <div style={{ flex: 1 }} />
 
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <Link href="/plans" style={{ fontSize: 13, color: "#555", textDecoration: "none", letterSpacing: "0.06em" }}>Pricing</Link>
@@ -1562,6 +1579,10 @@ export default function LandingPage() {
       </footer>
 
       <style>{`
+        @keyframes ruleDrawIn {
+          from { transform: scaleX(0); opacity: 0; }
+          to   { transform: scaleX(1); opacity: 1; }
+        }
         @keyframes nodeRipple {
           0% { r: 14; opacity: 0.4; }
           100% { r: 28; opacity: 0; }
