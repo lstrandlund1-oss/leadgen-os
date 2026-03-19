@@ -268,8 +268,8 @@ function FeatureCard({ f, i, visible }: { f: typeof FEATURES[0]; i: number; visi
 const STEP_COLORS_LIST = ["#c9a84c", "#818cf8", "#4ade80", "#f472b6"];
 
 // Individual step card — flashes when its pipeline node is active
-function StepCard({ s, i, visible, nodeActive }: {
-  s: typeof STEPS[0]; i: number; visible: boolean; nodeActive: boolean;
+function StepCard({ s, i, visible, nodeActive, nodeGlow = 0 }: {
+  s: typeof STEPS[0]; i: number; visible: boolean; nodeActive: boolean; nodeGlow?: number;
 }) {
   const [mouse, setMouse] = useState<{ x: number; y: number } | null>(null);
   const [hovered, setHovered] = useState(false);
@@ -286,8 +286,8 @@ function StepCard({ s, i, visible, nodeActive }: {
       style={{
         display: "flex", gap: 28, padding: 32,
         borderRadius: 18, position: "relative", overflow: "hidden",
-        border: `1px solid ${nodeActive ? accent + "60" : hovered ? accent + "35" : "#151515"}`,
-        background: nodeActive ? accent + "06" : hovered ? "#0f0f0f" : "#0a0a0a",
+        border: `1px solid ${hovered ? accent + "40" : nodeGlow > 0.05 ? accent + Math.round(nodeGlow * 80).toString(16).padStart(2,"0") : "#151515"}`,
+        background: hovered ? "#0f0f0f" : nodeGlow > 0.05 ? accent + "08" : "#0a0a0a",
         opacity: visible ? 1 : 0,
         transform: visible
           ? (hovered ? "translateX(4px)" : "none")
@@ -317,7 +317,7 @@ function StepCard({ s, i, visible, nodeActive }: {
       <div style={{
         position: "absolute", left: 0, top: "15%", bottom: "15%", width: 2,
         background: `linear-gradient(to bottom, transparent, ${accent}, transparent)`,
-        opacity: nodeActive ? 0.7 : hovered ? 0.3 : 0,
+        opacity: nodeGlow > 0.05 ? nodeGlow * 0.8 : hovered ? 0.3 : 0,
         transition: "opacity 0.4s ease",
         borderRadius: 2,
       }} />
@@ -327,9 +327,9 @@ function StepCard({ s, i, visible, nodeActive }: {
         <span style={{
           fontFamily: "var(--font-display), serif",
           fontSize: 52, fontWeight: 300, lineHeight: 1,
-          color: nodeActive ? accent : hovered ? accent + "cc" : "#222",
-          transition: "color 0.4s ease, filter 0.4s ease",
-          filter: nodeActive ? `drop-shadow(0 0 10px ${accent}70)` : "none",
+          color: nodeGlow > 0.1 ? accent : hovered ? accent + "cc" : "#222",
+          transition: "color 0.15s ease, filter 0.15s ease",
+          filter: nodeGlow > 0.1 ? `drop-shadow(0 0 ${Math.round(nodeGlow * 12)}px ${accent}${Math.round(nodeGlow * 100).toString(16).padStart(2,"0")})` : "none",
         }}>
           {s.number}
         </span>
@@ -357,42 +357,17 @@ function StepCard({ s, i, visible, nodeActive }: {
   );
 }
 
-function StepsSection({ visible }: { visible: boolean }) {
-  const [t, setT] = useState(0); // 0–1 along full pipeline
-  const [activeNode, setActiveNode] = useState(-1);
-  const rafRef = useRef<number | null>(null);
-  const startRef = useRef<number | null>(null);
-  const DURATION = 6000;
+function StepsSection({ visible, scrollY }: { visible: boolean; scrollY: number }) {
+  // Scroll-driven: section starts entering view ~scrollY 1400, fully exits ~3400
+  // Map scrollY to t: 0→1 across a 1600px scroll window starting when section enters
+  const SCROLL_START = 1500;  // scrollY where pulse begins (section entering viewport)
+  const SCROLL_RANGE = 1400;  // scroll pixels to complete full animation
+  const t = visible
+    ? Math.max(0, Math.min(1, (scrollY - SCROLL_START) / SCROLL_RANGE))
+    : 0;
 
-  useEffect(() => {
-    if (!visible) return;
-    const delay = setTimeout(() => {
-      const tick = (now: number) => {
-        if (!startRef.current) startRef.current = now;
-        const elapsed = (now - startRef.current) % DURATION;
-        const progress = elapsed / DURATION;
-        setT(progress);
-        // 4 equal segments — node activates as pulse enters its zone
-        // Activate node when pulse dot physically reaches it
-        // NODE_Y positions: 75, 225, 375, 525 — range 450, starting at 75
-        // pulseY = t * 450 + 75, so node i reached when t >= i/3 * (450/600)
-        // Using exact threshold: (NODE_Y[i] - 75) / 450, with tiny look-ahead of 0.008
-        const LOOK_AHEAD = 0.008;
-        let node = 0;
-        if (progress >= 1/3 - LOOK_AHEAD) node = 1;
-        if (progress >= 2/3 - LOOK_AHEAD) node = 2;
-        if (progress >= 1   - LOOK_AHEAD) node = 3;
-        setActiveNode(node);
-        rafRef.current = requestAnimationFrame(tick);
-      };
-      rafRef.current = requestAnimationFrame(tick);
-    }, 700);
-    return () => {
-      clearTimeout(delay);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      startRef.current = null;
-    };
-  }, [visible]);
+  // Smooth node value 0.0–3.0 — used for continuous fade in/out glow
+  const smoothNode = t * 3;
 
   // Vertical pipeline: runs down left side, 4 nodes evenly spaced
   // ViewBox: 80 wide × 600 tall. Nodes at y = 75, 225, 375, 525 (x=40)
@@ -453,38 +428,38 @@ function StepsSection({ visible }: { visible: boolean }) {
             strokeWidth="4"
           />
 
-          {/* Node indicators */}
-          {NODE_Y.map((ny, i) => (
-            <g key={i}>
-              {/* Outer ripple on active */}
-              <circle cx={NODE_X} cy={ny} r={activeNode === i ? 18 : 0}
-                fill="none"
-                stroke={STEP_COLORS_LIST[i]}
-                strokeWidth="1"
-                opacity={activeNode === i ? 0.25 : 0}
-                style={{ transition: "all 0.3s ease" }}
-              />
-              {/* Connector tick to card */}
-              <line x1={NODE_X + 8} y1={ny} x2={76} y2={ny}
-                stroke={activeNode === i ? STEP_COLORS_LIST[i] : "rgba(201,168,76,0.15)"}
-                strokeWidth="1"
-                style={{ transition: "stroke 0.4s ease" }}
-              />
-              {/* Node ring */}
-              <circle cx={NODE_X} cy={ny} r="8"
-                fill={activeNode === i ? STEP_COLORS_LIST[i] + "25" : "#0d0d0d"}
-                stroke={activeNode === i ? STEP_COLORS_LIST[i] : "rgba(201,168,76,0.3)"}
-                strokeWidth="1.5"
-                style={{ transition: "all 0.4s ease" }}
-              />
-              {/* Centre dot */}
-              <circle cx={NODE_X} cy={ny} r="3"
-                fill={activeNode === i ? STEP_COLORS_LIST[i] : "rgba(201,168,76,0.4)"}
-                filter={activeNode === i ? "url(#pipeGlow)" : "none"}
-                style={{ transition: "all 0.4s ease" }}
-              />
-            </g>
-          ))}
+          {/* Node indicators — smooth glow based on pulse proximity */}
+          {NODE_Y.map((ny, i) => {
+            const dist = Math.abs(smoothNode - i);
+            const glow = Math.max(0, 1 - dist * 1.8);
+            const ripple = Math.max(0, 1 - dist * 3.0);
+            const color = STEP_COLORS_LIST[i];
+            return (
+              <g key={i}>
+                {/* Ripple ring — expands and fades as pulse arrives */}
+                <circle cx={NODE_X} cy={ny} r={10 + glow * 10}
+                  fill="none" stroke={color} strokeWidth="1"
+                  opacity={ripple * 0.35}
+                />
+                {/* Connector tick to card */}
+                <line x1={NODE_X + 8} y1={ny} x2={76} y2={ny}
+                  stroke={color} strokeWidth="1"
+                  opacity={0.12 + glow * 0.7}
+                />
+                {/* Node ring */}
+                <circle cx={NODE_X} cy={ny} r="8"
+                  fill={color} fillOpacity={glow * 0.22}
+                  stroke={color} strokeWidth="1.5"
+                  opacity={0.25 + glow * 0.75}
+                />
+                {/* Centre dot — grows with glow */}
+                <circle cx={NODE_X} cy={ny} r={2 + glow * 2}
+                  fill={color} opacity={0.35 + glow * 0.65}
+                  filter={glow > 0.2 ? "url(#pipeGlow)" : "none"}
+                />
+              </g>
+            );
+          })}
 
           {/* Pulse dot */}
           <circle cx={NODE_X} cy={pulseY} r="10"
@@ -500,9 +475,16 @@ function StepsSection({ visible }: { visible: boolean }) {
 
       {/* Cards — stacked vertically, full order guaranteed */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
-        {STEPS.map((s, i) => (
-          <StepCard key={i} s={s} i={i} visible={visible} nodeActive={activeNode === i} />
-        ))}
+        {STEPS.map((s, i) => {
+          const dist = Math.abs(smoothNode - i);
+          const glow = Math.max(0, 1 - dist * 1.8);
+          return (
+            <StepCard key={i} s={s} i={i} visible={visible}
+              nodeActive={glow > 0.1}
+              nodeGlow={glow}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -1096,7 +1078,7 @@ export default function LandingPage() {
               <em style={{ fontStyle: "italic", background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>signed client.</em>
             </h2>
           </div>
-          <StepsSection visible={stepsVisible} />
+          <StepsSection visible={stepsVisible} scrollY={scrollY} />
         </section>
       </div>
 
