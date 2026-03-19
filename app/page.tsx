@@ -725,15 +725,12 @@ function GoldText({ children, style = {}, as: Tag = "span" }: {
     setPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
   };
 
-  const isGradientText = style.WebkitTextFillColor === "transparent";
-  const baseGradient = (style.background as string) || "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)";
-
-  // Spotlight blended over the base gradient for gradient text
-  const bg = isGradientText
-    ? pos
-      ? `radial-gradient(100px circle at ${pos.x}px ${pos.y}px, #ffffff 0%, #fff5cc 20%, #e8c97a 45%, transparent 65%), ${baseGradient}`
-      : baseGradient
-    : undefined;
+  // Spotlight: a tight radial brightness/glow centred on the cursor
+  // Works on ALL text types — uses filter + mask rather than background-clip
+  // brightness raises the local area, drop-shadow adds the warm gold corona
+  const spotlightFilter = pos
+    ? `brightness(1.5) drop-shadow(0 0 6px rgba(232,201,122,0.8)) drop-shadow(0 0 14px rgba(201,168,76,0.4))`
+    : "none";
 
   return (
     <Tag
@@ -743,19 +740,26 @@ function GoldText({ children, style = {}, as: Tag = "span" }: {
       style={{
         ...style,
         cursor: "default",
-        ...(isGradientText ? {
-          background: bg,
-          WebkitBackgroundClip: "text",
-          backgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-          transition: "none",
-        } : {
-          // Solid gold text — filter brightness follows mouse via a subtle glow
-          filter: pos ? "brightness(1.4) drop-shadow(0 0 8px rgba(232,201,122,0.7))" : "none",
-          transition: pos ? "none" : "filter 0.4s ease",
-        }),
+        display: style.display || "inline-block",
+        position: "relative",
+        filter: spotlightFilter,
+        transition: pos ? "none" : "filter 0.5s ease",
       }}
     >
+      {/* Mouse-position mask layer — clips the brightness boost to cursor area only */}
+      {pos && (
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: `radial-gradient(90px circle at ${pos.x}px ${pos.y}px, rgba(255,255,255,0.12) 0%, transparent 100%)`,
+            pointerEvents: "none",
+            mixBlendMode: "overlay",
+            borderRadius: "inherit",
+          }}
+        />
+      )}
       {children}
     </Tag>
   );
