@@ -602,6 +602,165 @@ const STAGE_SCORE    = 3200;  // selected card expands + scores
 const STAGE_PAUSE    = 1000;  // hold before reset
 const TOTAL_CYCLE    = STAGE_SEARCH + STAGE_RESULTS + STAGE_SCORE + STAGE_PAUSE;
 
+// ── GOLD FIELD — breathing layered radial gradient ──
+// Multiple gold orbs drift independently, creating organic ambient glow behind headline
+// ── HERO TEXT — breathing gold field + mouse parallax depth ──
+function HeroText({ scrollY, heroTextOpacity, waitlistCount }: {
+  scrollY: number; heroTextOpacity: number; waitlistCount: number | null;
+}) {
+  const [mouse, setMouse] = useState({ x: 0, y: 0 }); // -1 to 1 from centre
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      // Normalise to -1..1 from viewport centre
+      setMouse({
+        x: (e.clientX - vw / 2) / (vw / 2),
+        y: (e.clientY - vh / 2) / (vh / 2),
+      });
+    };
+    window.addEventListener("mousemove", onMove, { passive: true });
+    return () => window.removeEventListener("mousemove", onMove);
+  }, []);
+
+  // Line 1 moves gently, line 2 moves at 1.8x — creates Z-depth separation
+  const line1X = mouse.x * 10;
+  const line1Y = mouse.y * 5;
+  const line2X = mouse.x * 18;
+  const line2Y = mouse.y * 9;
+
+  return (
+    <div
+      ref={wrapRef}
+      style={{
+        opacity: heroTextOpacity,
+        transform: `translateY(${scrollY * -0.04}px)`,
+        transition: "opacity 0.05s linear",
+        pointerEvents: heroTextOpacity < 0.05 ? "none" : "auto",
+        width: "100%", textAlign: "center",
+        position: "relative", zIndex: 10, marginBottom: 48,
+      }}
+    >
+      <div className="animate-fade-up-delay-1" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", borderRadius: 999, border: "1px solid rgba(201,168,76,0.25)", background: "rgba(201,168,76,0.04)", marginBottom: 28 }}>
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#c9a84c", display: "inline-block", animation: "pulse 2s infinite" }} />
+        <span style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "#c9a84c" }}>
+          {waitlistCount !== null ? `${waitlistCount} service providers in early access` : "Closed Beta — Limited Access"}
+        </span>
+      </div>
+
+      {/* Headline with breathing gold field + per-line parallax */}
+      <div className="animate-fade-up-delay-2" style={{ position: "relative", display: "inline-block", maxWidth: 800, margin: "0 auto 20px" }}>
+        {/* Breathing gold field sits behind both lines */}
+        <GoldField />
+
+        {/* Line 1 — lighter parallax */}
+        <div style={{
+          position: "relative", zIndex: 1,
+          transform: `translate(${line1X}px, ${line1Y}px)`,
+          transition: "transform 0.08s ease-out",
+          display: "block",
+        }}>
+          <span style={{
+            fontFamily: "var(--font-display), serif",
+            fontSize: "clamp(38px, 6vw, 72px)",
+            fontWeight: 300, lineHeight: 1.05,
+            letterSpacing: "-0.02em",
+            color: "#f5f0e8",
+            display: "block",
+          }}>
+            The intelligence layer
+          </span>
+        </div>
+
+        {/* Line 2 — heavier parallax, italic gold — drifts further creating depth */}
+        <div style={{
+          position: "relative", zIndex: 1,
+          transform: `translate(${line2X}px, ${line2Y}px)`,
+          transition: "transform 0.08s ease-out",
+          display: "block",
+        }}>
+          <em style={{
+            fontFamily: "var(--font-display), serif",
+            fontSize: "clamp(38px, 6vw, 72px)",
+            fontWeight: 600, lineHeight: 1.05,
+            letterSpacing: "-0.02em",
+            fontStyle: "italic",
+            background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)",
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+            display: "block",
+          }}>
+            your outreach is missing.
+          </em>
+        </div>
+      </div>
+
+      <p className="animate-fade-up-delay-3" style={{ fontSize: 15, color: "#666", maxWidth: 500, margin: "0 auto 32px", lineHeight: 1.7 }}>
+        Vantio finds local businesses and tells you exactly which ones are worth contacting — scored against your service, capability, and style.
+      </p>
+      <div className="animate-fade-up-delay-4" style={{ display: "flex", flexWrap: "wrap", gap: 14, justifyContent: "center" }}>
+        <GlowButton href="/login" style={{ padding: "13px 28px", borderRadius: 10, background: "#c9a84c", color: "#080808", fontWeight: 700, fontSize: 14, letterSpacing: "0.06em", textDecoration: "none", boxShadow: "0 8px 40px rgba(201,168,76,0.22)" }}>
+          Request Early Access
+        </GlowButton>
+        <Link href="#how-it-works" style={{ fontSize: 13, color: "#555", textDecoration: "none", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 8 }}>
+          See how it works <span style={{ color: "#8a6e30" }}>↓</span>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+
+function GoldField() {
+  const [t, setT] = useState(0);
+  useEffect(() => {
+    let raf: number;
+    let start: number;
+    const tick = (now: number) => {
+      if (!start) start = now;
+      setT((now - start) / 1000); // seconds
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // 5 orbs, each with unique frequency, amplitude and phase
+  const orbs = [
+    { cx: 50 + Math.sin(t * 0.17) * 12,      cy: 48 + Math.cos(t * 0.13) * 8,   r: 38, opacity: 0.13, color: "#c9a84c" },
+    { cx: 42 + Math.cos(t * 0.11) * 16,      cy: 55 + Math.sin(t * 0.19) * 10,  r: 28, opacity: 0.09, color: "#e8c97a" },
+    { cx: 58 + Math.sin(t * 0.23 + 1.2) * 14,cy: 44 + Math.cos(t * 0.09) * 12,  r: 22, opacity: 0.10, color: "#c9a84c" },
+    { cx: 50 + Math.cos(t * 0.07 + 2.1) * 20, cy: 52 + Math.sin(t * 0.15) * 7,  r: 32, opacity: 0.07, color: "#8a6e30" },
+    { cx: 48 + Math.sin(t * 0.31 + 0.5) * 10, cy: 46 + Math.cos(t * 0.21) * 14, r: 18, opacity: 0.11, color: "#e8c97a" },
+  ];
+
+  return (
+    <div style={{
+      position: "absolute",
+      left: "50%", top: "50%",
+      transform: "translate(-50%, -50%)",
+      width: "140%", height: "280%",
+      pointerEvents: "none",
+      zIndex: 0,
+      filter: "blur(28px)",
+    }}>
+      {orbs.map((orb, i) => (
+        <div key={i} style={{
+          position: "absolute",
+          left: `${orb.cx}%`, top: `${orb.cy}%`,
+          transform: "translate(-50%, -50%)",
+          width: `${orb.r}%`, height: `${orb.r * 1.6}%`,
+          borderRadius: "50%",
+          background: `radial-gradient(ellipse, ${orb.color} 0%, transparent 70%)`,
+          opacity: orb.opacity,
+        }} />
+      ))}
+    </div>
+  );
+}
+
+
 type HeroStage = "idle" | "search" | "results" | "score" | "pause";
 
 function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, scrollLocked }: {
@@ -724,32 +883,11 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
       </div>
 
       {/* ── HERO TEXT ── */}
-      <div style={{ opacity: heroTextOpacity, transform: `translateY(${scrollY * -0.04}px)`, transition: "opacity 0.05s linear", pointerEvents: heroTextOpacity < 0.05 ? "none" : "auto", width: "100%", textAlign: "center", position: "relative", zIndex: 10, marginBottom: 48 }}>
-        <div className="animate-fade-up-delay-1" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", borderRadius: 999, border: "1px solid rgba(201,168,76,0.25)", background: "rgba(201,168,76,0.04)", marginBottom: 28 }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#c9a84c", display: "inline-block", animation: "pulse 2s infinite" }} />
-          <span style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "#c9a84c" }}>
-            {waitlistCount !== null ? `${waitlistCount} service providers in early access` : "Closed Beta — Limited Access"}
-          </span>
-        </div>
-        <h1 className="animate-fade-up-delay-2" style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(38px, 6vw, 72px)", fontWeight: 300, lineHeight: 1.05, letterSpacing: "-0.02em", maxWidth: 800, margin: "0 auto 20px" }}>
-          The intelligence layer
-          <br />
-          <em style={{ fontStyle: "italic", fontWeight: 600, background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            your outreach is missing.
-          </em>
-        </h1>
-        <p className="animate-fade-up-delay-3" style={{ fontSize: 15, color: "#666", maxWidth: 500, margin: "0 auto 32px", lineHeight: 1.7 }}>
-          Vantio finds local businesses and tells you exactly which ones are worth contacting — scored against your service, capability, and style.
-        </p>
-        <div className="animate-fade-up-delay-4" style={{ display: "flex", flexWrap: "wrap", gap: 14, justifyContent: "center" }}>
-          <GlowButton href="/login" style={{ padding: "13px 28px", borderRadius: 10, background: "#c9a84c", color: "#080808", fontWeight: 700, fontSize: 14, letterSpacing: "0.06em", textDecoration: "none", boxShadow: "0 8px 40px rgba(201,168,76,0.22)" }}>
-            Request Early Access
-          </GlowButton>
-          <Link href="#how-it-works" style={{ fontSize: 13, color: "#555", textDecoration: "none", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 8 }}>
-            See how it works <span style={{ color: "#8a6e30" }}>↓</span>
-          </Link>
-        </div>
-      </div>
+      <HeroText
+        scrollY={scrollY}
+        heroTextOpacity={heroTextOpacity}
+        waitlistCount={waitlistCount}
+      />
 
       {/* ── 3D SCENE ── */}
       <div className="animate-fade-up-delay-5" style={{
