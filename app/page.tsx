@@ -737,9 +737,9 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
           Vantio finds local businesses and tells you exactly which ones are worth contacting — scored against your service, capability, and style.
         </p>
         <div className="animate-fade-up-delay-4" style={{ display: "flex", flexWrap: "wrap", gap: 14, justifyContent: "center" }}>
-          <Link href="/login" style={{ padding: "13px 28px", borderRadius: 10, background: "#c9a84c", color: "#080808", fontWeight: 700, fontSize: 14, letterSpacing: "0.06em", textDecoration: "none", boxShadow: "0 8px 40px rgba(201,168,76,0.22)" }}>
+          <GlowButton href="/login" style={{ padding: "13px 28px", borderRadius: 10, background: "#c9a84c", color: "#080808", fontWeight: 700, fontSize: 14, letterSpacing: "0.06em", textDecoration: "none", boxShadow: "0 8px 40px rgba(201,168,76,0.22)" }}>
             Request Early Access
-          </Link>
+          </GlowButton>
           <Link href="#how-it-works" style={{ fontSize: 13, color: "#555", textDecoration: "none", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 8 }}>
             See how it works <span style={{ color: "#8a6e30" }}>↓</span>
           </Link>
@@ -940,6 +940,104 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
 }
 
 
+// Button with internal mouse-tracking glow — Huly style
+// Section with clip-path reveal — mouse position reveals a gold underglow
+// Huly's technique: CSS vars --mx --my drive clip-path circle on a glowing layer
+function GlowSection({ children, style = {}, glowColor = "rgba(201,168,76,0.08)" }: {
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+  glowColor?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [clipPos, setClipPos] = useState<{ x: number; y: number } | null>(null);
+
+  const handleMove = (e: React.MouseEvent) => {
+    const rect = ref.current?.getBoundingClientRect();
+    if (!rect) return;
+    setClipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  };
+
+  return (
+    <div
+      ref={ref}
+      onMouseMove={handleMove}
+      onMouseLeave={() => setClipPos(null)}
+      style={{ position: "relative", ...style }}
+    >
+      {/* Revealed underglow layer */}
+      <div style={{
+        position: "absolute", inset: 0,
+        background: `radial-gradient(600px circle at ${clipPos ? clipPos.x : -9999}px ${clipPos ? clipPos.y : -9999}px, ${glowColor}, transparent 60%)`,
+        pointerEvents: "none",
+        transition: clipPos ? "none" : "background 0.6s ease",
+        zIndex: 0,
+      }} />
+      <div style={{ position: "relative", zIndex: 1 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+
+function GlowButton({ href, children, style = {} }: { href: string; children: React.ReactNode; style?: React.CSSProperties }) {
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const [hovered, setHovered] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  const handleMove = (e: React.MouseEvent) => {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  };
+
+  return (
+    <div
+      ref={wrapRef}
+      onMouseMove={handleMove}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); setPos(null); }}
+      style={{ display: "inline-block", position: "relative" }}
+    >
+    <Link
+      href={href}
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        display: "inline-block",
+        ...style,
+      }}
+    >
+      {/* Mouse-tracked inner glow */}
+      {pos && (
+        <span style={{
+          position: "absolute",
+          left: pos.x - 80, top: pos.y - 80,
+          width: 160, height: 160,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(255,255,255,0.22) 0%, transparent 70%)",
+          pointerEvents: "none",
+          transition: "none",
+          mixBlendMode: "overlay",
+        }} />
+      )}
+      {/* Edge shimmer on hover */}
+      <span style={{
+        position: "absolute", inset: 0,
+        borderRadius: "inherit",
+        background: hovered
+          ? "linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 50%, rgba(255,255,255,0.04) 100%)"
+          : "transparent",
+        transition: "background 0.3s ease",
+        pointerEvents: "none",
+      }} />
+      {children}
+    </Link>
+    </div>
+  );
+}
+
+
 export default function LandingPage() {
   const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
   const [scrollY, setScrollY] = useState(0);
@@ -971,7 +1069,9 @@ export default function LandingPage() {
   }, []);
 
   const [sequenceProgress, setSequenceProgress] = useState(0);
-  const scrollLocked = false; // No longer jailing scroll — sequence plays automatically
+  const scrollLocked = false;
+  const [mouseX, setMouseX] = useState(-9999);
+  const [mouseY, setMouseY] = useState(-9999);
 
   useEffect(() => {
     // Track sequence progress for the indicator bar
@@ -992,6 +1092,17 @@ export default function LandingPage() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => { setMouseX(e.clientX); setMouseY(e.clientY); };
+    const onLeave = () => { setMouseX(-9999); setMouseY(-9999); };
+    window.addEventListener("mousemove", onMove, { passive: true });
+    document.addEventListener("mouseleave", onLeave);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseleave", onLeave);
+    };
+  }, []);
+
 
 
 
@@ -1001,6 +1112,19 @@ export default function LandingPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#080808", color: "#f5f0e8", overflowX: "hidden" }}>
+
+      {/* Global cursor ambient light — very subtle, atmospheric */}
+      <div style={{
+        position: "fixed",
+        left: mouseX - 300, top: mouseY - 300,
+        width: 600, height: 600,
+        borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(201,168,76,0.055) 0%, rgba(201,168,76,0.02) 40%, transparent 70%)",
+        pointerEvents: "none",
+        zIndex: 9999,
+        transition: "left 0.12s ease-out, top 0.12s ease-out",
+        mixBlendMode: "screen",
+      }} />
 
       {/* NAV */}
       <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 40, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 48px", borderBottom: "1px solid #181818", background: "rgba(8,8,8,0.92)", backdropFilter: "blur(16px)" }}>
@@ -1084,7 +1208,8 @@ export default function LandingPage() {
 
       {/* DIFFERENTIATOR */}
       <div ref={diffRef}>
-        <section style={{ padding: "96px 24px", background: "#060606", borderTop: "1px solid #111", borderBottom: "1px solid #111" }}>
+        <GlowSection style={{ background: "#060606", borderTop: "1px solid #111", borderBottom: "1px solid #111" }} glowColor="rgba(201,168,76,0.07)">
+        <section style={{ padding: "96px 24px" }}>
           <div style={{ maxWidth: 1000, margin: "0 auto" }}>
             <div style={{ marginBottom: 56, textAlign: "center", opacity: diffVisible ? 1 : 0, transform: diffVisible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
               <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 16 }}>Why Vantio is different</p>
@@ -1118,11 +1243,13 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
+        </GlowSection>
       </div>
 
       {/* CTA */}
       <div ref={ctaRef}>
-        <section style={{ padding: "96px 24px" }}>
+        <GlowSection style={{ padding: "96px 24px" }} glowColor="rgba(201,168,76,0.09)">
+        <section style={{ padding: 0 }}>
           <div style={{ maxWidth: 800, margin: "0 auto", borderRadius: 24, border: "1px solid rgba(201,168,76,0.15)", background: "#0d0d0d", padding: "72px 48px", textAlign: "center", position: "relative", overflow: "hidden", opacity: ctaVisible ? 1 : 0, transform: ctaVisible ? "none" : "translateY(40px)", transition: "all 0.9s cubic-bezier(0.16,1,0.3,1)" }}>
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(201,168,76,0.05) 0%, transparent 70%)" }} />
             <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 24 }}>Join the beta</p>
@@ -1139,6 +1266,7 @@ export default function LandingPage() {
             <p style={{ marginTop: 16, fontSize: 11, color: "#333" }}>No credit card required · Cancel anytime</p>
           </div>
         </section>
+        </GlowSection>
       </div>
 
       {/* FOOTER */}
