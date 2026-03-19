@@ -1183,67 +1183,220 @@ export default function LandingPage() {
         </section>
       </div>
 
-      {/* DIFFERENTIATOR */}
+      {/* DIFFERENTIATOR — cinematic rebuild */}
       <div ref={diffRef}>
-        <GlowSection style={{ background: "#060606", borderTop: "1px solid #111", borderBottom: "1px solid #111" }} glowColor="rgba(201,168,76,0.07)">
-        <section style={{ padding: "96px 24px" }}>
-          <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-            <div style={{ marginBottom: 56, textAlign: "center", opacity: diffVisible ? 1 : 0, transform: diffVisible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
-              <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 16 }}>Why Vantio is different</p>
-              <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(28px,4.5vw,48px)", fontWeight: 300 }}>
-                Other tools give you names.{" "}
-                <em style={{ fontStyle: "italic", background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>We give you reasons.</em>
-              </h2>
+        <GlowSection style={{ background: "#050505", borderTop: "1px solid #0e0e0e", overflow: "hidden" }} glowColor="rgba(201,168,76,0.06)">
+          <section style={{ padding: "120px 24px 100px", position: "relative" }}>
+
+            {/* Background ambient glow behind Vantio column */}
+            <div style={{ position: "absolute", left: "50%", top: "40%", transform: "translate(-50%,-50%)", width: 600, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(201,168,76,0.06) 0%, transparent 65%)", pointerEvents: "none", filter: "blur(40px)" }} />
+
+            {/* Giant Scarabynth-style backdrop text */}
+            <div style={{
+              position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+              pointerEvents: "none", overflow: "hidden",
+            }}>
+              <p style={{
+                fontFamily: "var(--font-display), serif",
+                fontSize: "clamp(80px, 14vw, 180px)",
+                fontWeight: 700, letterSpacing: "-0.04em",
+                color: "transparent",
+                WebkitTextStroke: "1px rgba(201,168,76,0.04)",
+                whiteSpace: "nowrap",
+                userSelect: "none",
+                opacity: diffVisible ? 1 : 0,
+                transition: "opacity 1.2s ease",
+              }}>
+                INTELLIGENCE
+              </p>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 1, background: "#151515", borderRadius: 18, overflow: "hidden", border: "1px solid #151515", opacity: diffVisible ? 1 : 0, transition: "all 1s cubic-bezier(0.16,1,0.3,1) 0.2s" }}>
-              {[
-                { label: "Typical lead lists", icon: "✗", iconColor: "#f87171", highlight: false, points: ["Name, phone, address", "No scoring or context", "Same list for everyone", "Manual research required", "No outreach guidance"] },
-                { label: "Vantio", icon: "◈", iconColor: "#c9a84c", highlight: true, points: ["Signal-driven lead score", "Gap type + pitch angle", "Matched to your profile", "Website signals auto-scanned", "AI message from your profile"] },
-                { label: "Manual research", icon: "✗", iconColor: "#f87171", highlight: false, points: ["1–2 hours per lead", "Inconsistent judgment", "No structured scoring", "Easy to miss signals", "Hard to scale"] },
-              ].map((col, i) => (
-                <div key={i} style={{ padding: 28, background: col.highlight ? "rgba(201,168,76,0.04)" : "#0a0a0a" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-                    <span style={{ fontSize: 16, color: col.iconColor }}>{col.icon}</span>
-                    <p style={{ fontSize: 13, fontWeight: 600, letterSpacing: "0.04em", color: col.highlight ? "#c9a84c" : "#444" }}>{col.label}</p>
-                    {col.highlight && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 999, background: "rgba(201,168,76,0.15)", color: "#c9a84c", letterSpacing: "0.1em", textTransform: "uppercase", marginLeft: "auto" }}>You are here</span>}
+
+            <div style={{ maxWidth: 1100, margin: "0 auto", position: "relative", zIndex: 1 }}>
+
+              {/* Header */}
+              <div style={{
+                marginBottom: 80, textAlign: "center",
+                opacity: diffVisible ? 1 : 0,
+                transform: diffVisible ? "none" : "translateY(40px)",
+                transition: "all 0.9s cubic-bezier(0.16,1,0.3,1)",
+              }}>
+                <p style={{ fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 20 }}>Why Vantio is different</p>
+                <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(36px,5.5vw,64px)", fontWeight: 300, lineHeight: 1.05, letterSpacing: "-0.02em" }}>
+                  Other tools give you names.
+                  <br />
+                  <em style={{ fontStyle: "italic", fontWeight: 600, background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                    We give you reasons.
+                  </em>
+                </h2>
+              </div>
+
+              {/* Three floating cards — Vantio physically elevated */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1.15fr 1fr", gap: 16, alignItems: "end" }}>
+                {[
+                  {
+                    label: "Typical lead lists", icon: "✗", iconColor: "#444", highlight: false,
+                    desc: "A spreadsheet of names. No context, no scoring, no guidance.",
+                    points: ["Name, phone, address only", "No scoring or context", "Same list for everyone", "Manual research required", "No outreach guidance"],
+                    delay: 0,
+                  },
+                  {
+                    label: "Vantio", icon: "◈", iconColor: "#c9a84c", highlight: true,
+                    desc: "Signal-driven intelligence matched to your exact service profile.",
+                    points: ["Signal-driven lead score", "Gap type + pitch angle", "Matched to your profile", "Website signals auto-scanned", "AI outreach from your offer"],
+                    delay: 120,
+                  },
+                  {
+                    label: "Manual research", icon: "✗", iconColor: "#444", highlight: false,
+                    desc: "1–2 hours per lead. Inconsistent. Impossible to scale.",
+                    points: ["Hours per lead", "Inconsistent judgment", "No structured scoring", "Easy to miss signals", "Hard to scale"],
+                    delay: 240,
+                  },
+                ].map((col, i) => (
+                  <div key={i} style={{
+                    borderRadius: 20,
+                    border: col.highlight ? "1px solid rgba(201,168,76,0.25)" : "1px solid #111",
+                    background: col.highlight ? "linear-gradient(160deg, rgba(201,168,76,0.07) 0%, rgba(201,168,76,0.02) 100%)" : "#080808",
+                    padding: col.highlight ? "40px 32px 36px" : "32px 28px",
+                    position: "relative",
+                    overflow: "hidden",
+                    opacity: diffVisible ? 1 : 0,
+                    transform: diffVisible
+                      ? col.highlight ? "translateY(-20px)" : "translateY(0)"
+                      : "translateY(50px)",
+                    transition: `all 0.8s cubic-bezier(0.16,1,0.3,1) ${col.delay}ms`,
+                    boxShadow: col.highlight
+                      ? "0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(201,168,76,0.12), 0 40px 60px rgba(201,168,76,0.06)"
+                      : "0 8px 32px rgba(0,0,0,0.4)",
+                  }}>
+                    {/* Spotlight underneath Vantio card */}
+                    {col.highlight && (
+                      <div style={{ position: "absolute", bottom: -40, left: "50%", transform: "translateX(-50%)", width: 300, height: 80, background: "radial-gradient(ellipse, rgba(201,168,76,0.18) 0%, transparent 70%)", filter: "blur(16px)", pointerEvents: "none" }} />
+                    )}
+                    {/* Top edge accent */}
+                    {col.highlight && (
+                      <div style={{ position: "absolute", top: 0, left: "15%", right: "15%", height: 1, background: "linear-gradient(90deg, transparent, #c9a84c, transparent)" }} />
+                    )}
+
+                    {/* Header */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                      <span style={{ fontSize: col.highlight ? 20 : 14, color: col.iconColor }}>{col.icon}</span>
+                      <p style={{ fontSize: col.highlight ? 16 : 13, fontWeight: 700, letterSpacing: "0.04em", color: col.highlight ? "#e8c97a" : "#333" }}>{col.label}</p>
+                      {col.highlight && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 999, background: "rgba(201,168,76,0.15)", color: "#c9a84c", letterSpacing: "0.12em", textTransform: "uppercase", marginLeft: "auto" }}>You are here</span>}
+                    </div>
+
+                    <p style={{ fontSize: 12, color: col.highlight ? "#777" : "#2a2a2a", lineHeight: 1.6, marginBottom: 24 }}>{col.desc}</p>
+
+                    {/* Divider */}
+                    <div style={{ height: 1, background: col.highlight ? "rgba(201,168,76,0.1)" : "#111", marginBottom: 20 }} />
+
+                    {/* Points */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+                      {col.points.map((pt, j) => (
+                        <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                          <span style={{ fontSize: 10, color: col.highlight ? "#4ade80" : "#2a2a2a", flexShrink: 0, marginTop: 2 }}>{col.highlight ? "✓" : "—"}</span>
+                          <p style={{ fontSize: 12, lineHeight: 1.5, color: col.highlight ? "#999" : "#2a2a2a" }}>{pt}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    {col.points.map((pt, j) => (
-                      <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                        <span style={{ fontSize: 10, color: col.highlight ? "#4ade80" : "#333", flexShrink: 0, marginTop: 1 }}>{col.highlight ? "✓" : "—"}</span>
-                        <p style={{ fontSize: 12, lineHeight: 1.5, color: col.highlight ? "#888" : "#333" }}>{pt}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
         </GlowSection>
       </div>
 
-      {/* CTA */}
+      {/* CTA — cinematic closer */}
       <div ref={ctaRef}>
-        <GlowSection style={{ padding: "96px 24px" }} glowColor="rgba(201,168,76,0.09)">
-        <section style={{ padding: 0 }}>
-          <div style={{ maxWidth: 800, margin: "0 auto", borderRadius: 24, border: "1px solid rgba(201,168,76,0.15)", background: "#0d0d0d", padding: "72px 48px", textAlign: "center", position: "relative", overflow: "hidden", opacity: ctaVisible ? 1 : 0, transform: ctaVisible ? "none" : "translateY(40px)", transition: "all 0.9s cubic-bezier(0.16,1,0.3,1)" }}>
-            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(201,168,76,0.05) 0%, transparent 70%)" }} />
-            <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 24 }}>Join the beta</p>
-            <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(32px,5vw,52px)", fontWeight: 300, marginBottom: 24 }}>
-              Stop guessing.<br />
-              <em style={{ fontStyle: "italic", background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Start converting.</em>
+        <section style={{ position: "relative", overflow: "hidden", background: "#040404", padding: "140px 24px 120px" }}>
+
+          {/* Dense gold particle field — echoes the hero galaxy */}
+          {ctaVisible && Array.from({ length: 50 }, (_, i) => ({
+            id: i,
+            x: Math.sin(i * 2.4) * 50 + 50,
+            y: Math.cos(i * 1.7) * 50 + 50,
+            size: (i % 4 === 0) ? 2.5 : 1,
+            opacity: i % 5 === 0 ? 0.35 : 0.12,
+            duration: 8 + (i % 7) * 2,
+            delay: (i % 6) * 1.5,
+          })).map(p => (
+            <div key={p.id} style={{
+              position: "absolute", left: `${p.x}%`, top: `${p.y}%`,
+              width: p.size, height: p.size, borderRadius: "50%",
+              background: "#c9a84c", opacity: p.opacity,
+              animation: `particleDrift ${p.duration}s ease-in-out ${p.delay}s infinite alternate`,
+              pointerEvents: "none",
+            }} />
+          ))}
+
+          {/* Deep ambient glow */}
+          <div style={{ position: "absolute", bottom: -100, left: "50%", transform: "translateX(-50%)", width: 800, height: 400, borderRadius: "50%", background: "radial-gradient(ellipse, rgba(201,168,76,0.1) 0%, transparent 65%)", filter: "blur(60px)", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", top: -50, left: "50%", transform: "translateX(-50%)", width: 600, height: 200, borderRadius: "50%", background: "radial-gradient(ellipse, rgba(201,168,76,0.05) 0%, transparent 70%)", filter: "blur(40px)", pointerEvents: "none" }} />
+
+          <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
+
+            {/* Eyebrow */}
+            <p style={{
+              fontSize: 11, letterSpacing: "0.3em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 32,
+              opacity: ctaVisible ? 1 : 0, transition: "opacity 0.8s ease",
+            }}>
+              Join the beta
+            </p>
+
+            {/* Giant headline — Scarabynth scale */}
+            <h2 style={{
+              fontFamily: "var(--font-display), serif",
+              fontSize: "clamp(52px, 9vw, 110px)",
+              fontWeight: 300, lineHeight: 0.95, letterSpacing: "-0.03em",
+              marginBottom: 40,
+              opacity: ctaVisible ? 1 : 0,
+              transform: ctaVisible ? "none" : "translateY(40px)",
+              transition: "all 1s cubic-bezier(0.16,1,0.3,1) 0.1s",
+            }}>
+              Stop guessing.
+              <br />
+              <em style={{ fontStyle: "italic", fontWeight: 600, background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 45%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                Start converting.
+              </em>
             </h2>
-            <p style={{ fontSize: 14, color: "#555", maxWidth: 480, margin: "0 auto 40px", lineHeight: 1.7 }}>
+
+            {/* Animated gold rule */}
+            <div style={{
+              height: 1, background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.4), transparent)",
+              marginBottom: 40, maxWidth: 480, margin: "0 auto 40px",
+              transform: ctaVisible ? "scaleX(1)" : "scaleX(0)",
+              transition: "transform 1s cubic-bezier(0.16,1,0.3,1) 0.4s",
+              transformOrigin: "center",
+            }} />
+
+            {/* Subtext */}
+            <p style={{
+              fontSize: 15, color: "#555", maxWidth: 520, margin: "0 auto 56px", lineHeight: 1.75,
+              opacity: ctaVisible ? 1 : 0,
+              transition: "opacity 0.8s ease 0.5s",
+            }}>
               We&apos;re opening beta access to a limited number of service providers. Create your profile now and get matched leads from day one.
             </p>
-            <Link href="/login" style={{ display: "inline-block", padding: "16px 40px", borderRadius: 12, background: "#c9a84c", color: "#080808", fontWeight: 700, fontSize: 14, letterSpacing: "0.06em", textDecoration: "none", boxShadow: "0 8px 40px rgba(201,168,76,0.2)" }}>
-              Create Your Profile — It&apos;s Free
-            </Link>
-            <p style={{ marginTop: 16, fontSize: 11, color: "#333" }}>No credit card required · Cancel anytime</p>
+
+            {/* CTA button in a gold pool */}
+            <div style={{ position: "relative", display: "inline-block" }}>
+              <div style={{ position: "absolute", inset: -40, borderRadius: "50%", background: "radial-gradient(ellipse, rgba(201,168,76,0.15) 0%, transparent 70%)", filter: "blur(20px)", pointerEvents: "none", opacity: ctaVisible ? 1 : 0, transition: "opacity 1s ease 0.8s" }} />
+              <div style={{
+                opacity: ctaVisible ? 1 : 0,
+                transform: ctaVisible ? "none" : "translateY(20px)",
+                transition: "all 0.8s cubic-bezier(0.16,1,0.3,1) 0.7s",
+              }}>
+                <GlowButton href="/login" style={{ padding: "18px 48px", borderRadius: 14, background: "#c9a84c", color: "#080808", fontWeight: 700, fontSize: 15, letterSpacing: "0.06em", textDecoration: "none", boxShadow: "0 12px 50px rgba(201,168,76,0.3), 0 4px 20px rgba(201,168,76,0.2)" }}>
+                  Create Your Profile — It&apos;s Free
+                </GlowButton>
+              </div>
+            </div>
+
+            <p style={{ marginTop: 24, fontSize: 11, color: "#2a2a2a", letterSpacing: "0.1em", opacity: ctaVisible ? 1 : 0, transition: "opacity 0.8s ease 1s" }}>
+              No credit card required · Cancel anytime
+            </p>
           </div>
         </section>
-        </GlowSection>
       </div>
 
       {/* FOOTER */}
