@@ -966,21 +966,26 @@ function SceneSection({ scrollY }: { scrollY: number }) {
   const SLOW = 0.60;  // next  60% of scroll = 45→135° (slow, readable zone)
   // last 20% = 135→180° (fast exit)
 
+  // Arc runs 20°→160° — not fully flat on entry/exit, more natural
+  const START_ANGLE = 20;
+  const ENTRY_ZONE = 45 - START_ANGLE; // 25° fast entry
+  const EXIT_ZONE  = 160 - 135;        // 25° fast exit
+
   let angleDeg: number;
   if (t < FAST) {
-    // Zone 1: 0→45° fast — easeInOutQuad compressed
-    const z = t / FAST; // 0→1
-    const eased = z * z * (3 - 2 * z); // smoothstep
-    angleDeg = eased * 45;
+    // Zone 1: 20→45° fast
+    const z = t / FAST;
+    const eased = z * z * (3 - 2 * z);
+    angleDeg = START_ANGLE + eased * ENTRY_ZONE;
   } else if (t < FAST + SLOW) {
-    // Zone 2: 45→135° slow — linear through readable zone
-    const z = (t - FAST) / SLOW; // 0→1
+    // Zone 2: 45→135° slow — readable zone
+    const z = (t - FAST) / SLOW;
     angleDeg = 45 + z * 90;
   } else {
-    // Zone 3: 135→180° fast — easeInOutQuad compressed
-    const z = (t - FAST - SLOW) / FAST; // 0→1
+    // Zone 3: 135→160° fast
+    const z = (t - FAST - SLOW) / FAST;
     const eased = z * z * (3 - 2 * z);
-    angleDeg = 135 + eased * 45;
+    angleDeg = 135 + eased * EXIT_ZONE;
   }
 
   // Convert: rotateX(90°) = upright. rotateX(0°) = floor. rotateX(180°) = ceiling.
