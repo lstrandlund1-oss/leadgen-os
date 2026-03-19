@@ -954,7 +954,7 @@ function SceneSection({ scrollY }: { scrollY: number }) {
   // SCROLL_TOTAL: total scroll pixels for full 180° arc
   // We want the "readable zone" (45°→135°) to occupy ~60% of scroll travel
   // and entry/exit 45° each to occupy ~20%
-  const SCROLL_TOTAL = 1600; // total scroll px for full arc
+  const SCROLL_TOTAL = 900; // total scroll px for full arc — completes while scene is visible
   const t = Math.min(1, scrollY / SCROLL_TOTAL); // 0→1
 
   // Sine-based easing: slow in middle, fast at edges
