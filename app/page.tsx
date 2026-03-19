@@ -373,8 +373,16 @@ function StepsSection({ visible }: { visible: boolean }) {
         const progress = elapsed / DURATION;
         setT(progress);
         // 4 equal segments — node activates as pulse enters its zone
-        const node = Math.floor(progress * 4);
-        setActiveNode(Math.min(node, 3));
+        // Activate node when pulse dot physically reaches it
+        // NODE_Y positions: 75, 225, 375, 525 — range 450, starting at 75
+        // pulseY = t * 450 + 75, so node i reached when t >= i/3 * (450/600)
+        // Using exact threshold: (NODE_Y[i] - 75) / 450, with tiny look-ahead of 0.008
+        const LOOK_AHEAD = 0.008;
+        let node = 0;
+        if (progress >= 1/3 - LOOK_AHEAD) node = 1;
+        if (progress >= 2/3 - LOOK_AHEAD) node = 2;
+        if (progress >= 1   - LOOK_AHEAD) node = 3;
+        setActiveNode(node);
         rafRef.current = requestAnimationFrame(tick);
       };
       rafRef.current = requestAnimationFrame(tick);
