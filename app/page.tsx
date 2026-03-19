@@ -644,16 +644,17 @@ function HeroText({ scrollY, heroTextOpacity, waitlistCount }: {
       }}
     >
       {/* Headline with breathing gold field + per-line parallax */}
-      <div className="animate-fade-up-delay-2" style={{ position: "relative", display: "inline-block", maxWidth: 800, margin: "0 auto 20px" }}>
+      <div className="animate-fade-up-delay-2" style={{ position: "relative", display: "inline-block", maxWidth: 960, width: "100%", margin: "0 auto 20px" }}>
         {/* Breathing gold field sits behind both lines */}
         <GoldField />
 
-        {/* Line 1 — lighter parallax, regular weight, clean white */}
+        {/* Line 1 — left-anchored, lighter parallax */}
         <div style={{
           position: "relative", zIndex: 1,
           transform: `translate(${line1X}px, ${line1Y}px)`,
           transition: "transform 0.08s ease-out",
           display: "block",
+          textAlign: "left",
         }}>
           <span style={{
             fontFamily: "var(--font-display), serif",
@@ -667,12 +668,13 @@ function HeroText({ scrollY, heroTextOpacity, waitlistCount }: {
           </span>
         </div>
 
-        {/* Line 2 — heavier parallax, italic gold */}
+        {/* Line 2 — staggered right, heavier parallax, italic gold */}
         <div style={{
           position: "relative", zIndex: 1,
           transform: `translate(${line2X}px, ${line2Y}px)`,
           transition: "transform 0.08s ease-out",
           display: "block",
+          textAlign: "right",
         }}>
           <em style={{
             fontFamily: "var(--font-display), serif",
