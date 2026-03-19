@@ -582,10 +582,12 @@ const TOTAL_CYCLE    = STAGE_SEARCH + STAGE_RESULTS + STAGE_SCORE + STAGE_PAUSE;
 
 type HeroStage = "idle" | "search" | "results" | "score" | "pause";
 
-function HeroScene({ scrollY, waitlistCount, heroTextOpacity }: {
+function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, scrollLocked }: {
   scrollY: number;
   waitlistCount: number | null;
   heroTextOpacity: number;
+  sequenceProgress: number;
+  scrollLocked: boolean;
 }) {
   const [stage, setStage] = useState<HeroStage>("idle");
   const [selectedLead, setSelectedLead] = useState(0);
@@ -835,10 +837,30 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity }: {
         </div>
       </div>
 
-      {/* Scroll indicator */}
-      <div style={{ position: "absolute", bottom: 28, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, opacity: Math.max(0, 1 - scrollY / 200) }}>
-        <div style={{ width: 1, height: 36, background: "linear-gradient(to bottom, transparent, rgba(201,168,76,0.4))" }} />
-        <span style={{ fontSize: 9, color: "#333", letterSpacing: "0.2em", textTransform: "uppercase" }}>scroll</span>
+      {/* Scroll indicator — progress bar while locked, arrow when released */}
+      <div style={{ position: "absolute", bottom: 28, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, opacity: scrollLocked ? 1 : Math.max(0, 1 - scrollY / 200) }}>
+        {scrollLocked ? (
+          <>
+            {/* Progress track */}
+            <div style={{ width: 120, height: 2, background: "rgba(201,168,76,0.12)", borderRadius: 999, overflow: "hidden" }}>
+              <div style={{
+                height: "100%", borderRadius: 999,
+                background: "linear-gradient(90deg, #8a6e30, #c9a84c, #e8c97a)",
+                width: `${sequenceProgress * 100}%`,
+                transition: "width 0.1s linear",
+                boxShadow: "0 0 8px rgba(201,168,76,0.4)",
+              }} />
+            </div>
+            <span style={{ fontSize: 9, color: "#555", letterSpacing: "0.2em", textTransform: "uppercase" }}>
+              {sequenceProgress < 0.99 ? "scanning…" : "scroll to continue"}
+            </span>
+          </>
+        ) : (
+          <>
+            <div style={{ width: 1, height: 36, background: "linear-gradient(to bottom, transparent, rgba(201,168,76,0.4))" }} />
+            <span style={{ fontSize: 9, color: "#333", letterSpacing: "0.2em", textTransform: "uppercase" }}>scroll</span>
+          </>
+        )}
       </div>
     </section>
   );
@@ -875,11 +897,54 @@ export default function LandingPage() {
     }).catch(() => {});
   }, []);
 
+  // Scroll jail — lock page during hero sequence, release after one full cycle
+  const [scrollLocked, setScrollLocked] = useState(true);
+  const [sequenceProgress, setSequenceProgress] = useState(0); // 0-1
+  const scrollLockRef = useRef(false);
+
   useEffect(() => {
+    scrollLockRef.current = true;
+    document.body.style.overflow = "hidden";
+
+    // Progress ticker
+    const startTime = performance.now();
+    let rafId: number;
+    const tick = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / TOTAL_CYCLE, 1);
+      setSequenceProgress(progress);
+      if (progress < 1) {
+        rafId = requestAnimationFrame(tick);
+      } else {
+        // Release
+        scrollLockRef.current = false;
+        document.body.style.overflow = "";
+        setScrollLocked(false);
+      }
+    };
+    rafId = requestAnimationFrame(tick);
+
+    // Prevent wheel/touch scroll during lock
+    const preventScroll = (e: Event) => {
+      if (scrollLockRef.current) e.preventDefault();
+    };
+    window.addEventListener("wheel", preventScroll, { passive: false });
+    window.addEventListener("touchmove", preventScroll, { passive: false });
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      document.body.style.overflow = "";
+      window.removeEventListener("wheel", preventScroll);
+      window.removeEventListener("touchmove", preventScroll);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (scrollLocked) return;
     const onScroll = () => setScrollY(window.scrollY);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [scrollLocked]);
 
 
 
@@ -911,6 +976,8 @@ export default function LandingPage() {
         scrollY={scrollY}
         waitlistCount={waitlistCount}
         heroTextOpacity={heroTextOpacity}
+        sequenceProgress={sequenceProgress}
+        scrollLocked={scrollLocked}
       />
 
             {/* STAT BAR */}
