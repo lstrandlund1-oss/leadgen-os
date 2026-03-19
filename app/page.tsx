@@ -1012,10 +1012,10 @@ function GlowButton({ href, children, style = {} }: { href: string; children: Re
       {pos && (
         <span style={{
           position: "absolute",
-          left: pos.x - 80, top: pos.y - 80,
-          width: 160, height: 160,
+          left: pos.x - 100, top: pos.y - 100,
+          width: 200, height: 200,
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(255,255,255,0.22) 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.1) 50%, transparent 70%)",
           pointerEvents: "none",
           transition: "none",
           mixBlendMode: "overlay",
@@ -1070,8 +1070,7 @@ export default function LandingPage() {
 
   const [sequenceProgress, setSequenceProgress] = useState(0);
   const scrollLocked = false;
-  const [mouseX, setMouseX] = useState(-9999);
-  const [mouseY, setMouseY] = useState(-9999);
+
 
   useEffect(() => {
     // Track sequence progress for the indicator bar
@@ -1092,16 +1091,7 @@ export default function LandingPage() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => { setMouseX(e.clientX); setMouseY(e.clientY); };
-    const onLeave = () => { setMouseX(-9999); setMouseY(-9999); };
-    window.addEventListener("mousemove", onMove, { passive: true });
-    document.addEventListener("mouseleave", onLeave);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseleave", onLeave);
-    };
-  }, []);
+
 
 
 
@@ -1112,19 +1102,6 @@ export default function LandingPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#080808", color: "#f5f0e8", overflowX: "hidden" }}>
-
-      {/* Global cursor ambient light — very subtle, atmospheric */}
-      <div style={{
-        position: "fixed",
-        left: mouseX - 300, top: mouseY - 300,
-        width: 600, height: 600,
-        borderRadius: "50%",
-        background: "radial-gradient(circle, rgba(201,168,76,0.055) 0%, rgba(201,168,76,0.02) 40%, transparent 70%)",
-        pointerEvents: "none",
-        zIndex: 9999,
-        transition: "left 0.12s ease-out, top 0.12s ease-out",
-        mixBlendMode: "screen",
-      }} />
 
       {/* NAV */}
       <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 40, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 48px", borderBottom: "1px solid #181818", background: "rgba(8,8,8,0.92)", backdropFilter: "blur(16px)" }}>
