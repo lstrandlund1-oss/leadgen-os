@@ -522,15 +522,42 @@ function ScoreBar({ label, value, color, delay = 0, animate }: { label: string; 
 }
 
 // ── SEQUENCE DATA ──
-const MOCK_LEADS = [
-  { name: "Bloom & Co Studio",   industry: "Beauty Salon",    city: "London",     score: 74, fit: 81, opp: 68, risk: 22, gap: "CONVERSION",     gapColor: "#fb923c", verdict: "Strong Lead",  verdictColor: "#4ade80" },
-  { name: "Peak Performance Gym", industry: "Fitness Centre", city: "Manchester", score: 61, fit: 55, opp: 70, risk: 35, gap: "VISIBILITY",      gapColor: "#818cf8", verdict: "Good Lead",    verdictColor: "#c9a84c" },
-  { name: "Harbour View Hotel",  industry: "Hospitality",     city: "Bristol",    score: 88, fit: 92, opp: 85, risk: 10, gap: "INFRASTRUCTURE", gapColor: "#60a5fa", verdict: "Top Lead",     verdictColor: "#4ade80" },
-  { name: "Spark Digital Agency",industry: "Marketing",       city: "Edinburgh",  score: 45, fit: 38, opp: 50, risk: 55, gap: "OPTIMISATION",   gapColor: "#f472b6", verdict: "Weak Lead",    verdictColor: "#f87171" },
-  { name: "Verde Kitchen",       industry: "Restaurant",      city: "Birmingham", score: 79, fit: 84, opp: 74, risk: 18, gap: "CONVERSION",     gapColor: "#fb923c", verdict: "Strong Lead",  verdictColor: "#4ade80" },
+// Each cycle has a matching search query + results set
+const SEARCH_CYCLES = [
+  {
+    query: "beauty salons · london",
+    leads: [
+      { name: "Bloom & Co Studio",    industry: "Beauty Salon",   city: "London",  score: 74, fit: 81, opp: 68, risk: 22, gap: "CONVERSION",     gapColor: "#fb923c", verdict: "Strong Lead", verdictColor: "#4ade80" },
+      { name: "Glow Beauty Bar",      industry: "Beauty Salon",   city: "London",  score: 61, fit: 70, opp: 55, risk: 30, gap: "VISIBILITY",      gapColor: "#818cf8", verdict: "Good Lead",   verdictColor: "#c9a84c" },
+      { name: "Luxe Nail & Spa",      industry: "Beauty Salon",   city: "London",  score: 88, fit: 92, opp: 85, risk: 10, gap: "CONVERSION",     gapColor: "#fb923c", verdict: "Top Lead",    verdictColor: "#4ade80" },
+      { name: "The Beauty Collective",industry: "Beauty Salon",   city: "London",  score: 45, fit: 38, opp: 50, risk: 55, gap: "OPTIMISATION",   gapColor: "#f472b6", verdict: "Weak Lead",   verdictColor: "#f87171" },
+      { name: "Studio Muse London",   industry: "Beauty Salon",   city: "London",  score: 79, fit: 84, opp: 74, risk: 18, gap: "INFRASTRUCTURE", gapColor: "#60a5fa", verdict: "Strong Lead", verdictColor: "#4ade80" },
+    ],
+  },
+  {
+    query: "web design agencies · stockholm",
+    leads: [
+      { name: "Norr Studio AB",       industry: "Web Agency",     city: "Stockholm", score: 82, fit: 88, opp: 79, risk: 14, gap: "CONVERSION",     gapColor: "#fb923c", verdict: "Top Lead",    verdictColor: "#4ade80" },
+      { name: "Pixel & Pine",         industry: "Web Agency",     city: "Stockholm", score: 67, fit: 60, opp: 72, risk: 28, gap: "VISIBILITY",      gapColor: "#818cf8", verdict: "Good Lead",   verdictColor: "#c9a84c" },
+      { name: "Forma Digital",        industry: "Web Agency",     city: "Stockholm", score: 55, fit: 50, opp: 61, risk: 40, gap: "OPTIMISATION",   gapColor: "#f472b6", verdict: "Weak Lead",   verdictColor: "#f87171" },
+      { name: "Brightpath Agency",    industry: "Web Agency",     city: "Stockholm", score: 91, fit: 95, opp: 88, risk: 8,  gap: "INFRASTRUCTURE", gapColor: "#60a5fa", verdict: "Top Lead",    verdictColor: "#4ade80" },
+      { name: "Studio Noll",          industry: "Web Agency",     city: "Stockholm", score: 73, fit: 77, opp: 68, risk: 22, gap: "CONVERSION",     gapColor: "#fb923c", verdict: "Strong Lead", verdictColor: "#4ade80" },
+    ],
+  },
+  {
+    query: "personal trainers · manchester",
+    leads: [
+      { name: "Peak Form PT",         industry: "Personal Trainer", city: "Manchester", score: 86, fit: 90, opp: 83, risk: 12, gap: "VISIBILITY",      gapColor: "#818cf8", verdict: "Top Lead",    verdictColor: "#4ade80" },
+      { name: "Iron & Grit Fitness",  industry: "Personal Trainer", city: "Manchester", score: 62, fit: 58, opp: 66, risk: 34, gap: "CONVERSION",     gapColor: "#fb923c", verdict: "Good Lead",   verdictColor: "#c9a84c" },
+      { name: "Elevate Coaching",     industry: "Personal Trainer", city: "Manchester", score: 77, fit: 82, opp: 73, risk: 20, gap: "OPTIMISATION",   gapColor: "#f472b6", verdict: "Strong Lead", verdictColor: "#4ade80" },
+      { name: "Body Blueprint",       industry: "Personal Trainer", city: "Manchester", score: 49, fit: 42, opp: 55, risk: 50, gap: "INFRASTRUCTURE", gapColor: "#60a5fa", verdict: "Weak Lead",   verdictColor: "#f87171" },
+      { name: "Momentum Fitness MCR", industry: "Personal Trainer", city: "Manchester", score: 80, fit: 85, opp: 76, risk: 16, gap: "CONVERSION",     gapColor: "#fb923c", verdict: "Strong Lead", verdictColor: "#4ade80" },
+    ],
+  },
 ];
 
-const SEARCH_QUERY = "beauty salons · london";
+// Keep a flat MOCK_LEADS for TypeScript — replaced dynamically
+const MOCK_LEADS = SEARCH_CYCLES[0].leads;
 
 // Animated typing text
 function TypedText({ text, started }: { text: string; started: boolean }) {
@@ -593,6 +620,11 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
   const [selectedLead, setSelectedLead] = useState(0);
   const [scoreAnimate, setScoreAnimate] = useState(false);
   const [visibleRows, setVisibleRows] = useState(0);
+  const [cycleIndex, setCycleIndex] = useState(0);
+
+  const activeCycle = SEARCH_CYCLES[cycleIndex % SEARCH_CYCLES.length];
+  const activeLeads = activeCycle.leads;
+  const activeQuery = activeCycle.query;
 
   // Galaxy particles — kept from old hero
   const [nearParticles] = useState(() =>
@@ -614,19 +646,25 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
 
   const galaxyDepth = Math.min(1, scrollY / 800);
   const fieldRotation = scrollY * 0.015;
-  const sceneTiltX = Math.max(2, 18 - scrollY * 0.012);
-  const sceneTiltY = Math.min(0, -8 + scrollY * 0.005);
-  const sceneScale = 1 - Math.min(scrollY * 0.0003, 0.1);
+  // Scroll physics — scene tilts, rises, and leans as user scrolls
+  const sceneTiltX = Math.max(-8, 18 - scrollY * 0.055);   // flattens faster then tips forward
+  const sceneTiltY = -8 + Math.sin(scrollY * 0.004) * 6;   // gentle left/right sway
+  const sceneTiltZ = scrollY * 0.008;                        // slight lean as it rises
+  const sceneTranslateY = -scrollY * 0.18;                   // rises upward with scroll
+  const sceneScale = 1 - Math.min(scrollY * 0.0004, 0.15);  // shrinks into distance
 
   // ── SEQUENCE ENGINE ──
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
 
-    const runCycle = (leadIdx: number) => {
+    const runCycle = (cycleIdx: number) => {
+      const cycle = SEARCH_CYCLES[cycleIdx % SEARCH_CYCLES.length];
       // Reset
+      setCycleIndex(cycleIdx);
       setStage("idle");
       setVisibleRows(0);
       setScoreAnimate(false);
+      setSelectedLead(0);
 
       // Stage 1: start typing
       timers.push(setTimeout(() => setStage("search"), 300));
@@ -634,26 +672,23 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
       // Stage 2: show results
       timers.push(setTimeout(() => {
         setStage("results");
-        for (let r = 0; r < MOCK_LEADS.length; r++) {
+        for (let r = 0; r < cycle.leads.length; r++) {
           timers.push(setTimeout(() => setVisibleRows(r + 1), r * 200));
         }
       }, STAGE_SEARCH));
 
-      // Stage 3: select + score
+      // Stage 3: select top lead (highest score) + animate score
       timers.push(setTimeout(() => {
         setStage("score");
-        setSelectedLead(leadIdx);
+        const topIdx = cycle.leads.reduce((best, l, i) =>
+          l.score > cycle.leads[best].score ? i : best, 0);
+        setSelectedLead(topIdx);
         setTimeout(() => setScoreAnimate(true), 200);
       }, STAGE_SEARCH + STAGE_RESULTS));
 
       // Stage 4: pause then loop
-      timers.push(setTimeout(() => {
-        setStage("pause");
-      }, STAGE_SEARCH + STAGE_RESULTS + STAGE_SCORE));
-
-      timers.push(setTimeout(() => {
-        runCycle((leadIdx + 1) % MOCK_LEADS.length);
-      }, TOTAL_CYCLE));
+      timers.push(setTimeout(() => setStage("pause"), STAGE_SEARCH + STAGE_RESULTS + STAGE_SCORE));
+      timers.push(setTimeout(() => runCycle(cycleIdx + 1), TOTAL_CYCLE));
     };
 
     const init = setTimeout(() => runCycle(0), 400);
@@ -664,7 +699,7 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const lead = MOCK_LEADS[selectedLead];
+  const lead = activeCycle.leads[selectedLead] ?? activeCycle.leads[0];
 
   return (
     <section style={{
@@ -728,7 +763,7 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
         position: "relative", zIndex: 5,
       }}>
         <div style={{
-          transform: `rotateX(${sceneTiltX}deg) rotateY(${sceneTiltY}deg) scale(${sceneScale})`,
+          transform: `translateY(${sceneTranslateY}px) rotateX(${sceneTiltX}deg) rotateY(${sceneTiltY}deg) rotateZ(${sceneTiltZ}deg) scale(${sceneScale})`,
           transformStyle: "preserve-3d",
           transition: "transform 0.12s linear",
           transformOrigin: "50% 50%",
@@ -771,7 +806,7 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
                   {stage === "idle" ? (
                     <span style={{ color: "#333" }}>Search niche + location…</span>
                   ) : (
-                    <TypedText text={SEARCH_QUERY} started={stage !== ("idle" as HeroStage)} />
+                    <TypedText text={activeQuery} started={stage !== ("idle" as HeroStage)} />
                   )}
                 </span>
                 <div style={{
@@ -791,7 +826,7 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
                 transition: "opacity 0.4s ease",
               }}>
                 <span style={{ fontSize: 10, color: "#555", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                  {MOCK_LEADS.length} leads found · scored against your profile
+                  {activeLeads.length} leads found · scored against your profile
                 </span>
                 <div style={{ display: "flex", gap: 8 }}>
                   {["Score ↓", "Fit", "Gap"].map(f => (
@@ -802,7 +837,7 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
 
               {/* Lead rows */}
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {MOCK_LEADS.map((l, i) => {
+                {activeLeads.map((l, i) => {
                   const isSelected = (stage as HeroStage) === "score" || (stage as HeroStage) === "pause";
                   const isThisOne = isSelected && i === selectedLead;
                   const rowVisible = i < visibleRows;
