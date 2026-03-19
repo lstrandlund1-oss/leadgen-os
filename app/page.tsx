@@ -689,8 +689,8 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
         }}>
           {/* Surface panel */}
           <div style={{
-            background: "#0c0c0c",
-            border: "1px solid #222",
+            background: "#0e0e0e",
+            border: "1px solid #2a2a2a",
             borderRadius: 20,
             overflow: "hidden",
             boxShadow: "0 40px 120px rgba(0,0,0,0.8), 0 0 0 1px rgba(201,168,76,0.06), inset 0 1px 0 rgba(255,255,255,0.03)",
@@ -710,7 +710,7 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
             </div>
 
             {/* App content */}
-            <div style={{ padding: "20px 24px", minHeight: 380 }}>
+            <div style={{ padding: "20px 24px", height: 420, overflow: "hidden", position: "relative" }}>
 
               {/* Search bar */}
               <div style={{
@@ -765,11 +765,13 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
                     <div key={i} style={{
                       borderRadius: 10,
                       border: `1px solid ${isThisOne ? "rgba(201,168,76,0.3)" : "#1a1a1a"}`,
-                      background: isThisOne ? "rgba(201,168,76,0.04)" : "#0d0d0d",
+                      background: isThisOne ? "rgba(201,168,76,0.06)" : "#111",
                       overflow: "hidden",
                       opacity: rowVisible ? 1 : 0,
-                      transform: rowVisible ? "none" : "translateY(10px)",
-                      transition: `opacity 0.4s ease ${i * 60}ms, transform 0.4s ease ${i * 60}ms, border-color 0.4s ease, background 0.4s ease`,
+                      maxHeight: rowVisible ? 300 : 0,
+                      marginBottom: rowVisible ? undefined : 0,
+                      transform: rowVisible ? "none" : "translateY(6px)",
+                      transition: `opacity 0.35s ease ${i * 80}ms, max-height 0.35s ease ${i * 80}ms, transform 0.35s ease ${i * 80}ms, border-color 0.3s ease, background 0.3s ease`,
                       boxShadow: isThisOne ? "0 4px 24px rgba(201,168,76,0.08)" : "none",
                     }}>
                       {/* Row header — always visible */}
@@ -897,54 +899,27 @@ export default function LandingPage() {
     }).catch(() => {});
   }, []);
 
-  // Scroll jail — lock page during hero sequence, release after one full cycle
-  const [scrollLocked, setScrollLocked] = useState(true);
-  const [sequenceProgress, setSequenceProgress] = useState(0); // 0-1
-  const scrollLockRef = useRef(false);
+  const [sequenceProgress, setSequenceProgress] = useState(0);
+  const scrollLocked = false; // No longer jailing scroll — sequence plays automatically
 
   useEffect(() => {
-    scrollLockRef.current = true;
-    document.body.style.overflow = "hidden";
-
-    // Progress ticker
+    // Track sequence progress for the indicator bar
     const startTime = performance.now();
     let rafId: number;
     const tick = (now: number) => {
-      const elapsed = now - startTime;
-      const progress = Math.min(elapsed / TOTAL_CYCLE, 1);
-      setSequenceProgress(progress);
-      if (progress < 1) {
-        rafId = requestAnimationFrame(tick);
-      } else {
-        // Release
-        scrollLockRef.current = false;
-        document.body.style.overflow = "";
-        setScrollLocked(false);
-      }
+      const elapsed = (now - startTime) % TOTAL_CYCLE;
+      setSequenceProgress(elapsed / TOTAL_CYCLE);
+      rafId = requestAnimationFrame(tick);
     };
     rafId = requestAnimationFrame(tick);
-
-    // Prevent wheel/touch scroll during lock
-    const preventScroll = (e: Event) => {
-      if (scrollLockRef.current) e.preventDefault();
-    };
-    window.addEventListener("wheel", preventScroll, { passive: false });
-    window.addEventListener("touchmove", preventScroll, { passive: false });
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      document.body.style.overflow = "";
-      window.removeEventListener("wheel", preventScroll);
-      window.removeEventListener("touchmove", preventScroll);
-    };
+    return () => cancelAnimationFrame(rafId);
   }, []);
 
   useEffect(() => {
-    if (scrollLocked) return;
     const onScroll = () => setScrollY(window.scrollY);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [scrollLocked]);
+  }, []);
 
 
 
