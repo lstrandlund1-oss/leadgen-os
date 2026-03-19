@@ -601,6 +601,14 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity }: {
       opacity: Math.random() * 0.2 + 0.04,
     }))
   );
+  const [deepParticles] = useState(() =>
+    Array.from({ length: 25 }, (_, i) => ({
+      id: i + 100, x: Math.random() * 100, y: Math.random() * 100,
+      size: Math.random() * 3 + 1.5,
+      duration: Math.random() * 18 + 12, delay: Math.random() * 10,
+      baseOpacity: Math.random() * 0.12 + 0.02,
+    }))
+  );
 
   const galaxyDepth = Math.min(1, scrollY / 800);
   const fieldRotation = scrollY * 0.015;
@@ -715,7 +723,7 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity }: {
                   {stage === "idle" ? (
                     <span style={{ color: "#333" }}>Search niche + location…</span>
                   ) : (
-                    <TypedText text={SEARCH_QUERY} started={stage !== "idle"} />
+                    <TypedText text={SEARCH_QUERY} started={stage !== ("idle" as HeroStage)} />
                   )}
                 </span>
                 <div style={{
