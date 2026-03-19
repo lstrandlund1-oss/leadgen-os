@@ -798,11 +798,6 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
   const galaxyDepth = Math.min(1, scrollY / 800);
   const fieldRotation = scrollY * 0.015;
   // Scroll physics — scene tilts, rises, and leans as user scrolls
-  const sceneTiltX = Math.max(-8, 18 - scrollY * 0.055);   // flattens faster then tips forward
-  const sceneTiltY = -8 + Math.sin(scrollY * 0.004) * 6;   // gentle left/right sway
-  const sceneTiltZ = scrollY * 0.008;                        // slight lean as it rises
-  const sceneTranslateY = -scrollY * 0.18;                   // rises upward with scroll
-  const sceneScale = 1 - Math.min(scrollY * 0.0004, 0.15);  // shrinks into distance
 
   // ── SEQUENCE ENGINE ──
   useEffect(() => {
@@ -886,16 +881,106 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
         waitlistCount={waitlistCount}
       />
 
-      {/* ── 3D SCENE ── */}
-      <div className="animate-fade-up-delay-5" style={{
+    </section>
+  );
+}
+
+
+// ── SCENE SECTION — 3D UI showcase that animates into frame on scroll ──
+function SceneSection({ scrollY }: { scrollY: number }) {
+  const [entered, setEntered] = useState(false);
+  const [stage, setStage] = useState<HeroStage>("idle");
+  const [cycleIndex, setCycleIndex] = useState(0);
+  const [selectedLead, setSelectedLead] = useState(0);
+  const [scoreAnimate, setScoreAnimate] = useState(false);
+  const [visibleRows, setVisibleRows] = useState(0);
+  const sectionRef = useRef<HTMLDivElement>(null);
+
+  // Intersection observer — triggers entry animation once
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting && !entered) setEntered(true); },
+      { threshold: 0.15 }
+    );
+    if (sectionRef.current) obs.observe(sectionRef.current);
+    return () => obs.disconnect();
+  }, [entered]);
+
+  // Sequence engine — same as before, starts after entry
+  useEffect(() => {
+    if (!entered) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const runCycle = (cycleIdx: number) => {
+      const cycle = SEARCH_CYCLES[cycleIdx % SEARCH_CYCLES.length];
+      setCycleIndex(cycleIdx);
+      setStage("idle");
+      setVisibleRows(0);
+      setScoreAnimate(false);
+      setSelectedLead(0);
+      timers.push(setTimeout(() => setStage("search"), 300));
+      timers.push(setTimeout(() => {
+        setStage("results");
+        for (let r = 0; r < cycle.leads.length; r++) {
+          timers.push(setTimeout(() => setVisibleRows(r + 1), r * 200));
+        }
+      }, STAGE_SEARCH));
+      timers.push(setTimeout(() => {
+        setStage("score");
+        const topIdx = cycle.leads.reduce((best, l, i) => l.score > cycle.leads[best].score ? i : best, 0);
+        setSelectedLead(topIdx);
+        setTimeout(() => setScoreAnimate(true), 200);
+      }, STAGE_SEARCH + STAGE_RESULTS));
+      timers.push(setTimeout(() => setStage("pause"), STAGE_SEARCH + STAGE_RESULTS + STAGE_SCORE));
+      timers.push(setTimeout(() => runCycle(cycleIdx + 1), TOTAL_CYCLE));
+    };
+    const init = setTimeout(() => runCycle(0), 600);
+    return () => { clearTimeout(init); timers.forEach(clearTimeout); };
+  }, [entered]);
+
+  const activeCycle = SEARCH_CYCLES[cycleIndex % SEARCH_CYCLES.length];
+  const activeLeads = activeCycle.leads;
+  const activeQuery = activeCycle.query;
+  const lead = activeCycle.leads[selectedLead] ?? activeCycle.leads[0];
+
+  // Scroll physics — after entry, scene responds to scroll
+  // Offset relative to when the scene section enters view (~1 viewport height)
+  const relativeScroll = Math.max(0, scrollY - window.innerHeight * 0.8);
+  const sceneTiltX = entered ? Math.max(-8, 18 - relativeScroll * 0.055) : 35;
+  const sceneTiltY = entered ? -8 + Math.sin(relativeScroll * 0.004) * 6 : -4;
+  const sceneTiltZ = entered ? relativeScroll * 0.008 : 0;
+  const sceneTranslateY = entered ? -relativeScroll * 0.18 : 60;
+  const sceneScale = entered ? 1 - Math.min(relativeScroll * 0.0004, 0.15) : 0.9;
+  const galaxyDepth = Math.min(1, relativeScroll / 800);
+
+  return (
+    <section
+      ref={sectionRef}
+      style={{
+        background: "#080808",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        padding: "0 24px 80px",
+        overflow: "visible",
+        position: "relative",
+      }}
+    >
+      {/* Option C entry: starts tilted flat + faded, eases to resting angle */}
+      <div style={{
         width: "100%", maxWidth: "min(1100px, 92vw)",
         perspective: "1400px",
         position: "relative", zIndex: 5,
+        opacity: entered ? 1 : 0,
+        transition: entered
+          ? "opacity 0.6s ease 0.1s"
+          : "none",
       }}>
         <div style={{
           transform: `translateY(${sceneTranslateY}px) rotateX(${sceneTiltX}deg) rotateY(${sceneTiltY}deg) rotateZ(${sceneTiltZ}deg) scale(${sceneScale})`,
           transformStyle: "preserve-3d",
-          transition: "transform 0.12s linear",
+          transition: entered
+            ? "transform 1.4s cubic-bezier(0.16,1,0.3,1), opacity 0.6s ease"
+            : "none",
           transformOrigin: "50% 50%",
         }}>
           {/* Surface panel */}
@@ -908,7 +993,6 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
           }}>
             {/* Surface grid */}
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.025, backgroundImage: "linear-gradient(#c9a84c 1px, transparent 1px), linear-gradient(90deg, #c9a84c 1px, transparent 1px)", backgroundSize: "40px 40px", borderRadius: 20 }} />
-
             {/* Top chrome bar */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 20px", borderBottom: "1px solid #1a1a1a", background: "rgba(255,255,255,0.01)" }}>
               <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#2a2a2a" }} />
@@ -918,20 +1002,13 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
                 <span style={{ fontSize: 9, color: "#333", letterSpacing: "0.06em" }}>◈</span>
                 <span style={{ fontSize: 10, color: "#333", letterSpacing: "0.04em" }}>vantioapp.com</span>
               </div>
+              <div style={{ padding: "4px 12px", borderRadius: 6, background: "#c9a84c", fontSize: 10, fontWeight: 700, color: "#080808", letterSpacing: "0.08em" }}>SCAN</div>
             </div>
-
             {/* App content */}
             <div style={{ padding: "20px 24px", height: 420, overflow: "hidden", position: "relative" }}>
-
               {/* Search bar */}
-              <div style={{
-                display: "flex", alignItems: "center", gap: 12, marginBottom: 20,
-                background: "#111", border: "1px solid", borderColor: stage === "search" ? "rgba(201,168,76,0.4)" : "#1e1e1e",
-                borderRadius: 10, padding: "10px 16px",
-                boxShadow: stage === "search" ? "0 0 20px rgba(201,168,76,0.08)" : "none",
-                transition: "border-color 0.3s ease, box-shadow 0.3s ease",
-              }}>
-                <span style={{ fontSize: 12, color: "#444" }}>🔍</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderRadius: 10, border: "1px solid #1a1a1a", background: "#0a0a0a", marginBottom: 16 }}>
+                <span style={{ fontSize: 14, color: "#c9a84c" }}>🔍</span>
                 <span style={{ fontSize: 13, color: stage === "idle" ? "#333" : "#e8e0d0", fontFamily: "var(--font-body), sans-serif", letterSpacing: "0.01em", flex: 1 }}>
                   {stage === "idle" ? (
                     <span style={{ color: "#333" }}>Search niche + location…</span>
@@ -939,39 +1016,28 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
                     <TypedText text={activeQuery} started={stage !== ("idle" as HeroStage)} />
                   )}
                 </span>
-                <div style={{
-                  padding: "4px 12px", borderRadius: 6, background: stage === "results" || stage === "score" || stage === "pause" ? "#c9a84c" : "#1e1e1e",
-                  transition: "background 0.4s ease",
-                  fontSize: 10, color: stage === "results" || stage === "score" || stage === "pause" ? "#080808" : "#444",
-                  fontWeight: 600, letterSpacing: "0.06em",
-                }}>
+                <div style={{ padding: "4px 12px", borderRadius: 6, background: stage === "results" || stage === "score" || stage === "pause" ? "#c9a84c" : "#1e1e1e", fontSize: 10, fontWeight: 700, color: stage === "results" || stage === "score" || stage === "pause" ? "#080808" : "#444", letterSpacing: "0.08em", transition: "all 0.4s ease" }}>
                   SCAN
                 </div>
               </div>
-
-              {/* Results status bar */}
-              <div style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14,
-                opacity: stage === "results" || stage === "score" || stage === "pause" ? 1 : 0,
-                transition: "opacity 0.4s ease",
-              }}>
-                <span style={{ fontSize: 10, color: "#555", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                  {activeLeads.length} leads found · scored against your profile
-                </span>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {["Score ↓", "Fit", "Gap"].map(f => (
-                    <span key={f} style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, background: "#111", border: "1px solid #1e1e1e", color: "#444", letterSpacing: "0.06em" }}>{f}</span>
+              {/* Results header */}
+              {(stage === "results" || stage === "score" || stage === "pause") && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "0 4px" }}>
+                  <span style={{ fontSize: 10, color: "#555", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                    {activeLeads.length} leads found · scored against your profile
+                  </span>
+                  <div style={{ flex: 1 }} />
+                  {["Score ↓", "Fit", "Gap"].map(label => (
+                    <span key={label} style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, border: "1px solid #1a1a1a", color: "#444", letterSpacing: "0.06em" }}>{label}</span>
                   ))}
                 </div>
-              </div>
-
+              )}
               {/* Lead rows */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {activeLeads.map((l, i) => {
-                  const isSelected = (stage as HeroStage) === "score" || (stage as HeroStage) === "pause";
-                  const isThisOne = isSelected && i === selectedLead;
                   const rowVisible = i < visibleRows;
-
+                  const isSelected = stage === "score" || stage === "pause";
+                  const isThisOne = isSelected && i === selectedLead;
                   return (
                     <div key={i} style={{
                       borderRadius: 10,
@@ -985,46 +1051,44 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
                       transition: `opacity 0.35s ease ${i * 80}ms, max-height 0.35s ease ${i * 80}ms, transform 0.35s ease ${i * 80}ms, border-color 0.3s ease, background 0.3s ease`,
                       boxShadow: isThisOne ? "0 4px 24px rgba(201,168,76,0.08)" : "none",
                     }}>
-                      {/* Row header — always visible */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px" }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                            <p style={{ fontSize: 12, fontWeight: 600, color: isThisOne ? "#f5f0e8" : "#888", whiteSpace: "nowrap", transition: "color 0.3s" }}>{l.name}</p>
-                            <span style={{ fontSize: 8, color: "#444", border: "1px solid #252525", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" }}>{l.industry}</span>
+                      {isThisOne ? (
+                        <div style={{ padding: "16px 20px" }}>
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 16 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                <span style={{ fontSize: 14, fontWeight: 600, color: "#f5f0e8" }}>{l.name}</span>
+                                <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, border: "1px solid #2a2a2a", color: "#555", letterSpacing: "0.06em" }}>{l.industry}</span>
+                              </div>
+                              <span style={{ fontSize: 11, color: "#444" }}>📍 {l.city}</span>
+                            </div>
+                            <div style={{ textAlign: "right", flexShrink: 0 }}>
+                              <div style={{ fontSize: 28, fontWeight: 700, color: l.score >= 75 ? "#4ade80" : l.score >= 55 ? "#c9a84c" : "#f87171", lineHeight: 1 }}>{l.score}</div>
+                              <p style={{ fontSize: 8, color: "#444", textTransform: "uppercase", letterSpacing: "0.06em" }}>score</p>
+                            </div>
                           </div>
-                          <p style={{ fontSize: 10, color: "#444" }}>📍 {l.city}</p>
-                        </div>
-                        {/* Score pill */}
-                        <div style={{ textAlign: "center", minWidth: 36 }}>
-                          <p style={{ fontSize: 16, fontWeight: 700, color: "#c9a84c", fontFamily: "var(--font-display), serif", lineHeight: 1 }}>{l.score}</p>
-                          <p style={{ fontSize: 8, color: "#444", textTransform: "uppercase", letterSpacing: "0.06em" }}>score</p>
-                        </div>
-                        {/* Verdict */}
-                        <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 6, color: l.verdictColor, background: `${l.verdictColor}14`, border: `1px solid ${l.verdictColor}30`, whiteSpace: "nowrap" }}>
-                          {l.verdict}
-                        </span>
-                        {/* Gap badge */}
-                        <span style={{ fontSize: 8, padding: "2px 8px", borderRadius: 4, color: l.gapColor, background: `${l.gapColor}12`, border: `1px solid ${l.gapColor}25`, whiteSpace: "nowrap" }}>
-                          ⬡ {l.gap}
-                        </span>
-                      </div>
-
-                      {/* Expanded detail — only for selected lead in score stage */}
-                      {isThisOne && (
-                        <div style={{ padding: "0 14px 14px", borderTop: "1px solid rgba(201,168,76,0.08)" }}>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 20px", marginTop: 12, marginBottom: 12 }}>
-                            <MiniBar label="Fit" value={l.fit} color="#4ade80" animate={scoreAnimate} delay={100} />
-                            <MiniBar label="Opportunity" value={l.opp} color="#818cf8" animate={scoreAnimate} delay={250} />
-                            <MiniBar label="Risk" value={l.risk} color="#f87171" animate={scoreAnimate} delay={400} />
-                            <MiniBar label="Score" value={l.score} color="#c9a84c" animate={scoreAnimate} delay={550} />
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+                            {[{ label: "Fit", value: l.fit, color: "#818cf8" }, { label: "Opportunity", value: l.opp, color: "#4ade80" }, { label: "Risk", value: l.risk, color: "#f87171" }].map(bar => (
+                              <ScoreBar key={bar.label} label={bar.label} value={bar.value} color={bar.color} animate={scoreAnimate} delay={0} />
+                            ))}
                           </div>
-                          <div style={{
-                            display: "flex", alignItems: "center", gap: 8, padding: "7px 10px",
-                            background: `${l.gapColor}08`, border: `1px solid ${l.gapColor}20`, borderRadius: 7,
-                            opacity: scoreAnimate ? 1 : 0, transition: "opacity 0.5s ease 0.8s",
-                          }}>
-                            <span style={{ fontSize: 9, fontWeight: 700, color: l.gapColor, letterSpacing: "0.1em", textTransform: "uppercase" }}>⬡ {l.gap} GAP DETECTED</span>
-                            <span style={{ fontSize: 9, color: "#555" }}>— use this as your pitch angle</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: l.gapColor + "22", border: `1px solid ${l.gapColor}44`, color: l.gapColor, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>⬡ {l.gap} GAP DETECTED</span>
+                            <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: l.verdictColor + "22", border: `1px solid ${l.verdictColor}44`, color: l.verdictColor, fontWeight: 700, letterSpacing: "0.06em" }}>{l.verdict}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ padding: "12px 20px", display: "flex", alignItems: "center", gap: 12 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: "#e8e0d0" }}>{l.name}</span>
+                              <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, border: "1px solid #1e1e1e", color: "#444", letterSpacing: "0.04em" }}>{l.industry}</span>
+                            </div>
+                            <span style={{ fontSize: 10, color: "#333" }}>📍 {l.city}</span>
+                          </div>
+                          <div style={{ fontSize: 20, fontWeight: 700, color: l.score >= 75 ? "#4ade80" : l.score >= 55 ? "#c9a84c" : "#f87171", minWidth: 36, textAlign: "right" }}>{l.score}</div>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, background: l.verdictColor + "18", color: l.verdictColor, fontWeight: 700, letterSpacing: "0.04em" }}>{l.verdict}</span>
+                            <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, background: l.gapColor + "18", color: l.gapColor, fontWeight: 700, letterSpacing: "0.06em" }}>⬡ {l.gap}</span>
                           </div>
                         </div>
                       )}
@@ -1032,48 +1096,18 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
                   );
                 })}
               </div>
-
-              {/* Scanning indicator */}
-              <div style={{
-                marginTop: 16, display: "flex", alignItems: "center", gap: 8,
-                opacity: stage === "search" ? 1 : 0, transition: "opacity 0.3s ease",
-              }}>
-                <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#c9a84c", animation: "pulse 1s infinite" }} />
-                <span style={{ fontSize: 10, color: "#555", letterSpacing: "0.1em", textTransform: "uppercase" }}>Scanning signals…</span>
-              </div>
-
+              {/* Scanning pulse */}
+              {stage === "search" && (
+                <div style={{ position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#c9a84c", animation: "pulse 1s infinite" }} />
+                  <span style={{ fontSize: 10, color: "#555", letterSpacing: "0.1em", textTransform: "uppercase" }}>Scanning signals…</span>
+                </div>
+              )}
             </div>
           </div>
-
           {/* Scene underglow */}
           <div style={{ position: "absolute", bottom: -40, left: "5%", right: "5%", height: 80, background: "radial-gradient(ellipse, rgba(201,168,76,0.15) 0%, transparent 70%)", filter: "blur(20px)", pointerEvents: "none" }} />
         </div>
-      </div>
-
-      {/* Scroll indicator — progress bar while locked, arrow when released */}
-      <div style={{ position: "absolute", bottom: 28, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, opacity: scrollLocked ? 1 : Math.max(0, 1 - scrollY / 200) }}>
-        {scrollLocked ? (
-          <>
-            {/* Progress track */}
-            <div style={{ width: 120, height: 2, background: "rgba(201,168,76,0.12)", borderRadius: 999, overflow: "hidden" }}>
-              <div style={{
-                height: "100%", borderRadius: 999,
-                background: "linear-gradient(90deg, #8a6e30, #c9a84c, #e8c97a)",
-                width: `${sequenceProgress * 100}%`,
-                transition: "width 0.1s linear",
-                boxShadow: "0 0 8px rgba(201,168,76,0.4)",
-              }} />
-            </div>
-            <span style={{ fontSize: 9, color: "#555", letterSpacing: "0.2em", textTransform: "uppercase" }}>
-              {sequenceProgress < 0.99 ? "scanning…" : "scroll to continue"}
-            </span>
-          </>
-        ) : (
-          <>
-            <div style={{ width: 1, height: 36, background: "linear-gradient(to bottom, transparent, rgba(201,168,76,0.4))" }} />
-            <span style={{ fontSize: 9, color: "#333", letterSpacing: "0.2em", textTransform: "uppercase" }}>scroll</span>
-          </>
-        )}
       </div>
     </section>
   );
@@ -1253,7 +1287,7 @@ export default function LandingPage() {
         </Link>
 
         {/* Beta badge — right of logo */}
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(201,168,76,0.2)", background: "rgba(201,168,76,0.04)" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(201,168,76,0.2)", background: "rgba(201,168,76,0.04)", marginLeft: 20 }}>
           <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#c9a84c", display: "inline-block", animation: "pulse 2s infinite", flexShrink: 0 }} />
           <span style={{ fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: "#c9a84c", whiteSpace: "nowrap" }}>
             Closed Beta
@@ -1279,8 +1313,16 @@ export default function LandingPage() {
         scrollLocked={scrollLocked}
       />
 
+      {/* UI SHOWCASE — animates into frame on scroll */}
+      <SceneSection scrollY={scrollY} />
+
             {/* STAT BAR */}
       <StatBar />
+
+      {/* Section boundary glow */}
+      <div style={{ height: 1, background: "transparent", position: "relative" }}>
+        <div style={{ position: "absolute", left: "50%", top: 0, transform: "translateX(-50%)", width: "70%", height: 120, background: "radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.07) 0%, transparent 70%)", pointerEvents: "none" }} />
+      </div>
 
       {/* FEATURES */}
       <div ref={featuresRef} style={{ position: "relative" }}>
@@ -1322,6 +1364,11 @@ export default function LandingPage() {
       </div>
 
       {/* HOW IT WORKS */}
+      {/* Section boundary glow */}
+      <div style={{ height: 1, background: "transparent", position: "relative" }}>
+        <div style={{ position: "absolute", left: "50%", top: 0, transform: "translateX(-50%)", width: "60%", height: 140, background: "radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.06) 0%, transparent 70%)", pointerEvents: "none" }} />
+      </div>
+
       <div ref={stepsRef}>
         <section id="how-it-works" style={{ padding: "112px 48px", maxWidth: 960, margin: "0 auto" }}>
           <div style={{ marginBottom: 64, textAlign: "center", opacity: stepsVisible ? 1 : 0, transform: stepsVisible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
@@ -1333,6 +1380,11 @@ export default function LandingPage() {
           </div>
           <StepsSection visible={stepsVisible} scrollY={scrollY} />
         </section>
+      </div>
+
+      {/* Section boundary glow */}
+      <div style={{ height: 1, background: "transparent", position: "relative" }}>
+        <div style={{ position: "absolute", left: "50%", top: 0, transform: "translateX(-50%)", width: "80%", height: 160, background: "radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.08) 0%, transparent 70%)", pointerEvents: "none" }} />
       </div>
 
       {/* DIFFERENTIATOR — cinematic rebuild */}
@@ -1456,6 +1508,11 @@ export default function LandingPage() {
             </div>
           </section>
         </GlowSection>
+      </div>
+
+      {/* Section boundary glow */}
+      <div style={{ height: 1, background: "transparent", position: "relative" }}>
+        <div style={{ position: "absolute", left: "50%", top: 0, transform: "translateX(-50%)", width: "60%", height: 120, background: "radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.06) 0%, transparent 70%)", pointerEvents: "none" }} />
       </div>
 
       {/* CTA — cinematic closer */}
