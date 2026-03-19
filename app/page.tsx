@@ -849,10 +849,10 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
 
   return (
     <section style={{
-      position: "relative", minHeight: "100vh",
+      position: "relative", minHeight: "88vh",
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
-      padding: "100px 24px 60px", overflow: "visible",
+      padding: "80px 24px 24px", overflow: "visible",
       background: "#080808",
     }}>
       {/* Ambient glow */}
@@ -1029,7 +1029,7 @@ function SceneSection({ scrollY }: { scrollY: number }) {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        padding: "0 24px 80px",
+        padding: "0 24px 16px",
         overflow: "visible",
         position: "relative",
       }}
