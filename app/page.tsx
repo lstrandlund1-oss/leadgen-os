@@ -716,19 +716,44 @@ function GoldText({ children, style = {}, as: Tag = "span" }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   as?: any;
 }) {
-  const [hovered, setHovered] = useState(false);
+  const ref = useRef<HTMLElement>(null);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+
+  const handleMove = (e: React.MouseEvent) => {
+    const rect = ref.current?.getBoundingClientRect();
+    if (!rect) return;
+    setPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  };
+
+  const isGradientText = style.WebkitTextFillColor === "transparent";
+  const baseGradient = (style.background as string) || "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)";
+
+  // Spotlight blended over the base gradient for gradient text
+  const bg = isGradientText
+    ? pos
+      ? `radial-gradient(100px circle at ${pos.x}px ${pos.y}px, #ffffff 0%, #fff5cc 20%, #e8c97a 45%, transparent 65%), ${baseGradient}`
+      : baseGradient
+    : undefined;
+
   return (
     <Tag
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      ref={ref}
+      onMouseMove={handleMove}
+      onMouseLeave={() => setPos(null)}
       style={{
         ...style,
-        transition: "text-shadow 0.3s ease, filter 0.3s ease",
-        textShadow: hovered
-          ? "0 0 20px rgba(232,201,122,0.6), 0 0 40px rgba(201,168,76,0.35), 0 0 80px rgba(201,168,76,0.15)"
-          : "none",
-        filter: hovered ? "brightness(1.15)" : "none",
         cursor: "default",
+        ...(isGradientText ? {
+          background: bg,
+          WebkitBackgroundClip: "text",
+          backgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          transition: "none",
+        } : {
+          // Solid gold text — filter brightness follows mouse via a subtle glow
+          filter: pos ? "brightness(1.4) drop-shadow(0 0 8px rgba(232,201,122,0.7))" : "none",
+          transition: pos ? "none" : "filter 0.4s ease",
+        }),
       }}
     >
       {children}
