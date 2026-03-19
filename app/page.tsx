@@ -1,249 +1,330 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import HamburgerMenu from "./components/HamburgerMenu";
 
 const FEATURES = [
-  {
-    icon: "◈",
-    title: "Signal-Driven Scoring",
-    body: "Every lead is scored across opportunity, readiness, risk, and fit — not just star ratings. Know exactly why a business is worth your time.",
-  },
-  {
-    icon: "◆",
-    title: "Matched to Your Service",
-    body: "Your profile shapes every score. A web developer sees different leads than an SEO specialist — same database, completely different intelligence.",
-  },
-  {
-    icon: "✦",
-    title: "Outreach Built In",
-    body: "Every lead comes with a tailored pitch angle, gap analysis, and an AI-generated message — written around your offer and the lead's specific signals.",
-  },
-  {
-    icon: "◇",
-    title: "Enriched Automatically",
-    body: "Website reachability, booking CTAs, social presence, mobile friendliness — all scanned and factored into the score the moment you open a lead.",
-  },
-  {
-    icon: "⬡",
-    title: "Track Your Pipeline",
-    body: "Mark leads as contacted, replied, booked, closed. See your conversion rates across every stage. Revenue totals auto-calculated.",
-  },
-  {
-    icon: "◉",
-    title: "Geography Aware",
-    body: "Set your target location once. Every fit score adjusts for proximity — leads in your market surface first, automatically.",
-  },
+  { icon: "◈", title: "Signal-Driven Scoring", body: "Every lead is scored across opportunity, readiness, risk, and fit — not just star ratings. Know exactly why a business is worth your time." },
+  { icon: "◆", title: "Matched to Your Service", body: "Your profile shapes every score. A web developer sees different leads than an SEO specialist — same database, completely different intelligence." },
+  { icon: "✦", title: "Outreach Built In", body: "Every lead comes with a tailored pitch angle, gap analysis, and an AI-generated message — written around your offer and the lead's specific signals." },
+  { icon: "◇", title: "Enriched Automatically", body: "Website reachability, booking CTAs, social presence, mobile friendliness — all scanned and factored into the score the moment you open a lead." },
+  { icon: "⬡", title: "Track Your Pipeline", body: "Mark leads as contacted, replied, booked, closed. See your conversion rates across every stage. Revenue totals auto-calculated." },
+  { icon: "◉", title: "Geography Aware", body: "Set your target location once. Every fit score adjusts for proximity — leads in your market surface first, automatically." },
 ];
 
 const STEPS = [
-  {
-    number: "01",
-    title: "Set your profile",
-    body: "Tell Vantio what you offer and who you serve. Your profile becomes the lens every score is seen through.",
-  },
-  {
-    number: "02",
-    title: "Search for leads",
-    body: "Enter a niche and location. The engine pulls local businesses and scores each one against your capabilities in seconds.",
-  },
-  {
-    number: "03",
-    title: "Read the intelligence",
-    body: "Opportunity score, risk profile, website signals, gap type, fit score, and a personalised pitch angle — not just a name and phone number.",
-  },
-  {
-    number: "04",
-    title: "Reach out with confidence",
-    body: "Save promising leads, generate a personalised AI message in seconds, send it, track the outcome. Your pipeline builds itself.",
-  },
+  { number: "01", title: "Set your profile", body: "Tell Vantio what you offer and who you serve. Your profile becomes the lens every score is seen through." },
+  { number: "02", title: "Search for leads", body: "Enter a niche and location. The engine pulls local businesses and scores each one against your capabilities in seconds." },
+  { number: "03", title: "Read the intelligence", body: "Opportunity score, risk profile, website signals, gap type, fit score, and a personalised pitch angle — not just a name and phone number." },
+  { number: "04", title: "Reach out with confidence", body: "Save promising leads, generate a personalised AI message in seconds, send it, track the outcome. Your pipeline builds itself." },
 ];
 
 const STATS = [
   { value: "< 3s", label: "Average time to score a lead" },
   { value: "4", label: "Gap types detected automatically" },
-  { value: "AI", label: "Messages written to your offer and the lead's signals" },
+  { value: "AI", label: "Messages written to your offer" },
   { value: "100%", label: "Profile-matched — no generic lists" },
 ];
 
-
-
-// Mini score card data for the mockup
 const MOCK_LEAD = {
   name: "Bloom & Co Studio",
   industry: "Beauty Salon",
   city: "London",
-  score: 74,
-  fit: 81,
-  opportunity: 68,
-  risk: 22,
-  gap: "CONVERSION",
-  gapColor: "#fb923c",
-  verdict: "Strong Lead",
-  verdictColor: "#4ade80",
+  score: 74, fit: 81, opportunity: 68, risk: 22,
+  gap: "CONVERSION", gapColor: "#fb923c",
+  verdict: "Strong Lead", verdictColor: "#4ade80",
 };
+
+// Scroll-reveal hook
+function useReveal() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } }, { threshold: 0.12 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return { ref, visible };
+}
+
+// Animated score bar
+function ScoreBar({ label, value, color, delay = 0, animate }: { label: string; value: number; color: string; delay?: number; animate: boolean }) {
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    if (!animate) return;
+    const t = setTimeout(() => setWidth(value), delay);
+    return () => clearTimeout(t);
+  }, [animate, value, delay]);
+  return (
+    <div>
+      <div className="flex justify-between text-[10px] mb-1">
+        <span style={{ color: "#555" }}>{label}</span>
+        <span style={{ color, fontWeight: 700 }}>{value}</span>
+      </div>
+      <div style={{ width: "100%", height: 6, background: "#1a1a1a", borderRadius: 999, overflow: "hidden" }}>
+        <div style={{ width: `${width}%`, height: "100%", background: color, borderRadius: 999, transition: "width 1.2s cubic-bezier(0.16,1,0.3,1)" }} />
+      </div>
+    </div>
+  );
+}
 
 export default function LandingPage() {
   const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
-  const [showDeletedBanner, setShowDeletedBanner] = useState(() => {
-    // Read URL param on first render — no effect needed
-    if (typeof window === "undefined") return false;
-    const deleted = new URLSearchParams(window.location.search).get("account") === "deleted";
-    if (deleted) window.history.replaceState({}, "", "/");
-    return deleted;
-  });
+  const [scrollY, setScrollY] = useState(0);
+  const [cardAnimate, setCardAnimate] = useState(false);
+  const [scanPos, setScanPos] = useState(-10);
+  const [particles] = useState(() =>
+    Array.from({ length: 28 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 2 + 0.5,
+      duration: Math.random() * 12 + 8,
+      delay: Math.random() * 6,
+      opacity: Math.random() * 0.25 + 0.05,
+    }))
+  );
+
+  const featuresReveal = useReveal();
+  const stepsReveal = useReveal();
+  const diffReveal = useReveal();
+  const ctaReveal = useReveal();
 
   useEffect(() => {
-    fetch("/api/waitlist")
-      .then(r => r.json())
-      .then(d => { if (typeof d.count === "number" && d.count > 0) setWaitlistCount(d.count); })
-      .catch(() => {});
+    fetch("/api/waitlist").then(r => r.json()).then(d => { if (typeof d.count === "number" && d.count > 0) setWaitlistCount(d.count); }).catch(() => {});
   }, []);
-  return (
-    <div className="min-h-screen bg-[#080808] text-[#f5f0e8] overflow-x-hidden">
 
-      {/* Account deleted confirmation banner */}
-      {showDeletedBanner && (
-        <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-4 px-5 py-3 bg-[#4ade80]/10 border-b border-[#4ade80]/20">
-          <p className="text-[13px] text-[#4ade80]">✓ Your account has been permanently deleted. Sorry to see you go.</p>
-          <button type="button" onClick={() => setShowDeletedBanner(false)} className="text-[#4ade80]/60 hover:text-[#4ade80] text-lg leading-none">×</button>
-        </div>
-      )}
+  useEffect(() => {
+    const onScroll = () => setScrollY(window.scrollY);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Trigger card animation shortly after mount
+  useEffect(() => {
+    const t = setTimeout(() => setCardAnimate(true), 800);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Scanning line animation
+  useEffect(() => {
+    if (!cardAnimate) return;
+    let pos = -10;
+    let raf: number;
+    const animate = () => {
+      pos += 0.6;
+      if (pos > 110) pos = -10;
+      setScanPos(pos);
+      raf = requestAnimationFrame(animate);
+    };
+    raf = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(raf);
+  }, [cardAnimate]);
+
+  // Hero card parallax values
+  const cardFloat = -scrollY * 0.12;
+  const cardRotate = scrollY * 0.008;
+  const orbitalOffset = scrollY * 0.06;
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#080808", color: "#f5f0e8", overflowX: "hidden" }}>
 
       {/* NAV */}
-      <nav className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-6 md:px-12 py-4 border-b border-[#181818] bg-[#080808]/90 backdrop-blur-md">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="text-[#c9a84c] text-lg">◈</span>
-          <span className="font-display text-xl font-semibold tracking-wide" style={{ fontFamily: "var(--font-display), serif" }}>
-            Van<span style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>tio</span>
+      <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 40, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 48px", borderBottom: "1px solid #181818", background: "rgba(8,8,8,0.92)", backdropFilter: "blur(16px)" }}>
+        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+          <span style={{ color: "#c9a84c", fontSize: 18 }}>◈</span>
+          <span style={{ fontFamily: "var(--font-display), serif", fontSize: 20, fontWeight: 600, letterSpacing: "0.04em", color: "#f5f0e8" }}>
+            Van<span style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>tio</span>
           </span>
         </Link>
-        <div className="flex items-center gap-4">
-          <Link href="/plans" className="hidden md:block text-[13px] text-[#555] hover:text-[#e8c97a] transition-colors tracking-wide">Pricing</Link>
-          <Link href="/login" className="hidden md:block text-[13px] px-4 py-2 rounded-lg border border-[rgba(201,168,76,0.3)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-all tracking-wide">Get Early Access</Link>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <Link href="/plans" style={{ fontSize: 13, color: "#555", textDecoration: "none", letterSpacing: "0.06em" }}>Pricing</Link>
+          <Link href="/login" style={{ fontSize: 13, padding: "8px 18px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.3)", color: "#c9a84c", textDecoration: "none", letterSpacing: "0.06em" }}>Get Early Access</Link>
           <HamburgerMenu hasProfile={false} />
         </div>
       </nav>
 
       {/* HERO */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-24 pb-16 text-center overflow-hidden">
-        {/* Background effects */}
-        <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 70% 50% at 50% 0%, rgba(201,168,76,0.08) 0%, transparent 65%)" }} />
-        <div className="absolute inset-0 pointer-events-none opacity-[0.025]" style={{ backgroundImage: "linear-gradient(#c9a84c 1px, transparent 1px), linear-gradient(90deg, #c9a84c 1px, transparent 1px)", backgroundSize: "80px 80px" }} />
-        <div className="absolute top-1/3 left-1/4 w-96 h-96 rounded-full pointer-events-none opacity-[0.04]" style={{ background: "radial-gradient(circle, #c9a84c 0%, transparent 70%)" }} />
+      <section style={{ position: "relative", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "120px 24px 80px", textAlign: "center", overflow: "hidden" }}>
 
-        <div className="animate-fade-up-delay-1 inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.04)] mb-8">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#c9a84c] animate-pulse" />
-          <span className="text-[11px] tracking-[0.15em] uppercase text-[#c9a84c]">
-            {waitlistCount !== null
-              ? `${waitlistCount} service providers in early access`
-              : "Closed Beta — Limited Access"}
+        {/* Ambient glow */}
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(201,168,76,0.1) 0%, transparent 65%)" }} />
+
+        {/* Animated grid */}
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.018, backgroundImage: "linear-gradient(#c9a84c 1px, transparent 1px), linear-gradient(90deg, #c9a84c 1px, transparent 1px)", backgroundSize: "72px 72px", transform: `translateY(${scrollY * 0.08}px)` }} />
+
+        {/* Floating particles */}
+        {particles.map(p => (
+          <div key={p.id} style={{
+            position: "absolute",
+            left: `${p.x}%`, top: `${p.y}%`,
+            width: p.size, height: p.size,
+            borderRadius: "50%",
+            background: "#c9a84c",
+            opacity: p.opacity,
+            animation: `particleFloat ${p.duration}s ease-in-out ${p.delay}s infinite alternate`,
+            transform: `translateY(${scrollY * (p.id % 3 === 0 ? -0.04 : 0.03)}px)`,
+            pointerEvents: "none",
+          }} />
+        ))}
+
+        {/* Badge */}
+        <div className="animate-fade-up-delay-1" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", borderRadius: 999, border: "1px solid rgba(201,168,76,0.25)", background: "rgba(201,168,76,0.04)", marginBottom: 32 }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#c9a84c", display: "inline-block", animation: "pulse 2s infinite" }} />
+          <span style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "#c9a84c" }}>
+            {waitlistCount !== null ? `${waitlistCount} service providers in early access` : "Closed Beta — Limited Access"}
           </span>
         </div>
 
-        <h1 className="animate-fade-up-delay-2 text-5xl md:text-7xl lg:text-8xl font-light leading-[1.05] tracking-tight max-w-5xl" style={{ fontFamily: "var(--font-display), serif" }}>
+        {/* Headline */}
+        <h1 className="animate-fade-up-delay-2" style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(42px, 8vw, 86px)", fontWeight: 300, lineHeight: 1.05, letterSpacing: "-0.02em", maxWidth: 900, margin: "0 auto 32px" }}>
           The intelligence layer
           <br />
-          <span className="font-semibold italic" style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>your outreach is missing.</span>
+          <em style={{ fontStyle: "italic", fontWeight: 600, background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            your outreach is missing.
+          </em>
         </h1>
 
-        <p className="animate-fade-up-delay-3 mt-8 text-[15px] md:text-lg text-[#666] max-w-2xl leading-relaxed tracking-wide">
+        <p className="animate-fade-up-delay-3" style={{ fontSize: 16, color: "#666", maxWidth: 560, margin: "0 auto 40px", lineHeight: 1.7, letterSpacing: "0.02em" }}>
           Vantio finds local businesses and tells you exactly which ones are worth contacting — scored against your specific service, capability, and style.
         </p>
 
-        <div className="animate-fade-up-delay-4 mt-10 flex flex-col sm:flex-row items-center gap-4">
-          <Link href="/login" className="relative px-8 py-3.5 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] tracking-wide hover:bg-[#e8c97a] transition-all duration-300 shadow-lg" style={{ boxShadow: "0 8px 32px rgba(201,168,76,0.18)" }}>
+        <div className="animate-fade-up-delay-4" style={{ display: "flex", flexWrap: "wrap", gap: 16, justifyContent: "center", marginBottom: 64 }}>
+          <Link href="/login" style={{ padding: "14px 32px", borderRadius: 10, background: "#c9a84c", color: "#080808", fontWeight: 700, fontSize: 14, letterSpacing: "0.06em", textDecoration: "none", boxShadow: "0 8px 40px rgba(201,168,76,0.22)" }}>
             Request Early Access
           </Link>
-          <Link href="#how-it-works" className="text-[13px] text-[#555] hover:text-[#f5f0e8] transition-colors tracking-wide flex items-center gap-2">
-            See how it works <span className="text-[#8a6e30]">↓</span>
+          <Link href="#how-it-works" style={{ fontSize: 13, color: "#555", textDecoration: "none", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 8 }}>
+            See how it works <span style={{ color: "#8a6e30" }}>↓</span>
           </Link>
         </div>
 
-        <p className="animate-fade-up-delay-5 mt-12 text-[11px] text-[#333] tracking-[0.2em] uppercase">
-          Built for marketers · web developers · content creators · SEO specialists · agencies
-        </p>
+        {/* HERO SCORE CARD — 3D floating */}
+        <div className="animate-fade-up-delay-5" style={{ position: "relative", width: "100%", maxWidth: 460, margin: "0 auto" }}>
 
-        {/* LIVE SCORE MOCKUP */}
-        <div className="animate-fade-up-delay-5 mt-16 w-full max-w-md mx-auto">
-          <div className="rounded-2xl border border-[#1e1e1e] bg-[#0d0d0d] p-5 text-left shadow-2xl" style={{ boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }}>
-            {/* Card header */}
-            <div className="flex items-start justify-between mb-4">
+          {/* Orbital signal panels — appear on scroll */}
+          <div style={{
+            position: "absolute", top: "10%", left: -160,
+            transform: `translateY(${orbitalOffset}px)`,
+            opacity: Math.min(1, scrollY / 200),
+            transition: "opacity 0.3s",
+            pointerEvents: "none",
+          }}>
+            <div style={{ background: "#0d0d0d", border: "1px solid #1e1e1e", borderRadius: 12, padding: "10px 14px", width: 140 }}>
+              <p style={{ fontSize: 9, color: "#555", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 6 }}>Gap Detected</p>
+              <p style={{ fontSize: 12, color: "#fb923c", fontWeight: 600 }}>⬡ Conversion</p>
+              <p style={{ fontSize: 10, color: "#444", marginTop: 3 }}>No booking flow</p>
+            </div>
+          </div>
+
+          <div style={{
+            position: "absolute", top: "30%", right: -150,
+            transform: `translateY(${-orbitalOffset * 0.7}px)`,
+            opacity: Math.min(1, scrollY / 300),
+            transition: "opacity 0.3s",
+            pointerEvents: "none",
+          }}>
+            <div style={{ background: "#0d0d0d", border: "1px solid #1e1e1e", borderRadius: 12, padding: "10px 14px", width: 130 }}>
+              <p style={{ fontSize: 9, color: "#555", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 6 }}>Fit Score</p>
+              <p style={{ fontSize: 22, color: "#4ade80", fontWeight: 700, fontFamily: "var(--font-display), serif" }}>81</p>
+              <p style={{ fontSize: 10, color: "#444" }}>Profile match ✓</p>
+            </div>
+          </div>
+
+          {/* Main card */}
+          <div style={{
+            borderRadius: 20,
+            border: "1px solid #1e1e1e",
+            background: "#0d0d0d",
+            padding: 22,
+            textAlign: "left",
+            boxShadow: "0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(201,168,76,0.06)",
+            transform: `translateY(${cardFloat}px) rotateX(${cardRotate}deg)`,
+            transformStyle: "preserve-3d",
+            transition: "transform 0.1s linear",
+            position: "relative",
+            overflow: "hidden",
+          }}>
+            {/* Scanning line */}
+            <div style={{
+              position: "absolute", left: 0, right: 0, top: `${scanPos}%`,
+              height: 1,
+              background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.4), transparent)",
+              pointerEvents: "none",
+              transition: "none",
+            }} />
+
+            {/* Corner glow */}
+            <div style={{ position: "absolute", top: -40, right: -40, width: 120, height: 120, borderRadius: "50%", background: "radial-gradient(circle, rgba(201,168,76,0.07) 0%, transparent 70%)", pointerEvents: "none" }} />
+
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
               <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <p className="text-[15px] font-semibold text-[#f5f0e8]">{MOCK_LEAD.name}</p>
-                  <span className="text-[9px] px-2 py-0.5 rounded-full border border-[#252525] text-[#555]">{MOCK_LEAD.industry}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <p style={{ fontSize: 15, fontWeight: 600, color: "#f5f0e8" }}>{MOCK_LEAD.name}</p>
+                  <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 999, border: "1px solid #252525", color: "#555" }}>{MOCK_LEAD.industry}</span>
                 </div>
-                <p className="text-[11px] text-[#444]">📍 {MOCK_LEAD.city}</p>
+                <p style={{ fontSize: 11, color: "#444" }}>📍 {MOCK_LEAD.city}</p>
               </div>
-              <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg" style={{ color: MOCK_LEAD.verdictColor, background: `${MOCK_LEAD.verdictColor}12`, border: `1px solid ${MOCK_LEAD.verdictColor}30` }}>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 8, color: MOCK_LEAD.verdictColor, background: `${MOCK_LEAD.verdictColor}14`, border: `1px solid ${MOCK_LEAD.verdictColor}30` }}>
                 {MOCK_LEAD.verdict}
               </span>
             </div>
 
             {/* Score bars */}
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-4">
-              {[
-                { label: "Score", value: MOCK_LEAD.score, color: "#c9a84c" },
-                { label: "Fit", value: MOCK_LEAD.fit, color: "#4ade80" },
-                { label: "Opportunity", value: MOCK_LEAD.opportunity, color: "#818cf8" },
-                { label: "Risk", value: MOCK_LEAD.risk, color: "#f87171" },
-              ].map((item) => (
-                <div key={item.label}>
-                  <div className="flex justify-between text-[10px] mb-1">
-                    <span className="text-[#555]">{item.label}</span>
-                    <span style={{ color: item.color }} className="font-bold">{item.value}</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${item.value}%`, backgroundColor: item.color }} />
-                  </div>
-                </div>
-              ))}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px", marginBottom: 16 }}>
+              <ScoreBar label="Score" value={MOCK_LEAD.score} color="#c9a84c" delay={900} animate={cardAnimate} />
+              <ScoreBar label="Fit" value={MOCK_LEAD.fit} color="#4ade80" delay={1100} animate={cardAnimate} />
+              <ScoreBar label="Opportunity" value={MOCK_LEAD.opportunity} color="#818cf8" delay={1300} animate={cardAnimate} />
+              <ScoreBar label="Risk" value={MOCK_LEAD.risk} color="#f87171" delay={1500} animate={cardAnimate} />
             </div>
 
-            {/* Gap type */}
-            <div className="rounded-lg p-2.5 flex items-center gap-2.5" style={{ background: `${MOCK_LEAD.gapColor}08`, border: `1px solid ${MOCK_LEAD.gapColor}20` }}>
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: MOCK_LEAD.gapColor }}>⬡ {MOCK_LEAD.gap} GAP</span>
-              <span className="text-[10px] text-[#555]">— no booking flow detected</span>
+            {/* Gap chip */}
+            <div style={{ borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10, background: `${MOCK_LEAD.gapColor}08`, border: `1px solid ${MOCK_LEAD.gapColor}20`, marginBottom: 14 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: MOCK_LEAD.gapColor }}>⬡ {MOCK_LEAD.gap} GAP</span>
+              <span style={{ fontSize: 10, color: "#555" }}>— no booking flow detected</span>
             </div>
 
-            {/* Mini pipeline stats */}
-            <div className="mt-3 grid grid-cols-4 gap-1 border border-[#1a1a1a] rounded-xl bg-[#0a0a0a] p-2.5">
+            {/* Pipeline */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 4, border: "1px solid #1a1a1a", borderRadius: 14, background: "#0a0a0a", padding: "10px 8px" }}>
               {[
-                { label: "Contacted", value: "12", icon: "✉", active: true },
-                { label: "Replied", value: "5", icon: "↩", active: true },
-                { label: "Calls", value: "2", icon: "📅", active: true },
+                { label: "Contacted", value: "12", icon: "✉", color: "#4ade80" },
+                { label: "Replied", value: "5", icon: "↩", color: "#4ade80" },
+                { label: "Calls", value: "2", icon: "📅", color: "#4ade80" },
                 { label: "Closed", value: "1", icon: "✦", color: "#c9a84c" },
-              ].map((item) => (
-                <div key={item.label} className="flex flex-col items-center gap-0.5">
-                  <span className="text-[11px]" style={{ color: item.color ?? (item.active ? "#4ade80" : "#333") }}>{item.icon}</span>
-                  <span className="text-[13px] font-bold" style={{ color: item.color ?? "#f5f0e8" }}>{item.value}</span>
-                  <span className="text-[9px] text-[#444] tracking-wide">{item.label}</span>
+              ].map(item => (
+                <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                  <span style={{ fontSize: 11, color: item.color }}>{item.icon}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: "#f5f0e8" }}>{item.value}</span>
+                  <span style={{ fontSize: 9, color: "#444", letterSpacing: "0.05em" }}>{item.label}</span>
                 </div>
               ))}
             </div>
 
-            {/* Shimmer label */}
-            <p className="text-[10px] text-[#333] text-center mt-3 tracking-widest uppercase">Live intelligence · scored in seconds</p>
+            <p style={{ fontSize: 10, color: "#2a2a2a", textAlign: "center", marginTop: 12, letterSpacing: "0.18em", textTransform: "uppercase" }}>Live intelligence · scored in seconds</p>
           </div>
+
+          {/* Card glow beneath */}
+          <div style={{ position: "absolute", bottom: -30, left: "10%", right: "10%", height: 60, background: "radial-gradient(ellipse, rgba(201,168,76,0.12) 0%, transparent 70%)", pointerEvents: "none", filter: "blur(12px)" }} />
         </div>
 
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-20">
-          <div className="w-[1px] h-12 bg-gradient-to-b from-transparent to-[#c9a84c]" />
+        {/* Scroll indicator */}
+        <div style={{ position: "absolute", bottom: 32, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, opacity: Math.max(0, 1 - scrollY / 200) }}>
+          <div style={{ width: 1, height: 40, background: "linear-gradient(to bottom, transparent, rgba(201,168,76,0.4))" }} />
+          <span style={{ fontSize: 9, color: "#333", letterSpacing: "0.2em", textTransform: "uppercase" }}>scroll</span>
         </div>
       </section>
 
       {/* STAT BAR */}
-      <section className="border-y border-[#141414] bg-[#0a0a0a]">
-        <div className="max-w-5xl mx-auto px-6 py-10">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            {STATS.map((s) => (
-              <div key={s.label}>
-                <p className="text-3xl md:text-4xl font-light mb-1" style={{ fontFamily: "var(--font-display), serif", background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 60%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-                  {s.value}
-                </p>
-                <p className="text-[11px] text-[#444] tracking-wide uppercase">{s.label}</p>
+      <section style={{ borderTop: "1px solid #141414", borderBottom: "1px solid #141414", background: "#0a0a0a" }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px 24px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 32, textAlign: "center" }}>
+            {STATS.map((s, i) => (
+              <div key={i}>
+                <p style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(28px,4vw,40px)", fontWeight: 300, marginBottom: 4, background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 60%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{s.value}</p>
+                <p style={{ fontSize: 11, color: "#444", letterSpacing: "0.08em", textTransform: "uppercase" }}>{s.label}</p>
               </div>
             ))}
           </div>
@@ -251,145 +332,160 @@ export default function LandingPage() {
       </section>
 
       {/* FEATURES */}
-      <section className="px-6 md:px-12 py-24 max-w-6xl mx-auto">
-        <div className="mb-16 text-center">
-          <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-4">What Vantio does</p>
-          <h2 className="text-4xl md:text-5xl font-light" style={{ fontFamily: "var(--font-display), serif" }}>
-            Not a lead list.{" "}
-            <span className="italic" style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Lead intelligence.</span>
-          </h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {FEATURES.map((f, i) => (
-            <div key={i} className="group p-6 rounded-2xl border border-[#151515] bg-[#0d0d0d] hover:border-[rgba(201,168,76,0.2)] hover:bg-[#101010] transition-all duration-300">
-              <div className="text-[#4a3a1a] text-xl mb-4 group-hover:text-[#c9a84c] transition-colors duration-300">{f.icon}</div>
-              <h3 className="text-[17px] font-medium mb-2 text-[#e8e0d0]" style={{ fontFamily: "var(--font-display), serif" }}>{f.title}</h3>
-              <p className="text-[13px] text-[#555] leading-relaxed">{f.body}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      <div ref={featuresReveal.ref}>
+        <section style={{ padding: "96px 24px", maxWidth: 1100, margin: "0 auto" }}>
+          <div style={{ marginBottom: 64, textAlign: "center", opacity: featuresReveal.visible ? 1 : 0, transform: featuresReveal.visible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
+            <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 16 }}>What Vantio does</p>
+            <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(32px,5vw,52px)", fontWeight: 300 }}>
+              Not a lead list.{" "}
+              <em style={{ fontStyle: "italic", background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Lead intelligence.</em>
+            </h2>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
+            {FEATURES.map((f, i) => (
+              <div key={i} style={{
+                padding: 28, borderRadius: 18, border: "1px solid #151515", background: "#0d0d0d",
+                opacity: featuresReveal.visible ? 1 : 0,
+                transform: featuresReveal.visible ? "none" : "translateY(40px)",
+                transition: `all 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 80}ms`,
+                cursor: "default",
+              }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(201,168,76,0.2)"; (e.currentTarget as HTMLElement).style.background = "#101010"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "#151515"; (e.currentTarget as HTMLElement).style.background = "#0d0d0d"; }}
+              >
+                <div style={{ fontSize: 20, color: "#4a3a1a", marginBottom: 16, transition: "color 0.3s" }}>{f.icon}</div>
+                <h3 style={{ fontFamily: "var(--font-display), serif", fontSize: 18, fontWeight: 500, marginBottom: 10, color: "#e8e0d0" }}>{f.title}</h3>
+                <p style={{ fontSize: 13, color: "#555", lineHeight: 1.7 }}>{f.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
 
       {/* DIVIDER */}
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="h-[1px] bg-gradient-to-r from-transparent via-[rgba(201,168,76,0.15)] to-transparent" />
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px" }}>
+        <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.12), transparent)" }} />
       </div>
 
       {/* HOW IT WORKS */}
-      <section id="how-it-works" className="px-6 md:px-12 py-24 max-w-6xl mx-auto">
-        <div className="mb-16 text-center">
-          <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-4">The process</p>
-          <h2 className="text-4xl md:text-5xl font-light" style={{ fontFamily: "var(--font-display), serif" }}>
-            From search to{" "}
-            <span className="italic" style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>signed client.</span>
-          </h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {STEPS.map((s, i) => (
-            <div key={i} className="flex gap-6 group p-6 rounded-2xl border border-[#111] hover:border-[#1e1e1e] transition-colors">
-              <div className="shrink-0">
-                <span className="text-5xl font-light text-[#1a1a1a] group-hover:text-[#2a2010] transition-colors duration-300" style={{ fontFamily: "var(--font-display), serif" }}>{s.number}</span>
-              </div>
-              <div className="pt-2">
-                <h3 className="text-[17px] font-medium mb-2 text-[#e8e0d0]" style={{ fontFamily: "var(--font-display), serif" }}>{s.title}</h3>
-                <p className="text-[13px] text-[#555] leading-relaxed">{s.body}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* DIFFERENTIATOR CALLOUT */}
-      <section className="px-6 md:px-12 py-24 bg-[#060606] border-y border-[#111]">
-        <div className="max-w-5xl mx-auto">
-          <div className="mb-14 text-center">
-            <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-4">Why Vantio is different</p>
-            <h2 className="text-4xl md:text-5xl font-light" style={{ fontFamily: "var(--font-display), serif" }}>
-              Other tools give you names.{" "}
-              <span className="italic" style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>We give you reasons.</span>
+      <div ref={stepsReveal.ref}>
+        <section id="how-it-works" style={{ padding: "96px 24px", maxWidth: 1100, margin: "0 auto" }}>
+          <div style={{ marginBottom: 64, textAlign: "center", opacity: stepsReveal.visible ? 1 : 0, transform: stepsReveal.visible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
+            <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 16 }}>The process</p>
+            <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(32px,5vw,52px)", fontWeight: 300 }}>
+              From search to{" "}
+              <em style={{ fontStyle: "italic", background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>signed client.</em>
             </h2>
-            <p className="mt-4 text-[14px] text-[#444] max-w-2xl mx-auto leading-relaxed">
-              Every other lead tool hands you a spreadsheet. Vantio hands you a verdict — scored against your specific service, with a strategic pitch angle and an AI-generated outreach message written around your offer and the lead&apos;s signals.
-            </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-[#151515] rounded-2xl overflow-hidden border border-[#151515]">
-            {[
-              {
-                label: "Typical lead lists",
-                icon: "✗",
-                iconColor: "#f87171",
-                points: ["Name, phone, address", "No scoring or context", "Same list for everyone", "Manual research required", "No outreach guidance"],
-              },
-              {
-                label: "Vantio",
-                icon: "◈",
-                iconColor: "#c9a84c",
-                highlight: true,
-                points: ["Signal-driven lead score", "Gap type + pitch angle", "Matched to your profile", "Website signals auto-scanned", "AI message generated from your profile"],
-              },
-              {
-                label: "Manual research",
-                icon: "✗",
-                iconColor: "#f87171",
-                points: ["1–2 hours per lead", "Inconsistent judgment", "No structured scoring", "Easy to miss signals", "Hard to scale"],
-              },
-            ].map((col, i) => (
-              <div key={i} className={`p-7 space-y-4 ${col.highlight ? "bg-[rgba(201,168,76,0.04)]" : "bg-[#0a0a0a]"}`}>
-                <div className="flex items-center gap-2 mb-5">
-                  <span className="text-lg" style={{ color: col.iconColor }}>{col.icon}</span>
-                  <p className={`text-[13px] font-semibold tracking-wide ${col.highlight ? "text-[#c9a84c]" : "text-[#444]"}`}>{col.label}</p>
-                  {col.highlight && <span className="text-[9px] px-2 py-0.5 rounded-full bg-[rgba(201,168,76,0.15)] text-[#c9a84c] uppercase tracking-widest ml-auto">You are here</span>}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px,1fr))", gap: 24 }}>
+            {STEPS.map((s, i) => (
+              <div key={i} style={{
+                display: "flex", gap: 24, padding: 24, borderRadius: 18, border: "1px solid #111",
+                opacity: stepsReveal.visible ? 1 : 0,
+                transform: stepsReveal.visible ? "none" : "translateY(40px)",
+                transition: `all 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 100}ms`,
+              }}>
+                <div style={{ flexShrink: 0 }}>
+                  <span style={{ fontFamily: "var(--font-display), serif", fontSize: 52, fontWeight: 300, color: "#1a1a1a", lineHeight: 1 }}>{s.number}</span>
                 </div>
-                <div className="space-y-3">
-                  {col.points.map((pt, j) => (
-                    <div key={j} className="flex items-start gap-2.5">
-                      <span className={`mt-0.5 text-[10px] shrink-0 ${col.highlight ? "text-[#4ade80]" : "text-[#333]"}`}>{col.highlight ? "✓" : "—"}</span>
-                      <p className={`text-[12px] leading-snug ${col.highlight ? "text-[#888]" : "text-[#333]"}`}>{pt}</p>
-                    </div>
-                  ))}
+                <div style={{ paddingTop: 8 }}>
+                  <h3 style={{ fontFamily: "var(--font-display), serif", fontSize: 18, fontWeight: 500, marginBottom: 8, color: "#e8e0d0" }}>{s.title}</h3>
+                  <p style={{ fontSize: 13, color: "#555", lineHeight: 1.7 }}>{s.body}</p>
                 </div>
               </div>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
-      {/* CTA BAND */}
-      <section className="px-6 md:px-12 py-28">
-        <div className="max-w-4xl mx-auto rounded-2xl border border-[rgba(201,168,76,0.15)] bg-[#0d0d0d] p-12 text-center relative overflow-hidden">
-          <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 60% 60% at 50% 50%, rgba(201,168,76,0.04) 0%, transparent 70%)" }} />
-          <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-6">Join the beta</p>
-          <h2 className="text-4xl md:text-5xl font-light mb-6" style={{ fontFamily: "var(--font-display), serif" }}>
-            Stop guessing.<br />
-            <span className="italic" style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Start converting.</span>
-          </h2>
-          <p className="text-[14px] text-[#555] mb-10 max-w-xl mx-auto leading-relaxed">
-            We&apos;re opening beta access to a limited number of service providers. Create your profile now and get matched leads from day one.
-          </p>
-          <Link href="/login" className="inline-block px-10 py-4 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] tracking-wide hover:bg-[#e8c97a] transition-all duration-300" style={{ boxShadow: "0 8px 32px rgba(201,168,76,0.18)" }}>
-            Create Your Profile — It&apos;s Free
-          </Link>
-          <p className="mt-4 text-[11px] text-[#333]">No credit card required · Cancel anytime</p>
-        </div>
-      </section>
+      {/* DIFFERENTIATOR */}
+      <div ref={diffReveal.ref}>
+        <section style={{ padding: "96px 24px", background: "#060606", borderTop: "1px solid #111", borderBottom: "1px solid #111" }}>
+          <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+            <div style={{ marginBottom: 56, textAlign: "center", opacity: diffReveal.visible ? 1 : 0, transform: diffReveal.visible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
+              <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 16 }}>Why Vantio is different</p>
+              <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(28px,4.5vw,48px)", fontWeight: 300 }}>
+                Other tools give you names.{" "}
+                <em style={{ fontStyle: "italic", background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>We give you reasons.</em>
+              </h2>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 1, background: "#151515", borderRadius: 18, overflow: "hidden", border: "1px solid #151515", opacity: diffReveal.visible ? 1 : 0, transition: "all 1s cubic-bezier(0.16,1,0.3,1) 0.2s" }}>
+              {[
+                { label: "Typical lead lists", icon: "✗", iconColor: "#f87171", highlight: false, points: ["Name, phone, address", "No scoring or context", "Same list for everyone", "Manual research required", "No outreach guidance"] },
+                { label: "Vantio", icon: "◈", iconColor: "#c9a84c", highlight: true, points: ["Signal-driven lead score", "Gap type + pitch angle", "Matched to your profile", "Website signals auto-scanned", "AI message from your profile"] },
+                { label: "Manual research", icon: "✗", iconColor: "#f87171", highlight: false, points: ["1–2 hours per lead", "Inconsistent judgment", "No structured scoring", "Easy to miss signals", "Hard to scale"] },
+              ].map((col, i) => (
+                <div key={i} style={{ padding: 28, background: col.highlight ? "rgba(201,168,76,0.04)" : "#0a0a0a" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+                    <span style={{ fontSize: 16, color: col.iconColor }}>{col.icon}</span>
+                    <p style={{ fontSize: 13, fontWeight: 600, letterSpacing: "0.04em", color: col.highlight ? "#c9a84c" : "#444" }}>{col.label}</p>
+                    {col.highlight && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 999, background: "rgba(201,168,76,0.15)", color: "#c9a84c", letterSpacing: "0.1em", textTransform: "uppercase", marginLeft: "auto" }}>You are here</span>}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {col.points.map((pt, j) => (
+                      <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                        <span style={{ fontSize: 10, color: col.highlight ? "#4ade80" : "#333", flexShrink: 0, marginTop: 1 }}>{col.highlight ? "✓" : "—"}</span>
+                        <p style={{ fontSize: 12, lineHeight: 1.5, color: col.highlight ? "#888" : "#333" }}>{pt}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {/* CTA */}
+      <div ref={ctaReveal.ref}>
+        <section style={{ padding: "96px 24px" }}>
+          <div style={{
+            maxWidth: 800, margin: "0 auto", borderRadius: 24, border: "1px solid rgba(201,168,76,0.15)", background: "#0d0d0d", padding: "72px 48px", textAlign: "center", position: "relative", overflow: "hidden",
+            opacity: ctaReveal.visible ? 1 : 0, transform: ctaReveal.visible ? "none" : "translateY(40px)", transition: "all 0.9s cubic-bezier(0.16,1,0.3,1)",
+          }}>
+            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(201,168,76,0.05) 0%, transparent 70%)" }} />
+            <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 24 }}>Join the beta</p>
+            <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(32px,5vw,52px)", fontWeight: 300, marginBottom: 24 }}>
+              Stop guessing.<br />
+              <em style={{ fontStyle: "italic", background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Start converting.</em>
+            </h2>
+            <p style={{ fontSize: 14, color: "#555", maxWidth: 480, margin: "0 auto 40px", lineHeight: 1.7 }}>
+              We&apos;re opening beta access to a limited number of service providers. Create your profile now and get matched leads from day one.
+            </p>
+            <Link href="/login" style={{ display: "inline-block", padding: "16px 40px", borderRadius: 12, background: "#c9a84c", color: "#080808", fontWeight: 700, fontSize: 14, letterSpacing: "0.06em", textDecoration: "none", boxShadow: "0 8px 40px rgba(201,168,76,0.2)" }}>
+              Create Your Profile — It&apos;s Free
+            </Link>
+            <p style={{ marginTop: 16, fontSize: 11, color: "#333" }}>No credit card required · Cancel anytime</p>
+          </div>
+        </section>
+      </div>
 
       {/* FOOTER */}
-      <footer className="border-t border-[#111] px-6 md:px-12 py-8">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-[#8a6e30] text-sm">◈</span>
-            <span className="text-sm text-[#333]" style={{ fontFamily: "var(--font-display), serif" }}>Vantio</span>
+      <footer style={{ borderTop: "1px solid #111", padding: "32px 48px" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ color: "#8a6e30", fontSize: 14 }}>◈</span>
+            <span style={{ fontFamily: "var(--font-display), serif", fontSize: 14, color: "#333" }}>Vantio</span>
           </div>
-          <div className="flex items-center gap-6 text-[12px] text-[#333]">
-            <Link href="/plans" className="hover:text-[#c9a84c] transition-colors">Pricing</Link>
-            <Link href="/login" className="hover:text-[#c9a84c] transition-colors">Get Access</Link>
-            <a href="mailto:hello@vantio.com" className="hover:text-[#c9a84c] transition-colors">Contact</a>
-            <Link href="/privacy" className="hover:text-[#c9a84c] transition-colors">Privacy</Link>
-            <Link href="/terms" className="hover:text-[#c9a84c] transition-colors">Terms</Link>
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+            {[["Pricing", "/plans"], ["Get Access", "/login"], ["Privacy", "/privacy"], ["Terms", "/terms"]].map(([label, href]) => (
+              <Link key={label} href={href} style={{ fontSize: 12, color: "#333", textDecoration: "none" }}>{label}</Link>
+            ))}
           </div>
-          <p className="text-[11px] text-[#222] tracking-wide">© 2025 Vantio. All rights reserved.</p>
+          <p style={{ fontSize: 11, color: "#222", letterSpacing: "0.06em" }}>© 2025 Vantio. All rights reserved.</p>
         </div>
       </footer>
+
+      <style>{`
+        @keyframes particleFloat {
+          from { transform: translateY(0px) scale(1); }
+          to { transform: translateY(-18px) scale(1.3); }
+        }
+        @media (max-width: 768px) {
+          nav { padding: 14px 20px !important; }
+          section { padding-left: 16px !important; padding-right: 16px !important; }
+        }
+      `}</style>
     </div>
   );
 }
