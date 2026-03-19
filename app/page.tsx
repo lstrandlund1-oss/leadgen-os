@@ -701,7 +701,7 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
       position: "relative", minHeight: "100vh",
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
-      padding: "100px 24px 60px", overflow: "hidden",
+      padding: "100px 24px 60px", overflow: "visible",
       background: "#080808",
     }}>
       {/* Ambient glow */}
@@ -753,9 +753,9 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
 
       {/* ── 3D SCENE ── */}
       <div className="animate-fade-up-delay-5" style={{
-        width: "100%", maxWidth: 860,
-        perspective: "1200px",
-        position: "relative", zIndex: 5, overflow: "hidden",
+        width: "100%", maxWidth: "min(1100px, 92vw)",
+        perspective: "1400px",
+        position: "relative", zIndex: 5,
       }}>
         <div style={{
           transform: `translateY(${sceneTranslateY}px) rotateX(${sceneTiltX}deg) rotateY(${sceneTiltY}deg) rotateZ(${sceneTiltZ}deg) scale(${sceneScale})`,
