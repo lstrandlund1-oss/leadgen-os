@@ -944,7 +944,8 @@ function SceneSection({ scrollY }: { scrollY: number }) {
 
   // Scroll physics — after entry, scene responds to scroll
   // Offset relative to when the scene section enters view (~1 viewport height)
-  const relativeScroll = Math.max(0, scrollY - window.innerHeight * 0.8);
+  const vh = typeof window !== "undefined" ? window.innerHeight : 900;
+  const relativeScroll = Math.max(0, scrollY - vh * 0.8);
   const sceneTiltX = entered ? Math.max(-8, 18 - relativeScroll * 0.055) : 35;
   const sceneTiltY = entered ? -8 + Math.sin(relativeScroll * 0.004) * 6 : -4;
   const sceneTiltZ = entered ? relativeScroll * 0.008 : 0;
