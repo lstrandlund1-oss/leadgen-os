@@ -47,8 +47,14 @@ function StatBar() {
     observerRef.current = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) {
         setTriggered(true);
+        setCounts([0, 0, 0, 0]);
+        setShimmer(false);
         setTimeout(() => setShimmer(true), 200);
-        observerRef.current?.disconnect();
+      } else {
+        // Reset when fully scrolled away so it replays on scroll back up
+        setTriggered(false);
+        setShimmer(false);
+        setCounts([0, 0, 0, 0]);
       }
     }, { threshold: 0.3 });
     observerRef.current.observe(node);
@@ -56,7 +62,7 @@ function StatBar() {
 
   useEffect(() => {
     if (!triggered) return;
-    const duration = 1800;
+    const duration = 3200;
     const start = performance.now();
 
     const tick = (now: number) => {
@@ -95,7 +101,7 @@ function StatBar() {
 
       <div style={{ maxWidth: 1000, margin: "0 auto", padding: "48px 24px", display: "grid", gridTemplateColumns: "repeat(4,1fr)", position: "relative" }}>
         {STATS.map((s, i) => (
-          <div key={i} style={{ textAlign: "center", position: "relative", padding: "0 16px" }}>
+          <div key={i} style={{ textAlign: "center", position: "relative", padding: "8px 16px" }}>
             {/* Vertical divider — not on last item */}
             {i < 3 && (
               <div style={{
@@ -104,35 +110,6 @@ function StatBar() {
                 transition: "background 0.8s ease 0.4s",
               }} />
             )}
-
-            {/* Pulse ring above number */}
-            <div style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: "50%",
-                border: `1px solid rgba(201,168,76,${triggered ? 0.25 : 0})`,
-                transition: `all 0.6s ease ${i * 150}ms`,
-                transform: triggered ? "scale(1)" : "scale(0.4)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                position: "relative",
-              }}>
-                {/* Inner pulse dot */}
-                <div style={{
-                  width: 6, height: 6, borderRadius: "50%",
-                  background: "#c9a84c",
-                  opacity: triggered ? 0.8 : 0,
-                  transition: `opacity 0.4s ease ${i * 150 + 300}ms`,
-                  animation: triggered ? `statPulse 2s ease-in-out ${i * 200}ms infinite` : "none",
-                }} />
-                {/* Outer ripple */}
-                {triggered && (
-                  <div style={{
-                    position: "absolute", inset: -6, borderRadius: "50%",
-                    border: "1px solid rgba(201,168,76,0.15)",
-                    animation: `statRipple 2.4s ease-out ${i * 200}ms infinite`,
-                  }} />
-                )}
-              </div>
-            </div>
 
             {/* Count-up number */}
             <p style={{
@@ -162,14 +139,7 @@ function StatBar() {
       </div>
 
       <style>{`
-        @keyframes statPulse {
-          0%, 100% { transform: scale(1); opacity: 0.8; }
-          50% { transform: scale(1.6); opacity: 0.3; }
-        }
-        @keyframes statRipple {
-          0% { transform: scale(1); opacity: 0.4; }
-          100% { transform: scale(2.2); opacity: 0; }
-        }
+
       `}</style>
     </section>
   );
