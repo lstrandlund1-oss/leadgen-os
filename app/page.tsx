@@ -1004,19 +1004,19 @@ function SceneSection({ scrollY }: { scrollY: number }) {
   const sceneTranslateY = entered ? -scrollY * 0.4 : 80;
   const sceneScale = entered ? 1 : 0.95;
 
-  // Opacity follows the zone boundaries — mirrors the speed curve
-  // Entry zone (t 0→FAST): fade in 0→1
-  // Readable zone (t FAST→FAST+SLOW): hold at 1
-  // Exit zone (t FAST+SLOW→1): fade out 1→0
+  // Opacity driven by angleDeg directly — matches the visual arc
+  // Fade in:  20° → 65°  (full opacity reached well before upright)
+  // Full:     65° → 115° (hold through the readable zone centred on 90°)
+  // Fade out: 115° → 160° (fades out as it tips away)
   let sceneOpacity: number;
   if (!entered) {
     sceneOpacity = 0;
-  } else if (t < FAST) {
-    sceneOpacity = t / FAST; // linear fade in during fast entry
-  } else if (t < FAST + SLOW) {
-    sceneOpacity = 1; // full opacity in readable zone
+  } else if (angleDeg < 65) {
+    sceneOpacity = Math.max(0, (angleDeg - 20) / (65 - 20));
+  } else if (angleDeg <= 115) {
+    sceneOpacity = 1;
   } else {
-    sceneOpacity = 1 - (t - FAST - SLOW) / FAST; // linear fade out during fast exit
+    sceneOpacity = Math.max(0, 1 - (angleDeg - 115) / (160 - 115));
   }
 
   const galaxyDepth = Math.min(1, readableT);
