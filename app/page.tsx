@@ -46,15 +46,16 @@ function StatBar() {
     if (!node) return;
     observerRef.current = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) {
+        setCounts([0, 0, 0, 0]);   // reset BEFORE triggering so count-up starts fresh
         setTriggered(true);
-        setCounts([0, 0, 0, 0]);
         setShimmer(false);
         setTimeout(() => setShimmer(true), 200);
       } else {
-        // Reset when fully scrolled away so it replays on scroll back up
+        // Reset trigger/shimmer so it replays, but keep counts at final value
+        // to avoid flash of "< 0s" while scrolling back
         setTriggered(false);
         setShimmer(false);
-        setCounts([0, 0, 0, 0]);
+        // counts stay at final values until next trigger resets them
       }
     }, { threshold: 0.3 });
     observerRef.current.observe(node);
@@ -85,6 +86,10 @@ function StatBar() {
 
   const displayValue = (s: typeof STATS[0], i: number) => {
     if (s.countTo === null) return s.display;
+    // Always show prefix+count+suffix during active animation
+    // Show final display string when not yet triggered or count just reset to 0
+    if (!triggered) return s.display;
+    if (counts[i] === 0) return s.display; // count hasn't started yet
     return `${s.prefix}${counts[i]}${s.suffix}`;
   };
 
@@ -232,7 +237,7 @@ function FeatureCard({ f, i, visible }: { f: typeof FEATURES[0]; i: number; visi
       {/* Icon */}
       <div style={{
         fontSize: 22, marginBottom: 18,
-        color: hovered ? iconColor : "#4a3a1a",
+        color: hovered ? iconColor : "#8a7a4a",
         transform: hovered ? "scale(1.25) translateY(-1px)" : "scale(1)",
         transition: "all 0.3s cubic-bezier(0.16,1,0.3,1)",
         display: "inline-block",
@@ -750,7 +755,7 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
       <div className="animate-fade-up-delay-5" style={{
         width: "100%", maxWidth: 860,
         perspective: "1200px",
-        position: "relative", zIndex: 5,
+        position: "relative", zIndex: 5, overflow: "hidden",
       }}>
         <div style={{
           transform: `translateY(${sceneTranslateY}px) rotateX(${sceneTiltX}deg) rotateY(${sceneTiltY}deg) rotateZ(${sceneTiltZ}deg) scale(${sceneScale})`,
@@ -1201,7 +1206,7 @@ export default function LandingPage() {
                 fontSize: "clamp(80px, 14vw, 180px)",
                 fontWeight: 700, letterSpacing: "-0.04em",
                 color: "transparent",
-                WebkitTextStroke: "1px rgba(201,168,76,0.04)",
+                WebkitTextStroke: "1px rgba(201,168,76,0.07)",
                 whiteSpace: "nowrap",
                 userSelect: "none",
                 opacity: diffVisible ? 1 : 0,
@@ -1256,7 +1261,7 @@ export default function LandingPage() {
                     borderRadius: 20,
                     border: col.highlight ? "1px solid rgba(201,168,76,0.25)" : "1px solid #111",
                     background: col.highlight ? "linear-gradient(160deg, rgba(201,168,76,0.07) 0%, rgba(201,168,76,0.02) 100%)" : "#080808",
-                    padding: col.highlight ? "40px 32px 36px" : "32px 28px",
+                    padding: "36px 28px",
                     position: "relative",
                     overflow: "hidden",
                     opacity: diffVisible ? 1 : 0,
@@ -1411,7 +1416,7 @@ export default function LandingPage() {
               <Link key={label} href={href} style={{ fontSize: 12, color: "#333", textDecoration: "none" }}>{label}</Link>
             ))}
           </div>
-          <p style={{ fontSize: 11, color: "#222", letterSpacing: "0.06em" }}>© 2025 Vantio. All rights reserved.</p>
+          <p style={{ fontSize: 11, color: "#222", letterSpacing: "0.06em" }}>© {new Date().getFullYear()} Vantio. All rights reserved.</p>
         </div>
       </footer>
 
