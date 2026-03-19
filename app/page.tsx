@@ -320,7 +320,7 @@ export default function LandingPage() {
       size: Math.random() * 1.2 + 0.4,
       duration: Math.random() * 20 + 14,
       delay: Math.random() * 12,
-      opacity: Math.random() * 0.18 + 0.04,
+      opacity: Math.random() * 0.3 + 0.12,
       // Each mote drifts in a unique diagonal direction
       driftX: (Math.random() - 0.5) * 28,
       driftY: (Math.random() - 0.5) * 22,
@@ -610,18 +610,20 @@ export default function LandingPage() {
       <StatBar />
 
       {/* FEATURES */}
-      <div ref={featuresRef} style={{ position: "relative", overflow: "hidden" }}>
-        {/* Mote particle field — diagonal slow drift, no scroll dependency */}
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0 }}>
+      <div ref={featuresRef} style={{ position: "relative" }}>
+        {/* Mote particle field — absolutely covers the full section, no overflow clip */}
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
           {moteParticles.map(p => (
             <div key={p.id} style={{
               position: "absolute",
               left: `${p.x}%`, top: `${p.y}%`,
-              width: p.size, height: p.size,
-              background: "rgba(201,168,76,0.9)",
+              width: p.size + 1,
+              height: p.size + 1,
+              background: p.diamond ? "transparent" : "#c9a84c",
+              border: p.diamond ? "1px solid rgba(201,168,76,0.7)" : "none",
               borderRadius: p.diamond ? "0" : "50%",
               transform: p.diamond ? "rotate(45deg)" : "none",
-              opacity: p.opacity,
+              opacity: p.opacity * 2.5,
               animation: `moteDrift${p.id % 4} ${p.duration}s ease-in-out ${p.delay}s infinite alternate`,
             }} />
           ))}
