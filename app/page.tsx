@@ -643,13 +643,6 @@ function HeroText({ scrollY, heroTextOpacity, waitlistCount }: {
         position: "relative", zIndex: 10, marginBottom: 48,
       }}
     >
-      <div className="animate-fade-up-delay-1" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", borderRadius: 999, border: "1px solid rgba(201,168,76,0.25)", background: "rgba(201,168,76,0.04)", marginBottom: 28 }}>
-        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#c9a84c", display: "inline-block", animation: "pulse 2s infinite" }} />
-        <span style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "#c9a84c" }}>
-          {waitlistCount !== null ? `${waitlistCount} service providers in early access` : "Closed Beta — Limited Access"}
-        </span>
-      </div>
-
       {/* Headline with breathing gold field + per-line parallax */}
       <div className="animate-fade-up-delay-2" style={{ position: "relative", display: "inline-block", maxWidth: 800, margin: "0 auto 20px" }}>
         {/* Breathing gold field sits behind both lines */}
@@ -666,7 +659,8 @@ function HeroText({ scrollY, heroTextOpacity, waitlistCount }: {
             fontFamily: "var(--font-display), serif",
             fontSize: "clamp(38px, 6vw, 72px)",
             fontWeight: 300, lineHeight: 1.05,
-            letterSpacing: "-0.02em",
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
             color: "#f5f0e8",
             display: "block",
           }}>
@@ -681,18 +675,19 @@ function HeroText({ scrollY, heroTextOpacity, waitlistCount }: {
           transition: "transform 0.08s ease-out",
           display: "block",
         }}>
-          <em style={{
+          <span style={{
             fontFamily: "var(--font-display), serif",
             fontSize: "clamp(38px, 6vw, 72px)",
             fontWeight: 600, lineHeight: 1.05,
-            letterSpacing: "-0.02em",
-            fontStyle: "italic",
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            fontStyle: "normal",
             background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)",
             WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
             display: "block",
           }}>
-            your outreach is missing.
-          </em>
+            your outreach is missing
+          </span>
         </div>
       </div>
 
@@ -1254,6 +1249,14 @@ export default function LandingPage() {
             Van<span style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>tio</span>
           </span>
         </Link>
+        {/* Beta badge — centred in nav */}
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "4px 12px", borderRadius: 999, border: "1px solid rgba(201,168,76,0.2)", background: "rgba(201,168,76,0.04)" }}>
+          <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#c9a84c", display: "inline-block", animation: "pulse 2s infinite", flexShrink: 0 }} />
+          <span style={{ fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: "#c9a84c", whiteSpace: "nowrap" }}>
+            Closed Beta
+          </span>
+        </div>
+
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <Link href="/plans" style={{ fontSize: 13, color: "#555", textDecoration: "none", letterSpacing: "0.06em" }}>Pricing</Link>
           <Link href="/login" style={{ fontSize: 13, padding: "8px 18px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.3)", color: "#c9a84c", textDecoration: "none", letterSpacing: "0.06em" }}>Get Early Access</Link>
