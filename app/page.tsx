@@ -942,15 +942,26 @@ function SceneSection({ scrollY }: { scrollY: number }) {
   const activeQuery = activeCycle.query;
   const lead = activeCycle.leads[selectedLead] ?? activeCycle.leads[0];
 
-  // Scroll physics — after entry, scene responds to scroll
-  // Offset relative to when the scene section enters view (~1 viewport height)
+  // Three-phase physics tilt arc
+  // Scene sits at y=1307, viewport=1307. Entry~scrollY=0, mid~scrollY=931, exit~scrollY=1601
   const vh = typeof window !== "undefined" ? window.innerHeight : 900;
   const relativeScroll = Math.max(0, scrollY - vh * 0.8);
-  const sceneTiltX = entered ? Math.max(-8, 18 - relativeScroll * 0.055) : 35;
+
+  // Phase 1 (0→300px scroll): flat 0deg → snaps fast to resting 18deg via easeOutQuart
+  // Phase 2 (300→900px): gentle hold near resting angle
+  // Phase 3 (900→1600px): tips forward past flat → -22deg toward viewer via easeInCubic
+  const p1 = Math.min(1, relativeScroll / 300);
+  const p3 = Math.max(0, (relativeScroll - 900) / 700);
+  const easeOutQ = (t: number) => 1 - Math.pow(1 - t, 4);
+  const easeInC  = (t: number) => t * t * t;
+  const tiltFromEntry = easeOutQ(p1) * 18;          // 0 → 18deg fast
+  const tiltForward   = easeInC(p3) * -40;          // 0 → -22deg slow build
+
+  const sceneTiltX = entered ? tiltFromEntry + tiltForward : 0;
   const sceneTiltY = entered ? -8 + Math.sin(relativeScroll * 0.004) * 6 : -4;
-  const sceneTiltZ = entered ? relativeScroll * 0.008 : 0;
-  const sceneTranslateY = entered ? -relativeScroll * 0.18 : 60;
-  const sceneScale = entered ? 1 - Math.min(relativeScroll * 0.0004, 0.15) : 0.9;
+  const sceneTiltZ = entered ? relativeScroll * 0.006 : 0;
+  const sceneTranslateY = entered ? -relativeScroll * 0.12 : 60;
+  const sceneScale = entered ? Math.max(0.85, 1 - relativeScroll * 0.00015) : 0.9;
   const galaxyDepth = Math.min(1, relativeScroll / 800);
 
   return (
