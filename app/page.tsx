@@ -20,12 +20,160 @@ const STEPS = [
   { number: "04", title: "Reach out with confidence", body: "Save promising leads, generate a personalised AI message in seconds, send it, track the outcome. Your pipeline builds itself." },
 ];
 
+// Each stat has: display value, a numeric target for count-up (null = non-numeric),
+// prefix/suffix for formatting, and a label
 const STATS = [
-  { value: "< 3s", label: "Average time to score a lead" },
-  { value: "4", label: "Gap types detected automatically" },
-  { value: "AI", label: "Messages written to your offer" },
-  { value: "100%", label: "Profile-matched — no generic lists" },
+  { display: "< 3s", countTo: 3, prefix: "< ", suffix: "s", label: "Average time to score a lead", hint: "vs. 45+ min of manual research" },
+  { display: "4", countTo: 4, prefix: "", suffix: "", label: "Gap types detected automatically", hint: "Visibility, Conversion, Infrastructure, Optimisation" },
+  { display: "AI", countTo: null, prefix: "", suffix: "", label: "Messages written to your offer", hint: "Tailored to each lead's signals" },
+  { display: "100%", countTo: 100, prefix: "", suffix: "%", label: "Profile-matched — no generic lists", hint: "Every score shaped by your profile" },
 ];
+
+// Easing function for count-up
+function easeOutExpo(t: number): number {
+  return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+}
+
+function StatBar() {
+  const [triggered, setTriggered] = useState(false);
+  const [shimmer, setShimmer] = useState(false);
+  const [counts, setCounts] = useState([0, 0, 0, 0]);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const rafRef = useRef<number | null>(null);
+
+  const sectionRef = useCallback((node: HTMLElement | null) => {
+    if (observerRef.current) { observerRef.current.disconnect(); }
+    if (!node) return;
+    observerRef.current = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setTriggered(true);
+        setTimeout(() => setShimmer(true), 200);
+        observerRef.current?.disconnect();
+      }
+    }, { threshold: 0.3 });
+    observerRef.current.observe(node);
+  }, []);
+
+  useEffect(() => {
+    if (!triggered) return;
+    const duration = 1800;
+    const start = performance.now();
+
+    const tick = (now: number) => {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = easeOutExpo(progress);
+
+      setCounts(STATS.map(s =>
+        s.countTo !== null ? Math.round(eased * s.countTo) : 0
+      ));
+
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      }
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [triggered]);
+
+  const displayValue = (s: typeof STATS[0], i: number) => {
+    if (s.countTo === null) return s.display;
+    return `${s.prefix}${counts[i]}${s.suffix}`;
+  };
+
+  return (
+    <section ref={sectionRef} style={{ borderTop: "1px solid #141414", borderBottom: "1px solid #141414", background: "#0a0a0a", position: "relative", overflow: "hidden" }}>
+      {/* Shimmer sweep line */}
+      <div style={{
+        position: "absolute", top: 0, bottom: 0, width: "60px",
+        background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.12), transparent)",
+        left: shimmer ? "110%" : "-10%",
+        transition: shimmer ? "left 1.2s cubic-bezier(0.4,0,0.2,1)" : "none",
+        pointerEvents: "none", zIndex: 2,
+      }} />
+
+      <div style={{ maxWidth: 1000, margin: "0 auto", padding: "48px 24px", display: "grid", gridTemplateColumns: "repeat(4,1fr)", position: "relative" }}>
+        {STATS.map((s, i) => (
+          <div key={i} style={{ textAlign: "center", position: "relative", padding: "0 16px" }}>
+            {/* Vertical divider — not on last item */}
+            {i < 3 && (
+              <div style={{
+                position: "absolute", right: 0, top: "10%", bottom: "10%", width: 1,
+                background: `linear-gradient(to bottom, transparent, rgba(201,168,76,${shimmer ? 0.15 : 0}), transparent)`,
+                transition: "background 0.8s ease 0.4s",
+              }} />
+            )}
+
+            {/* Pulse ring above number */}
+            <div style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: "50%",
+                border: `1px solid rgba(201,168,76,${triggered ? 0.25 : 0})`,
+                transition: `all 0.6s ease ${i * 150}ms`,
+                transform: triggered ? "scale(1)" : "scale(0.4)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                position: "relative",
+              }}>
+                {/* Inner pulse dot */}
+                <div style={{
+                  width: 6, height: 6, borderRadius: "50%",
+                  background: "#c9a84c",
+                  opacity: triggered ? 0.8 : 0,
+                  transition: `opacity 0.4s ease ${i * 150 + 300}ms`,
+                  animation: triggered ? `statPulse 2s ease-in-out ${i * 200}ms infinite` : "none",
+                }} />
+                {/* Outer ripple */}
+                {triggered && (
+                  <div style={{
+                    position: "absolute", inset: -6, borderRadius: "50%",
+                    border: "1px solid rgba(201,168,76,0.15)",
+                    animation: `statRipple 2.4s ease-out ${i * 200}ms infinite`,
+                  }} />
+                )}
+              </div>
+            </div>
+
+            {/* Count-up number */}
+            <p style={{
+              fontFamily: "var(--font-display), serif",
+              fontSize: "clamp(28px,4vw,44px)",
+              fontWeight: 300, marginBottom: 6,
+              background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 60%, #8a6e30 100%)",
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+              opacity: triggered ? 1 : 0,
+              transform: triggered ? "translateY(0)" : "translateY(12px)",
+              transition: `all 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 120}ms`,
+              fontVariantNumeric: "tabular-nums",
+            }}>
+              {displayValue(s, i)}
+            </p>
+
+            {/* Label */}
+            <p style={{
+              fontSize: 11, color: "#444", letterSpacing: "0.08em", textTransform: "uppercase",
+              opacity: triggered ? 1 : 0,
+              transition: `opacity 0.6s ease ${i * 120 + 200}ms`,
+            }}>
+              {s.label}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <style>{`
+        @keyframes statPulse {
+          0%, 100% { transform: scale(1); opacity: 0.8; }
+          50% { transform: scale(1.6); opacity: 0.3; }
+        }
+        @keyframes statRipple {
+          0% { transform: scale(1); opacity: 0.4; }
+          100% { transform: scale(2.2); opacity: 0; }
+        }
+      `}</style>
+    </section>
+  );
+}
 
 const MOCK_LEAD = {
   name: "Bloom & Co Studio", industry: "Beauty Salon", city: "London",
@@ -382,16 +530,7 @@ export default function LandingPage() {
       </section>
 
       {/* STAT BAR */}
-      <section style={{ borderTop: "1px solid #141414", borderBottom: "1px solid #141414", background: "#0a0a0a" }}>
-        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px 24px", display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 32, textAlign: "center" }}>
-          {STATS.map((s, i) => (
-            <div key={i}>
-              <p style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(28px,4vw,40px)", fontWeight: 300, marginBottom: 4, background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 60%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{s.value}</p>
-              <p style={{ fontSize: 11, color: "#444", letterSpacing: "0.08em", textTransform: "uppercase" }}>{s.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      <StatBar />
 
       {/* FEATURES */}
       <div ref={featuresRef}>
