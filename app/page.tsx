@@ -264,6 +264,186 @@ function FeatureCard({ f, i, visible }: { f: typeof FEATURES[0]; i: number; visi
 }
 
 
+
+// Node positions match the 2x2 grid card centres (as % of container)
+// Path snakes: 01 (top-left) → 02 (top-right) → 03 (bottom-right) → 04 (bottom-left)
+const STEP_COLORS_LIST = ["#c9a84c", "#818cf8", "#4ade80", "#f472b6"];
+
+function StepsSection({ visible }: { visible: boolean }) {
+  const [pulsePos, setPulsePos] = useState(0); // 0–1 along full path
+  const [activeNode, setActiveNode] = useState(-1);
+  const rafRef = useRef<number | null>(null);
+  const startRef = useRef<number | null>(null);
+  const DURATION = 6000; // 6 seconds per full cycle
+
+  useEffect(() => {
+    if (!visible) return;
+    // Small delay before starting so cards have time to appear
+    const startTimeout = setTimeout(() => {
+      const tick = (now: number) => {
+        if (!startRef.current) startRef.current = now;
+        const elapsed = (now - startRef.current) % DURATION;
+        const t = elapsed / DURATION;
+        setPulsePos(t);
+        // Light up nodes as pulse passes their position on the path
+        // Nodes are at roughly t=0, 0.33, 0.66, 1.0
+        if (t < 0.15) setActiveNode(0);
+        else if (t < 0.45) setActiveNode(1);
+        else if (t < 0.75) setActiveNode(2);
+        else setActiveNode(3);
+        rafRef.current = requestAnimationFrame(tick);
+      };
+      rafRef.current = requestAnimationFrame(tick);
+    }, 600);
+
+    return () => {
+      clearTimeout(startTimeout);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      startRef.current = null;
+    };
+  }, [visible]);
+
+  // SVG viewBox 1000x560, path through 2x2 grid
+  // Card centres: TL(250,140), TR(750,140), BR(750,420), BL(250,420)
+  // Path: starts at TL, curves through TR, BR, BL with smooth bezier arcs
+  const pathD = "M 250 140 C 400 140, 600 140, 750 140 C 750 140, 750 280, 750 420 C 600 420, 400 420, 250 420";
+  const totalPathLength = 1340; // approximate length for the path above
+
+  // Compute pulse XY position along path using parameterized points
+  const getPulsePoint = (t: number) => {
+    // Segment 1: TL→TR (t: 0→0.37)
+    if (t <= 0.37) {
+      const st = t / 0.37;
+      return { x: 250 + st * 500, y: 140 };
+    }
+    // Segment 2: TR→BR (t: 0.37→0.63)
+    if (t <= 0.63) {
+      const st = (t - 0.37) / 0.26;
+      return { x: 750, y: 140 + st * 280 };
+    }
+    // Segment 3: BR→BL (t: 0.63→1.0)
+    const st = (t - 0.63) / 0.37;
+    return { x: 750 - st * 500, y: 420 };
+  };
+
+  const pulse = getPulsePoint(pulsePos);
+  const nodes = [
+    { x: 250, y: 140 },
+    { x: 750, y: 140 },
+    { x: 750, y: 420 },
+    { x: 250, y: 420 },
+  ];
+
+  return (
+    <div style={{ position: "relative" }}>
+      {/* SVG path layer — sits behind cards */}
+      <svg
+        viewBox="0 0 1000 560"
+        style={{
+          position: "absolute", inset: 0, width: "100%", height: "100%",
+          pointerEvents: "none", zIndex: 0,
+          opacity: visible ? 1 : 0,
+          transition: "opacity 1s ease 0.5s",
+        }}
+        preserveAspectRatio="none"
+      >
+        <defs>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+            <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          <filter id="pulseGlow">
+            <feGaussianBlur stdDeviation="5" result="coloredBlur" />
+            <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+
+        {/* Base path — dim gold trace */}
+        <path
+          d={pathD}
+          fill="none"
+          stroke="rgba(201,168,76,0.12)"
+          strokeWidth="1.5"
+          strokeDasharray="6 6"
+        />
+
+        {/* Glowing path overlay — slightly brighter */}
+        <path
+          d={pathD}
+          fill="none"
+          stroke="rgba(201,168,76,0.06)"
+          strokeWidth="8"
+          filter="url(#glow)"
+        />
+
+        {/* Node rings — one per step */}
+        {nodes.map((n, i) => (
+          <g key={i}>
+            {/* Outer ripple — only on active node */}
+            {activeNode === i && (
+              <circle
+                cx={n.x} cy={n.y} r="22"
+                fill="none"
+                stroke={STEP_COLORS_LIST[i]}
+                strokeWidth="1"
+                opacity="0.3"
+                style={{ animation: "nodeRipple 1.2s ease-out infinite" }}
+              />
+            )}
+            {/* Static ring */}
+            <circle
+              cx={n.x} cy={n.y} r="10"
+              fill={activeNode === i ? STEP_COLORS_LIST[i] + "20" : "rgba(201,168,76,0.03)"}
+              stroke={activeNode === i ? STEP_COLORS_LIST[i] : "rgba(201,168,76,0.2)"}
+              strokeWidth="1"
+              style={{ transition: "all 0.3s ease" }}
+            />
+            {/* Centre dot */}
+            <circle
+              cx={n.x} cy={n.y} r="3"
+              fill={activeNode === i ? STEP_COLORS_LIST[i] : "rgba(201,168,76,0.3)"}
+              filter={activeNode === i ? "url(#glow)" : "none"}
+              style={{ transition: "all 0.3s ease" }}
+            />
+          </g>
+        ))}
+
+        {/* Travelling pulse dot */}
+        {visible && (
+          <g>
+            {/* Glow halo */}
+            <circle
+              cx={pulse.x} cy={pulse.y} r="12"
+              fill="rgba(201,168,76,0.08)"
+              filter="url(#pulseGlow)"
+            />
+            {/* Bright core */}
+            <circle
+              cx={pulse.x} cy={pulse.y} r="4"
+              fill="#e8c97a"
+              filter="url(#pulseGlow)"
+            />
+            {/* Trail */}
+            <circle
+              cx={pulse.x} cy={pulse.y} r="6"
+              fill="none"
+              stroke="rgba(201,168,76,0.4)"
+              strokeWidth="1"
+            />
+          </g>
+        )}
+      </svg>
+
+      {/* Cards grid — on top of SVG */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 28, position: "relative", zIndex: 1 }}>
+        {STEPS.map((s, i) => (
+          <StepCard key={i} s={s} i={i} visible={visible} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function StepCard({ s, i, visible }: { s: typeof STEPS[0]; i: number; visible: boolean }) {
   const [mouse, setMouse] = useState<{ x: number; y: number } | null>(null);
   const [hovered, setHovered] = useState(false);
@@ -735,7 +915,7 @@ export default function LandingPage() {
 
       {/* HOW IT WORKS */}
       <div ref={stepsRef}>
-        <section id="how-it-works" style={{ padding: "96px 24px", maxWidth: 1100, margin: "0 auto" }}>
+        <section id="how-it-works" style={{ padding: "112px 24px", maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ marginBottom: 64, textAlign: "center", opacity: stepsVisible ? 1 : 0, transform: stepsVisible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
             <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 16 }}>The process</p>
             <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(32px,5vw,52px)", fontWeight: 300 }}>
@@ -743,11 +923,7 @@ export default function LandingPage() {
               <em style={{ fontStyle: "italic", background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>signed client.</em>
             </h2>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
-            {STEPS.map((s, i) => (
-              <StepCard key={i} s={s} i={i} visible={stepsVisible} />
-            ))}
-          </div>
+          <StepsSection visible={stepsVisible} />
         </section>
       </div>
 
@@ -827,6 +1003,10 @@ export default function LandingPage() {
       </footer>
 
       <style>{`
+        @keyframes nodeRipple {
+          0% { r: 14; opacity: 0.4; }
+          100% { r: 28; opacity: 0; }
+        }
         @keyframes moteDrift0 {
           from { transform: translate(0px, 0px) rotate(45deg); }
           to   { transform: translate(18px, -14px) rotate(45deg); }
