@@ -678,7 +678,7 @@ function HeroText({ scrollY, heroTextOpacity, waitlistCount }: {
           textAlign: "right",
           paddingRight: "6%",
         }}>
-          <em style={{
+          <GoldText as="em" style={{
             fontFamily: "var(--font-display), serif",
             fontSize: "clamp(38px, 6vw, 72px)",
             fontWeight: 600, lineHeight: 1.05,
@@ -689,7 +689,7 @@ function HeroText({ scrollY, heroTextOpacity, waitlistCount }: {
             display: "block",
           }}>
             your outreach is missing.
-          </em>
+          </GoldText>
         </div>
       </div>
 
@@ -705,6 +705,34 @@ function HeroText({ scrollY, heroTextOpacity, waitlistCount }: {
         </Link>
       </div>
     </div>
+  );
+}
+
+
+// Gold text with hover glow — same warm light as GlowButton but as textShadow
+function GoldText({ children, style = {}, as: Tag = "span" }: {
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  as?: any;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <Tag
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        ...style,
+        transition: "text-shadow 0.3s ease, filter 0.3s ease",
+        textShadow: hovered
+          ? "0 0 20px rgba(232,201,122,0.6), 0 0 40px rgba(201,168,76,0.35), 0 0 80px rgba(201,168,76,0.15)"
+          : "none",
+        filter: hovered ? "brightness(1.15)" : "none",
+        cursor: "default",
+      }}
+    >
+      {children}
+    </Tag>
   );
 }
 
@@ -1387,8 +1415,8 @@ export default function LandingPage() {
       <StatBar />
 
       {/* Section boundary glow */}
-      <div style={{ height: 1, background: "transparent", position: "relative" }}>
-        <div style={{ position: "absolute", left: "50%", top: 0, transform: "translateX(-50%)", width: "70%", height: 120, background: "radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.07) 0%, transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.18), transparent)", position: "relative", margin: "0" }}>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", width: "80%", height: 160, background: "radial-gradient(ellipse at 50% 50%, rgba(201,168,76,0.09) 0%, transparent 65%)", pointerEvents: "none" }} />
       </div>
 
       {/* FEATURES */}
@@ -1412,10 +1440,10 @@ export default function LandingPage() {
         </div>
         <section style={{ padding: "96px 24px", maxWidth: 1100, margin: "0 auto", position: "relative", zIndex: 1 }}>
           <div style={{ marginBottom: 64, textAlign: "center", opacity: featuresVisible ? 1 : 0, transform: featuresVisible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
-            <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 16 }}>What Vantio does</p>
+            <GoldText as="p" style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 16 }}>What Vantio does</GoldText>
             <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(32px,5vw,52px)", fontWeight: 300 }}>
               Not a lead list.{" "}
-              <em style={{ fontStyle: "italic", background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Lead intelligence.</em>
+              <GoldText as="em" style={{ fontStyle: "italic", background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Lead intelligence.</GoldText>
             </h2>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
@@ -1432,17 +1460,17 @@ export default function LandingPage() {
 
       {/* HOW IT WORKS */}
       {/* Section boundary glow */}
-      <div style={{ height: 1, background: "transparent", position: "relative" }}>
-        <div style={{ position: "absolute", left: "50%", top: 0, transform: "translateX(-50%)", width: "60%", height: 140, background: "radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.06) 0%, transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.15), transparent)", position: "relative" }}>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", width: "70%", height: 160, background: "radial-gradient(ellipse at 50% 50%, rgba(201,168,76,0.08) 0%, transparent 65%)", pointerEvents: "none" }} />
       </div>
 
       <div ref={stepsRef}>
         <section id="how-it-works" style={{ padding: "112px 48px", maxWidth: 960, margin: "0 auto" }}>
           <div style={{ marginBottom: 64, textAlign: "center", opacity: stepsVisible ? 1 : 0, transform: stepsVisible ? "none" : "translateY(30px)", transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
-            <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 16 }}>The process</p>
+            <GoldText as="p" style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 16 }}>The process</GoldText>
             <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(32px,5vw,52px)", fontWeight: 300 }}>
               From search to{" "}
-              <em style={{ fontStyle: "italic", background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>signed client.</em>
+              <GoldText as="em" style={{ fontStyle: "italic", background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>signed client.</GoldText>
             </h2>
           </div>
           <StepsSection visible={stepsVisible} scrollY={scrollY} />
@@ -1450,8 +1478,8 @@ export default function LandingPage() {
       </div>
 
       {/* Section boundary glow */}
-      <div style={{ height: 1, background: "transparent", position: "relative" }}>
-        <div style={{ position: "absolute", left: "50%", top: 0, transform: "translateX(-50%)", width: "80%", height: 160, background: "radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.08) 0%, transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.2), transparent)", position: "relative" }}>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", width: "85%", height: 180, background: "radial-gradient(ellipse at 50% 50%, rgba(201,168,76,0.10) 0%, transparent 65%)", pointerEvents: "none" }} />
       </div>
 
       {/* DIFFERENTIATOR — cinematic rebuild */}
@@ -1491,7 +1519,7 @@ export default function LandingPage() {
                 transform: diffVisible ? "none" : "translateY(40px)",
                 transition: "all 0.9s cubic-bezier(0.16,1,0.3,1)",
               }}>
-                <p style={{ fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 20 }}>Why Vantio is different</p>
+                <GoldText as="p" style={{ fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 20 }}>Why Vantio is different</GoldText>
                 <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(36px,5.5vw,64px)", fontWeight: 300, lineHeight: 1.05, letterSpacing: "-0.02em" }}>
                   Other tools give you names.
                   <br />
@@ -1578,8 +1606,8 @@ export default function LandingPage() {
       </div>
 
       {/* Section boundary glow */}
-      <div style={{ height: 1, background: "transparent", position: "relative" }}>
-        <div style={{ position: "absolute", left: "50%", top: 0, transform: "translateX(-50%)", width: "60%", height: 120, background: "radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.06) 0%, transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.15), transparent)", position: "relative" }}>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", width: "70%", height: 160, background: "radial-gradient(ellipse at 50% 50%, rgba(201,168,76,0.08) 0%, transparent 65%)", pointerEvents: "none" }} />
       </div>
 
       {/* CTA — cinematic closer */}
@@ -1612,12 +1640,12 @@ export default function LandingPage() {
           <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
 
             {/* Eyebrow */}
-            <p style={{
+            <GoldText as="p" style={{
               fontSize: 11, letterSpacing: "0.3em", textTransform: "uppercase", color: "#8a6e30", marginBottom: 32,
               opacity: ctaVisible ? 1 : 0, transition: "opacity 0.8s ease",
             }}>
               Join the beta
-            </p>
+            </GoldText>
 
             {/* Giant headline — Scarabynth scale */}
             <h2 style={{
@@ -1631,9 +1659,9 @@ export default function LandingPage() {
             }}>
               Stop guessing.
               <br />
-              <em style={{ fontStyle: "italic", fontWeight: 600, background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 45%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              <GoldText as="em" style={{ fontStyle: "italic", fontWeight: 600, background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 45%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
                 Start converting.
-              </em>
+              </GoldText>
             </h2>
 
             {/* Animated gold rule */}
