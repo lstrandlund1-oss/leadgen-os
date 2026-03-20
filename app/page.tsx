@@ -918,14 +918,10 @@ function SceneSection({ scrollY }: { scrollY: number }) {
   const dustPrevScrollY = useRef<number>(scrollY);
   useEffect(() => { dustPrevScrollY.current = scrollY; }, [scrollY]);
 
-  // Become visible when scrolled to
+  // Become visible — set true immediately since section is always in view
+  // IntersectionObserver is unreliable when element is already partially visible on mount
   useEffect(() => {
-    const obs = new IntersectionObserver(
-      ([e]) => setVisible(e.isIntersecting),
-      { threshold: 0.1 }
-    );
-    if (sectionRef.current) obs.observe(sectionRef.current);
-    return () => obs.disconnect();
+    setVisible(true);
   }, []);
 
   // Sequence engine
@@ -1056,8 +1052,8 @@ function SceneSection({ scrollY }: { scrollY: number }) {
         width: "100%", maxWidth: "min(1100px, 92vw)",
         perspective: "1200px",
         position: "relative", zIndex: 5,
-        opacity: visible ? 1 : 0,
-        transition: "opacity 0.8s ease",
+        opacity: 1,
+        transition: "none",
       }}>
         <div style={{
           transform: `rotateX(${TILT_X}deg) rotateY(${TILT_Y}deg)`,
