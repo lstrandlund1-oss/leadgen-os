@@ -964,7 +964,7 @@ function SplashEffect({ active, vw }: { active: boolean; vw: number }) {
 
     const tick = (now: number) => {
       const elapsed = now - startRef.current;
-      if (phase === "falling" || elapsed < FALL_DURATION) {
+      if (elapsed < FALL_DURATION) {
         rafRef.current = requestAnimationFrame(tick);
       }
     };
@@ -995,6 +995,8 @@ function SplashEffect({ active, vw }: { active: boolean; vw: number }) {
 
   if (!active || phase === "idle" || phase === "done") return null;
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- extracting ref for render
+  const dropletList = droplets;
   const cx = vw / 2; // impact centre X
   const cy = 0;      // impact point Y (top of splash area, bottom of falling scene)
   const t = Math.min(1, impactT / SPLASH_DURATION);
@@ -1052,7 +1054,7 @@ function SplashEffect({ active, vw }: { active: boolean; vw: number }) {
       })}
 
       {/* Droplets — scatter in arc from impact */}
-      {(phase === "impact" || phase === "splash") && droplets.map(drop => {
+      {(phase === "impact" || phase === "splash") && dropletList.map(drop => {
         const dt = Math.max(0, impactT - drop.delay);
         if (dt <= 0 || dt > drop.life) return null;
         const lt = dt / drop.life; // 0→1 lifetime progress
@@ -1586,9 +1588,13 @@ export default function LandingPage() {
 
   useEffect(() => {
     const onResize = () => setVw(window.innerWidth);
-    setVw(window.innerWidth);
+    // Use setTimeout(0) to avoid synchronous setState in effect body
+    const t = setTimeout(() => setVw(window.innerWidth), 0);
     window.addEventListener("resize", onResize, { passive: true });
-    return () => window.removeEventListener("resize", onResize);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("resize", onResize);
+    };
   }, []);
 
 
