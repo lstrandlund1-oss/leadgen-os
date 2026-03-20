@@ -167,6 +167,8 @@ const ORBITAL_CHIPS = [
 
 function useReveal(): [(node: HTMLDivElement | null) => void, boolean] {
   const [visible, setVisible] = useState(false);
+  const dustPrevScrollY = useRef<number>(scrollY);
+  useEffect(() => { dustPrevScrollY.current = scrollY; }, [scrollY]);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const callbackRef = useCallback((node: HTMLDivElement | null) => {
     if (observerRef.current) { observerRef.current.disconnect(); observerRef.current = null; }
@@ -869,10 +871,10 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
 
   return (
     <section style={{
-      position: "relative", minHeight: "88vh",
+      position: "relative", minHeight: "78vh",
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
-      padding: "80px 24px 24px", overflow: "visible",
+      padding: "60px 24px 16px", overflow: "visible",
       background: "#080808",
     }}>
       {/* Ambient glow */}
@@ -915,6 +917,8 @@ function SceneSection({ scrollY }: { scrollY: number }) {
   const [visibleRows, setVisibleRows] = useState(0);
   const sectionRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const dustPrevScrollY = useRef<number>(scrollY);
+  useEffect(() => { dustPrevScrollY.current = scrollY; }, [scrollY]);
 
   // Become visible when scrolled to
   useEffect(() => {
@@ -963,30 +967,25 @@ function SceneSection({ scrollY }: { scrollY: number }) {
   const lead = activeCycle.leads[selectedLead] ?? activeCycle.leads[0];
 
   // ── GOLD DUST PARTICLES ──
-  // 60 particles generated deterministically — no random() so SSR safe
+  // RAF-driven time — particles always moving, faster on scroll
+  const [dustT, setDustT] = useState(0);
+  useEffect(() => {
+    let raf: number;
+    let prev = performance.now();
+    const tick = (now: number) => {
+      setDustT(t => t + (now - prev) * 0.001); // seconds
+      prev = now;
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
   const PARTICLE_COUNT = 60;
-  const dustParticles = Array.from({ length: PARTICLE_COUNT }, (_, i) => {
-    // Spread particles all around the dashboard using golden ratio distribution
-    const angle = (i / PARTICLE_COUNT) * Math.PI * 2;
-    const radiusFactor = 0.4 + (i % 7) / 6 * 0.6; // 40%–100% from centre
-    // Base position as % offset from centre (-50 to +50)
-    const baseX = Math.cos(angle) * 52 * radiusFactor;
-    const baseY = Math.sin(angle) * 38 * radiusFactor; // elliptical — wider than tall
-    const size = i % 5 === 0 ? 3 : i % 3 === 0 ? 2 : 1.5;
-    const colors = ["#e8c97a", "#c9a84c", "#ffffff", "#fff5cc", "#8a6e30"];
-    const color = colors[i % colors.length];
-    // Speed factor — how much this particle moves with scroll
-    const scrollSpeed = 0.3 + (i % 5) * 0.15; // 0.3–0.9
-    const scrollPhase = (i % 8) / 8; // phase offset 0–1
-    return { angle, baseX, baseY, size, color, scrollSpeed, scrollPhase, id: i };
-  });
+  // Scroll boost — scroll makes particles move faster
+  const scrollDelta = Math.abs(scrollY - dustPrevScrollY.current);
+  const scrollBoost = 1 + Math.min(3, scrollDelta * 0.08);
 
-  // Scroll-driven particle motion — each particle orbits/drifts based on scrollY
-  // Fast scroll = more spread, slow/still = tight cluster
-  const scrollVelocity = Math.min(1, Math.abs(scrollY) / 400); // 0=still, 1=fast
-  const scrollDir = scrollY > 0 ? 1 : -1;
-
-  // Static tilt — always the same nice angle, no animation
   const TILT_X = 18;
   const TILT_Y = -6;
 
@@ -998,39 +997,49 @@ function SceneSection({ scrollY }: { scrollY: number }) {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        padding: "40px 24px 60px",
+        padding: "0px 24px 48px",
         overflow: "visible",
         position: "relative",
       }}
     >
-      {/* Gold dust particles — all around dashboard, scroll-driven */}
+      {/* Gold dust particles — autonomous motion + scroll boost */}
       <div style={{
         position: "absolute", inset: 0,
         pointerEvents: "none", zIndex: 10,
         overflow: "visible",
       }}>
-        {dustParticles.map(p => {
-          // Scroll drives drift: particles trail behind in scroll direction
-          const drift = scrollY * p.scrollSpeed * 0.08;
-          const wave = Math.sin(scrollY * 0.01 + p.scrollPhase * Math.PI * 2) * 12;
-          const x = 50 + p.baseX + wave * 0.3;
-          const y = 50 + p.baseY + drift + wave * 0.5;
-          // Opacity: base glow + brightens with scroll velocity
-          const opacity = (0.15 + scrollVelocity * 0.55) * (0.6 + (p.id % 3) * 0.2);
-          // Size grows slightly with scroll speed
-          const size = p.size * (1 + scrollVelocity * 0.8);
-          if (opacity < 0.03) return null;
+        {Array.from({ length: PARTICLE_COUNT }, (_, i) => {
+          const angle = (i / PARTICLE_COUNT) * Math.PI * 2;
+          const radiusFactor = 0.35 + (i % 7) / 6 * 0.65;
+          // Base orbit position — ellipse around dashboard
+          const baseX = Math.cos(angle) * 54 * radiusFactor;
+          const baseY = Math.sin(angle) * 36 * radiusFactor;
+          // Autonomous drift — each particle has unique frequency and phase
+          const freq = 0.3 + (i % 7) * 0.08; // orbit speed
+          const phase = (i / PARTICLE_COUNT) * Math.PI * 2;
+          const driftAmp = 4 + (i % 5) * 2; // drift radius px
+          const driftX = Math.cos(dustT * freq * scrollBoost + phase) * driftAmp;
+          const driftY = Math.sin(dustT * freq * 0.7 * scrollBoost + phase * 1.3) * driftAmp * 0.6;
+          const x = 50 + baseX + driftX;
+          const y = 50 + baseY + driftY;
+          // Opacity — always visible, pulses subtly, brightens on scroll
+          const pulse = 0.7 + Math.sin(dustT * freq * 2 + phase) * 0.3;
+          const baseOpacity = 0.2 + (i % 4) * 0.08;
+          const opacity = baseOpacity * pulse * scrollBoost;
+          const size = (i % 5 === 0 ? 3 : i % 3 === 0 ? 2 : 1.5) * (1 + (scrollBoost - 1) * 0.4);
+          const colors = ["#e8c97a", "#c9a84c", "#ffffff", "#fff5cc", "#c9a84c"];
+          const color = colors[i % colors.length];
+          const hasGlow = scrollBoost > 1.3 || i % 6 === 0;
           return (
-            <div key={p.id} style={{
+            <div key={i} style={{
               position: "absolute",
               left: `${x}%`, top: `${y}%`,
               width: size, height: size,
               borderRadius: "50%",
-              background: p.color,
-              opacity,
+              background: color,
+              opacity: Math.min(1, opacity),
               transform: "translate(-50%, -50%)",
-              boxShadow: scrollVelocity > 0.3 ? `0 0 ${size * 2}px ${p.color}` : "none",
-              transition: "opacity 0.1s ease, box-shadow 0.1s ease",
+              boxShadow: hasGlow ? `0 0 ${size * 3}px ${color}99` : "none",
             }} />
           );
         })}
