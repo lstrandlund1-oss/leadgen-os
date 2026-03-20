@@ -167,8 +167,6 @@ const ORBITAL_CHIPS = [
 
 function useReveal(): [(node: HTMLDivElement | null) => void, boolean] {
   const [visible, setVisible] = useState(false);
-  const dustPrevScrollY = useRef<number>(scrollY);
-  useEffect(() => { dustPrevScrollY.current = scrollY; }, [scrollY]);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const callbackRef = useCallback((node: HTMLDivElement | null) => {
     if (observerRef.current) { observerRef.current.disconnect(); observerRef.current = null; }
