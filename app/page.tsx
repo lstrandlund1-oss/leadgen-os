@@ -995,7 +995,7 @@ function SceneSection({ scrollY }: { scrollY: number }) {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        padding: "0px 24px 48px",
+        padding: "80px 24px 80px",
         overflow: "visible",
         position: "relative",
       }}
@@ -1012,12 +1012,20 @@ function SceneSection({ scrollY }: { scrollY: number }) {
           // Base orbit position — ellipse around dashboard
           const baseX = Math.cos(angle) * 54 * radiusFactor;
           const baseY = Math.sin(angle) * 36 * radiusFactor;
-          // Autonomous drift — each particle has unique frequency and phase
-          const freq = 0.3 + (i % 7) * 0.08; // orbit speed
-          const phase = (i / PARTICLE_COUNT) * Math.PI * 2;
-          const driftAmp = 4 + (i % 5) * 2; // drift radius px
-          const driftX = Math.cos(dustT * freq * scrollBoost + phase) * driftAmp;
-          const driftY = Math.sin(dustT * freq * 0.7 * scrollBoost + phase * 1.3) * driftAmp * 0.6;
+          // True random-walk motion — each particle uses 3 independent sine waves
+          // at incommensurable frequencies so they never repeat, no bouncing
+          const p = (i / PARTICLE_COUNT) * Math.PI * 2;
+          const speed = (0.18 + (i % 11) * 0.025) * scrollBoost;
+          // X: sum of two waves at irrational ratio — never repeats
+          const driftX = (
+            Math.sin(dustT * speed + p) * (5 + (i % 4) * 2) +
+            Math.sin(dustT * speed * 1.618 + p * 2.1) * (3 + (i % 3))
+          );
+          // Y: different frequencies from X — avoids oval/bounce paths
+          const driftY = (
+            Math.cos(dustT * speed * 1.3 + p * 1.7) * (4 + (i % 5) * 1.5) +
+            Math.cos(dustT * speed * 0.7 + p * 0.9) * (2 + (i % 4))
+          );
           const x = 50 + baseX + driftX;
           const y = 50 + baseY + driftY;
           // Opacity — always visible, pulses subtly, brightens on scroll
