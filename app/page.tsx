@@ -906,87 +906,29 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
 }
 
 
-// ── SCENE SECTION — 3D UI showcase that animates into frame on scroll ──
-function SceneSection({ scrollY, vw = 1200 }: { scrollY: number; vw?: number }) {
-  const [entered, setEntered] = useState(false);
-  const [fallProgress, setFallProgress] = useState(0); // 0→1 during fall
-  const [hasFallen, setHasFallen] = useState(false);
-  const [splashT, setSplashT] = useState(-1); // ms since impact, -1 = not fired
-  const splashRafRef = useRef<number | null>(null);
-  const fallRafRef = useRef<number | null>(null);
+// ── SCENE SECTION — static dashboard with gold dust particles on scroll ──
+function SceneSection({ scrollY }: { scrollY: number }) {
   const [stage, setStage] = useState<HeroStage>("idle");
   const [cycleIndex, setCycleIndex] = useState(0);
   const [selectedLead, setSelectedLead] = useState(0);
   const [scoreAnimate, setScoreAnimate] = useState(false);
   const [visibleRows, setVisibleRows] = useState(0);
   const sectionRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
 
-  // Intersection observer — triggers entry animation once
+  // Become visible when scrolled to
   useEffect(() => {
-    // Don't use IntersectionObserver — section is partially visible on load
-    // Instead trigger when user has scrolled intentionally past the hero
-    const checkScroll = () => {
-      if (window.scrollY > 150 && !entered) {
-        setEntered(true);
-      } else if (window.scrollY < 100 && entered) {
-        setEntered(false);
-        setFallProgress(0);
-        setHasFallen(false);
-        setSplashT(-1);
-        if (splashRafRef.current) cancelAnimationFrame(splashRafRef.current);
-        setStage("idle");
-        setVisibleRows(0);
-        setScoreAnimate(false);
-      }
-    };
-    window.addEventListener("scroll", checkScroll, { passive: true });
-    checkScroll();
-    return () => window.removeEventListener("scroll", checkScroll);
-  }, [entered]);
+    const obs = new IntersectionObserver(
+      ([e]) => setVisible(e.isIntersecting),
+      { threshold: 0.1 }
+    );
+    if (sectionRef.current) obs.observe(sectionRef.current);
+    return () => obs.disconnect();
+  }, []);
 
-  // Fall animation — runs once when entered flips true
+  // Sequence engine
   useEffect(() => {
-    if (!entered) return;
-    const FALL_MS = 520;
-    const fallStart = performance.now();
-    const gravityEase = (x: number) => x * x * (2.5 - 1.5 * x);
-    let raf: number;
-    const fallTick = (now: number) => {
-      const p = Math.min(1, (now - fallStart) / FALL_MS);
-      setFallProgress(gravityEase(p));
-      if (p < 1) {
-        raf = requestAnimationFrame(fallTick);
-      } else {
-        setFallProgress(1);
-        setHasFallen(true);
-      }
-    };
-    raf = requestAnimationFrame(fallTick);
-    return () => cancelAnimationFrame(raf);
-  }, [entered]);
-
-  // Splash RAF — starts when hasFallen, runs for 1200ms
-  useEffect(() => {
-    if (!hasFallen) return;
-    const SPLASH_MS = 1200;
-    const start = performance.now();
-    let raf: number;
-    const tick = (now: number) => {
-      const t = now - start;
-      setSplashT(t);
-      if (t < SPLASH_MS) {
-        raf = requestAnimationFrame(tick);
-      } else {
-        setSplashT(-1); // done
-      }
-    };
-    splashRafRef.current = requestAnimationFrame(tick);
-    return () => { if (splashRafRef.current) cancelAnimationFrame(splashRafRef.current); };
-  }, [hasFallen]);
-
-  // Sequence engine — same as before, starts after entry
-  useEffect(() => {
-    if (!entered) return;
+    if (!visible) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
     const runCycle = (cycleIdx: number) => {
       const cycle = SEARCH_CYCLES[cycleIdx % SEARCH_CYCLES.length];
@@ -1013,75 +955,40 @@ function SceneSection({ scrollY, vw = 1200 }: { scrollY: number; vw?: number }) 
     };
     const init = setTimeout(() => runCycle(0), 600);
     return () => { clearTimeout(init); timers.forEach(clearTimeout); };
-  }, [entered]);
+  }, [visible]);
 
   const activeCycle = SEARCH_CYCLES[cycleIndex % SEARCH_CYCLES.length];
   const activeLeads = activeCycle.leads;
   const activeQuery = activeCycle.query;
   const lead = activeCycle.leads[selectedLead] ?? activeCycle.leads[0];
 
-  // Full 180° arc — _ → / → I → \ → _
-  // Scene visible scrollY 0→1600px. Map that to 0→180° rotation on X axis.
-  // rotateX(90°) = upright flat on screen (fully readable)
-  // rotateX(0°)  = flat on floor (edge-on, entering from below)
-  // rotateX(180°)= flat on ceiling (edge-on, exiting above)
-  //
-  // Speed curve: sine ease — fast entry (0→45°), slow middle (45→135°), fast exit (135→180°)
-  // sine(t*π) peaks at t=0.5, so d(angle)/d(scroll) is fastest at edges, slowest in middle.
-  //
-  // SCROLL_TOTAL: total scroll pixels for full 180° arc
-  // We want the "readable zone" (45°→135°) to occupy ~60% of scroll travel
-  // and entry/exit 45° each to occupy ~20%
-  // ── Z-FALL PHYSICS ──
-  // Dashboard falls toward the screen from the viewer's position
-  // No rotateX arc — pure Z-axis depth: starts huge and close, lands at natural size
-  //
-  // During fall (hasFallen=false):
-  //   scale: 2.5 → 1.0 (shrinks as it recedes into screen)
-  //   opacity: 0.0 → 1.0 (materialises as it lands)
-  //   rotateX: slight tilt for depth, eases to resting on land
-  //
-  // After landing (hasFallen=true):
-  //   gentle resting tilt (rotateX ~18°) — just enough to feel 3D
-  //   scroll parallax floats it upward as user scrolls past
-  //   gentle fade out as it scrolls away
+  // ── GOLD DUST PARTICLES ──
+  // 60 particles generated deterministically — no random() so SSR safe
+  const PARTICLE_COUNT = 60;
+  const dustParticles = Array.from({ length: PARTICLE_COUNT }, (_, i) => {
+    // Spread particles all around the dashboard using golden ratio distribution
+    const angle = (i / PARTICLE_COUNT) * Math.PI * 2;
+    const radiusFactor = 0.4 + (i % 7) / 6 * 0.6; // 40%–100% from centre
+    // Base position as % offset from centre (-50 to +50)
+    const baseX = Math.cos(angle) * 52 * radiusFactor;
+    const baseY = Math.sin(angle) * 38 * radiusFactor; // elliptical — wider than tall
+    const size = i % 5 === 0 ? 3 : i % 3 === 0 ? 2 : 1.5;
+    const colors = ["#e8c97a", "#c9a84c", "#ffffff", "#fff5cc", "#8a6e30"];
+    const color = colors[i % colors.length];
+    // Speed factor — how much this particle moves with scroll
+    const scrollSpeed = 0.3 + (i % 5) * 0.15; // 0.3–0.9
+    const scrollPhase = (i % 8) / 8; // phase offset 0–1
+    return { angle, baseX, baseY, size, color, scrollSpeed, scrollPhase, id: i };
+  });
 
-  // easeOutQuart — explosive deceleration into landing
-  const easeOutQ = (x: number) => 1 - Math.pow(1 - x, 4);
-  const fp = easeOutQ(fallProgress); // 0→1, front-loaded deceleration
+  // Scroll-driven particle motion — each particle orbits/drifts based on scrollY
+  // Fast scroll = more spread, slow/still = tight cluster
+  const scrollVelocity = Math.min(1, Math.abs(scrollY) / 400); // 0=still, 1=fast
+  const scrollDir = scrollY > 0 ? 1 : -1;
 
-  // Scale: 2.5 → 1.0 as it falls (shrinks into screen depth)
-  const fallScale = !entered ? 2.5 : !hasFallen
-    ? 2.5 - fp * 1.5   // 2.5 → 1.0
-    : 1.0;
-
-  // Tilt: slight forward tilt during fall, settles to resting angle on land
-  const fallTiltX = !entered ? -8 : !hasFallen
-    ? -8 + fp * 26     // -8° → 18° (comes in slightly tilted, lands at resting)
-    : 18;
-
-  // After landing, gentle scroll-driven tilt variation (subtle, not the full arc)
-  const scrollT = Math.min(1, scrollY / 1400);
-  const postLandTiltX = hasFallen ? fallTiltX + Math.sin(scrollT * Math.PI) * -12 : fallTiltX;
-  const postLandTiltY = hasFallen ? -6 + Math.sin(scrollT * Math.PI * 0.7) * 5 : 0;
-  const postLandTiltZ = hasFallen ? scrollT * 4 : 0;
-
-  const sceneTiltX = postLandTiltX;
-  const sceneTiltY = postLandTiltY;
-  const sceneTiltZ = postLandTiltZ;
-  const sceneScale = fallScale;
-
-  // Opacity: 0 → 1 during fall, then fade out gently as it scrolls away
-  const fallOpacity = !entered ? 0 : !hasFallen
-    ? fp * fp           // quadratic fade in — slow at first, rushes to full at impact
-    : 1;
-  const scrollFadeOut = hasFallen ? Math.max(0, 1 - Math.max(0, scrollY - 800) / 600) : 1;
-  const sceneOpacity = fallOpacity * scrollFadeOut;
-
-  // Scroll parallax after landing
-  const sceneTranslateY = hasFallen ? -scrollY * 0.35 : 0;
-
-  const galaxyDepth = hasFallen ? Math.min(1, scrollY / 600) : 0;
+  // Static tilt — always the same nice angle, no animation
+  const TILT_X = 18;
+  const TILT_Y = -6;
 
   return (
     <section
@@ -1091,95 +998,54 @@ function SceneSection({ scrollY, vw = 1200 }: { scrollY: number; vw?: number }) 
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        padding: "0 24px 16px",
+        padding: "40px 24px 60px",
         overflow: "visible",
         position: "relative",
-        minHeight: 500,
       }}
     >
-      {/* ── SHOCKWAVE SPLASH — rendered behind dashboard (zIndex 1 vs dashboard zIndex 5) ── */}
-      {splashT > 0 && splashT < 1200 && (() => {
-        const st = splashT / 1200; // 0→1
-        const easeOut3 = (x: number) => 1 - Math.pow(1 - x, 3);
+      {/* Gold dust particles — all around dashboard, scroll-driven */}
+      <div style={{
+        position: "absolute", inset: 0,
+        pointerEvents: "none", zIndex: 10,
+        overflow: "visible",
+      }}>
+        {dustParticles.map(p => {
+          // Scroll drives drift: particles trail behind in scroll direction
+          const drift = scrollY * p.scrollSpeed * 0.08;
+          const wave = Math.sin(scrollY * 0.01 + p.scrollPhase * Math.PI * 2) * 12;
+          const x = 50 + p.baseX + wave * 0.3;
+          const y = 50 + p.baseY + drift + wave * 0.5;
+          // Opacity: base glow + brightens with scroll velocity
+          const opacity = (0.15 + scrollVelocity * 0.55) * (0.6 + (p.id % 3) * 0.2);
+          // Size grows slightly with scroll speed
+          const size = p.size * (1 + scrollVelocity * 0.8);
+          if (opacity < 0.03) return null;
+          return (
+            <div key={p.id} style={{
+              position: "absolute",
+              left: `${x}%`, top: `${y}%`,
+              width: size, height: size,
+              borderRadius: "50%",
+              background: p.color,
+              opacity,
+              transform: "translate(-50%, -50%)",
+              boxShadow: scrollVelocity > 0.3 ? `0 0 ${size * 2}px ${p.color}` : "none",
+              transition: "opacity 0.1s ease, box-shadow 0.1s ease",
+            }} />
+          );
+        })}
+      </div>
 
-        // Shockwave ring — expands outward horizontally from impact centre
-        const ring1T = Math.min(1, splashT / 600);
-        const ring2T = Math.max(0, Math.min(1, (splashT - 120) / 600));
-        const ring3T = Math.max(0, Math.min(1, (splashT - 240) / 600));
-
-        // Sideways particles — 24 particles, only left and right
-        const particles = Array.from({ length: 24 }, (_, i) => {
-          const side = i < 12 ? -1 : 1; // left or right
-          const spread = (i % 12) / 11; // 0→1 vertical spread
-          const speed = 180 + spread * 220; // px
-          const delay = (i % 4) * 60; // ms stagger
-          const pT = Math.max(0, Math.min(1, (splashT - delay) / (700 + spread * 300)));
-          const gravity = 280;
-          const vx = side * speed * easeOut3(pT);
-          // slight vertical arc — particles rise slightly then fall
-          const vy = -60 * Math.sin(pT * Math.PI) * (1 - spread * 0.5);
-          const opacity = Math.max(0, 1 - pT * 1.2);
-          const size = 2 + spread * 3;
-          const colors = ["#e8c97a", "#c9a84c", "#ffffff", "#fff8e0"];
-          return { vx, vy, opacity, size, color: colors[i % 4], key: i };
-        });
-
-        return (
-          <div style={{
-            position: "absolute",
-            left: "50%", top: "50%",
-            transform: "translate(-50%, -50%)",
-            width: "100%", height: "100%",
-            pointerEvents: "none", zIndex: 1,
-            overflow: "visible",
-          }}>
-            <svg style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", width: "200%", height: "200%", overflow: "visible" }}>
-              {/* Ring 1 */}
-              {ring1T > 0 && (
-                <ellipse cx="50%" cy="50%"
-                  rx={easeOut3(ring1T) * 520} ry={easeOut3(ring1T) * 80}
-                  fill="none" stroke="#c9a84c" strokeWidth="1.5"
-                  opacity={Math.max(0, 0.6 - ring1T * 0.6)}
-                />
-              )}
-              {/* Ring 2 */}
-              {ring2T > 0 && (
-                <ellipse cx="50%" cy="50%"
-                  rx={easeOut3(ring2T) * 420} ry={easeOut3(ring2T) * 60}
-                  fill="none" stroke="#e8c97a" strokeWidth="1"
-                  opacity={Math.max(0, 0.4 - ring2T * 0.4)}
-                />
-              )}
-              {/* Ring 3 */}
-              {ring3T > 0 && (
-                <ellipse cx="50%" cy="50%"
-                  rx={easeOut3(ring3T) * 320} ry={easeOut3(ring3T) * 45}
-                  fill="none" stroke="#ffffff" strokeWidth="0.5"
-                  opacity={Math.max(0, 0.3 - ring3T * 0.3)}
-                />
-              )}
-              {/* Particles — left and right only */}
-              {particles.map(p => p.opacity > 0.02 && (
-                <circle key={p.key}
-                  cx={`calc(50% + ${p.vx}px)`} cy={`calc(50% + ${p.vy}px)`}
-                  r={p.size} fill={p.color} opacity={p.opacity}
-                />
-              ))}
-            </svg>
-          </div>
-        );
-      })()}
-
-      {/* Dashboard — zIndex 5, on top of splash */}
+      {/* Dashboard — static tilt, always visible */}
       <div style={{
         width: "100%", maxWidth: "min(1100px, 92vw)",
-        perspective: "900px",
+        perspective: "1200px",
         position: "relative", zIndex: 5,
-        opacity: sceneOpacity,
-        transition: "none",
+        opacity: visible ? 1 : 0,
+        transition: "opacity 0.8s ease",
       }}>
         <div style={{
-          transform: `translateY(${sceneTranslateY}px) rotateX(${sceneTiltX}deg) rotateY(${sceneTiltY}deg) rotateZ(${sceneTiltZ}deg) scale(${sceneScale})`,
+          transform: `rotateX(${TILT_X}deg) rotateY(${TILT_Y}deg)`,
           transformOrigin: "50% 50%",
           transformStyle: "preserve-3d",
           transition: "none",
@@ -1445,7 +1311,6 @@ export default function LandingPage() {
 
   const [sequenceProgress, setSequenceProgress] = useState(0);
   const scrollLocked = false;
-  const [vw, setVw] = useState(1200);
 
 
   useEffect(() => {
@@ -1467,16 +1332,7 @@ export default function LandingPage() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => {
-    const onResize = () => setVw(window.innerWidth);
-    // Use setTimeout(0) to avoid synchronous setState in effect body
-    const t = setTimeout(() => setVw(window.innerWidth), 0);
-    window.addEventListener("resize", onResize, { passive: true });
-    return () => {
-      clearTimeout(t);
-      window.removeEventListener("resize", onResize);
-    };
-  }, []);
+
 
 
 
@@ -1527,7 +1383,7 @@ export default function LandingPage() {
       />
 
       {/* UI SHOWCASE — animates into frame on scroll */}
-      <SceneSection scrollY={scrollY} vw={vw} />
+      <SceneSection scrollY={scrollY} />
 
             {/* STAT BAR */}
       <StatBar />
