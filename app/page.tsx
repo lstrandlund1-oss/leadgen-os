@@ -998,14 +998,14 @@ function SplashEffect({ active, vw }: { active: boolean; vw: number }) {
   // eslint-disable-next-line react-hooks/rules-of-hooks -- extracting ref for render
   const dropletList = droplets;
   const cx = vw / 2; // impact centre X
-  const cy = 0;      // impact point Y (top of splash area, bottom of falling scene)
+  const cy = 220;    // impact point Y — centre of section where dashboard lands
   const t = Math.min(1, impactT / SPLASH_DURATION);
   const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
 
   return (
     <div style={{
-      position: "fixed", inset: 0,
-      pointerEvents: "none", zIndex: 100,
+      position: "absolute", inset: 0,
+      pointerEvents: "none", zIndex: 50,
       overflow: "hidden",
     }}>
       {/* Ripple rings — 4 expanding circles from impact point */}
@@ -1115,10 +1115,18 @@ function SceneSection({ scrollY, vw = 1200 }: { scrollY: number; vw?: number }) 
     // Don't use IntersectionObserver — section is partially visible on load
     // Instead trigger when user has scrolled intentionally past the hero
     const checkScroll = () => {
-      if (window.scrollY > 150 && !entered) setEntered(true);
+      if (window.scrollY > 150 && !entered) {
+        setEntered(true);
+      } else if (window.scrollY < 100 && entered) {
+        // Reset everything when user scrolls back to hero
+        setEntered(false);
+        setFallProgress(0);
+        setHasFallen(false);
+        setSplashActive(false);
+      }
     };
     window.addEventListener("scroll", checkScroll, { passive: true });
-    checkScroll(); // check immediately in case already scrolled
+    checkScroll();
     return () => window.removeEventListener("scroll", checkScroll);
   }, [entered]);
 
@@ -1252,7 +1260,7 @@ function SceneSection({ scrollY, vw = 1200 }: { scrollY: number; vw?: number }) 
         flexDirection: "column",
         alignItems: "center",
         padding: "0 24px 16px",
-        overflow: "visible",
+        overflow: "hidden",
         position: "relative",
       }}
     >
