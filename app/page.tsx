@@ -1060,9 +1060,6 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
 }
 
 
-}
-
-
 // Button with internal mouse-tracking glow — Huly style
 // Section with clip-path reveal — mouse position reveals a gold underglow
 // Huly's technique: CSS vars --mx --my drive clip-path circle on a glowing layer
