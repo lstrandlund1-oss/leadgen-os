@@ -906,9 +906,201 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
 }
 
 
+// ── SPLASH EFFECT — dashboard falling into water ──
+// Triggered once when scene enters. Sequence:
+// 1. Dashboard falls from above (gravity ease)
+// 2. Impact: squish + spring
+// 3. Ripple rings burst outward
+// 4. Droplets scatter in arc
+// 5. Crown spikes shoot up
+// All clear within 1.4s leaving dashboard in resting state
+
+interface Droplet {
+  id: number;
+  angle: number;      // launch angle in degrees (0=right, 90=up, 180=left)
+  speed: number;      // horizontal speed px/frame
+  vy0: number;        // initial vertical speed (negative = up)
+  size: number;       // radius px
+  color: string;
+  delay: number;      // ms before launch
+  life: number;       // ms total lifetime
+}
+
+function SplashEffect({ active, vw }: { active: boolean; vw: number }) {
+  const [phase, setPhase] = useState<"idle"|"falling"|"impact"|"splash"|"done">("idle");
+  const [impactT, setImpactT] = useState(0); // ms since impact
+  const rafRef = useRef<number | null>(null);
+  const startRef = useRef<number>(0);
+  const impactStartRef = useRef<number>(0);
+  const FALL_DURATION = 520; // ms for fall
+  const SPLASH_DURATION = 1400; // ms for splash to clear
+
+  // Generate deterministic droplets
+  const droplets = useRef<Droplet[]>(
+    Array.from({ length: 44 }, (_, i) => {
+      // Spread across 180° semicircle (left to right, upward arcs)
+      const angleDeg = 10 + (i / 43) * 160; // 10°→170° spread
+      const speed = 2.5 + (i % 7) * 0.8;
+      const vy0 = -(6 + (i % 5) * 2.2); // upward launch
+      const size = i % 4 === 0 ? 4 : i % 3 === 0 ? 3 : i % 2 === 0 ? 2 : 1.5;
+      const colors = ["#e8c97a", "#c9a84c", "#ffffff", "#fff5cc", "#8a6e30"];
+      return {
+        id: i,
+        angle: angleDeg,
+        speed,
+        vy0,
+        size,
+        color: colors[i % colors.length],
+        delay: (i % 5) * 30, // staggered launch
+        life: 600 + (i % 4) * 200,
+      };
+    })
+  ).current;
+
+  useEffect(() => {
+    if (!active || phase !== "idle") return;
+    setPhase("falling");
+    startRef.current = performance.now();
+
+    const tick = (now: number) => {
+      const elapsed = now - startRef.current;
+      if (phase === "falling" || elapsed < FALL_DURATION) {
+        rafRef.current = requestAnimationFrame(tick);
+      }
+    };
+
+    // After fall duration, trigger impact
+    const impactTimer = setTimeout(() => {
+      setPhase("impact");
+      impactStartRef.current = performance.now();
+
+      // Animate splash phase
+      const splashStart = performance.now();
+      const splashTick = (now: number) => {
+        setImpactT(now - splashStart);
+        if (now - splashStart < SPLASH_DURATION) {
+          rafRef.current = requestAnimationFrame(splashTick);
+        } else {
+          setPhase("done");
+        }
+      };
+      rafRef.current = requestAnimationFrame(splashTick);
+    }, FALL_DURATION);
+
+    return () => {
+      clearTimeout(impactTimer);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [active]);
+
+  if (!active || phase === "idle" || phase === "done") return null;
+
+  const cx = vw / 2; // impact centre X
+  const cy = 0;      // impact point Y (top of splash area, bottom of falling scene)
+  const t = Math.min(1, impactT / SPLASH_DURATION);
+  const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0,
+      pointerEvents: "none", zIndex: 100,
+      overflow: "hidden",
+    }}>
+      {/* Ripple rings — 4 expanding circles from impact point */}
+      {(phase === "impact" || phase === "splash") && [0, 1, 2, 3].map(i => {
+        const ringDelay = i * 80; // ms
+        const ringT = Math.max(0, Math.min(1, (impactT - ringDelay) / 700));
+        const radius = easeOut(ringT) * (280 + i * 80);
+        const opacity = Math.max(0, 0.5 - ringT * 0.5) * (1 - i * 0.1);
+        const strokeW = Math.max(0.5, 2.5 - i * 0.5);
+        return (
+          <svg key={i} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+            <ellipse
+              cx={cx} cy={cy + 20}
+              rx={radius} ry={radius * 0.22}
+              fill="none"
+              stroke="#c9a84c"
+              strokeWidth={strokeW}
+              opacity={opacity}
+            />
+          </svg>
+        );
+      })}
+
+      {/* Crown spikes — 10 upward jets from impact point */}
+      {(phase === "impact" || phase === "splash") && Array.from({ length: 10 }, (_, i) => {
+        const spikeAngle = -80 + i * 18; // spread from -80° to +80°
+        const spikeDelay = i % 3 * 20;
+        const spikeT = Math.max(0, Math.min(1, (impactT - spikeDelay) / 350));
+        const height = easeOut(spikeT) * (80 + (i % 3) * 40) * (1 - spikeT * 0.6);
+        const radians = (spikeAngle * Math.PI) / 180;
+        const x2 = cx + Math.sin(radians) * height * 0.4;
+        const y2 = cy + 20 - Math.cos(radians) * height;
+        const opacity = Math.max(0, 0.9 - spikeT * 1.1);
+        return (
+          <svg key={i} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+            <line
+              x1={cx + Math.sin(radians) * 8} y1={cy + 18}
+              x2={x2} y2={y2}
+              stroke={i % 2 === 0 ? "#e8c97a" : "#ffffff"}
+              strokeWidth={Math.max(0.5, 2 - i * 0.1)}
+              opacity={opacity}
+              strokeLinecap="round"
+            />
+          </svg>
+        );
+      })}
+
+      {/* Droplets — scatter in arc from impact */}
+      {(phase === "impact" || phase === "splash") && droplets.map(drop => {
+        const dt = Math.max(0, impactT - drop.delay);
+        if (dt <= 0 || dt > drop.life) return null;
+        const lt = dt / drop.life; // 0→1 lifetime progress
+        if (lt >= 1) return null;
+
+        const radians = ((drop.angle - 90) * Math.PI) / 180;
+        // Physics: x = speed * dt, y = vy0*dt + 0.5*gravity*dt²
+        const dtSec = dt / 1000;
+        const gravity = 18;
+        const dx = Math.cos(radians) * drop.speed * dt * 0.12;
+        const dy = drop.vy0 * dtSec * 80 + 0.5 * gravity * dtSec * dtSec * 800;
+        const x = cx + dx;
+        const y = cy + 20 + dy;
+        const opacity = Math.max(0, 1 - lt * 1.3);
+        const size = drop.size * (1 - lt * 0.4);
+
+        if (size < 0.3 || opacity < 0.02) return null;
+
+        return (
+          <svg key={drop.id} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+            <circle cx={x} cy={y} r={size} fill={drop.color} opacity={opacity} />
+          </svg>
+        );
+      })}
+
+      {/* Impact flash — brief bright burst at centre */}
+      {phase === "impact" && impactT < 120 && (
+        <div style={{
+          position: "absolute",
+          left: cx - 200, top: cy - 60,
+          width: 400, height: 120,
+          background: "radial-gradient(ellipse, rgba(232,201,122,0.35) 0%, transparent 70%)",
+          opacity: Math.max(0, 1 - impactT / 120),
+          borderRadius: "50%",
+        }} />
+      )}
+    </div>
+  );
+}
+
+
 // ── SCENE SECTION — 3D UI showcase that animates into frame on scroll ──
-function SceneSection({ scrollY }: { scrollY: number }) {
+function SceneSection({ scrollY, vw = 1200 }: { scrollY: number; vw?: number }) {
   const [entered, setEntered] = useState(false);
+  const [splashActive, setSplashActive] = useState(false);
+  const [fallProgress, setFallProgress] = useState(0); // 0→1 during fall
+  const [hasFallen, setHasFallen] = useState(false);
+  const fallRafRef = useRef<number | null>(null);
   const [stage, setStage] = useState<HeroStage>("idle");
   const [cycleIndex, setCycleIndex] = useState(0);
   const [selectedLead, setSelectedLead] = useState(0);
@@ -919,11 +1111,34 @@ function SceneSection({ scrollY }: { scrollY: number }) {
   // Intersection observer — triggers entry animation once
   useEffect(() => {
     const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting && !entered) setEntered(true); },
-      { threshold: 0.15 }
+      ([entry]) => {
+        if (entry.isIntersecting && !entered) {
+          setEntered(true);
+          // Trigger fall animation
+          const FALL_MS = 520;
+          const fallStart = performance.now();
+          const gravityEase = (x: number) => x * x * (2.5 - 1.5 * x); // gravity curve
+          const fallTick = (now: number) => {
+            const p = Math.min(1, (now - fallStart) / FALL_MS);
+            setFallProgress(gravityEase(p));
+            if (p < 1) {
+              fallRafRef.current = requestAnimationFrame(fallTick);
+            } else {
+              setFallProgress(1);
+              setHasFallen(true);
+              setSplashActive(true);
+            }
+          };
+          fallRafRef.current = requestAnimationFrame(fallTick);
+        }
+      },
+      { threshold: 0.12 }
     );
     if (sectionRef.current) obs.observe(sectionRef.current);
-    return () => obs.disconnect();
+    return () => {
+      obs.disconnect();
+      if (fallRafRef.current) cancelAnimationFrame(fallRafRef.current);
+    };
   }, [entered]);
 
   // Sequence engine — same as before, starts after entry
@@ -1012,27 +1227,28 @@ function SceneSection({ scrollY }: { scrollY: number }) {
   // CSS rotateX increases rotation toward viewer at top.
   // angleDeg=0 → rotateX(90°) flat on floor → we want rotateX going from 90 → 0 → -90
   // Map: rotateX = 90 - angleDeg  (0°→90° means floor→upright, 90°→180° means upright→ceiling)
-  const sceneTiltX = entered ? 90 - angleDeg : 90;
+  // During fall: start nearly flat (rotX=75°) falling face-first toward screen
+  // After landing: normal arc takes over
+  const sceneTiltX = !entered ? 90 : !hasFallen
+    ? 75 - fallProgress * 57  // 75° → 18° as it falls (face-first, then tips to resting)
+    : 90 - angleDeg;
 
   // Subtle Y sway and Z lean during the readable zone only
   const readableT = Math.max(0, Math.min(1, (t - FAST) / SLOW));
   const sceneTiltY = entered ? Math.sin(readableT * Math.PI) * -6 : 0;
   const sceneTiltZ = entered ? Math.sin(readableT * Math.PI * 0.5) * 3 : 0;
 
-  // ── Option C + A entry effect ──
-  // Entry zone only (t: 0→FAST = first 180px of scroll)
-  // C: scale 1.3 → 1.0 (depth warp — rushes toward viewer)
-  // A: extra translateY +120 → 0 (rises from below)
-  // Both use easeOutQuart: explosive start, hard deceleration
-  const entryT = Math.min(1, t / FAST); // 0→1 during entry zone only
-  const easeOutQuart = (x: number) => 1 - Math.pow(1 - x, 4);
-  const entryEased = easeOutQuart(entryT);
-  const entryScale = entered ? 1.3 - entryEased * 0.3 : 1.3;       // 1.3 → 1.0
-  const entryRiseY = entered ? (1 - entryEased) * 120 : 120;        // +120px → 0px
-
-  // Scene travels upward as user scrolls down — simple linear scroll parallax
-  const sceneTranslateY = entered ? -scrollY * 0.4 + entryRiseY : 80;
-  const sceneScale = entryScale;
+  // Fall animation: before impact, scene drops from above
+  // After impact (hasFallen), normal scroll physics take over
+  const FALL_START_Y = -600; // starts 600px above
+  const fallTranslateY = hasFallen ? 0 : FALL_START_Y + fallProgress * Math.abs(FALL_START_Y);
+  
+  // Impact squish: brief scaleY compression at moment of landing
+  const impactSquish = hasFallen && splashActive ? 1 : 1; // handled by SplashEffect visually
+  
+  // Scroll parallax only after landing
+  const sceneTranslateY = fallTranslateY - (hasFallen ? scrollY * 0.4 : 0);
+  const sceneScale = 1;
 
   // Opacity driven by angleDeg directly — matches the visual arc
   // Fade in:  20° → 65°  (full opacity reached well before upright)
@@ -1041,6 +1257,9 @@ function SceneSection({ scrollY }: { scrollY: number }) {
   let sceneOpacity: number;
   if (!entered) {
     sceneOpacity = 0;
+  } else if (!hasFallen) {
+    // During fall: visible but slightly transparent so fall reads clearly
+    sceneOpacity = 0.92;
   } else if (angleDeg < 80) {
     sceneOpacity = Math.max(0, (angleDeg - 20) / (80 - 20));
   } else if (angleDeg <= 100) {
@@ -1206,6 +1425,8 @@ function SceneSection({ scrollY }: { scrollY: number }) {
           <div style={{ position: "absolute", bottom: -40, left: "5%", right: "5%", height: 80, background: "radial-gradient(ellipse, rgba(201,168,76,0.15) 0%, transparent 70%)", filter: "blur(20px)", pointerEvents: "none" }} />
         </div>
       </div>
+      {/* Splash effect — fires once on landing */}
+      <SplashEffect active={splashActive} vw={vw} />
     </section>
   );
 }
@@ -1341,6 +1562,7 @@ export default function LandingPage() {
 
   const [sequenceProgress, setSequenceProgress] = useState(0);
   const scrollLocked = false;
+  const [vw, setVw] = useState(1200);
 
 
   useEffect(() => {
@@ -1360,6 +1582,13 @@ export default function LandingPage() {
     const onScroll = () => setScrollY(window.scrollY);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => setVw(window.innerWidth);
+    setVw(window.innerWidth);
+    window.addEventListener("resize", onResize, { passive: true });
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
 
@@ -1411,7 +1640,7 @@ export default function LandingPage() {
       />
 
       {/* UI SHOWCASE — animates into frame on scroll */}
-      <SceneSection scrollY={scrollY} />
+      <SceneSection scrollY={scrollY} vw={vw} />
 
             {/* STAT BAR */}
       <StatBar />
