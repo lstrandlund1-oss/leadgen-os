@@ -1019,10 +1019,20 @@ function SceneSection({ scrollY }: { scrollY: number }) {
   const sceneTiltY = entered ? Math.sin(readableT * Math.PI) * -6 : 0;
   const sceneTiltZ = entered ? Math.sin(readableT * Math.PI * 0.5) * 3 : 0;
 
+  // ── Option C + A entry effect ──
+  // Entry zone only (t: 0→FAST = first 180px of scroll)
+  // C: scale 1.3 → 1.0 (depth warp — rushes toward viewer)
+  // A: extra translateY +120 → 0 (rises from below)
+  // Both use easeOutQuart: explosive start, hard deceleration
+  const entryT = Math.min(1, t / FAST); // 0→1 during entry zone only
+  const easeOutQuart = (x: number) => 1 - Math.pow(1 - x, 4);
+  const entryEased = easeOutQuart(entryT);
+  const entryScale = entered ? 1.3 - entryEased * 0.3 : 1.3;       // 1.3 → 1.0
+  const entryRiseY = entered ? (1 - entryEased) * 120 : 120;        // +120px → 0px
+
   // Scene travels upward as user scrolls down — simple linear scroll parallax
-  // Moves up at 0.4x scroll speed so it feels like it's floating past you
-  const sceneTranslateY = entered ? -scrollY * 0.4 : 80;
-  const sceneScale = entered ? 1 : 0.95;
+  const sceneTranslateY = entered ? -scrollY * 0.4 + entryRiseY : 80;
+  const sceneScale = entryScale;
 
   // Opacity driven by angleDeg directly — matches the visual arc
   // Fade in:  20° → 65°  (full opacity reached well before upright)
@@ -1751,4 +1761,3 @@ export default function LandingPage() {
     </div>
   );
 }
-  
