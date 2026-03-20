@@ -1114,33 +1114,34 @@ function SceneSection({ scrollY, vw = 1200 }: { scrollY: number; vw?: number }) 
   useEffect(() => {
     const obs = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !entered) {
-          setEntered(true);
-          // Trigger fall animation
-          const FALL_MS = 520;
-          const fallStart = performance.now();
-          const gravityEase = (x: number) => x * x * (2.5 - 1.5 * x); // gravity curve
-          const fallTick = (now: number) => {
-            const p = Math.min(1, (now - fallStart) / FALL_MS);
-            setFallProgress(gravityEase(p));
-            if (p < 1) {
-              fallRafRef.current = requestAnimationFrame(fallTick);
-            } else {
-              setFallProgress(1);
-              setHasFallen(true);
-              setSplashActive(true);
-            }
-          };
-          fallRafRef.current = requestAnimationFrame(fallTick);
-        }
+        if (entry.isIntersecting && !entered) setEntered(true);
       },
       { threshold: 0.12 }
     );
     if (sectionRef.current) obs.observe(sectionRef.current);
-    return () => {
-      obs.disconnect();
-      if (fallRafRef.current) cancelAnimationFrame(fallRafRef.current);
+    return () => obs.disconnect();
+  }, [entered]);
+
+  // Fall animation — runs once when entered flips true
+  useEffect(() => {
+    if (!entered) return;
+    const FALL_MS = 520;
+    const fallStart = performance.now();
+    const gravityEase = (x: number) => x * x * (2.5 - 1.5 * x);
+    let raf: number;
+    const fallTick = (now: number) => {
+      const p = Math.min(1, (now - fallStart) / FALL_MS);
+      setFallProgress(gravityEase(p));
+      if (p < 1) {
+        raf = requestAnimationFrame(fallTick);
+      } else {
+        setFallProgress(1);
+        setHasFallen(true);
+        setSplashActive(true);
+      }
     };
+    raf = requestAnimationFrame(fallTick);
+    return () => cancelAnimationFrame(raf);
   }, [entered]);
 
   // Sequence engine — same as before, starts after entry
@@ -1296,9 +1297,7 @@ function SceneSection({ scrollY, vw = 1200 }: { scrollY: number; vw?: number }) 
         <div style={{
           transform: `translateY(${sceneTranslateY}px) rotateX(${sceneTiltX}deg) rotateY(${sceneTiltY}deg) rotateZ(${sceneTiltZ}deg) scale(${sceneScale})`,
           transformStyle: "preserve-3d",
-          transition: entered
-            ? "transform 1.4s cubic-bezier(0.16,1,0.3,1), opacity 0.6s ease"
-            : "none",
+          transition: "none",
           transformOrigin: "50% 50%",
         }}>
           {/* Surface panel */}
