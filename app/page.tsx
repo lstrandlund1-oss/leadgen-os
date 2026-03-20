@@ -1029,7 +1029,7 @@ function SceneSection({ scrollY }: { scrollY: number }) {
           const x = 50 + baseX + driftX;
           const y = 50 + baseY + driftY;
           // Opacity — always visible, pulses subtly, brightens on scroll
-          const pulse = 0.7 + Math.sin(dustT * freq * 2 + phase) * 0.3;
+          const pulse = 0.7 + Math.sin(dustT * speed * 2 + p) * 0.3;
           const baseOpacity = 0.2 + (i % 4) * 0.08;
           const opacity = baseOpacity * pulse * scrollBoost;
           const size = (i % 5 === 0 ? 3 : i % 3 === 0 ? 2 : 1.5) * (1 + (scrollBoost - 1) * 0.4);
