@@ -1054,7 +1054,7 @@ function SceneSection({ scrollY }: { scrollY: number }) {
         position: "relative", zIndex: 5,
         opacity: 1,
         transition: "none",
-        marginTop: -200,
+        marginTop: -400,
       }}>
         <div style={{
           transform: `rotateX(${TILT_X}deg) rotateY(${TILT_Y}deg)`,
