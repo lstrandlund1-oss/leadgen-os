@@ -1112,14 +1112,14 @@ function SceneSection({ scrollY, vw = 1200 }: { scrollY: number; vw?: number }) 
 
   // Intersection observer — triggers entry animation once
   useEffect(() => {
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !entered) setEntered(true);
-      },
-      { threshold: 0.12 }
-    );
-    if (sectionRef.current) obs.observe(sectionRef.current);
-    return () => obs.disconnect();
+    // Don't use IntersectionObserver — section is partially visible on load
+    // Instead trigger when user has scrolled intentionally past the hero
+    const checkScroll = () => {
+      if (window.scrollY > 150 && !entered) setEntered(true);
+    };
+    window.addEventListener("scroll", checkScroll, { passive: true });
+    checkScroll(); // check immediately in case already scrolled
+    return () => window.removeEventListener("scroll", checkScroll);
   }, [entered]);
 
   // Fall animation — runs once when entered flips true
