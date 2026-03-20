@@ -1192,86 +1192,56 @@ function SceneSection({ scrollY, vw = 1200 }: { scrollY: number; vw?: number }) 
   // SCROLL_TOTAL: total scroll pixels for full 180° arc
   // We want the "readable zone" (45°→135°) to occupy ~60% of scroll travel
   // and entry/exit 45° each to occupy ~20%
-  const SCROLL_TOTAL = 900; // total scroll px for full arc — completes while scene is visible
-  const t = Math.min(1, scrollY / SCROLL_TOTAL); // 0→1
+  // ── Z-FALL PHYSICS ──
+  // Dashboard falls toward the screen from the viewer's position
+  // No rotateX arc — pure Z-axis depth: starts huge and close, lands at natural size
+  //
+  // During fall (hasFallen=false):
+  //   scale: 2.5 → 1.0 (shrinks as it recedes into screen)
+  //   opacity: 0.0 → 1.0 (materialises as it lands)
+  //   rotateX: slight tilt for depth, eases to resting on land
+  //
+  // After landing (hasFallen=true):
+  //   gentle resting tilt (rotateX ~18°) — just enough to feel 3D
+  //   scroll parallax floats it upward as user scrolls past
+  //   gentle fade out as it scrolls away
 
-  // Sine-based easing: slow in middle, fast at edges
-  // Map t (0→1) to angle (0→180°) with sine ease
-  // A pure linear map gives 0→180° uniformly — we want to compress middle
-  // Use: angle = 180 * (t - sin(2πt)/(2π)) — this slows the middle
-  // Simpler: split into 3 zones with different speeds
-  const FAST = 0.20;  // first 20% of scroll = 0→45° (fast)
-  const SLOW = 0.60;  // next  60% of scroll = 45→135° (slow, readable zone)
-  // last 20% = 135→180° (fast exit)
+  // easeOutQuart — explosive deceleration into landing
+  const easeOutQ = (x: number) => 1 - Math.pow(1 - x, 4);
+  const fp = easeOutQ(fallProgress); // 0→1, front-loaded deceleration
 
-  // Arc runs 20°→160° — not fully flat on entry/exit, more natural
-  const START_ANGLE = 20;
-  const ENTRY_ZONE = 45 - START_ANGLE; // 25° fast entry
-  const EXIT_ZONE  = 160 - 135;        // 25° fast exit
+  // Scale: 2.5 → 1.0 as it falls (shrinks into screen depth)
+  const fallScale = !entered ? 2.5 : !hasFallen
+    ? 2.5 - fp * 1.5   // 2.5 → 1.0
+    : 1.0;
 
-  let angleDeg: number;
-  if (t < FAST) {
-    // Zone 1: 20→45° fast
-    const z = t / FAST;
-    const eased = z * z * (3 - 2 * z);
-    angleDeg = START_ANGLE + eased * ENTRY_ZONE;
-  } else if (t < FAST + SLOW) {
-    // Zone 2: 45→135° slow — readable zone
-    const z = (t - FAST) / SLOW;
-    angleDeg = 45 + z * 90;
-  } else {
-    // Zone 3: 135→160° fast
-    const z = (t - FAST - SLOW) / FAST;
-    const eased = z * z * (3 - 2 * z);
-    angleDeg = 135 + eased * EXIT_ZONE;
-  }
+  // Tilt: slight forward tilt during fall, settles to resting angle on land
+  const fallTiltX = !entered ? -8 : !hasFallen
+    ? -8 + fp * 26     // -8° → 18° (comes in slightly tilted, lands at resting)
+    : 18;
 
-  // Convert: rotateX(90°) = upright. rotateX(0°) = floor. rotateX(180°) = ceiling.
-  // CSS rotateX increases rotation toward viewer at top.
-  // angleDeg=0 → rotateX(90°) flat on floor → we want rotateX going from 90 → 0 → -90
-  // Map: rotateX = 90 - angleDeg  (0°→90° means floor→upright, 90°→180° means upright→ceiling)
-  // During fall: start nearly flat (rotX=75°) falling face-first toward screen
-  // After landing: normal arc takes over
-  const sceneTiltX = !entered ? 90 : !hasFallen
-    ? 75 - fallProgress * 57  // 75° → 18° as it falls (face-first, then tips to resting)
-    : 90 - angleDeg;
+  // After landing, gentle scroll-driven tilt variation (subtle, not the full arc)
+  const scrollT = Math.min(1, scrollY / 1400);
+  const postLandTiltX = hasFallen ? fallTiltX + Math.sin(scrollT * Math.PI) * -12 : fallTiltX;
+  const postLandTiltY = hasFallen ? -6 + Math.sin(scrollT * Math.PI * 0.7) * 5 : 0;
+  const postLandTiltZ = hasFallen ? scrollT * 4 : 0;
 
-  // Subtle Y sway and Z lean during the readable zone only
-  const readableT = Math.max(0, Math.min(1, (t - FAST) / SLOW));
-  const sceneTiltY = entered ? Math.sin(readableT * Math.PI) * -6 : 0;
-  const sceneTiltZ = entered ? Math.sin(readableT * Math.PI * 0.5) * 3 : 0;
+  const sceneTiltX = postLandTiltX;
+  const sceneTiltY = postLandTiltY;
+  const sceneTiltZ = postLandTiltZ;
+  const sceneScale = fallScale;
 
-  // Fall animation: before impact, scene drops from above
-  // After impact (hasFallen), normal scroll physics take over
-  const FALL_START_Y = -600; // starts 600px above
-  const fallTranslateY = hasFallen ? 0 : FALL_START_Y + fallProgress * Math.abs(FALL_START_Y);
-  
-  // Impact squish: brief scaleY compression at moment of landing
-  const impactSquish = hasFallen && splashActive ? 1 : 1; // handled by SplashEffect visually
-  
-  // Scroll parallax only after landing
-  const sceneTranslateY = fallTranslateY - (hasFallen ? scrollY * 0.4 : 0);
-  const sceneScale = 1;
+  // Opacity: 0 → 1 during fall, then fade out gently as it scrolls away
+  const fallOpacity = !entered ? 0 : !hasFallen
+    ? fp * fp           // quadratic fade in — slow at first, rushes to full at impact
+    : 1;
+  const scrollFadeOut = hasFallen ? Math.max(0, 1 - Math.max(0, scrollY - 800) / 600) : 1;
+  const sceneOpacity = fallOpacity * scrollFadeOut;
 
-  // Opacity driven by angleDeg directly — matches the visual arc
-  // Fade in:  20° → 65°  (full opacity reached well before upright)
-  // Full:     65° → 115° (hold through the readable zone centred on 90°)
-  // Fade out: 115° → 160° (fades out as it tips away)
-  let sceneOpacity: number;
-  if (!entered) {
-    sceneOpacity = 0;
-  } else if (!hasFallen) {
-    // During fall: visible but slightly transparent so fall reads clearly
-    sceneOpacity = 0.92;
-  } else if (angleDeg < 80) {
-    sceneOpacity = Math.max(0, (angleDeg - 20) / (80 - 20));
-  } else if (angleDeg <= 100) {
-    sceneOpacity = 1;
-  } else {
-    sceneOpacity = Math.max(0, 1 - (angleDeg - 100) / (160 - 100));
-  }
+  // Scroll parallax after landing
+  const sceneTranslateY = hasFallen ? -scrollY * 0.35 : 0;
 
-  const galaxyDepth = Math.min(1, readableT);
+  const galaxyDepth = hasFallen ? Math.min(1, scrollY / 600) : 0;
 
   return (
     <section
@@ -1289,16 +1259,16 @@ function SceneSection({ scrollY, vw = 1200 }: { scrollY: number; vw?: number }) 
       {/* Option C entry: starts tilted flat + faded, eases to resting angle */}
       <div style={{
         width: "100%", maxWidth: "min(1100px, 92vw)",
-        perspective: "1400px",
+        perspective: "900px",
         position: "relative", zIndex: 5,
         opacity: sceneOpacity,
         transition: "none",
       }}>
         <div style={{
           transform: `translateY(${sceneTranslateY}px) rotateX(${sceneTiltX}deg) rotateY(${sceneTiltY}deg) rotateZ(${sceneTiltZ}deg) scale(${sceneScale})`,
+          transformOrigin: "50% 50%",
           transformStyle: "preserve-3d",
           transition: "none",
-          transformOrigin: "50% 50%",
         }}>
           {/* Surface panel */}
           <div style={{
