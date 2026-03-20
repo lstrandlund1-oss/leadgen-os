@@ -787,6 +787,7 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
   sequenceProgress: number;
   scrollLocked: boolean;
 }) {
+  // ── Hero sequence (HeroScene internal search animation) ──
   const [stage, setStage] = useState<HeroStage>("idle");
   const [selectedLead, setSelectedLead] = useState(0);
   const [scoreAnimate, setScoreAnimate] = useState(false);
@@ -796,6 +797,48 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
   const activeCycle = SEARCH_CYCLES[cycleIndex % SEARCH_CYCLES.length];
   const activeLeads = activeCycle.leads;
   const activeQuery = activeCycle.query;
+
+  // ── Dashboard sequence state ──
+  const [dashStage, setDashStage] = useState<HeroStage>("idle");
+  const [dashCycleIndex, setDashCycleIndex] = useState(0);
+  const [dashSelectedLead, setDashSelectedLead] = useState(0);
+  const [dashScoreAnimate, setDashScoreAnimate] = useState(false);
+  const [dashVisibleRows, setDashVisibleRows] = useState(0);
+
+  // Dashboard sequence engine
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const runCycle = (cycleIdx: number) => {
+      const cycle = SEARCH_CYCLES[cycleIdx % SEARCH_CYCLES.length];
+      setDashCycleIndex(cycleIdx);
+      setDashStage("idle");
+      setDashVisibleRows(0);
+      setDashScoreAnimate(false);
+      setDashSelectedLead(0);
+      timers.push(setTimeout(() => setDashStage("search"), 300));
+      timers.push(setTimeout(() => {
+        setDashStage("results");
+        for (let r = 0; r < cycle.leads.length; r++) {
+          timers.push(setTimeout(() => setDashVisibleRows(r + 1), r * 200));
+        }
+      }, STAGE_SEARCH));
+      timers.push(setTimeout(() => {
+        setDashStage("score");
+        const topIdx = cycle.leads.reduce((best, l, i) => l.score > cycle.leads[best].score ? i : best, 0);
+        setDashSelectedLead(topIdx);
+        setTimeout(() => setDashScoreAnimate(true), 200);
+      }, STAGE_SEARCH + STAGE_RESULTS));
+      timers.push(setTimeout(() => setDashStage("pause"), STAGE_SEARCH + STAGE_RESULTS + STAGE_SCORE));
+      timers.push(setTimeout(() => runCycle(cycleIdx + 1), TOTAL_CYCLE));
+    };
+    const init = setTimeout(() => runCycle(0), 1200);
+    return () => { clearTimeout(init); timers.forEach(clearTimeout); };
+  }, []);
+
+  const dashCycle = SEARCH_CYCLES[dashCycleIndex % SEARCH_CYCLES.length];
+  const dashActiveLeads = dashCycle.leads;
+  const dashActiveQuery = dashCycle.query;
+  const dashLead = dashCycle.leads[dashSelectedLead] ?? dashCycle.leads[0];
 
   // Galaxy particles — kept from old hero
   const [nearParticles] = useState(() =>
@@ -817,6 +860,8 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
 
   const galaxyDepth = Math.min(1, scrollY / 800);
   const fieldRotation = scrollY * 0.015;
+  // Scroll boost for particles — size and speed increase scrolling down, decrease scrolling up
+  const particleBoost = 1 + galaxyDepth * 2.5; // 1x at top → 3.5x at scrollY=800
   // Scroll physics — scene tilts, rises, and leans as user scrolls
 
   // ── SEQUENCE ENGINE ──
@@ -869,7 +914,7 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
 
   return (
     <section style={{
-      position: "relative", minHeight: "78vh",
+      position: "relative", minHeight: "100vh",
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
       padding: "60px 24px 16px", overflow: "visible",
@@ -884,13 +929,13 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
       {/* Galaxy near layer */}
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none", transform: `rotate(${fieldRotation}deg)`, transformOrigin: "50% 40%" }}>
         {nearParticles.map(p => (
-          <div key={p.id} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, width: p.size + galaxyDepth * 0.8, height: p.size + galaxyDepth * 0.8, borderRadius: "50%", background: "#c9a84c", opacity: p.opacity + galaxyDepth * 0.12, animation: `particleDrift ${p.duration}s ease-in-out ${p.delay}s infinite alternate` }} />
+          <div key={p.id} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, width: p.size * particleBoost, height: p.size * particleBoost, borderRadius: "50%", background: "#c9a84c", opacity: Math.min(0.9, p.opacity + galaxyDepth * 0.3), animation: `particleDrift ${p.duration / particleBoost}s ease-in-out ${p.delay}s infinite alternate` }} />
         ))}
       </div>
       {/* Galaxy deep layer */}
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none", transform: `rotate(${-fieldRotation * 0.4}deg)`, transformOrigin: "50% 40%" }}>
         {deepParticles.map(p => (
-          <div key={p.id} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, width: p.size * (1 + galaxyDepth * 1.2), height: p.size * (1 + galaxyDepth * 1.2), borderRadius: "50%", background: "radial-gradient(circle, #e8c97a 0%, #c9a84c 60%, transparent 100%)", opacity: p.baseOpacity + galaxyDepth * 0.3, animation: `starPulse ${p.duration}s ease-in-out ${p.delay}s infinite alternate`, boxShadow: galaxyDepth > 0.3 ? `0 0 ${4 + galaxyDepth * 8}px rgba(201,168,76,${galaxyDepth * 0.4})` : "none" }} />
+          <div key={p.id} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, width: p.size * particleBoost, height: p.size * particleBoost, borderRadius: "50%", background: "radial-gradient(circle, #e8c97a 0%, #c9a84c 60%, transparent 100%)", opacity: Math.min(0.9, p.baseOpacity + galaxyDepth * 0.4), animation: `starPulse ${p.duration / particleBoost}s ease-in-out ${p.delay}s infinite alternate`, boxShadow: galaxyDepth > 0.2 ? `0 0 ${(4 + galaxyDepth * 12) * particleBoost}px rgba(201,168,76,${galaxyDepth * 0.5})` : "none" }} />
         ))}
       </div>
 
@@ -901,168 +946,18 @@ function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, 
         waitlistCount={waitlistCount}
       />
 
-    </section>
-  );
-}
-
-
-// ── SCENE SECTION — static dashboard with gold dust particles on scroll ──
-function SceneSection({ scrollY }: { scrollY: number }) {
-  const [stage, setStage] = useState<HeroStage>("idle");
-  const [cycleIndex, setCycleIndex] = useState(0);
-  const [selectedLead, setSelectedLead] = useState(0);
-  const [scoreAnimate, setScoreAnimate] = useState(false);
-  const [visibleRows, setVisibleRows] = useState(0);
-  const sectionRef = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-  const dustPrevScrollY = useRef<number>(scrollY);
-  useEffect(() => { dustPrevScrollY.current = scrollY; }, [scrollY]);
-
-  // Become visible — set true immediately since section is always in view
-  // IntersectionObserver is unreliable when element is already partially visible on mount
-  useEffect(() => {
-    setVisible(true);
-  }, []);
-
-  // Sequence engine
-  useEffect(() => {
-    if (!visible) return;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const runCycle = (cycleIdx: number) => {
-      const cycle = SEARCH_CYCLES[cycleIdx % SEARCH_CYCLES.length];
-      setCycleIndex(cycleIdx);
-      setStage("idle");
-      setVisibleRows(0);
-      setScoreAnimate(false);
-      setSelectedLead(0);
-      timers.push(setTimeout(() => setStage("search"), 300));
-      timers.push(setTimeout(() => {
-        setStage("results");
-        for (let r = 0; r < cycle.leads.length; r++) {
-          timers.push(setTimeout(() => setVisibleRows(r + 1), r * 200));
-        }
-      }, STAGE_SEARCH));
-      timers.push(setTimeout(() => {
-        setStage("score");
-        const topIdx = cycle.leads.reduce((best, l, i) => l.score > cycle.leads[best].score ? i : best, 0);
-        setSelectedLead(topIdx);
-        setTimeout(() => setScoreAnimate(true), 200);
-      }, STAGE_SEARCH + STAGE_RESULTS));
-      timers.push(setTimeout(() => setStage("pause"), STAGE_SEARCH + STAGE_RESULTS + STAGE_SCORE));
-      timers.push(setTimeout(() => runCycle(cycleIdx + 1), TOTAL_CYCLE));
-    };
-    const init = setTimeout(() => runCycle(0), 600);
-    return () => { clearTimeout(init); timers.forEach(clearTimeout); };
-  }, [visible]);
-
-  const activeCycle = SEARCH_CYCLES[cycleIndex % SEARCH_CYCLES.length];
-  const activeLeads = activeCycle.leads;
-  const activeQuery = activeCycle.query;
-  const lead = activeCycle.leads[selectedLead] ?? activeCycle.leads[0];
-
-  // ── GOLD DUST PARTICLES ──
-  // RAF-driven time — particles always moving, faster on scroll
-  const [dustT, setDustT] = useState(0);
-  useEffect(() => {
-    let raf: number;
-    let prev = performance.now();
-    const tick = (now: number) => {
-      setDustT(t => t + (now - prev) * 0.001); // seconds
-      prev = now;
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
-  const PARTICLE_COUNT = 60;
-  // Scroll boost — scroll makes particles move faster
-  const scrollDelta = Math.abs(scrollY - dustPrevScrollY.current);
-  const scrollBoost = 1 + Math.min(3, scrollDelta * 0.08);
-
-  const TILT_X = 18;
-  const TILT_Y = -6;
-
-  return (
-    <section
-      ref={sectionRef}
-      style={{
-        background: "#080808",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        padding: "80px 24px 80px",
-        overflow: "visible",
-        position: "relative",
-      }}
-    >
-      {/* Gold dust particles — autonomous motion + scroll boost */}
-      <div style={{
-        position: "absolute", inset: 0,
-        pointerEvents: "none", zIndex: 10,
-        overflow: "visible",
-      }}>
-        {Array.from({ length: PARTICLE_COUNT }, (_, i) => {
-          const angle = (i / PARTICLE_COUNT) * Math.PI * 2;
-          const radiusFactor = 0.35 + (i % 7) / 6 * 0.65;
-          // Base orbit position — ellipse around dashboard
-          const baseX = Math.cos(angle) * 54 * radiusFactor;
-          const baseY = Math.sin(angle) * 36 * radiusFactor;
-          // True random-walk motion — each particle uses 3 independent sine waves
-          // at incommensurable frequencies so they never repeat, no bouncing
-          const p = (i / PARTICLE_COUNT) * Math.PI * 2;
-          const speed = (0.18 + (i % 11) * 0.025) * scrollBoost;
-          // X: sum of two waves at irrational ratio — never repeats
-          const driftX = (
-            Math.sin(dustT * speed + p) * (5 + (i % 4) * 2) +
-            Math.sin(dustT * speed * 1.618 + p * 2.1) * (3 + (i % 3))
-          );
-          // Y: different frequencies from X — avoids oval/bounce paths
-          const driftY = (
-            Math.cos(dustT * speed * 1.3 + p * 1.7) * (4 + (i % 5) * 1.5) +
-            Math.cos(dustT * speed * 0.7 + p * 0.9) * (2 + (i % 4))
-          );
-          const x = 50 + baseX + driftX;
-          const y = 50 + baseY + driftY;
-          // Opacity — always visible, pulses subtly, brightens on scroll
-          const pulse = 0.7 + Math.sin(dustT * speed * 2 + p) * 0.3;
-          const baseOpacity = 0.2 + (i % 4) * 0.08;
-          const opacity = baseOpacity * pulse * scrollBoost;
-          const size = (i % 5 === 0 ? 3 : i % 3 === 0 ? 2 : 1.5) * (1 + (scrollBoost - 1) * 0.4);
-          const colors = ["#e8c97a", "#c9a84c", "#ffffff", "#fff5cc", "#c9a84c"];
-          const color = colors[i % colors.length];
-          const hasGlow = scrollBoost > 1.3 || i % 6 === 0;
-          return (
-            <div key={i} style={{
-              position: "absolute",
-              left: `${x}%`, top: `${y}%`,
-              width: size, height: size,
-              borderRadius: "50%",
-              background: color,
-              opacity: Math.min(1, opacity),
-              transform: "translate(-50%, -50%)",
-              boxShadow: hasGlow ? `0 0 ${size * 3}px ${color}99` : "none",
-            }} />
-          );
-        })}
-      </div>
-
-      {/* Dashboard — static tilt, always visible */}
+      {/* ── DASHBOARD ── */}
       <div style={{
         width: "100%", maxWidth: "min(1100px, 92vw)",
         perspective: "1200px",
         position: "relative", zIndex: 5,
-        opacity: 1,
-        transition: "none",
-        marginTop: -400,
+        marginTop: 48,
       }}>
         <div style={{
-          transform: `rotateX(${TILT_X}deg) rotateY(${TILT_Y}deg)`,
+          transform: `rotateX(18deg) rotateY(-6deg)`,
           transformOrigin: "50% 50%",
           transformStyle: "preserve-3d",
-          transition: "none",
         }}>
-          {/* Surface panel */}
           <div style={{
             background: "#0e0e0e",
             border: "1px solid #2a2a2a",
@@ -1070,9 +965,7 @@ function SceneSection({ scrollY }: { scrollY: number }) {
             overflow: "hidden",
             boxShadow: "0 40px 120px rgba(0,0,0,0.8), 0 0 0 1px rgba(201,168,76,0.06), inset 0 1px 0 rgba(255,255,255,0.03)",
           }}>
-            {/* Surface grid */}
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.025, backgroundImage: "linear-gradient(#c9a84c 1px, transparent 1px), linear-gradient(90deg, #c9a84c 1px, transparent 1px)", backgroundSize: "40px 40px", borderRadius: 20 }} />
-            {/* Top chrome bar */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 20px", borderBottom: "1px solid #1a1a1a", background: "rgba(255,255,255,0.01)" }}>
               <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#2a2a2a" }} />
               <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#2a2a2a" }} />
@@ -1083,91 +976,66 @@ function SceneSection({ scrollY }: { scrollY: number }) {
               </div>
               <div style={{ padding: "4px 12px", borderRadius: 6, background: "#c9a84c", fontSize: 10, fontWeight: 700, color: "#080808", letterSpacing: "0.08em" }}>SCAN</div>
             </div>
-            {/* App content */}
             <div style={{ padding: "20px 24px", height: 420, overflow: "hidden", position: "relative" }}>
-              {/* Search bar */}
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderRadius: 10, border: "1px solid #1a1a1a", background: "#0a0a0a", marginBottom: 16 }}>
                 <span style={{ fontSize: 14, color: "#c9a84c" }}>🔍</span>
-                <span style={{ fontSize: 13, color: stage === "idle" ? "#333" : "#e8e0d0", fontFamily: "var(--font-body), sans-serif", letterSpacing: "0.01em", flex: 1 }}>
-                  {stage === "idle" ? (
-                    <span style={{ color: "#333" }}>Search niche + location…</span>
-                  ) : (
-                    <TypedText text={activeQuery} started={stage !== ("idle" as HeroStage)} />
-                  )}
+                <span style={{ fontSize: 13, color: dashStage === "idle" ? "#333" : "#e8e0d0", fontFamily: "var(--font-body), sans-serif", letterSpacing: "0.01em", flex: 1 }}>
+                  {dashStage === "idle" ? <span style={{ color: "#333" }}>Search niche + location…</span> : <TypedText text={dashActiveQuery} started={dashStage !== ("idle" as HeroStage)} />}
                 </span>
-                <div style={{ padding: "4px 12px", borderRadius: 6, background: stage === "results" || stage === "score" || stage === "pause" ? "#c9a84c" : "#1e1e1e", fontSize: 10, fontWeight: 700, color: stage === "results" || stage === "score" || stage === "pause" ? "#080808" : "#444", letterSpacing: "0.08em", transition: "all 0.4s ease" }}>
-                  SCAN
-                </div>
+                <div style={{ padding: "4px 12px", borderRadius: 6, background: dashStage === "results" || dashStage === "score" || dashStage === "pause" ? "#c9a84c" : "#1e1e1e", fontSize: 10, fontWeight: 700, color: dashStage === "results" || dashStage === "score" || dashStage === "pause" ? "#080808" : "#444", letterSpacing: "0.08em", transition: "all 0.4s ease" }}>SCAN</div>
               </div>
-              {/* Results header */}
-              {(stage === "results" || stage === "score" || stage === "pause") && (
+              {(dashStage === "results" || dashStage === "score" || dashStage === "pause") && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "0 4px" }}>
-                  <span style={{ fontSize: 10, color: "#555", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                    {activeLeads.length} leads found · scored against your profile
-                  </span>
+                  <span style={{ fontSize: 10, color: "#555", letterSpacing: "0.08em", textTransform: "uppercase" }}>{dashActiveLeads.length} leads found · scored against your profile</span>
                   <div style={{ flex: 1 }} />
-                  {["Score ↓", "Fit", "Gap"].map(label => (
-                    <span key={label} style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, border: "1px solid #1a1a1a", color: "#444", letterSpacing: "0.06em" }}>{label}</span>
-                  ))}
+                  {["Score ↓", "Fit", "Gap"].map(label => <span key={label} style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, border: "1px solid #1a1a1a", color: "#444", letterSpacing: "0.06em" }}>{label}</span>)}
                 </div>
               )}
-              {/* Lead rows */}
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {activeLeads.map((l, i) => {
-                  const rowVisible = i < visibleRows;
-                  const isSelected = stage === "score" || stage === "pause";
-                  const isThisOne = isSelected && i === selectedLead;
+                {dashActiveLeads.map((l, i) => {
+                  const rowVisible = i < dashVisibleRows;
+                  const isSelected = dashStage === "score" || dashStage === "pause";
+                  const isThisOne = isSelected && i === dashSelectedLead;
                   return (
-                    <div key={i} style={{
-                      borderRadius: 10,
-                      border: `1px solid ${isThisOne ? "rgba(201,168,76,0.3)" : "#1a1a1a"}`,
-                      background: isThisOne ? "rgba(201,168,76,0.06)" : "#111",
-                      overflow: "hidden",
-                      opacity: rowVisible ? 1 : 0,
-                      maxHeight: rowVisible ? 300 : 0,
-                      marginBottom: rowVisible ? undefined : 0,
-                      transform: rowVisible ? "none" : "translateY(6px)",
-                      transition: `opacity 0.35s ease ${i * 80}ms, max-height 0.35s ease ${i * 80}ms, transform 0.35s ease ${i * 80}ms, border-color 0.3s ease, background 0.3s ease`,
-                      boxShadow: isThisOne ? "0 4px 24px rgba(201,168,76,0.08)" : "none",
-                    }}>
+                    <div key={i} style={{ borderRadius: 10, border: `1px solid ${isThisOne ? "rgba(201,168,76,0.3)" : "#1a1a1a"}`, background: isThisOne ? "rgba(201,168,76,0.06)" : "#111", overflow: "hidden", opacity: rowVisible ? 1 : 0, maxHeight: rowVisible ? 300 : 0, transform: rowVisible ? "none" : "translateY(6px)", transition: `opacity 0.35s ease ${i * 80}ms, max-height 0.35s ease ${i * 80}ms, transform 0.35s ease ${i * 80}ms`, boxShadow: isThisOne ? "0 4px 24px rgba(201,168,76,0.08)" : "none" }}>
                       {isThisOne ? (
                         <div style={{ padding: "16px 20px" }}>
                           <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 16 }}>
-                            <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ flex: 1 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                                 <span style={{ fontSize: 14, fontWeight: 600, color: "#f5f0e8" }}>{l.name}</span>
-                                <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, border: "1px solid #2a2a2a", color: "#555", letterSpacing: "0.06em" }}>{l.industry}</span>
+                                <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, border: "1px solid #2a2a2a", color: "#555" }}>{l.industry}</span>
                               </div>
                               <span style={{ fontSize: 11, color: "#444" }}>📍 {l.city}</span>
                             </div>
-                            <div style={{ textAlign: "right", flexShrink: 0 }}>
+                            <div style={{ textAlign: "right" }}>
                               <div style={{ fontSize: 28, fontWeight: 700, color: l.score >= 75 ? "#4ade80" : l.score >= 55 ? "#c9a84c" : "#f87171", lineHeight: 1 }}>{l.score}</div>
                               <p style={{ fontSize: 8, color: "#444", textTransform: "uppercase", letterSpacing: "0.06em" }}>score</p>
                             </div>
                           </div>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
                             {[{ label: "Fit", value: l.fit, color: "#818cf8" }, { label: "Opportunity", value: l.opp, color: "#4ade80" }, { label: "Risk", value: l.risk, color: "#f87171" }].map(bar => (
-                              <ScoreBar key={bar.label} label={bar.label} value={bar.value} color={bar.color} animate={scoreAnimate} delay={0} />
+                              <ScoreBar key={bar.label} label={bar.label} value={bar.value} color={bar.color} animate={dashScoreAnimate} delay={0} />
                             ))}
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ display: "flex", gap: 8 }}>
                             <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: l.gapColor + "22", border: `1px solid ${l.gapColor}44`, color: l.gapColor, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>⬡ {l.gap} GAP DETECTED</span>
-                            <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: l.verdictColor + "22", border: `1px solid ${l.verdictColor}44`, color: l.verdictColor, fontWeight: 700, letterSpacing: "0.06em" }}>{l.verdict}</span>
+                            <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: l.verdictColor + "22", border: `1px solid ${l.verdictColor}44`, color: l.verdictColor, fontWeight: 700 }}>{l.verdict}</span>
                           </div>
                         </div>
                       ) : (
                         <div style={{ padding: "12px 20px", display: "flex", alignItems: "center", gap: 12 }}>
-                          <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ flex: 1 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
                               <span style={{ fontSize: 13, fontWeight: 600, color: "#e8e0d0" }}>{l.name}</span>
-                              <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, border: "1px solid #1e1e1e", color: "#444", letterSpacing: "0.04em" }}>{l.industry}</span>
+                              <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, border: "1px solid #1e1e1e", color: "#444" }}>{l.industry}</span>
                             </div>
                             <span style={{ fontSize: 10, color: "#333" }}>📍 {l.city}</span>
                           </div>
                           <div style={{ fontSize: 20, fontWeight: 700, color: l.score >= 75 ? "#4ade80" : l.score >= 55 ? "#c9a84c" : "#f87171", minWidth: 36, textAlign: "right" }}>{l.score}</div>
                           <div style={{ display: "flex", gap: 6 }}>
-                            <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, background: l.verdictColor + "18", color: l.verdictColor, fontWeight: 700, letterSpacing: "0.04em" }}>{l.verdict}</span>
-                            <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, background: l.gapColor + "18", color: l.gapColor, fontWeight: 700, letterSpacing: "0.06em" }}>⬡ {l.gap}</span>
+                            <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, background: l.verdictColor + "18", color: l.verdictColor, fontWeight: 700 }}>{l.verdict}</span>
+                            <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, background: l.gapColor + "18", color: l.gapColor, fontWeight: 700 }}>⬡ {l.gap}</span>
                           </div>
                         </div>
                       )}
@@ -1175,8 +1043,7 @@ function SceneSection({ scrollY }: { scrollY: number }) {
                   );
                 })}
               </div>
-              {/* Scanning pulse */}
-              {stage === "search" && (
+              {dashStage === "search" && (
                 <div style={{ position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#c9a84c", animation: "pulse 1s infinite" }} />
                   <span style={{ fontSize: 10, color: "#555", letterSpacing: "0.1em", textTransform: "uppercase" }}>Scanning signals…</span>
@@ -1184,12 +1051,15 @@ function SceneSection({ scrollY }: { scrollY: number }) {
               )}
             </div>
           </div>
-          {/* Scene underglow */}
           <div style={{ position: "absolute", bottom: -40, left: "5%", right: "5%", height: 80, background: "radial-gradient(ellipse, rgba(201,168,76,0.15) 0%, transparent 70%)", filter: "blur(20px)", pointerEvents: "none" }} />
         </div>
       </div>
+
     </section>
   );
+}
+
+
 }
 
 
@@ -1394,10 +1264,7 @@ export default function LandingPage() {
         scrollLocked={scrollLocked}
       />
 
-      {/* UI SHOWCASE — animates into frame on scroll */}
-      <SceneSection scrollY={scrollY} />
-
-            {/* STAT BAR */}
+      {/* STAT BAR */}
       <StatBar />
 
       {/* Section boundary glow */}
