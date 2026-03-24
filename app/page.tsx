@@ -573,17 +573,68 @@ function HeroScene({ scrollY, waitlistCount }: {
   const cycleIdxRef = useRef(0);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  // Init particles
+  // ── GOLDEN GALAXY INIT ──
   useEffect(() => {
-    particlesRef.current = Array.from({ length: 80 }, (_, i) => ({
+    // Layer 1: deep background stars — tiny, dense, barely moving
+    const deep = Array.from({ length: 220 }, (_, i) => ({
       x: Math.random() * 100, y: Math.random() * 100,
-      vx: (Math.random() - 0.5) * 0.006, vy: (Math.random() - 0.5) * 0.006,
-      r: Math.random() * 1.2 + 0.3,
-      baseOp: Math.random() * 0.18 + 0.04,
+      r: Math.random() * 0.7 + 0.15,
+      op: Math.random() * 0.25 + 0.05,
       ph: Math.random() * Math.PI * 2,
-      sp: Math.random() * 0.0004 + 0.0002,
-      glow: i % 6 === 0,
+      sp: Math.random() * 0.0002 + 0.00005,
+      vx: (Math.random() - 0.5) * 0.0015,
+      vy: (Math.random() - 0.5) * 0.0015,
+      layer: 0,
     }));
+    // Layer 2: mid stars — slightly larger, warm gold tint
+    const mid = Array.from({ length: 90 }, (_, i) => ({
+      x: Math.random() * 100, y: Math.random() * 100,
+      r: Math.random() * 1.1 + 0.4,
+      op: Math.random() * 0.35 + 0.08,
+      ph: Math.random() * Math.PI * 2,
+      sp: Math.random() * 0.0004 + 0.0001,
+      vx: (Math.random() - 0.5) * 0.003,
+      vy: (Math.random() - 0.5) * 0.003,
+      layer: 1,
+    }));
+    // Layer 3: bright foreground stars — large, glowing, pulsy
+    const fore = Array.from({ length: 28 }, (_, i) => ({
+      x: Math.random() * 100, y: Math.random() * 100,
+      r: Math.random() * 1.8 + 0.8,
+      op: Math.random() * 0.5 + 0.2,
+      ph: Math.random() * Math.PI * 2,
+      sp: Math.random() * 0.0008 + 0.0003,
+      vx: (Math.random() - 0.5) * 0.005,
+      vy: (Math.random() - 0.5) * 0.005,
+      layer: 2,
+    }));
+    // Nebula clouds — large soft blobs that drift slowly
+    const nebulae = Array.from({ length: 6 }, (_, i) => ({
+      x: 10 + Math.random() * 80,
+      y: 10 + Math.random() * 80,
+      rx: 120 + Math.random() * 200,
+      ry: 80 + Math.random() * 140,
+      op: Math.random() * 0.028 + 0.008,
+      ph: Math.random() * Math.PI * 2,
+      sp: Math.random() * 0.00008 + 0.00003,
+      vx: (Math.random() - 0.5) * 0.001,
+      vy: (Math.random() - 0.5) * 0.0008,
+      hue: i % 2 === 0 ? "201,168,76" : "232,201,122",
+    }));
+    // Shooting stars
+    const shooters: {x:number;y:number;vx:number;vy:number;len:number;op:number;active:boolean;timer:number}[] = Array.from({ length: 4 }, () => ({
+      x: 0, y: 0, vx: 0, vy: 0, len: 0, op: 0, active: false, timer: Math.random() * 8000,
+    }));
+
+    particlesRef.current = [...deep, ...mid, ...fore] as typeof particlesRef.current;
+    (particlesRef as React.MutableRefObject<typeof particlesRef.current & {
+      nebulae: typeof nebulae;
+      shooters: typeof shooters;
+    }>).current.nebulae = nebulae;
+    (particlesRef as React.MutableRefObject<typeof particlesRef.current & {
+      nebulae: typeof nebulae;
+      shooters: typeof shooters;
+    }>).current.shooters = shooters;
   }, []);
 
   // Canvas draw loop
@@ -598,59 +649,149 @@ function HeroScene({ scrollY, waitlistCount }: {
     const onMouse = (e: MouseEvent) => { mouseRef.current = { x: e.clientX / W, y: e.clientY / H }; };
     window.addEventListener("mousemove", onMouse, { passive: true });
 
-    function draw(t: number) {
-      ctx.clearRect(0, 0, W, H);
-      const burst = burstRef.current;
-      burst.v = Math.max(0, burst.v - 0.012);
-      const { x: mx, y: my } = mouseRef.current;
+    let lastT = 0;
 
-      // Mouse glow
-      const mg = ctx.createRadialGradient(mx*W, my*H, 0, mx*W, my*H, 280);
-      mg.addColorStop(0, "rgba(201,168,76,0.04)"); mg.addColorStop(1, "rgba(0,0,0,0)");
+    function draw(t: number) {
+      const dt = t - lastT; lastT = t;
+      ctx.clearRect(0, 0, W, H);
+
+      const burst = burstRef.current;
+      burst.v = Math.max(0, burst.v - 0.008);
+      const { x: mx, y: my } = mouseRef.current;
+      const pts = particlesRef.current as typeof particlesRef.current & {
+        nebulae: {x:number;y:number;rx:number;ry:number;op:number;ph:number;sp:number;vx:number;vy:number;hue:string}[];
+        shooters: {x:number;y:number;vx:number;vy:number;len:number;op:number;active:boolean;timer:number}[];
+      };
+
+      // ── 1. NEBULA CLOUDS ──
+      if (pts.nebulae) {
+        for (const n of pts.nebulae) {
+          n.x = (n.x + n.vx + 100) % 100;
+          n.y = (n.y + n.vy + 100) % 100;
+          const breathe = 0.7 + Math.sin(t * n.sp + n.ph) * 0.3;
+          const op = n.op * breathe * (1 + burst.v * 1.5);
+          const grd = ctx.createRadialGradient(
+            n.x*W/100, n.y*H/100, 0,
+            n.x*W/100, n.y*H/100, Math.max(n.rx, n.ry)
+          );
+          grd.addColorStop(0, `rgba(${n.hue},${op.toFixed(3)})`);
+          grd.addColorStop(0.5, `rgba(${n.hue},${(op*0.4).toFixed(3)})`);
+          grd.addColorStop(1, `rgba(${n.hue},0)`);
+          ctx.save();
+          ctx.translate(n.x*W/100, n.y*H/100);
+          ctx.scale(n.rx/Math.max(n.rx,n.ry), n.ry/Math.max(n.rx,n.ry));
+          ctx.beginPath();
+          ctx.arc(0, 0, Math.max(n.rx,n.ry), 0, Math.PI*2);
+          ctx.fillStyle = grd; ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      // ── 2. GALAXY CORE glow (central warm bloom) ──
+      const coreX = W * 0.5 + Math.sin(t * 0.00008) * W * 0.04;
+      const coreY = H * 0.45 + Math.cos(t * 0.00006) * H * 0.03;
+      const core = ctx.createRadialGradient(coreX, coreY, 0, coreX, coreY, W * 0.45);
+      core.addColorStop(0, `rgba(201,168,76,${0.03 + burst.v * 0.06})`);
+      core.addColorStop(0.3, `rgba(180,140,50,${0.015 + burst.v * 0.03})`);
+      core.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = core; ctx.fillRect(0, 0, W, H);
+
+      // ── 3. MOUSE PARALLAX glow ──
+      const mg = ctx.createRadialGradient(mx*W, my*H, 0, mx*W, my*H, 320);
+      mg.addColorStop(0, "rgba(232,201,122,0.05)"); mg.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = mg; ctx.fillRect(0, 0, W, H);
 
-      // Burst glow
+      // ── 4. BURST GLOW ──
       if (burst.v > 0.01) {
-        const bg = ctx.createRadialGradient(burst.cx*W, burst.cy*H, 0, burst.cx*W, burst.cy*H, 500);
-        bg.addColorStop(0, `rgba(232,201,122,${burst.v * 0.12})`);
-        bg.addColorStop(0.4, `rgba(201,168,76,${burst.v * 0.05})`);
+        const bg = ctx.createRadialGradient(burst.cx*W, burst.cy*H, 0, burst.cx*W, burst.cy*H, 600);
+        bg.addColorStop(0, `rgba(232,201,122,${(burst.v * 0.18).toFixed(3)})`);
+        bg.addColorStop(0.35, `rgba(201,168,76,${(burst.v * 0.08).toFixed(3)})`);
+        bg.addColorStop(0.7, `rgba(138,110,48,${(burst.v * 0.03).toFixed(3)})`);
         bg.addColorStop(1, "rgba(0,0,0,0)");
         ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
       }
 
-      const pts = particlesRef.current;
-      // Connections
-      for (let i = 0; i < pts.length; i++) {
-        for (let j = i + 1; j < pts.length; j++) {
-          const dx = (pts[i].x - pts[j].x) * W / 100;
-          const dy = (pts[i].y - pts[j].y) * H / 100;
-          const dist = Math.sqrt(dx*dx + dy*dy);
-          if (dist < 100) {
-            ctx.beginPath();
-            ctx.moveTo(pts[i].x*W/100, pts[i].y*H/100);
-            ctx.lineTo(pts[j].x*W/100, pts[j].y*H/100);
-            ctx.strokeStyle = `rgba(201,168,76,${(1-dist/100)*0.04*(1+burst.v*2)})`;
-            ctx.lineWidth = 0.5; ctx.stroke();
+      // ── 5. STARS ──
+      for (const p of pts) {
+        if (!('layer' in p)) continue;
+        p.x = (p.x + p.vx + 100) % 100;
+        p.y = (p.y + p.vy + 100) % 100;
+        const pulse = 0.55 + Math.sin(t * p.sp * 2 + p.ph) * 0.45;
+        const bdx = (p.x/100 - burst.cx) * W, bdy = (p.y/100 - burst.cy) * H;
+        const burstBoost = burst.v * Math.max(0, 1 - Math.sqrt(bdx*bdx+bdy*bdy)/500);
+        const op = Math.min(0.92, p.op * pulse + burstBoost * 0.8);
+
+        const layer = (p as typeof p & {layer:number}).layer;
+
+        if (layer === 2) {
+          // Foreground: large glowing star with corona
+          const coronaR = p.r * (6 + burstBoost * 10);
+          const gr = ctx.createRadialGradient(p.x*W/100, p.y*H/100, 0, p.x*W/100, p.y*H/100, coronaR);
+          gr.addColorStop(0, `rgba(255,245,200,${op})`);
+          gr.addColorStop(0.15, `rgba(232,201,122,${op * 0.7})`);
+          gr.addColorStop(0.5, `rgba(201,168,76,${op * 0.2})`);
+          gr.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.beginPath(); ctx.arc(p.x*W/100, p.y*H/100, coronaR, 0, Math.PI*2);
+          ctx.fillStyle = gr; ctx.fill();
+          // Core
+          ctx.beginPath(); ctx.arc(p.x*W/100, p.y*H/100, p.r * (1 + burstBoost * 0.5), 0, Math.PI*2);
+          ctx.fillStyle = `rgba(255,250,220,${op})`; ctx.fill();
+        } else if (layer === 1) {
+          // Mid: warm gold with soft glow
+          if (pulse > 0.8) {
+            const gr2 = ctx.createRadialGradient(p.x*W/100, p.y*H/100, 0, p.x*W/100, p.y*H/100, p.r * 4);
+            gr2.addColorStop(0, `rgba(232,201,122,${op * 0.6})`);
+            gr2.addColorStop(1, "rgba(0,0,0,0)");
+            ctx.beginPath(); ctx.arc(p.x*W/100, p.y*H/100, p.r*4, 0, Math.PI*2);
+            ctx.fillStyle = gr2; ctx.fill();
           }
+          ctx.beginPath(); ctx.arc(p.x*W/100, p.y*H/100, p.r * (1 + burstBoost * 0.4), 0, Math.PI*2);
+          ctx.fillStyle = `rgba(220,185,100,${op})`; ctx.fill();
+        } else {
+          // Deep: tiny dim stars, cool white-gold
+          ctx.beginPath(); ctx.arc(p.x*W/100, p.y*H/100, p.r * (1 + burstBoost * 0.3), 0, Math.PI*2);
+          ctx.fillStyle = `rgba(200,175,110,${op})`; ctx.fill();
         }
       }
 
-      // Particles
-      for (const p of pts) {
-        p.x = (p.x + p.vx + 100) % 100; p.y = (p.y + p.vy + 100) % 100;
-        const pulse = 0.6 + Math.sin(t * p.sp * 2 + p.ph) * 0.4;
-        const bdx = (p.x/100 - burst.cx) * W, bdy = (p.y/100 - burst.cy) * H;
-        const burstBoost = burst.v * Math.max(0, 1 - Math.sqrt(bdx*bdx+bdy*bdy)/400);
-        const op = Math.min(0.95, p.baseOp * pulse + burstBoost * 0.7);
-        if (p.glow) {
-          const gr = ctx.createRadialGradient(p.x*W/100, p.y*H/100, 0, p.x*W/100, p.y*H/100, p.r*(5+burstBoost*8));
-          gr.addColorStop(0, `rgba(232,201,122,${op*0.9})`); gr.addColorStop(1, "rgba(0,0,0,0)");
-          ctx.beginPath(); ctx.arc(p.x*W/100, p.y*H/100, p.r*(5+burstBoost*8), 0, Math.PI*2);
-          ctx.fillStyle = gr; ctx.fill();
+      // ── 6. SHOOTING STARS ──
+      if (pts.shooters) {
+        for (const s of pts.shooters) {
+          if (!s.active) {
+            s.timer -= dt;
+            if (s.timer <= 0) {
+              // Spawn from left/top edge heading right-downward
+              s.x = Math.random() * W * 0.6;
+              s.y = Math.random() * H * 0.5;
+              s.vx = 4 + Math.random() * 5;
+              s.vy = 1 + Math.random() * 2.5;
+              s.len = 60 + Math.random() * 100;
+              s.op = 0.7 + Math.random() * 0.3;
+              s.active = true;
+              s.timer = 6000 + Math.random() * 12000;
+            }
+            continue;
+          }
+          s.x += s.vx; s.y += s.vy;
+          s.op -= 0.012;
+          if (s.op <= 0 || s.x > W + 50 || s.y > H + 50) { s.active = false; continue; }
+          const tailX = s.x - (s.vx / Math.sqrt(s.vx*s.vx+s.vy*s.vy)) * s.len;
+          const tailY = s.y - (s.vy / Math.sqrt(s.vx*s.vx+s.vy*s.vy)) * s.len;
+          const streak = ctx.createLinearGradient(tailX, tailY, s.x, s.y);
+          streak.addColorStop(0, "rgba(255,245,200,0)");
+          streak.addColorStop(0.7, `rgba(232,201,122,${(s.op * 0.4).toFixed(3)})`);
+          streak.addColorStop(1, `rgba(255,250,220,${s.op.toFixed(3)})`);
+          ctx.beginPath(); ctx.moveTo(tailX, tailY); ctx.lineTo(s.x, s.y);
+          ctx.strokeStyle = streak; ctx.lineWidth = 1.5; ctx.stroke();
+          // Head glow
+          const hg = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 8);
+          hg.addColorStop(0, `rgba(255,250,220,${s.op})`);
+          hg.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.beginPath(); ctx.arc(s.x, s.y, 8, 0, Math.PI*2);
+          ctx.fillStyle = hg; ctx.fill();
         }
-        ctx.beginPath(); ctx.arc(p.x*W/100, p.y*H/100, p.r*(1+burstBoost*0.6), 0, Math.PI*2);
-        ctx.fillStyle = `rgba(232,201,122,${op})`; ctx.fill();
       }
+
       rafRef.current = requestAnimationFrame(draw);
     }
     rafRef.current = requestAnimationFrame(draw);
