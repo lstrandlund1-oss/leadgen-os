@@ -1035,6 +1035,20 @@ function HeroScene({ scrollY, waitlistCount }: {
 
 
 
+// Gold text with constant ambient glow
+function GoldText({ children, style = {}, as: Tag = "span" }: {
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  as?: any;
+}) {
+  return (
+    <Tag style={{ ...style, filter: "drop-shadow(0 0 8px rgba(201,168,76,0.45)) drop-shadow(0 0 20px rgba(201,168,76,0.18))" }}>
+      {children}
+    </Tag>
+  );
+}
+
 // Button with internal mouse-tracking glow — Huly style
 // Section with clip-path reveal — mouse position reveals a gold underglow
 // Huly's technique: CSS vars --mx --my drive clip-path circle on a glowing layer
@@ -1163,22 +1177,7 @@ export default function LandingPage() {
     }).catch(() => {});
   }, []);
 
-  const [sequenceProgress, setSequenceProgress] = useState(0);
-  const scrollLocked = false;
 
-
-  useEffect(() => {
-    // Track sequence progress for the indicator bar
-    const startTime = performance.now();
-    let rafId: number;
-    const tick = (now: number) => {
-      const elapsed = (now - startTime) % TOTAL_CYCLE;
-      setSequenceProgress(elapsed / TOTAL_CYCLE);
-      rafId = requestAnimationFrame(tick);
-    };
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrollY(window.scrollY);
