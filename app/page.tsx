@@ -496,568 +496,543 @@ function StepsSection({ visible, scrollY }: { visible: boolean; scrollY: number 
 }
 
 
-function ScoreBar({ label, value, color, delay = 0, animate }: { label: string; value: number; color: string; delay?: number; animate: boolean }) {
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    if (!animate) return;
-    const t = setTimeout(() => setWidth(value), delay);
-    return () => clearTimeout(t);
-  }, [animate, value, delay]);
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 4 }}>
-        <span style={{ color: "#555" }}>{label}</span>
-        <span style={{ color, fontWeight: 700 }}>{value}</span>
-      </div>
-      <div style={{ width: "100%", height: 6, background: "#1a1a1a", borderRadius: 999, overflow: "hidden" }}>
-        <div style={{ width: `${width}%`, height: "100%", background: color, borderRadius: 999, transition: "width 1.2s cubic-bezier(0.16,1,0.3,1)" }} />
-      </div>
-    </div>
-  );
-}
-
-// ── SEQUENCE DATA ──
-// Each cycle has a matching search query + results set
+// ── SEARCH CYCLES DATA ──
 const SEARCH_CYCLES = [
   {
-    query: "beauty salons · london",
+    q: "beauty salons · london",
     leads: [
-      { name: "Bloom & Co Studio",    industry: "Beauty Salon",   city: "London",  score: 74, fit: 81, opp: 68, risk: 22, gap: "CONVERSION",     gapColor: "#fb923c", verdict: "Strong Lead", verdictColor: "#4ade80" },
-      { name: "Glow Beauty Bar",      industry: "Beauty Salon",   city: "London",  score: 61, fit: 70, opp: 55, risk: 30, gap: "VISIBILITY",      gapColor: "#818cf8", verdict: "Good Lead",   verdictColor: "#c9a84c" },
-      { name: "Luxe Nail & Spa",      industry: "Beauty Salon",   city: "London",  score: 88, fit: 92, opp: 85, risk: 10, gap: "CONVERSION",     gapColor: "#fb923c", verdict: "Top Lead",    verdictColor: "#4ade80" },
-      { name: "The Beauty Collective",industry: "Beauty Salon",   city: "London",  score: 45, fit: 38, opp: 50, risk: 55, gap: "OPTIMISATION",   gapColor: "#f472b6", verdict: "Weak Lead",   verdictColor: "#f87171" },
-      { name: "Studio Muse London",   industry: "Beauty Salon",   city: "London",  score: 79, fit: 84, opp: 74, risk: 18, gap: "INFRASTRUCTURE", gapColor: "#60a5fa", verdict: "Strong Lead", verdictColor: "#4ade80" },
+      { n: "Luxe Nail & Spa",       score: 88, sc: "#4ade80", vc: "#4ade80", v: "Top Lead", fit: 92, opp: 85, risk: 10, gap: "CONVERSION",     gc: "#fb923c",
+        msg: (n: string) => `Hi — <em>${n}</em> has no mobile booking CTA. I'll build one, install it, and send you a <strong>live preview within 48 hours</strong>. No commitment needed.` },
+      { n: "Studio Muse London",    score: 79, sc: "#4ade80", vc: "#4ade80", v: "Strong",   fit: 84, opp: 74, risk: 18, gap: "INFRASTRUCTURE",  gc: "#60a5fa", msg: null },
+      { n: "Bloom & Co Studio",     score: 74, sc: "#4ade80", vc: "#4ade80", v: "Strong",   fit: 81, opp: 68, risk: 22, gap: "CONVERSION",      gc: "#fb923c", msg: null },
+      { n: "Glow Beauty Bar",       score: 61, sc: "#c9a84c", vc: "#c9a84c", v: "Good",     fit: 70, opp: 55, risk: 30, gap: "VISIBILITY",      gc: "#818cf8", msg: null },
+      { n: "The Beauty Collective", score: 45, sc: "#f87171", vc: "#f87171", v: "Weak",     fit: 38, opp: 50, risk: 55, gap: "OPTIMISATION",    gc: "#f472b6", msg: null },
     ],
+    hint: "5 leads scored · beauty salons · london",
   },
   {
-    query: "web design agencies · stockholm",
+    q: "web agencies · stockholm",
     leads: [
-      { name: "Norr Studio AB",       industry: "Web Agency",     city: "Stockholm", score: 82, fit: 88, opp: 79, risk: 14, gap: "CONVERSION",     gapColor: "#fb923c", verdict: "Top Lead",    verdictColor: "#4ade80" },
-      { name: "Pixel & Pine",         industry: "Web Agency",     city: "Stockholm", score: 67, fit: 60, opp: 72, risk: 28, gap: "VISIBILITY",      gapColor: "#818cf8", verdict: "Good Lead",   verdictColor: "#c9a84c" },
-      { name: "Forma Digital",        industry: "Web Agency",     city: "Stockholm", score: 55, fit: 50, opp: 61, risk: 40, gap: "OPTIMISATION",   gapColor: "#f472b6", verdict: "Weak Lead",   verdictColor: "#f87171" },
-      { name: "Brightpath Agency",    industry: "Web Agency",     city: "Stockholm", score: 91, fit: 95, opp: 88, risk: 8,  gap: "INFRASTRUCTURE", gapColor: "#60a5fa", verdict: "Top Lead",    verdictColor: "#4ade80" },
-      { name: "Studio Noll",          industry: "Web Agency",     city: "Stockholm", score: 73, fit: 77, opp: 68, risk: 22, gap: "CONVERSION",     gapColor: "#fb923c", verdict: "Strong Lead", verdictColor: "#4ade80" },
+      { n: "Brightpath Agency", score: 91, sc: "#4ade80", vc: "#4ade80", v: "Top Lead", fit: 95, opp: 88, risk: 8,  gap: "INFRASTRUCTURE", gc: "#60a5fa",
+        msg: (n: string) => `Hey — <em>${n}</em> has no lead capture on the site. I'll build a <strong>free working prototype</strong> and send it over by Friday. Just reply yes.` },
+      { n: "Norr Studio AB",    score: 82, sc: "#4ade80", vc: "#4ade80", v: "Top Lead", fit: 88, opp: 79, risk: 14, gap: "CONVERSION",     gc: "#fb923c", msg: null },
+      { n: "Studio Noll",       score: 73, sc: "#4ade80", vc: "#4ade80", v: "Strong",   fit: 77, opp: 68, risk: 22, gap: "CONVERSION",     gc: "#fb923c", msg: null },
+      { n: "Pixel & Pine",      score: 67, sc: "#c9a84c", vc: "#c9a84c", v: "Good",    fit: 60, opp: 72, risk: 28, gap: "VISIBILITY",     gc: "#818cf8", msg: null },
+      { n: "Forma Digital",     score: 55, sc: "#f87171", vc: "#f87171", v: "Weak",    fit: 50, opp: 61, risk: 40, gap: "OPTIMISATION",   gc: "#f472b6", msg: null },
     ],
+    hint: "5 leads scored · web agencies · stockholm",
   },
   {
-    query: "personal trainers · manchester",
+    q: "personal trainers · manchester",
     leads: [
-      { name: "Peak Form PT",         industry: "Personal Trainer", city: "Manchester", score: 86, fit: 90, opp: 83, risk: 12, gap: "VISIBILITY",      gapColor: "#818cf8", verdict: "Top Lead",    verdictColor: "#4ade80" },
-      { name: "Iron & Grit Fitness",  industry: "Personal Trainer", city: "Manchester", score: 62, fit: 58, opp: 66, risk: 34, gap: "CONVERSION",     gapColor: "#fb923c", verdict: "Good Lead",   verdictColor: "#c9a84c" },
-      { name: "Elevate Coaching",     industry: "Personal Trainer", city: "Manchester", score: 77, fit: 82, opp: 73, risk: 20, gap: "OPTIMISATION",   gapColor: "#f472b6", verdict: "Strong Lead", verdictColor: "#4ade80" },
-      { name: "Body Blueprint",       industry: "Personal Trainer", city: "Manchester", score: 49, fit: 42, opp: 55, risk: 50, gap: "INFRASTRUCTURE", gapColor: "#60a5fa", verdict: "Weak Lead",   verdictColor: "#f87171" },
-      { name: "Momentum Fitness MCR", industry: "Personal Trainer", city: "Manchester", score: 80, fit: 85, opp: 76, risk: 16, gap: "CONVERSION",     gapColor: "#fb923c", verdict: "Strong Lead", verdictColor: "#4ade80" },
+      { n: "Peak Form PT",         score: 86, sc: "#4ade80", vc: "#4ade80", v: "Top Lead", fit: 90, opp: 83, risk: 12, gap: "VISIBILITY",      gc: "#818cf8",
+        msg: (n: string) => `Hi — <em>${n}</em> is invisible on Google in Manchester. I'll send a <strong>free visibility audit</strong> with 3 fixes you can action today. Want it?` },
+      { n: "Momentum Fitness MCR", score: 80, sc: "#4ade80", vc: "#4ade80", v: "Strong",   fit: 85, opp: 76, risk: 16, gap: "CONVERSION",      gc: "#fb923c", msg: null },
+      { n: "Elevate Coaching",     score: 77, sc: "#4ade80", vc: "#4ade80", v: "Strong",   fit: 82, opp: 73, risk: 20, gap: "OPTIMISATION",    gc: "#f472b6", msg: null },
+      { n: "Iron & Grit Fitness",  score: 62, sc: "#c9a84c", vc: "#c9a84c", v: "Good",    fit: 58, opp: 66, risk: 34, gap: "CONVERSION",      gc: "#fb923c", msg: null },
+      { n: "Body Blueprint",       score: 49, sc: "#f87171", vc: "#f87171", v: "Weak",    fit: 42, opp: 55, risk: 50, gap: "INFRASTRUCTURE",  gc: "#60a5fa", msg: null },
     ],
+    hint: "5 leads scored · personal trainers · manchester",
   },
 ];
 
-// Keep a flat MOCK_LEADS for TypeScript — replaced dynamically
-const MOCK_LEADS = SEARCH_CYCLES[0].leads;
+type Lead = typeof SEARCH_CYCLES[0]["leads"][0];
+type Cycle = typeof SEARCH_CYCLES[0];
 
-// Animated typing text
-function TypedText({ text, started }: { text: string; started: boolean }) {
-  const [displayed, setDisplayed] = useState("");
-  useEffect(() => {
-    if (!started) { setDisplayed(""); return; }
-    let i = 0;
-    setDisplayed("");
-    const iv = setInterval(() => {
-      i++;
-      setDisplayed(text.slice(0, i));
-      if (i >= text.length) clearInterval(iv);
-    }, 55);
-    return () => clearInterval(iv);
-  }, [started, text]);
-  return <>{displayed}<span style={{ opacity: displayed.length < text.length ? 1 : 0, transition: "opacity 0.1s" }}>|</span></>;
-}
-
-// Mini score bar for the expanded card
-function MiniBar({ label, value, color, animate, delay }: { label: string; value: number; color: string; animate: boolean; delay: number }) {
-  const [w, setW] = useState(0);
-  useEffect(() => {
-    if (!animate) {
-      const t = setTimeout(() => setW(0), 0);
-      return () => clearTimeout(t);
-    }
-    const t = setTimeout(() => setW(value), delay);
-    return () => clearTimeout(t);
-  }, [animate, value, delay]);
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, marginBottom: 3 }}>
-        <span style={{ color: "#555" }}>{label}</span>
-        <span style={{ color, fontWeight: 700 }}>{value}</span>
-      </div>
-      <div style={{ height: 4, background: "#1a1a1a", borderRadius: 999, overflow: "hidden" }}>
-        <div style={{ width: `${w}%`, height: "100%", background: color, borderRadius: 999, transition: "width 1s cubic-bezier(0.16,1,0.3,1)" }} />
-      </div>
-    </div>
-  );
-}
-
-// Stage durations in ms
-const STAGE_SEARCH   = 1600;  // typing
-const STAGE_RESULTS  = 2200;  // results cascade in
-const STAGE_SCORE    = 3200;  // selected card expands + scores
-const STAGE_PAUSE    = 1000;  // hold before reset
-const TOTAL_CYCLE    = STAGE_SEARCH + STAGE_RESULTS + STAGE_SCORE + STAGE_PAUSE;
-
-// ── GOLD FIELD — breathing layered radial gradient ──
-// Multiple gold orbs drift independently, creating organic ambient glow behind headline
-// ── HERO TEXT — breathing gold field + mouse parallax depth ──
-function HeroText({ scrollY, heroTextOpacity, waitlistCount }: {
-  scrollY: number; heroTextOpacity: number; waitlistCount: number | null;
-}) {
-  const [mouse, setMouse] = useState({ x: 0, y: 0 }); // -1 to 1 from centre
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      // Normalise to -1..1 from viewport centre
-      setMouse({
-        x: (e.clientX - vw / 2) / (vw / 2),
-        y: (e.clientY - vh / 2) / (vh / 2),
-      });
-    };
-    window.addEventListener("mousemove", onMove, { passive: true });
-    return () => window.removeEventListener("mousemove", onMove);
-  }, []);
-
-  // Line 1 moves gently, line 2 moves at 1.8x — creates Z-depth separation
-  const line1X = mouse.x * 10;
-  const line1Y = mouse.y * 5;
-  const line2X = mouse.x * 18;
-  const line2Y = mouse.y * 9;
-
-  return (
-    <div
-      ref={wrapRef}
-      style={{
-        opacity: heroTextOpacity,
-        transform: `translateY(${scrollY * -0.04}px)`,
-        transition: "opacity 0.05s linear",
-        pointerEvents: heroTextOpacity < 0.05 ? "none" : "auto",
-        width: "100%", textAlign: "center",
-        position: "relative", zIndex: 10, marginBottom: 48,
-      }}
-    >
-      {/* Headline with breathing gold field + per-line parallax */}
-      <div className="animate-fade-up-delay-2" style={{ position: "relative", display: "inline-block", maxWidth: 960, width: "100%", margin: "0 auto 20px" }}>
-        {/* Breathing gold field sits behind both lines */}
-        <GoldField />
-
-        {/* Line 1 — left-anchored, lighter parallax */}
-        <div style={{
-          position: "relative", zIndex: 1,
-          transform: `translate(${line1X}px, ${line1Y}px)`,
-          transition: "transform 0.08s ease-out",
-          display: "block",
-          textAlign: "left",
-          paddingLeft: "6%",
-        }}>
-          <span style={{
-            fontFamily: "var(--font-display), serif",
-            fontSize: "clamp(38px, 6vw, 72px)",
-            fontWeight: 300, lineHeight: 1.05,
-            letterSpacing: "-0.02em",
-            color: "#f5f0e8",
-            display: "block",
-          }}>
-            The intelligence layer
-          </span>
-        </div>
-
-        {/* Line 2 — staggered right, heavier parallax, italic gold */}
-        <div style={{
-          position: "relative", zIndex: 1,
-          transform: `translate(${line2X}px, ${line2Y}px)`,
-          transition: "transform 0.08s ease-out",
-          display: "block",
-          textAlign: "right",
-          paddingRight: "6%",
-        }}>
-          <GoldText as="em" style={{
-            fontFamily: "var(--font-display), serif",
-            fontSize: "clamp(38px, 6vw, 72px)",
-            fontWeight: 600, lineHeight: 1.05,
-            letterSpacing: "-0.02em",
-            fontStyle: "italic",
-            background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)",
-            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-            display: "block",
-          }}>
-            your outreach is missing.
-          </GoldText>
-        </div>
-      </div>
-
-      <p className="animate-fade-up-delay-3" style={{ fontSize: 15, color: "#666", maxWidth: 500, margin: "0 auto 32px", lineHeight: 1.7 }}>
-        Vantio finds local businesses and tells you exactly which ones are worth contacting — scored against your service, capability, and style.
-      </p>
-      <div className="animate-fade-up-delay-4" style={{ display: "flex", flexWrap: "wrap", gap: 14, justifyContent: "center" }}>
-        <GlowButton href="/login" style={{ padding: "13px 28px", borderRadius: 10, background: "#c9a84c", color: "#080808", fontWeight: 700, fontSize: 14, letterSpacing: "0.06em", textDecoration: "none", boxShadow: "0 8px 40px rgba(201,168,76,0.22)" }}>
-          Request Early Access
-        </GlowButton>
-        <Link href="#how-it-works" style={{ fontSize: 13, color: "#555", textDecoration: "none", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 8 }}>
-          See how it works <span style={{ color: "#8a6e30" }}>↓</span>
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-
-// Gold text with hover glow — same warm light as GlowButton but as textShadow
-function GoldText({ children, style = {}, as: Tag = "span" }: {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  as?: any;
-}) {
-  return (
-    <Tag
-      style={{
-        ...style,
-        filter: "drop-shadow(0 0 8px rgba(201,168,76,0.45)) drop-shadow(0 0 20px rgba(201,168,76,0.18))",
-      }}
-    >
-      {children}
-    </Tag>
-  );
-}
-
-
-function GoldField() {
-  const [t, setT] = useState(0);
-  useEffect(() => {
-    let raf: number;
-    let start: number;
-    const tick = (now: number) => {
-      if (!start) start = now;
-      setT((now - start) / 1000); // seconds
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
-  // 5 orbs, each with unique frequency, amplitude and phase
-  const orbs = [
-    { cx: 50 + Math.sin(t * 0.17) * 12,      cy: 38 + Math.cos(t * 0.13) * 8,   r: 42, opacity: 0.18, color: "#c9a84c" },
-    { cx: 42 + Math.cos(t * 0.11) * 16,      cy: 35 + Math.sin(t * 0.19) * 10,  r: 30, opacity: 0.11, color: "#e8c97a" },
-    { cx: 58 + Math.sin(t * 0.23 + 1.2) * 14,cy: 34 + Math.cos(t * 0.09) * 12,  r: 24, opacity: 0.12, color: "#c9a84c" },
-    { cx: 50 + Math.cos(t * 0.07 + 2.1) * 20, cy: 52 + Math.sin(t * 0.15) * 7,  r: 32, opacity: 0.07, color: "#8a6e30" },
-    { cx: 48 + Math.sin(t * 0.31 + 0.5) * 10, cy: 46 + Math.cos(t * 0.21) * 14, r: 18, opacity: 0.11, color: "#e8c97a" },
-  ];
-
-  return (
-    <div style={{
-      position: "absolute",
-      left: "50%", top: "50%",
-      transform: "translate(-50%, -50%)",
-      width: "140%", height: "280%",
-      pointerEvents: "none",
-      zIndex: 0,
-      filter: "blur(28px)",
-    }}>
-      {orbs.map((orb, i) => (
-        <div key={i} style={{
-          position: "absolute",
-          left: `${orb.cx}%`, top: `${orb.cy}%`,
-          transform: "translate(-50%, -50%)",
-          width: `${orb.r}%`, height: `${orb.r * 1.6}%`,
-          borderRadius: "50%",
-          background: `radial-gradient(ellipse, ${orb.color} 0%, transparent 70%)`,
-          opacity: orb.opacity,
-        }} />
-      ))}
-    </div>
-  );
-}
-
-
-type HeroStage = "idle" | "search" | "results" | "score" | "pause";
-
-function HeroScene({ scrollY, waitlistCount, heroTextOpacity, sequenceProgress, scrollLocked }: {
+// ── HERO SCENE — flat dashboard + unified particle canvas ──
+function HeroScene({ scrollY, waitlistCount }: {
   scrollY: number;
   waitlistCount: number | null;
-  heroTextOpacity: number;
-  sequenceProgress: number;
-  scrollLocked: boolean;
 }) {
-  // ── Hero sequence (HeroScene internal search animation) ──
-  const [stage, setStage] = useState<HeroStage>("idle");
-  const [selectedLead, setSelectedLead] = useState(0);
-  const [scoreAnimate, setScoreAnimate] = useState(false);
-  const [visibleRows, setVisibleRows] = useState(0);
-  const [cycleIndex, setCycleIndex] = useState(0);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const particlesRef = useRef<{x:number;y:number;vx:number;vy:number;r:number;baseOp:number;ph:number;sp:number;glow:boolean}[]>([]);
+  const burstRef = useRef({ v: 0, cx: 0.5, cy: 0.5 });
+  const rafRef = useRef<number>(0);
+  const mouseRef = useRef({ x: 0.5, y: 0.5 });
 
-  const activeCycle = SEARCH_CYCLES[cycleIndex % SEARCH_CYCLES.length];
-  const activeLeads = activeCycle.leads;
-  const activeQuery = activeCycle.query;
+  // Dashboard sequence state
+  const [queryText, setQueryText] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [showResultsHead, setShowResultsHead] = useState(false);
+  const [leadCount, setLeadCount] = useState(0);
+  const [showRing, setShowRing] = useState(false);
+  const [ringScore, setRingScore] = useState(0);
+  const [ringColor, setRingColor] = useState("#4ade80");
+  const [ringOffset, setRingOffset] = useState(226);
+  const [topLead, setTopLead] = useState<Lead | null>(null);
+  const [showBars, setShowBars] = useState(false);
+  const [barFit, setBarFit] = useState(0);
+  const [barOpp, setBarOpp] = useState(0);
+  const [barRisk, setBarRisk] = useState(0);
+  const [showAiMsg, setShowAiMsg] = useState(false);
+  const [aiMsgText, setAiMsgText] = useState("");
+  const [aiMsgFull, setAiMsgFull] = useState("");
+  const [aiMsgDone, setAiMsgDone] = useState(false);
+  const [footerHint, setFooterHint] = useState("Analysing signals…");
+  const cycleIdxRef = useRef(0);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  // ── Dashboard sequence state ──
-  const [dashStage, setDashStage] = useState<HeroStage>("idle");
-  const [dashCycleIndex, setDashCycleIndex] = useState(0);
-  const [dashSelectedLead, setDashSelectedLead] = useState(0);
-  const [dashScoreAnimate, setDashScoreAnimate] = useState(false);
-  const [dashVisibleRows, setDashVisibleRows] = useState(0);
-
-  // Dashboard sequence engine
+  // Init particles
   useEffect(() => {
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const runCycle = (cycleIdx: number) => {
-      const cycle = SEARCH_CYCLES[cycleIdx % SEARCH_CYCLES.length];
-      setDashCycleIndex(cycleIdx);
-      setDashStage("idle");
-      setDashVisibleRows(0);
-      setDashScoreAnimate(false);
-      setDashSelectedLead(0);
-      timers.push(setTimeout(() => setDashStage("search"), 300));
-      timers.push(setTimeout(() => {
-        setDashStage("results");
-        for (let r = 0; r < cycle.leads.length; r++) {
-          timers.push(setTimeout(() => setDashVisibleRows(r + 1), r * 200));
-        }
-      }, STAGE_SEARCH));
-      timers.push(setTimeout(() => {
-        setDashStage("score");
-        const topIdx = cycle.leads.reduce((best, l, i) => l.score > cycle.leads[best].score ? i : best, 0);
-        setDashSelectedLead(topIdx);
-        setTimeout(() => setDashScoreAnimate(true), 200);
-      }, STAGE_SEARCH + STAGE_RESULTS));
-      timers.push(setTimeout(() => setDashStage("pause"), STAGE_SEARCH + STAGE_RESULTS + STAGE_SCORE));
-      timers.push(setTimeout(() => runCycle(cycleIdx + 1), TOTAL_CYCLE));
-    };
-    const init = setTimeout(() => runCycle(0), 1200);
-    return () => { clearTimeout(init); timers.forEach(clearTimeout); };
+    particlesRef.current = Array.from({ length: 80 }, (_, i) => ({
+      x: Math.random() * 100, y: Math.random() * 100,
+      vx: (Math.random() - 0.5) * 0.006, vy: (Math.random() - 0.5) * 0.006,
+      r: Math.random() * 1.2 + 0.3,
+      baseOp: Math.random() * 0.18 + 0.04,
+      ph: Math.random() * Math.PI * 2,
+      sp: Math.random() * 0.0004 + 0.0002,
+      glow: i % 6 === 0,
+    }));
   }, []);
 
-  const dashCycle = SEARCH_CYCLES[dashCycleIndex % SEARCH_CYCLES.length];
-  const dashActiveLeads = dashCycle.leads;
-  const dashActiveQuery = dashCycle.query;
-  const dashLead = dashCycle.leads[dashSelectedLead] ?? dashCycle.leads[0];
-
-  // Galaxy particles — kept from old hero
-  const [nearParticles] = useState(() =>
-    Array.from({ length: 40 }, (_, i) => ({
-      id: i, x: Math.random() * 100, y: Math.random() * 100,
-      size: Math.random() * 1.5 + 0.4,
-      duration: Math.random() * 10 + 6, delay: Math.random() * 8,
-      opacity: Math.random() * 0.2 + 0.04,
-    }))
-  );
-  const [deepParticles] = useState(() =>
-    Array.from({ length: 25 }, (_, i) => ({
-      id: i + 100, x: Math.random() * 100, y: Math.random() * 100,
-      size: Math.random() * 3 + 1.5,
-      duration: Math.random() * 18 + 12, delay: Math.random() * 10,
-      baseOpacity: Math.random() * 0.12 + 0.02,
-    }))
-  );
-
-  const galaxyDepth = Math.min(1, scrollY / 800);
-  const fieldRotation = scrollY * 0.015;
-  // Scroll boost for particles — size and speed increase scrolling down, decrease scrolling up
-  const particleBoost = 1 + galaxyDepth * 2.5; // 1x at top → 3.5x at scrollY=800
-  // Scroll physics — scene tilts, rises, and leans as user scrolls
-
-  // ── SEQUENCE ENGINE ──
+  // Canvas draw loop
   useEffect(() => {
-    const timers: ReturnType<typeof setTimeout>[] = [];
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d")!;
+    let W = canvas.width = window.innerWidth;
+    let H = canvas.height = window.innerHeight;
+    const onResize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; };
+    window.addEventListener("resize", onResize, { passive: true });
+    const onMouse = (e: MouseEvent) => { mouseRef.current = { x: e.clientX / W, y: e.clientY / H }; };
+    window.addEventListener("mousemove", onMouse, { passive: true });
 
-    const runCycle = (cycleIdx: number) => {
-      const cycle = SEARCH_CYCLES[cycleIdx % SEARCH_CYCLES.length];
-      // Reset
-      setCycleIndex(cycleIdx);
-      setStage("idle");
-      setVisibleRows(0);
-      setScoreAnimate(false);
-      setSelectedLead(0);
+    function draw(t: number) {
+      ctx.clearRect(0, 0, W, H);
+      const burst = burstRef.current;
+      burst.v = Math.max(0, burst.v - 0.012);
+      const { x: mx, y: my } = mouseRef.current;
 
-      // Stage 1: start typing
-      timers.push(setTimeout(() => setStage("search"), 300));
+      // Mouse glow
+      const mg = ctx.createRadialGradient(mx*W, my*H, 0, mx*W, my*H, 280);
+      mg.addColorStop(0, "rgba(201,168,76,0.04)"); mg.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = mg; ctx.fillRect(0, 0, W, H);
 
-      // Stage 2: show results
-      timers.push(setTimeout(() => {
-        setStage("results");
-        for (let r = 0; r < cycle.leads.length; r++) {
-          timers.push(setTimeout(() => setVisibleRows(r + 1), r * 200));
+      // Burst glow
+      if (burst.v > 0.01) {
+        const bg = ctx.createRadialGradient(burst.cx*W, burst.cy*H, 0, burst.cx*W, burst.cy*H, 500);
+        bg.addColorStop(0, `rgba(232,201,122,${burst.v * 0.12})`);
+        bg.addColorStop(0.4, `rgba(201,168,76,${burst.v * 0.05})`);
+        bg.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+      }
+
+      const pts = particlesRef.current;
+      // Connections
+      for (let i = 0; i < pts.length; i++) {
+        for (let j = i + 1; j < pts.length; j++) {
+          const dx = (pts[i].x - pts[j].x) * W / 100;
+          const dy = (pts[i].y - pts[j].y) * H / 100;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < 100) {
+            ctx.beginPath();
+            ctx.moveTo(pts[i].x*W/100, pts[i].y*H/100);
+            ctx.lineTo(pts[j].x*W/100, pts[j].y*H/100);
+            ctx.strokeStyle = `rgba(201,168,76,${(1-dist/100)*0.04*(1+burst.v*2)})`;
+            ctx.lineWidth = 0.5; ctx.stroke();
+          }
         }
-      }, STAGE_SEARCH));
+      }
 
-      // Stage 3: select top lead (highest score) + animate score
-      timers.push(setTimeout(() => {
-        setStage("score");
-        const topIdx = cycle.leads.reduce((best, l, i) =>
-          l.score > cycle.leads[best].score ? i : best, 0);
-        setSelectedLead(topIdx);
-        setTimeout(() => setScoreAnimate(true), 200);
-      }, STAGE_SEARCH + STAGE_RESULTS));
-
-      // Stage 4: pause then loop
-      timers.push(setTimeout(() => setStage("pause"), STAGE_SEARCH + STAGE_RESULTS + STAGE_SCORE));
-      timers.push(setTimeout(() => runCycle(cycleIdx + 1), TOTAL_CYCLE));
-    };
-
-    const init = setTimeout(() => runCycle(0), 400);
+      // Particles
+      for (const p of pts) {
+        p.x = (p.x + p.vx + 100) % 100; p.y = (p.y + p.vy + 100) % 100;
+        const pulse = 0.6 + Math.sin(t * p.sp * 2 + p.ph) * 0.4;
+        const bdx = (p.x/100 - burst.cx) * W, bdy = (p.y/100 - burst.cy) * H;
+        const burstBoost = burst.v * Math.max(0, 1 - Math.sqrt(bdx*bdx+bdy*bdy)/400);
+        const op = Math.min(0.95, p.baseOp * pulse + burstBoost * 0.7);
+        if (p.glow) {
+          const gr = ctx.createRadialGradient(p.x*W/100, p.y*H/100, 0, p.x*W/100, p.y*H/100, p.r*(5+burstBoost*8));
+          gr.addColorStop(0, `rgba(232,201,122,${op*0.9})`); gr.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.beginPath(); ctx.arc(p.x*W/100, p.y*H/100, p.r*(5+burstBoost*8), 0, Math.PI*2);
+          ctx.fillStyle = gr; ctx.fill();
+        }
+        ctx.beginPath(); ctx.arc(p.x*W/100, p.y*H/100, p.r*(1+burstBoost*0.6), 0, Math.PI*2);
+        ctx.fillStyle = `rgba(232,201,122,${op})`; ctx.fill();
+      }
+      rafRef.current = requestAnimationFrame(draw);
+    }
+    rafRef.current = requestAnimationFrame(draw);
     return () => {
-      clearTimeout(init);
-      timers.forEach(clearTimeout);
+      cancelAnimationFrame(rafRef.current);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("mousemove", onMouse);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const lead = activeCycle.leads[selectedLead] ?? activeCycle.leads[0];
+  const triggerBurst = (cx: number, cy: number, v: number) => {
+    burstRef.current = { v, cx, cy };
+  };
+
+  // Sequence engine
+  const runCycle = useCallback(() => {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+    const cycle: Cycle = SEARCH_CYCLES[cycleIdxRef.current % SEARCH_CYCLES.length];
+    cycleIdxRef.current++;
+    const top = cycle.leads[0];
+
+    // Reset
+    setQueryText(""); setScanning(false); setLeads([]); setShowResultsHead(false);
+    setLeadCount(0); setShowRing(false); setRingScore(0); setRingOffset(226);
+    setTopLead(null); setShowBars(false); setBarFit(0); setBarOpp(0); setBarRisk(0);
+    setShowAiMsg(false); setAiMsgText(""); setAiMsgFull(""); setAiMsgDone(false);
+    setFooterHint("Analysing signals…");
+
+    // 1. Type query
+    let charIdx = 0;
+    function typeChar() {
+      charIdx++;
+      setQueryText(cycle.q.slice(0, charIdx));
+      if (charIdx < cycle.q.length) {
+        const t = setTimeout(typeChar, 55);
+        timersRef.current.push(t);
+      } else {
+        setScanning(true);
+        triggerBurst(0.5, 0.6, 0.4);
+        const t = setTimeout(showLeads, 600);
+        timersRef.current.push(t);
+      }
+    }
+    typeChar();
+
+    // 2. Show leads
+    function showLeads() {
+      setShowResultsHead(true);
+      setLeadCount(cycle.leads.length);
+      cycle.leads.forEach((l, idx) => {
+        const t = setTimeout(() => {
+          setLeads(prev => [...prev, l]);
+          if (idx === 0) triggerBurst(0.35, 0.6, 0.6);
+        }, idx * 320);
+        timersRef.current.push(t);
+      });
+      const t = setTimeout(showScore, cycle.leads.length * 320 + 600);
+      timersRef.current.push(t);
+    }
+
+    // 3. Score reveal
+    function showScore() {
+      setTopLead(top);
+      setShowRing(true);
+      setRingColor(top.sc);
+      setRingOffset(226 * (1 - top.score / 100));
+      triggerBurst(0.68, 0.55, 1.0);
+      // Animate ring number
+      const start = performance.now();
+      function animRing(now: number) {
+        const p = Math.min(1, (now - start) / 1100);
+        setRingScore(Math.round(top.score * p*p*(3-2*p)));
+        if (p < 1) requestAnimationFrame(animRing);
+      }
+      requestAnimationFrame(animRing);
+      const t1 = setTimeout(() => {
+        setShowBars(true);
+        setBarFit(top.fit); setBarOpp(top.opp); setBarRisk(top.risk);
+      }, 300);
+      const t2 = setTimeout(showMsg, 1400);
+      timersRef.current.push(t1, t2);
+    }
+
+    // 4. AI message
+    function showMsg() {
+      setShowAiMsg(true);
+      triggerBurst(0.68, 0.7, 0.5);
+      const fullHtml = top.msg ? top.msg(top.n) : "";
+      const plain = fullHtml.replace(/<[^>]+>/g, "");
+      setAiMsgFull(fullHtml);
+      let mi = 0;
+      function typeMsg() {
+        mi++;
+        setAiMsgText(plain.slice(0, mi));
+        if (mi <= plain.length) {
+          const t = setTimeout(typeMsg, 32);
+          timersRef.current.push(t);
+        } else {
+          const t = setTimeout(() => setAiMsgDone(true), 300);
+          timersRef.current.push(t);
+        }
+      }
+      typeMsg();
+      setFooterHint(cycle.hint);
+      const t = setTimeout(runCycle, 9500);
+      timersRef.current.push(t);
+    }
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(runCycle, 800);
+    return () => {
+      clearTimeout(t);
+      timersRef.current.forEach(clearTimeout);
+    };
+  }, [runCycle]);
+
+  const ringCircumference = 226;
 
   return (
     <section style={{
-      position: "relative", minHeight: "100vh",
-      display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center",
-      padding: "60px 24px 16px", overflow: "visible",
-      background: "#080808",
+      position: "relative",
+      width: "100vw",
+      minHeight: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "#060608",
+      overflow: "hidden",
     }}>
-      {/* Ambient glow */}
-      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(201,168,76,0.1) 0%, transparent 65%)" }} />
+      {/* Canvas — particle field covers whole section */}
+      <canvas ref={canvasRef} style={{
+        position: "absolute", inset: 0,
+        width: "100%", height: "100%",
+        pointerEvents: "none", zIndex: 0,
+      }} />
 
-      {/* Scrolling grid */}
-      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.018, backgroundImage: "linear-gradient(#c9a84c 1px, transparent 1px), linear-gradient(90deg, #c9a84c 1px, transparent 1px)", backgroundSize: "72px 72px", transform: `translateY(${scrollY * 0.08}px)` }} />
-
-      {/* Galaxy near layer */}
-      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", transform: `rotate(${fieldRotation}deg)`, transformOrigin: "50% 40%" }}>
-        {nearParticles.map(p => (
-          <div key={p.id} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, width: p.size * particleBoost, height: p.size * particleBoost, borderRadius: "50%", background: "#c9a84c", opacity: Math.min(0.9, p.opacity + galaxyDepth * 0.3), animation: `particleDrift ${p.duration / particleBoost}s ease-in-out ${p.delay}s infinite alternate` }} />
-        ))}
-      </div>
-      {/* Galaxy deep layer */}
-      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", transform: `rotate(${-fieldRotation * 0.4}deg)`, transformOrigin: "50% 40%" }}>
-        {deepParticles.map(p => (
-          <div key={p.id} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, width: p.size * particleBoost, height: p.size * particleBoost, borderRadius: "50%", background: "radial-gradient(circle, #e8c97a 0%, #c9a84c 60%, transparent 100%)", opacity: Math.min(0.9, p.baseOpacity + galaxyDepth * 0.4), animation: `starPulse ${p.duration / particleBoost}s ease-in-out ${p.delay}s infinite alternate`, boxShadow: galaxyDepth > 0.2 ? `0 0 ${(4 + galaxyDepth * 12) * particleBoost}px rgba(201,168,76,${galaxyDepth * 0.5})` : "none" }} />
-        ))}
-      </div>
-
-      {/* ── HERO TEXT ── */}
-      <HeroText
-        scrollY={scrollY}
-        heroTextOpacity={heroTextOpacity}
-        waitlistCount={waitlistCount}
-      />
-
-      {/* ── DASHBOARD ── */}
+      {/* Headline */}
       <div style={{
-        width: "100%", maxWidth: "min(1100px, 92vw)",
-        perspective: "1200px",
-        position: "relative", zIndex: 5,
-        marginTop: 48,
+        position: "relative", zIndex: 10,
+        textAlign: "center",
+        marginBottom: 52,
+        animation: "fadeUp 1.2s cubic-bezier(0.16,1,0.3,1) 0.2s both",
       }}>
         <div style={{
-          transform: `rotateX(18deg) rotateY(-6deg)`,
-          transformOrigin: "50% 50%",
-          transformStyle: "preserve-3d",
+          fontSize: 9, letterSpacing: "0.24em", color: "rgba(201,168,76,0.35)",
+          textTransform: "uppercase", fontFamily: "monospace", marginBottom: 18,
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
         }}>
-          <div style={{
-            background: "#0e0e0e",
-            border: "1px solid #2a2a2a",
-            borderRadius: 20,
-            overflow: "hidden",
-            boxShadow: "0 40px 120px rgba(0,0,0,0.8), 0 0 0 1px rgba(201,168,76,0.06), inset 0 1px 0 rgba(255,255,255,0.03)",
-          }}>
-            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.025, backgroundImage: "linear-gradient(#c9a84c 1px, transparent 1px), linear-gradient(90deg, #c9a84c 1px, transparent 1px)", backgroundSize: "40px 40px", borderRadius: 20 }} />
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 20px", borderBottom: "1px solid #1a1a1a", background: "rgba(255,255,255,0.01)" }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#2a2a2a" }} />
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#2a2a2a" }} />
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#2a2a2a" }} />
-              <div style={{ flex: 1, margin: "0 16px", height: 24, background: "#111", borderRadius: 6, display: "flex", alignItems: "center", paddingLeft: 10, gap: 6 }}>
-                <span style={{ fontSize: 9, color: "#333", letterSpacing: "0.06em" }}>◈</span>
-                <span style={{ fontSize: 10, color: "#333", letterSpacing: "0.04em" }}>vantioapp.com</span>
-              </div>
-              <div style={{ padding: "4px 12px", borderRadius: 6, background: "#c9a84c", fontSize: 10, fontWeight: 700, color: "#080808", letterSpacing: "0.08em" }}>SCAN</div>
-            </div>
-            <div style={{ padding: "20px 24px", height: 420, overflow: "hidden", position: "relative" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderRadius: 10, border: "1px solid #1a1a1a", background: "#0a0a0a", marginBottom: 16 }}>
-                <span style={{ fontSize: 14, color: "#c9a84c" }}>🔍</span>
-                <span style={{ fontSize: 13, color: dashStage === "idle" ? "#333" : "#e8e0d0", fontFamily: "var(--font-body), sans-serif", letterSpacing: "0.01em", flex: 1 }}>
-                  {dashStage === "idle" ? <span style={{ color: "#333" }}>Search niche + location…</span> : <TypedText text={dashActiveQuery} started={dashStage !== ("idle" as HeroStage)} />}
-                </span>
-                <div style={{ padding: "4px 12px", borderRadius: 6, background: dashStage === "results" || dashStage === "score" || dashStage === "pause" ? "#c9a84c" : "#1e1e1e", fontSize: 10, fontWeight: 700, color: dashStage === "results" || dashStage === "score" || dashStage === "pause" ? "#080808" : "#444", letterSpacing: "0.08em", transition: "all 0.4s ease" }}>SCAN</div>
-              </div>
-              {(dashStage === "results" || dashStage === "score" || dashStage === "pause") && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "0 4px" }}>
-                  <span style={{ fontSize: 10, color: "#555", letterSpacing: "0.08em", textTransform: "uppercase" }}>{dashActiveLeads.length} leads found · scored against your profile</span>
-                  <div style={{ flex: 1 }} />
-                  {["Score ↓", "Fit", "Gap"].map(label => <span key={label} style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, border: "1px solid #1a1a1a", color: "#444", letterSpacing: "0.06em" }}>{label}</span>)}
-                </div>
-              )}
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {dashActiveLeads.map((l, i) => {
-                  const rowVisible = i < dashVisibleRows;
-                  const isSelected = dashStage === "score" || dashStage === "pause";
-                  const isThisOne = isSelected && i === dashSelectedLead;
-                  return (
-                    <div key={i} style={{ borderRadius: 10, border: `1px solid ${isThisOne ? "rgba(201,168,76,0.3)" : "#1a1a1a"}`, background: isThisOne ? "rgba(201,168,76,0.06)" : "#111", overflow: "hidden", opacity: rowVisible ? 1 : 0, maxHeight: rowVisible ? 300 : 0, transform: rowVisible ? "none" : "translateY(6px)", transition: `opacity 0.35s ease ${i * 80}ms, max-height 0.35s ease ${i * 80}ms, transform 0.35s ease ${i * 80}ms`, boxShadow: isThisOne ? "0 4px 24px rgba(201,168,76,0.08)" : "none" }}>
-                      {isThisOne ? (
-                        <div style={{ padding: "16px 20px" }}>
-                          <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 16 }}>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                                <span style={{ fontSize: 14, fontWeight: 600, color: "#f5f0e8" }}>{l.name}</span>
-                                <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, border: "1px solid #2a2a2a", color: "#555" }}>{l.industry}</span>
-                              </div>
-                              <span style={{ fontSize: 11, color: "#444" }}>📍 {l.city}</span>
-                            </div>
-                            <div style={{ textAlign: "right" }}>
-                              <div style={{ fontSize: 28, fontWeight: 700, color: l.score >= 75 ? "#4ade80" : l.score >= 55 ? "#c9a84c" : "#f87171", lineHeight: 1 }}>{l.score}</div>
-                              <p style={{ fontSize: 8, color: "#444", textTransform: "uppercase", letterSpacing: "0.06em" }}>score</p>
-                            </div>
-                          </div>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
-                            {[{ label: "Fit", value: l.fit, color: "#818cf8" }, { label: "Opportunity", value: l.opp, color: "#4ade80" }, { label: "Risk", value: l.risk, color: "#f87171" }].map(bar => (
-                              <ScoreBar key={bar.label} label={bar.label} value={bar.value} color={bar.color} animate={dashScoreAnimate} delay={0} />
-                            ))}
-                          </div>
-                          <div style={{ display: "flex", gap: 8 }}>
-                            <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: l.gapColor + "22", border: `1px solid ${l.gapColor}44`, color: l.gapColor, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>⬡ {l.gap} GAP DETECTED</span>
-                            <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: l.verdictColor + "22", border: `1px solid ${l.verdictColor}44`, color: l.verdictColor, fontWeight: 700 }}>{l.verdict}</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div style={{ padding: "12px 20px", display: "flex", alignItems: "center", gap: 12 }}>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-                              <span style={{ fontSize: 13, fontWeight: 600, color: "#e8e0d0" }}>{l.name}</span>
-                              <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, border: "1px solid #1e1e1e", color: "#444" }}>{l.industry}</span>
-                            </div>
-                            <span style={{ fontSize: 10, color: "#333" }}>📍 {l.city}</span>
-                          </div>
-                          <div style={{ fontSize: 20, fontWeight: 700, color: l.score >= 75 ? "#4ade80" : l.score >= 55 ? "#c9a84c" : "#f87171", minWidth: 36, textAlign: "right" }}>{l.score}</div>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, background: l.verdictColor + "18", color: l.verdictColor, fontWeight: 700 }}>{l.verdict}</span>
-                            <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, background: l.gapColor + "18", color: l.gapColor, fontWeight: 700 }}>⬡ {l.gap}</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              {dashStage === "search" && (
-                <div style={{ position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#c9a84c", animation: "pulse 1s infinite" }} />
-                  <span style={{ fontSize: 10, color: "#555", letterSpacing: "0.1em", textTransform: "uppercase" }}>Scanning signals…</span>
-                </div>
-              )}
-            </div>
-          </div>
-          <div style={{ position: "absolute", bottom: -40, left: "5%", right: "5%", height: 80, background: "radial-gradient(ellipse, rgba(201,168,76,0.15) 0%, transparent 70%)", filter: "blur(20px)", pointerEvents: "none" }} />
+          <span style={{ display: "block", width: 28, height: 1, background: "rgba(201,168,76,0.2)" }} />
+          Signal-Driven Lead Intelligence
+          <span style={{ display: "block", width: 28, height: 1, background: "rgba(201,168,76,0.2)" }} />
         </div>
+        <h2 style={{
+          fontFamily: "var(--font-display), serif",
+          fontSize: "clamp(32px,4vw,58px)",
+          fontWeight: 300, color: "#f0e8d8",
+          letterSpacing: "-0.025em", lineHeight: 1.1,
+          marginBottom: 4,
+        }}>
+          The intelligence layer
+        </h2>
+        <h2 style={{
+          fontFamily: "var(--font-display), serif",
+          fontSize: "clamp(32px,4vw,58px)",
+          fontWeight: 600, fontStyle: "italic",
+          letterSpacing: "-0.025em", lineHeight: 1.1,
+          textAlign: "right",
+          background: "linear-gradient(135deg,#e8c97a,#c9a84c,#8a6e30)",
+          WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+          filter: "drop-shadow(0 0 16px rgba(201,168,76,0.3))",
+        }}>
+          your outreach is missing.
+        </h2>
+        <p style={{
+          fontSize: 13, color: "#303040",
+          marginTop: 16, maxWidth: 460,
+          marginLeft: "auto", marginRight: "auto",
+          lineHeight: 1.7,
+        }}>
+          Vantio finds local businesses and tells you exactly which ones are worth contacting — scored against your service, capability, and style.
+        </p>
       </div>
 
+      {/* Dashboard */}
+      <div style={{
+        position: "relative", zIndex: 10,
+        width: "min(1020px,90vw)",
+        animation: "fadeUp 1.2s cubic-bezier(0.16,1,0.3,1) 0.5s both",
+      }}>
+        <div style={{
+          background: "rgba(8,8,14,0.96)",
+          border: "1px solid rgba(201,168,76,0.13)",
+          borderRadius: 16, overflow: "hidden",
+          boxShadow: "0 0 0 1px rgba(201,168,76,0.05), 0 24px 60px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.03)",
+        }}>
+          {/* Gold accent line */}
+          <div style={{ height: 1, background: "linear-gradient(90deg,transparent 5%,rgba(201,168,76,0.35) 50%,transparent 95%)" }} />
+
+          {/* Chrome bar */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 7,
+            padding: "11px 18px", background: "rgba(5,5,10,0.8)",
+            borderBottom: "1px solid rgba(201,168,76,0.07)",
+          }}>
+            {[0,1,2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: "#141420" }} />)}
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <span style={{ fontSize: 8, color: "rgba(201,168,76,0.25)" }}>◈</span>
+              <span style={{ fontSize: 9, color: "#1e1e2c", fontFamily: "monospace", letterSpacing: "0.04em" }}>vantioapp.com — Lead Scanner</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#4ade80", animation: "pulse 1.4s infinite" }} />
+              <span style={{ fontSize: 8, color: "#4ade80", fontFamily: "monospace", letterSpacing: "0.08em" }}>SCANNING</span>
+            </div>
+          </div>
+
+          {/* Two-column body */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: 300 }}>
+            {/* LEFT: search + leads */}
+            <div style={{ padding: "18px 20px", borderRight: "1px solid rgba(201,168,76,0.06)" }}>
+              {/* Search bar */}
+              <div style={{
+                display: "flex", alignItems: "center", gap: 8,
+                background: "rgba(255,255,255,0.02)",
+                border: `1px solid ${scanning ? "rgba(201,168,76,0.3)" : "rgba(201,168,76,0.1)"}`,
+                borderRadius: 8, padding: "9px 13px", marginBottom: 14,
+                transition: "border-color 0.3s",
+                boxShadow: scanning ? "0 0 12px rgba(201,168,76,0.15)" : "none",
+              }}>
+                <span style={{ fontSize: 12, color: "#c9a84c" }}>🔍</span>
+                <span style={{ flex: 1, fontSize: 12, color: "#c0b8a8", minHeight: 15 }}>{queryText}</span>
+                <span style={{ display: "inline-block", width: 2, height: 13, background: "#c9a84c", verticalAlign: "middle", animation: "blink 0.9s infinite" }} />
+                <div style={{
+                  padding: "4px 11px", background: "#c9a84c", color: "#080808",
+                  fontSize: 8, fontWeight: 700, borderRadius: 5,
+                  fontFamily: "monospace", letterSpacing: "0.08em",
+                  boxShadow: scanning ? "0 0 12px rgba(201,168,76,0.4)" : "none",
+                  transition: "box-shadow 0.3s",
+                }}>SCAN</div>
+              </div>
+
+              {/* Results header */}
+              <div style={{
+                display: "flex", alignItems: "center", gap: 6, marginBottom: 9,
+                opacity: showResultsHead ? 1 : 0, transition: "opacity 0.4s",
+              }}>
+                <span style={{ fontSize: 8, color: "#1e1e2c", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "monospace" }}>Results</span>
+                <span style={{ fontSize: 8, color: "#c9a84c", fontWeight: 700, fontFamily: "monospace" }}>{leadCount}</span>
+                <span style={{ fontSize: 8, color: "#1e1e2c", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "monospace" }}>leads</span>
+                <div style={{ marginLeft: "auto", display: "flex", gap: 3 }}>
+                  {["Score ↓","Gap","Fit"].map(f => (
+                    <span key={f} style={{ fontSize: 7, padding: "1px 6px", border: "1px solid #181828", borderRadius: 3, color: "#181828", fontFamily: "monospace" }}>{f}</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Leads list */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                {leads.map((l, idx) => (
+                  <div key={idx} style={{
+                    display: "flex", alignItems: "center", gap: 9,
+                    padding: "8px 11px", borderRadius: 8,
+                    background: idx === 0 ? "rgba(201,168,76,0.05)" : "rgba(255,255,255,0.015)",
+                    border: `1px solid ${idx === 0 ? "rgba(201,168,76,0.22)" : "rgba(255,255,255,0.04)"}`,
+                    boxShadow: idx === 0 ? "0 0 20px rgba(201,168,76,0.06)" : "none",
+                    animation: "leadIn 0.35s ease both",
+                  }}>
+                    <span style={{ fontSize: 8, fontFamily: "monospace", color: idx === 0 ? "#c9a84c" : "#181828", minWidth: 18 }}>
+                      {String(idx+1).padStart(2,"0")}
+                    </span>
+                    <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color: idx === 0 ? "#d8d0c0" : "#b0a898" }}>{l.n}</span>
+                    <span style={{ fontSize: 7, padding: "1px 6px", borderRadius: 3, fontWeight: 700, fontFamily: "monospace", background: l.gc + "18", color: l.gc }}>{l.gap}</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, minWidth: 28, textAlign: "right", color: l.sc }}>{l.score}</span>
+                    <span style={{ fontSize: 7, padding: "1px 6px", borderRadius: 3, fontWeight: 700, fontFamily: "monospace", background: l.vc + "18", color: l.vc, minWidth: 44, textAlign: "center" }}>{l.v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* RIGHT: score ring + bars + AI message */}
+            <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column" }}>
+              <div style={{ fontSize: 8, color: "rgba(201,168,76,0.3)", letterSpacing: "0.18em", textTransform: "uppercase", fontFamily: "monospace", marginBottom: 16 }}>
+                Top Match — Intelligence Report
+              </div>
+
+              {/* Score ring + lead info */}
+              <div style={{
+                display: "flex", alignItems: "center", gap: 20, marginBottom: 18,
+                opacity: showRing ? 1 : 0, transition: "opacity 0.5s",
+              }}>
+                <div style={{ position: "relative", width: 90, height: 90, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg viewBox="0 0 90 90" width="90" height="90" style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}>
+                    <circle cx="45" cy="45" r="36" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="6" />
+                    <circle cx="45" cy="45" r="36" fill="none"
+                      stroke={ringColor} strokeWidth="6" strokeLinecap="round"
+                      strokeDasharray="226" strokeDashoffset={ringOffset}
+                      style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(0.16,1,0.3,1), stroke 0.4s" }}
+                    />
+                  </svg>
+                  <span style={{ fontSize: 26, fontWeight: 700, fontFamily: "monospace", color: ringColor, position: "relative", zIndex: 1 }}>{ringScore}</span>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#d8d0c0", marginBottom: 4 }}>{topLead?.n}</div>
+                  <div style={{ fontSize: 8, color: "#222232", fontFamily: "monospace", marginBottom: 10 }}>Intelligence Report</div>
+                  {topLead && (
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                      fontSize: 8, padding: "3px 9px", borderRadius: 4,
+                      fontWeight: 700, fontFamily: "monospace", letterSpacing: "0.08em", textTransform: "uppercase",
+                      background: topLead.gc + "20", border: `1px solid ${topLead.gc}40`, color: topLead.gc,
+                    }}>⬡ {topLead.gap} GAP DETECTED</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Score bars */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1, opacity: showBars ? 1 : 0, transition: "opacity 0.5s 0.2s" }}>
+                {[
+                  { label: "Fit Score",   val: barFit,  color: "#818cf8", id: "fit"  },
+                  { label: "Opportunity", val: barOpp,  color: "#4ade80", id: "opp"  },
+                  { label: "Risk Index",  val: barRisk, color: "#f87171", id: "risk" },
+                ].map(bar => (
+                  <div key={bar.id}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span style={{ fontSize: 8, color: "#1c1c2c", fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "0.08em" }}>{bar.label}</span>
+                      <span style={{ fontSize: 8, fontWeight: 700, fontFamily: "monospace", color: bar.color }}>{bar.val || "—"}</span>
+                    </div>
+                    <div style={{ height: 3, background: "rgba(255,255,255,0.04)", borderRadius: 99, overflow: "hidden" }}>
+                      <div style={{
+                        height: "100%", background: bar.color, borderRadius: 99,
+                        width: showBars ? `${bar.val}%` : "0%",
+                        transition: "width 1.1s cubic-bezier(0.16,1,0.3,1)",
+                      }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* AI message */}
+              <div style={{
+                marginTop: 14, padding: "11px 13px",
+                background: "rgba(201,168,76,0.03)",
+                border: "1px solid rgba(201,168,76,0.1)",
+                borderRadius: 8,
+                opacity: showAiMsg ? 1 : 0,
+                transition: "opacity 0.5s 0.4s",
+              }}>
+                <div style={{ fontSize: 7, color: "rgba(201,168,76,0.3)", letterSpacing: "0.16em", textTransform: "uppercase", fontFamily: "monospace", marginBottom: 7 }}>
+                  ◈ AI Outreach — Generated
+                </div>
+                <div style={{ fontSize: 10.5, color: "#252535", lineHeight: 1.65 }}>
+                  {aiMsgDone
+                    ? <span dangerouslySetInnerHTML={{ __html: aiMsgFull.replace(/<em>/g,'<em style="color:#c9a84c;font-style:normal">').replace(/<strong>/g,'<strong style="color:#8080a0">') }} />
+                    : <>{aiMsgText}<span style={{ display: "inline-block", width: 2, height: 11, background: "#c9a84c", verticalAlign: "middle", animation: "blink 0.9s infinite" }} /></>
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "11px 20px",
+            borderTop: "1px solid rgba(201,168,76,0.06)",
+            background: "rgba(5,5,10,0.5)",
+          }}>
+            <span style={{ fontSize: 8, color: "#1a1a28", letterSpacing: "0.1em", fontFamily: "monospace" }}>{footerHint}</span>
+            <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+              <div style={{ fontSize: 8, padding: "5px 12px", borderRadius: 5, fontFamily: "monospace", fontWeight: 700, letterSpacing: "0.06em", background: "transparent", border: "1px solid rgba(201,168,76,0.15)", color: "rgba(201,168,76,0.35)" }}>Save Lead</div>
+              <div style={{ fontSize: 8, padding: "5px 12px", borderRadius: 5, fontFamily: "monospace", fontWeight: 700, letterSpacing: "0.06em", background: "#c9a84c", color: "#080808" }}>Send Outreach</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
+
+
 
 
 // Button with internal mouse-tracking glow — Huly style
@@ -1220,7 +1195,6 @@ export default function LandingPage() {
 
 
 
-  const heroTextOpacity = Math.max(0, 1 - scrollY * 0.003);
 
   return (
     <div style={{ minHeight: "100vh", background: "#080808", color: "#f5f0e8", overflowX: "hidden" }}>
@@ -1256,9 +1230,6 @@ export default function LandingPage() {
       <HeroScene
         scrollY={scrollY}
         waitlistCount={waitlistCount}
-        heroTextOpacity={heroTextOpacity}
-        sequenceProgress={sequenceProgress}
-        scrollLocked={scrollLocked}
       />
 
       {/* STAT BAR */}
@@ -1589,6 +1560,14 @@ export default function LandingPage() {
         @keyframes moteDrift3 {
           from { transform: translate(0px, 0px); }
           to   { transform: translate(12px, 18px); }
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(18px); }
+          to   { opacity: 1; transform: none; }
+        }
+        @keyframes leadIn {
+          from { opacity: 0; transform: translateY(5px); }
+          to   { opacity: 1; transform: none; }
         }
         @keyframes particleDrift {
           from { transform: translateY(0px) scale(1); opacity: inherit; }
