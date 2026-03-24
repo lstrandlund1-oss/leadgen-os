@@ -545,7 +545,9 @@ function HeroScene({ scrollY, waitlistCount }: {
   waitlistCount: number | null;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const particlesRef = useRef<{x:number;y:number;vx:number;vy:number;r:number;baseOp:number;ph:number;sp:number;glow:boolean}[]>([]);
+  const particlesRef = useRef<{x:number;y:number;vx:number;vy:number;r:number;baseOp:number;ph:number;sp:number;layer:number}[]>([]);
+  const nebulaRef = useRef<{x:number;y:number;rx:number;ry:number;op:number;ph:number;sp:number;vx:number;vy:number;hue:string}[]>([]);
+  const shooterRef = useRef<{x:number;y:number;vx:number;vy:number;len:number;op:number;active:boolean;timer:number}[]>([]);
   const burstRef = useRef({ v: 0, cx: 0.5, cy: 0.5 });
   const rafRef = useRef<number>(0);
   const mouseRef = useRef({ x: 0.5, y: 0.5 });
@@ -627,14 +629,8 @@ function HeroScene({ scrollY, waitlistCount }: {
     }));
 
     particlesRef.current = [...deep, ...mid, ...fore] as typeof particlesRef.current;
-    (particlesRef as React.MutableRefObject<typeof particlesRef.current & {
-      nebulae: typeof nebulae;
-      shooters: typeof shooters;
-    }>).current.nebulae = nebulae;
-    (particlesRef as React.MutableRefObject<typeof particlesRef.current & {
-      nebulae: typeof nebulae;
-      shooters: typeof shooters;
-    }>).current.shooters = shooters;
+    nebulaRef.current = nebulae;
+    shooterRef.current = shooters;
   }, []);
 
   // Canvas draw loop
@@ -658,14 +654,13 @@ function HeroScene({ scrollY, waitlistCount }: {
       const burst = burstRef.current;
       burst.v = Math.max(0, burst.v - 0.008);
       const { x: mx, y: my } = mouseRef.current;
-      const pts = particlesRef.current as typeof particlesRef.current & {
-        nebulae: {x:number;y:number;rx:number;ry:number;op:number;ph:number;sp:number;vx:number;vy:number;hue:string}[];
-        shooters: {x:number;y:number;vx:number;vy:number;len:number;op:number;active:boolean;timer:number}[];
-      };
+      const pts = particlesRef.current;
+      const nebulae = nebulaRef.current;
+      const shooters = shooterRef.current;
 
       // ── 1. NEBULA CLOUDS ──
-      if (pts.nebulae) {
-        for (const n of pts.nebulae) {
+      if (nebulae?.length) {
+        for (const n of nebulae) {
           n.x = (n.x + n.vx + 100) % 100;
           n.y = (n.y + n.vy + 100) % 100;
           const breathe = 0.7 + Math.sin(t * n.sp + n.ph) * 0.3;
@@ -755,8 +750,8 @@ function HeroScene({ scrollY, waitlistCount }: {
       }
 
       // ── 6. SHOOTING STARS ──
-      if (pts.shooters) {
-        for (const s of pts.shooters) {
+      if (shooters?.length) {
+        for (const s of shooters) {
           if (!s.active) {
             s.timer -= dt;
             if (s.timer <= 0) {
