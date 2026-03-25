@@ -714,9 +714,10 @@ function HeroScene({ scrollY, waitlistCount }: {
             const lx = cx + lobe.dx * W, ly = cy + lobe.dy * W;
             const lr = lobe.r * W;
             const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, lr);
-            g.addColorStop(0,    `rgba(${lobe.col},${lobe.op.toFixed(3)})`);
-            g.addColorStop(0.4,  `rgba(${lobe.col},${(lobe.op*0.5).toFixed(3)})`);
-            g.addColorStop(0.75, `rgba(${lobe.col},${(lobe.op*0.15).toFixed(3)})`);
+            g.addColorStop(0,    `rgba(${lobe.col},${(lobe.op*1.6).toFixed(3)})`);
+            g.addColorStop(0.25, `rgba(${lobe.col},${(lobe.op*1.1).toFixed(3)})`);
+            g.addColorStop(0.55, `rgba(${lobe.col},${(lobe.op*0.4).toFixed(3)})`);
+            g.addColorStop(0.82, `rgba(${lobe.col},${(lobe.op*0.08).toFixed(3)})`);
             g.addColorStop(1,    `rgba(${lobe.col},0)`);
             ctx.fillStyle = g;
             ctx.beginPath(); ctx.arc(lx, ly, lr, 0, Math.PI*2);
@@ -865,7 +866,6 @@ function HeroScene({ scrollY, waitlistCount }: {
         timersRef.current.push(t);
       } else {
         setScanning(true);
-        triggerBurst(0.5, 0.6, 0.4);
         const t = setTimeout(showLeads, 600);
         timersRef.current.push(t);
       }
@@ -892,7 +892,6 @@ function HeroScene({ scrollY, waitlistCount }: {
       setShowRing(true);
       setRingColor(top.sc);
       setRingOffset(226 * (1 - top.score / 100));
-      triggerBurst(0.68, 0.55, 1.0);
       // Animate ring number
       const start = performance.now();
       function animRing(now: number) {
@@ -1434,9 +1433,10 @@ function GalaxySectionBg() {
           const lx = cx + lobe.dx * W, ly = cy + lobe.dy * W;
           const lr = lobe.r * W;
           const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, lr);
-          g.addColorStop(0,    `rgba(${lobe.col},${lobe.op.toFixed(3)})`);
-          g.addColorStop(0.4,  `rgba(${lobe.col},${(lobe.op*0.5).toFixed(3)})`);
-          g.addColorStop(0.75, `rgba(${lobe.col},${(lobe.op*0.15).toFixed(3)})`);
+          g.addColorStop(0,    `rgba(${lobe.col},${(lobe.op*1.6).toFixed(3)})`);
+          g.addColorStop(0.25, `rgba(${lobe.col},${(lobe.op*1.1).toFixed(3)})`);
+          g.addColorStop(0.55, `rgba(${lobe.col},${(lobe.op*0.4).toFixed(3)})`);
+          g.addColorStop(0.82, `rgba(${lobe.col},${(lobe.op*0.08).toFixed(3)})`);
           g.addColorStop(1,    `rgba(${lobe.col},0)`);
           ctx.fillStyle = g;
           ctx.beginPath(); ctx.arc(lx, ly, lr, 0, Math.PI*2);
