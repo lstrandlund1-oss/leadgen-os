@@ -610,14 +610,15 @@ function HeroScene({ scrollY, waitlistCount }: {
       vy: (Math.random() - 0.5) * 0.005,
       layer: 2,
     }));
-    // Nebula clouds — layered warm core + cool halo, like Hubble/Webb imagery
+    // Nebula clouds — rx/ry as % of canvas width so they scale correctly
+    // opCore/opHalo raised to be actually visible on dark background
     const nebulae = [
-      { x:15, y:20, rx:300, ry:210, opCore:0.055, opHalo:0.026, core:"201,155,60",  halo:"130,165,225", sp:0.000011, vx:0.00040, vy:0.00028, ph:0.0 },
-      { x:75, y:12, rx:260, ry:185, opCore:0.046, opHalo:0.021, core:"218,138,158", halo:"95,155,208",  sp:0.000014, vx:-0.00038, vy:0.00024, ph:1.2 },
-      { x:82, y:68, rx:320, ry:230, opCore:0.050, opHalo:0.023, core:"175,118,48",  halo:"152,196,218", sp:0.000010, vx:-0.00032, vy:-0.00027, ph:2.4 },
-      { x:28, y:78, rx:275, ry:195, opCore:0.048, opHalo:0.022, core:"196,148,176", halo:"115,175,198", sp:0.000013, vx:0.00035, vy:-0.00030, ph:3.6 },
-      { x:52, y:48, rx:340, ry:250, opCore:0.036, opHalo:0.018, core:"155,128,48",  halo:"175,208,228", sp:0.000009, vx:-0.00028, vy:0.00021, ph:4.8 },
-      { x:8,  y:55, rx:215, ry:165, opCore:0.042, opHalo:0.020, core:"208,162,78",  halo:"145,192,212", sp:0.000012, vx:0.00041, vy:0.00026, ph:5.6 },
+      { x:15, y:20, rx:0.22, ry:0.15, opCore:0.22, opHalo:0.10, core:"201,155,60",  halo:"130,165,225", sp:0.000011, vx:0.00040, vy:0.00028, ph:0.0 },
+      { x:75, y:12, rx:0.19, ry:0.14, opCore:0.18, opHalo:0.09, core:"218,138,158", halo:"95,155,208",  sp:0.000014, vx:-0.00038, vy:0.00024, ph:1.2 },
+      { x:82, y:68, rx:0.24, ry:0.17, opCore:0.20, opHalo:0.09, core:"175,118,48",  halo:"152,196,218", sp:0.000010, vx:-0.00032, vy:-0.00027, ph:2.4 },
+      { x:28, y:78, rx:0.20, ry:0.15, opCore:0.19, opHalo:0.09, core:"196,148,176", halo:"115,175,198", sp:0.000013, vx:0.00035, vy:-0.00030, ph:3.6 },
+      { x:52, y:48, rx:0.25, ry:0.18, opCore:0.15, opHalo:0.07, core:"155,128,48",  halo:"175,208,228", sp:0.000009, vx:-0.00028, vy:0.00021, ph:4.8 },
+      { x:8,  y:55, rx:0.16, ry:0.12, opCore:0.17, opHalo:0.08, core:"208,162,78",  halo:"145,192,212", sp:0.000012, vx:0.00041, vy:0.00026, ph:5.6 },
     ];
     // Shooting stars
     const shooters: {x:number;y:number;vx:number;vy:number;len:number;op:number;active:boolean;timer:number}[] = Array.from({ length: 4 }, () => ({
@@ -660,14 +661,16 @@ function HeroScene({ scrollY, waitlistCount }: {
           n.x = (n.x + n.vx + 100) % 100;
           n.y = (n.y + n.vy + 100) % 100;
           const nx = n.x*W/100, ny = n.y*H/100;
-          const maxR = Math.max(n.rx, n.ry);
+          // rx/ry stored as fraction of W so they scale with viewport
+          const rx = n.rx * W, ry = n.ry * W;
+          const maxR = Math.max(rx, ry);
           const burstBoostN = 1 + burst.v * 0.8;
           // Layer 1: warm luminous core
           const coreG = ctx.createRadialGradient(nx, ny, 0, nx, ny, maxR * 0.55);
           coreG.addColorStop(0,   `rgba(${n.core},${(n.opCore * burstBoostN).toFixed(3)})`);
           coreG.addColorStop(0.5, `rgba(${n.core},${(n.opCore * 0.35 * burstBoostN).toFixed(3)})`);
           coreG.addColorStop(1,   `rgba(${n.core},0)`);
-          ctx.save(); ctx.translate(nx, ny); ctx.scale(n.rx/maxR, n.ry/maxR);
+          ctx.save(); ctx.translate(nx, ny); ctx.scale(rx/maxR, ry/maxR);
           ctx.beginPath(); ctx.arc(0, 0, maxR*0.55, 0, Math.PI*2);
           ctx.fillStyle = coreG; ctx.fill(); ctx.restore();
           // Layer 2: cool halo spreading outward
@@ -676,7 +679,7 @@ function HeroScene({ scrollY, waitlistCount }: {
           haloG.addColorStop(0.35, `rgba(${n.halo},${(n.opHalo * burstBoostN).toFixed(3)})`);
           haloG.addColorStop(0.72, `rgba(${n.halo},${(n.opHalo * 0.3 * burstBoostN).toFixed(3)})`);
           haloG.addColorStop(1,    `rgba(${n.halo},0)`);
-          ctx.save(); ctx.translate(nx, ny); ctx.scale(n.rx/maxR, n.ry/maxR);
+          ctx.save(); ctx.translate(nx, ny); ctx.scale(rx/maxR, ry/maxR);
           ctx.beginPath(); ctx.arc(0, 0, maxR, 0, Math.PI*2);
           ctx.fillStyle = haloG; ctx.fill(); ctx.restore();
         }
@@ -1335,14 +1338,14 @@ function GalaxySectionBg() {
     }));
     const stars = [...deep, ...mid, ...fore];
 
-    // ── Nebulae — layered warm core + cool halo, like real space ──
+    // ── Nebulae — rx/ry as fraction of canvas W, opacity actually visible ──
     const nebulae = [
-      { x:12+Math.random()*18, y:15+Math.random()*18, rx:280+Math.random()*80, ry:195+Math.random()*60, opCore:0.052, opHalo:0.024, core:"201,155,60",  halo:"130,165,225", sp:0.000011, vx:0.00038, vy:0.00027 },
-      { x:65+Math.random()*18, y:10+Math.random()*18, rx:248+Math.random()*80, ry:178+Math.random()*60, opCore:0.044, opHalo:0.020, core:"215,135,155", halo:"95,152,208",  sp:0.000014, vx:-0.00036, vy:0.00023 },
-      { x:78+Math.random()*14, y:60+Math.random()*18, rx:295+Math.random()*80, ry:218+Math.random()*60, opCore:0.048, opHalo:0.022, core:"172,116,46",  halo:"150,194,216", sp:0.000010, vx:-0.00031, vy:-0.00025 },
-      { x:22+Math.random()*18, y:72+Math.random()*18, rx:262+Math.random()*80, ry:188+Math.random()*60, opCore:0.046, opHalo:0.021, core:"196,146,174", halo:"112,174,196", sp:0.000013, vx:0.00034, vy:-0.00029 },
-      { x:46+Math.random()*18, y:42+Math.random()*18, rx:315+Math.random()*80, ry:232+Math.random()*60, opCore:0.034, opHalo:0.017, core:"155,126,46",  halo:"172,206,226", sp:0.000009, vx:-0.00027, vy:0.00019 },
-      { x:4+Math.random()*12,  y:48+Math.random()*18, rx:205+Math.random()*80, ry:158+Math.random()*60, opCore:0.040, opHalo:0.018, core:"206,160,76",  halo:"144,190,210", sp:0.000012, vx:0.00039, vy:0.00024 },
+      { x:12+Math.random()*18, y:15+Math.random()*18, rx:0.21, ry:0.15, opCore:0.20, opHalo:0.09, core:"201,155,60",  halo:"130,165,225", sp:0.000011, vx:0.00038, vy:0.00027 },
+      { x:65+Math.random()*18, y:10+Math.random()*18, rx:0.18, ry:0.14, opCore:0.17, opHalo:0.08, core:"215,135,155", halo:"95,152,208",  sp:0.000014, vx:-0.00036, vy:0.00023 },
+      { x:78+Math.random()*14, y:60+Math.random()*18, rx:0.22, ry:0.17, opCore:0.19, opHalo:0.09, core:"172,116,46",  halo:"150,194,216", sp:0.000010, vx:-0.00031, vy:-0.00025 },
+      { x:22+Math.random()*18, y:72+Math.random()*18, rx:0.20, ry:0.15, opCore:0.18, opHalo:0.08, core:"196,146,174", halo:"112,174,196", sp:0.000013, vx:0.00034, vy:-0.00029 },
+      { x:46+Math.random()*18, y:42+Math.random()*18, rx:0.24, ry:0.18, opCore:0.14, opHalo:0.07, core:"155,126,46",  halo:"172,206,226", sp:0.000009, vx:-0.00027, vy:0.00019 },
+      { x:4+Math.random()*12,  y:48+Math.random()*18, rx:0.16, ry:0.12, opCore:0.16, opHalo:0.07, core:"206,160,76",  halo:"144,190,210", sp:0.000012, vx:0.00039, vy:0.00024 },
     ];
 
     // ── Shooting stars — 3 slots ──
@@ -1365,13 +1368,14 @@ function GalaxySectionBg() {
         n.x = (n.x + n.vx + 100) % 100;
         n.y = (n.y + n.vy + 100) % 100;
         const nx = n.x*W/100, ny = n.y*H/100;
-        const maxR = Math.max(n.rx, n.ry);
+        const rx = n.rx * W, ry = n.ry * W;
+        const maxR = Math.max(rx, ry);
         // Warm luminous core
         const coreG = ctx.createRadialGradient(nx, ny, 0, nx, ny, maxR*0.55);
         coreG.addColorStop(0,   `rgba(${n.core},${n.opCore.toFixed(3)})`);
         coreG.addColorStop(0.5, `rgba(${n.core},${(n.opCore*0.35).toFixed(3)})`);
         coreG.addColorStop(1,   `rgba(${n.core},0)`);
-        ctx.save(); ctx.translate(nx, ny); ctx.scale(n.rx/maxR, n.ry/maxR);
+        ctx.save(); ctx.translate(nx, ny); ctx.scale(rx/maxR, ry/maxR);
         ctx.beginPath(); ctx.arc(0, 0, maxR*0.55, 0, Math.PI*2);
         ctx.fillStyle = coreG; ctx.fill(); ctx.restore();
         // Cool spreading halo
@@ -1380,7 +1384,7 @@ function GalaxySectionBg() {
         haloG.addColorStop(0.35, `rgba(${n.halo},${n.opHalo.toFixed(3)})`);
         haloG.addColorStop(0.72, `rgba(${n.halo},${(n.opHalo*0.3).toFixed(3)})`);
         haloG.addColorStop(1,    `rgba(${n.halo},0)`);
-        ctx.save(); ctx.translate(nx, ny); ctx.scale(n.rx/maxR, n.ry/maxR);
+        ctx.save(); ctx.translate(nx, ny); ctx.scale(rx/maxR, ry/maxR);
         ctx.beginPath(); ctx.arc(0, 0, maxR, 0, Math.PI*2);
         ctx.fillStyle = haloG; ctx.fill(); ctx.restore();
       }
