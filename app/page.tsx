@@ -1908,9 +1908,6 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <p style={{ marginTop: 24, fontSize: 11, color: "#2a2a2a", letterSpacing: "0.1em", opacity: ctaVisible ? 1 : 0, transition: "opacity 0.8s ease 1s" }}>
-              No credit card required · Cancel anytime
-            </p>
           </div>
         </section>
       </div>
