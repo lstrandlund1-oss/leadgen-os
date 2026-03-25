@@ -539,6 +539,71 @@ const SEARCH_CYCLES = [
 type Lead = typeof SEARCH_CYCLES[0]["leads"][0];
 type Cycle = typeof SEARCH_CYCLES[0];
 
+// ── NEBULA NOISE HELPERS ─────────────────────────────────────────────
+function nbLerp(a:number,b:number,t:number){return a+(b-a)*t;}
+function nbValueNoise(x:number,y:number,seed:number){
+  const ix=Math.floor(x),iy=Math.floor(y);
+  const fx=x-ix,fy=y-iy;
+  const ux=fx*fx*(3-2*fx),uy=fy*fy*(3-2*fy);
+  function h(a:number,b:number){const n=Math.sin(a*127.1+b*311.7+seed*74.3)*43758.5453;return n-Math.floor(n);}
+  return nbLerp(nbLerp(h(ix,iy),h(ix+1,iy),ux),nbLerp(h(ix,iy+1),h(ix+1,iy+1),ux),uy);
+}
+function nbFbm(x:number,y:number,seed:number,oct:number){
+  let v=0,a=0.5,f=1,mx=0;
+  for(let i=0;i<oct;i++){v+=nbValueNoise(x*f,y*f,seed+i)*a;mx+=a;a*=0.52;f*=2.1;}
+  return v/mx;
+}
+function nbCloud(x:number,y:number,seed:number,warp:number){
+  const ox=nbFbm(x+0.0,y+0.0,seed,5)*warp;
+  const oy=nbFbm(x+5.2,y+1.3,seed+7,5)*warp;
+  return nbFbm(x+ox,y+oy,seed+3,7);
+}
+interface NbCloudCfg {
+  cx:number;cy:number;rx:number;ry:number;rot:number;
+  seed:number;warp:number;thresh:number;intensity:number;es:number;
+  c0:[number,number,number];c1:[number,number,number];
+  c2:[number,number,number];c3:[number,number,number];
+}
+function nbBuildCloud(W:number,H:number,cfg:NbCloudCfg):ImageData{
+  const {cx,cy,rx,ry,rot,seed,warp,thresh,intensity,es,c0,c1,c2,c3}=cfg;
+  const data=new Uint8ClampedArray(W*H*4);
+  const cosR=Math.cos(rot),sinR=Math.sin(rot);
+  for(let py=0;py<H;py++){
+    for(let px=0;px<W;px++){
+      const dx=px-cx,dy=py-cy;
+      const rx2=(dx*cosR+dy*sinR)/rx;
+      const ry2=(-dx*sinR+dy*cosR)/ry;
+      const d2=rx2*rx2+ry2*ry2;
+      if(d2>4.84) continue;
+      const n=nbCloud(rx2*1.2,ry2*1.2,seed,warp);
+      const raw=Math.max(0,n-thresh);
+      if(raw<=0) continue;
+      const dens=Math.min(1,raw/(1-thresh));
+      const edge=Math.exp(-es*d2);
+      const fin=dens*edge*intensity;
+      if(fin<0.003) continue;
+      let r,g,b;
+      if(dens>0.75){const t=(dens-0.75)/0.25;r=nbLerp(c2[0],c3[0],t);g=nbLerp(c2[1],c3[1],t);b=nbLerp(c2[2],c3[2],t);}
+      else if(dens>0.45){const t=(dens-0.45)/0.30;r=nbLerp(c1[0],c2[0],t);g=nbLerp(c1[1],c2[1],t);b=nbLerp(c1[2],c2[2],t);}
+      else if(dens>0.15){const t=(dens-0.15)/0.30;r=nbLerp(c0[0],c1[0],t);g=nbLerp(c0[1],c1[1],t);b=nbLerp(c0[2],c1[2],t);}
+      else{const t=dens/0.15;r=c0[0]*t;g=c0[1]*t;b=c0[2]*t;}
+      const i4=(py*W+px)*4;
+      data[i4]  =Math.min(255,data[i4]  +r*fin*255);
+      data[i4+1]=Math.min(255,data[i4+1]+g*fin*255);
+      data[i4+2]=Math.min(255,data[i4+2]+b*fin*255);
+      data[i4+3]=255;
+    }
+  }
+  return new ImageData(data,W,H);
+}
+function nbScreenBlit(ctx:CanvasRenderingContext2D,W:number,H:number,img:ImageData){
+  const tmp=document.createElement("canvas");tmp.width=W;tmp.height=H;
+  tmp.getContext("2d")!.putImageData(img,0,0);
+  ctx.globalCompositeOperation="screen";
+  ctx.drawImage(tmp,0,0);
+  ctx.globalCompositeOperation="source-over";
+}
+
 // ── HERO SCENE — flat dashboard + unified particle canvas ──
 function HeroScene({ scrollY, waitlistCount }: {
   scrollY: number;
@@ -546,7 +611,7 @@ function HeroScene({ scrollY, waitlistCount }: {
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<{x:number;y:number;vx:number;vy:number;r:number;op:number;ph:number;sp:number;layer:number}[]>([]);
-  const nebulaRef = useRef<{x:number;y:number;vx:number;vy:number;lobes:{dx:number;dy:number;r:number;col:string;op:number}[]}[]>([]);
+  const nebulaOffRef = useRef<HTMLCanvasElement | null>(null);
   const shooterRef = useRef<{x:number;y:number;vx:number;vy:number;len:number;op:number;active:boolean;timer:number}[]>([]);
   const burstRef = useRef({ v: 0, cx: 0.5, cy: 0.5 });
   const rafRef = useRef<number>(0);
@@ -610,72 +675,33 @@ function HeroScene({ scrollY, waitlistCount }: {
       vy: (Math.random() - 0.5) * 0.005,
       layer: 2,
     }));
-    // Nebulae — each one is several offset overlapping lobes, creating
-    // an irregular wispy cloud shape rather than a single circle
-    type NebulaLobe = { dx:number; dy:number; r:number; col:string; op:number };
-    type Nebula = { x:number; y:number; vx:number; vy:number; lobes:NebulaLobe[] };
-    const nebulae: Nebula[] = [
-      // Warm gold cluster — top left
-      { x:14, y:18, vx:0.00035, vy:0.00025, lobes:[
-        { dx:0,      dy:0,      r:0.18, col:"201,155,60",  op:0.18 },
-        { dx:0.06,   dy:-0.04,  r:0.13, col:"220,175,80",  op:0.14 },
-        { dx:-0.07,  dy:0.05,   r:0.11, col:"180,130,45",  op:0.12 },
-        { dx:0.10,   dy:0.07,   r:0.09, col:"240,190,100", op:0.10 },
-        { dx:-0.04,  dy:-0.08,  r:0.08, col:"160,120,40",  op:0.09 },
-        { dx:0.08,   dy:-0.10,  r:0.07, col:"130,165,225", op:0.08 }, // blue wisp
-      ]},
-      // Pink-blue cluster — top right
-      { x:76, y:11, vx:-0.00033, vy:0.00022, lobes:[
-        { dx:0,      dy:0,      r:0.16, col:"210,130,155", op:0.17 },
-        { dx:-0.07,  dy:0.04,   r:0.12, col:"185,110,140", op:0.13 },
-        { dx:0.08,   dy:-0.05,  r:0.10, col:"95,148,210",  op:0.12 },
-        { dx:0.05,   dy:0.09,   r:0.08, col:"230,155,175", op:0.10 },
-        { dx:-0.10,  dy:-0.06,  r:0.07, col:"120,170,220", op:0.09 },
-        { dx:0.12,   dy:0.04,   r:0.06, col:"200,120,145", op:0.08 },
-      ]},
-      // Teal-amber cluster — right side
-      { x:84, y:65, vx:-0.00028, vy:-0.00024, lobes:[
-        { dx:0,      dy:0,      r:0.17, col:"170,115,45",  op:0.16 },
-        { dx:0.07,   dy:-0.06,  r:0.12, col:"148,192,215", op:0.13 },
-        { dx:-0.08,  dy:0.07,   r:0.10, col:"195,140,55",  op:0.12 },
-        { dx:0.04,   dy:0.10,   r:0.09, col:"100,175,200", op:0.11 },
-        { dx:-0.11,  dy:-0.04,  r:0.08, col:"160,108,38",  op:0.09 },
-        { dx:0.09,   dy:0.06,   r:0.06, col:"130,188,210", op:0.07 },
-      ]},
-      // Soft lavender-gold — bottom left
-      { x:26, y:80, vx:0.00030, vy:-0.00026, lobes:[
-        { dx:0,      dy:0,      r:0.15, col:"190,145,175", op:0.16 },
-        { dx:0.06,   dy:-0.07,  r:0.11, col:"210,160,80",  op:0.13 },
-        { dx:-0.07,  dy:0.05,   r:0.10, col:"110,170,195", op:0.12 },
-        { dx:0.09,   dy:0.06,   r:0.08, col:"175,130,160", op:0.10 },
-        { dx:-0.05,  dy:-0.09,  r:0.07, col:"225,175,95",  op:0.09 },
-      ]},
-      // Large diffuse centre-left — mostly gold
-      { x:50, y:45, vx:-0.00022, vy:0.00018, lobes:[
-        { dx:0,      dy:0,      r:0.20, col:"195,155,55",  op:0.12 },
-        { dx:0.09,   dy:-0.05,  r:0.14, col:"165,195,220", op:0.10 },
-        { dx:-0.10,  dy:0.08,   r:0.12, col:"215,170,70",  op:0.10 },
-        { dx:0.06,   dy:0.11,   r:0.10, col:"140,180,210", op:0.09 },
-        { dx:-0.13,  dy:-0.06,  r:0.09, col:"180,140,50",  op:0.08 },
-        { dx:0.13,   dy:0.07,   r:0.08, col:"100,160,200", op:0.07 },
-        { dx:-0.06,  dy:-0.13,  r:0.07, col:"220,185,80",  op:0.07 },
-      ]},
-      // Small warm wisp — far left
-      { x:6, y:52, vx:0.00036, vy:0.00023, lobes:[
-        { dx:0,      dy:0,      r:0.12, col:"205,158,72",  op:0.16 },
-        { dx:0.05,   dy:-0.06,  r:0.09, col:"142,188,210", op:0.12 },
-        { dx:-0.06,  dy:0.07,   r:0.08, col:"185,140,55",  op:0.11 },
-        { dx:0.08,   dy:0.05,   r:0.06, col:"120,165,205", op:0.09 },
-      ]},
-    ];
     // Shooting stars
     const shooters: {x:number;y:number;vx:number;vy:number;len:number;op:number;active:boolean;timer:number}[] = Array.from({ length: 4 }, () => ({
-      x: 0, y: 0, vx: 0, vy: 0, len: 0, op: 0, active: false, timer: Math.random() * 8000,
+      x: 0, y: 0, vx: 0, vy: 0, len: 0, op: 0, active: false, timer: 18000 + Math.random() * 20000,
     }));
-
     particlesRef.current = [...deep, ...mid, ...fore] as unknown as typeof particlesRef.current;
-    nebulaRef.current = nebulae;
     shooterRef.current = shooters;
+
+    // ── HERO NEBULA — gold/amber cloud, computed once ──
+    // Build on next frame so canvas dimensions are available
+    requestAnimationFrame(() => {
+      const cv = canvasRef.current; if (!cv) return;
+      const W = cv.width || window.innerWidth;
+      const H = cv.height || window.innerHeight;
+      const off = document.createElement("canvas"); off.width=W; off.height=H;
+      const oCtx = off.getContext("2d")!;
+      // Outer halo — blue-violet
+      oCtx.globalCompositeOperation="screen";
+      nbScreenBlit(oCtx,W,H,nbBuildCloud(W,H,{cx:0.22*W,cy:0.32*H,rx:0.65*W,ry:0.55*W,rot:0.28,seed:1.0,warp:3.2,thresh:0.30,intensity:0.85,es:1.0,c0:[0.04,0.06,0.22],c1:[0.12,0.16,0.42],c2:[0.20,0.24,0.58],c3:[0.30,0.30,0.66]}));
+      // Main amber
+      nbScreenBlit(oCtx,W,H,nbBuildCloud(W,H,{cx:0.19*W,cy:0.28*H,rx:0.55*W,ry:0.45*W,rot:0.24,seed:2.2,warp:3.5,thresh:0.33,intensity:1.20,es:1.2,c0:[0.30,0.16,0.04],c1:[0.62,0.42,0.09],c2:[0.88,0.68,0.18],c3:[0.98,0.88,0.36]}));
+      // Bright inner
+      nbScreenBlit(oCtx,W,H,nbBuildCloud(W,H,{cx:0.16*W,cy:0.23*H,rx:0.36*W,ry:0.30*W,rot:0.18,seed:3.5,warp:3.8,thresh:0.37,intensity:1.20,es:1.6,c0:[0.65,0.46,0.11],c1:[0.88,0.70,0.26],c2:[0.96,0.88,0.50],c3:[1.0,0.99,0.80]}));
+      // Hot nucleus
+      nbScreenBlit(oCtx,W,H,nbBuildCloud(W,H,{cx:0.14*W,cy:0.19*H,rx:0.18*W,ry:0.16*W,rot:0.12,seed:4.8,warp:4.0,thresh:0.42,intensity:1.10,es:2.0,c0:[0.92,0.80,0.40],c1:[0.97,0.93,0.64],c2:[0.99,0.98,0.84],c3:[1.0,1.0,0.97]}));
+      oCtx.globalCompositeOperation="source-over";
+      nebulaOffRef.current = off;
+    });
   }, []);
 
   // Canvas draw loop
@@ -700,30 +726,12 @@ function HeroScene({ scrollY, waitlistCount }: {
       burst.v = Math.max(0, burst.v - 0.008);
       const { x: mx, y: my } = mouseRef.current;
       const pts = particlesRef.current;
-      const nebulae = nebulaRef.current;
       const shooters = shooterRef.current;
 
-      // ── 1. NEBULA CLOUDS — multi-lobe irregular clouds ──
-      if (nebulae?.length) {
+      // ── 1. NEBULA CLOUD — precomputed offscreen, drawn once per frame ──
+      if (nebulaOffRef.current) {
         ctx.globalCompositeOperation = "screen";
-        for (const n of nebulae) {
-          n.x = (n.x + n.vx + 100) % 100;
-          n.y = (n.y + n.vy + 100) % 100;
-          const cx = n.x * W / 100, cy = n.y * H / 100;
-          for (const lobe of n.lobes) {
-            const lx = cx + lobe.dx * W, ly = cy + lobe.dy * W;
-            const lr = lobe.r * W;
-            const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, lr);
-            g.addColorStop(0,    `rgba(${lobe.col},${(lobe.op*1.6).toFixed(3)})`);
-            g.addColorStop(0.25, `rgba(${lobe.col},${(lobe.op*1.1).toFixed(3)})`);
-            g.addColorStop(0.55, `rgba(${lobe.col},${(lobe.op*0.4).toFixed(3)})`);
-            g.addColorStop(0.82, `rgba(${lobe.col},${(lobe.op*0.08).toFixed(3)})`);
-            g.addColorStop(1,    `rgba(${lobe.col},0)`);
-            ctx.fillStyle = g;
-            ctx.beginPath(); ctx.arc(lx, ly, lr, 0, Math.PI*2);
-            ctx.fill();
-          }
-        }
+        ctx.drawImage(nebulaOffRef.current, 0, 0);
         ctx.globalCompositeOperation = "source-over";
       }
 
@@ -1324,221 +1332,77 @@ function GlowButton({ href, children, style = {} }: { href: string; children: Re
 // ── GALAXY SECTION BACKGROUND — living, breathing galaxy as section background ──
 // Each section gets its own canvas; position absolute, covers the full section height.
 // Same full galaxy system as hero: nebulae, star layers, galaxy core, shooting stars.
-function GalaxySectionBg() {
+// ── GALAXY SECTION BACKGROUND — noise-based nebula, computed once on mount ──
+function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d")!;
+    const canvas = canvasRef.current; if (!canvas) return;
     const container = canvas.parentElement!;
-
     let W = 0, H = 0;
     const c = canvas;
-    function resize() {
+
+    function buildAndDraw() {
       W = c.width  = container.offsetWidth;
       H = c.height = container.offsetHeight;
-    }
-    resize();
+      if (W === 0 || H === 0) return;
+      const ctx = c.getContext("2d")!;
 
-    // ResizeObserver to catch section height changes
-    const ro = new ResizeObserver(resize);
-    ro.observe(container);
-    window.addEventListener("resize", resize, { passive: true });
+      // Dark base
+      ctx.fillStyle = "#060608";
+      ctx.fillRect(0, 0, W, H);
 
-    // ── Stars — 3 layers ──
-    const deep = Array.from({ length: 200 }, () => ({
-      x: Math.random()*100, y: Math.random()*100,
-      r: Math.random()*0.65+0.15,
-      op: Math.random()*0.22+0.05,
-      ph: Math.random()*Math.PI*2,
-      sp: Math.random()*0.00018+0.00004,
-      vx: (Math.random()-0.5)*0.0012, vy: (Math.random()-0.5)*0.0012,
-      layer: 0,
-    }));
-    const mid = Array.from({ length: 80 }, () => ({
-      x: Math.random()*100, y: Math.random()*100,
-      r: Math.random()*1.1+0.4,
-      op: Math.random()*0.32+0.08,
-      ph: Math.random()*Math.PI*2,
-      sp: Math.random()*0.00038+0.0001,
-      vx: (Math.random()-0.5)*0.0028, vy: (Math.random()-0.5)*0.0028,
-      layer: 1,
-    }));
-    const fore = Array.from({ length: 24 }, () => ({
-      x: Math.random()*100, y: Math.random()*100,
-      r: Math.random()*1.7+0.8,
-      op: Math.random()*0.45+0.2,
-      ph: Math.random()*Math.PI*2,
-      sp: Math.random()*0.0007+0.0003,
-      vx: (Math.random()-0.5)*0.004, vy: (Math.random()-0.5)*0.004,
-      layer: 2,
-    }));
-    const stars = [...deep, ...mid, ...fore];
+      // Background stars — seeded per variant
+      const seed = variant === "features" ? 67890 : 11223;
+      let s = seed >>> 0;
+      function rand(){s=(s*1664525+1013904223)>>>0;return s/0xffffffff;}
+      for(let i=0;i<2500;i++){
+        const x=rand()*W,y=rand()*H,op=rand()*0.08+0.02,r=rand()*0.3+0.08;
+        ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
+        ctx.fillStyle=`rgba(185,178,162,${op})`;ctx.fill();
+      }
+      for(let i=0;i<400;i++){
+        const x=rand()*W,y=rand()*H,op=rand()*0.18+0.07,r=rand()*0.5+0.18;
+        const cr=rand();
+        const col=cr>0.65?`rgba(180,210,255,${op})`:cr>0.35?`rgba(255,248,225,${op})`:`rgba(255,225,180,${op})`;
+        ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
+      }
+      for(let i=0;i<40;i++){
+        const x=rand()*W,y=rand()*H,op=rand()*0.45+0.4,r=rand()*1.1+0.4;
+        const g=ctx.createRadialGradient(x,y,0,x,y,r*5);
+        g.addColorStop(0,`rgba(255,252,228,${op})`);
+        g.addColorStop(0.2,`rgba(220,192,115,${(op*0.45).toFixed(3)})`);
+        g.addColorStop(1,"rgba(0,0,0,0)");
+        ctx.beginPath();ctx.arc(x,y,r*5,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
+        ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
+        ctx.fillStyle=`rgba(255,252,228,${op})`;ctx.fill();
+      }
 
-    // ── Nebulae — multi-lobe irregular clouds, same as hero ──
-    const nebulae = [
-      { x:14+Math.random()*8, y:18+Math.random()*8, vx:0.00033, vy:0.00024, lobes:[
-        { dx:0, dy:0, r:0.18, col:"201,155,60", op:0.17 }, { dx:0.06, dy:-0.04, r:0.12, col:"220,175,80", op:0.13 },
-        { dx:-0.07, dy:0.05, r:0.10, col:"180,130,45", op:0.11 }, { dx:0.09, dy:0.07, r:0.08, col:"130,165,225", op:0.08 },
-        { dx:-0.04, dy:-0.08, r:0.07, col:"240,190,100", op:0.09 },
-      ]},
-      { x:74+Math.random()*8, y:10+Math.random()*8, vx:-0.00031, vy:0.00021, lobes:[
-        { dx:0, dy:0, r:0.16, col:"210,130,155", op:0.16 }, { dx:-0.06, dy:0.05, r:0.11, col:"185,110,140", op:0.12 },
-        { dx:0.07, dy:-0.05, r:0.09, col:"95,148,210", op:0.11 }, { dx:0.04, dy:0.09, r:0.07, col:"120,170,220", op:0.09 },
-        { dx:-0.09, dy:-0.05, r:0.06, col:"230,155,175", op:0.08 },
-      ]},
-      { x:80+Math.random()*8, y:62+Math.random()*8, vx:-0.00027, vy:-0.00022, lobes:[
-        { dx:0, dy:0, r:0.17, col:"170,115,45", op:0.15 }, { dx:0.07, dy:-0.06, r:0.11, col:"148,192,215", op:0.12 },
-        { dx:-0.07, dy:0.07, r:0.09, col:"195,140,55", op:0.11 }, { dx:0.04, dy:0.10, r:0.08, col:"100,175,200", op:0.10 },
-        { dx:-0.10, dy:-0.04, r:0.07, col:"160,108,38", op:0.09 },
-      ]},
-      { x:24+Math.random()*8, y:76+Math.random()*8, vx:0.00029, vy:-0.00024, lobes:[
-        { dx:0, dy:0, r:0.15, col:"190,145,175", op:0.15 }, { dx:0.06, dy:-0.06, r:0.10, col:"210,160,80", op:0.12 },
-        { dx:-0.07, dy:0.05, r:0.09, col:"110,170,195", op:0.11 }, { dx:0.09, dy:0.06, r:0.07, col:"175,130,160", op:0.09 },
-      ]},
-      { x:48+Math.random()*8, y:43+Math.random()*8, vx:-0.00020, vy:0.00017, lobes:[
-        { dx:0, dy:0, r:0.19, col:"195,155,55", op:0.11 }, { dx:0.09, dy:-0.05, r:0.13, col:"165,195,220", op:0.09 },
-        { dx:-0.09, dy:0.08, r:0.11, col:"215,170,70", op:0.09 }, { dx:0.06, dy:0.11, r:0.09, col:"140,180,210", op:0.08 },
-        { dx:-0.12, dy:-0.05, r:0.08, col:"180,140,50", op:0.07 },
-      ]},
-      { x:5+Math.random()*6, y:50+Math.random()*8, vx:0.00034, vy:0.00021, lobes:[
-        { dx:0, dy:0, r:0.12, col:"205,158,72", op:0.15 }, { dx:0.05, dy:-0.05, r:0.09, col:"142,188,210", op:0.11 },
-        { dx:-0.05, dy:0.06, r:0.07, col:"185,140,55", op:0.10 }, { dx:0.07, dy:0.04, r:0.06, col:"120,165,205", op:0.08 },
-      ]},
-    ];
-
-    // ── Shooting stars — 3 slots ──
-    const shooters = Array.from({ length: 3 }, (_, i) => ({
-      x: 0, y: 0, vx: 0, vy: 0, len: 0, op: 0,
-      active: false,
-      timer: 12000 + i * 8000 + Math.random() * 12000,
-    }));
-
-    let lastT = 0;
-    let raf: number;
-
-    function draw(t: number) {
-      const dt = t - lastT; lastT = t;
-      if (W === 0 || H === 0) { raf = requestAnimationFrame(draw); return; }
-      ctx.clearRect(0, 0, W, H);
-
-      // ── 1. Nebulae — multi-lobe irregular clouds ──
+      // Build nebula cloud layers — different per variant
       ctx.globalCompositeOperation = "screen";
-      for (const n of nebulae) {
-        n.x = (n.x + n.vx + 100) % 100;
-        n.y = (n.y + n.vy + 100) % 100;
-        const cx = n.x * W / 100, cy = n.y * H / 100;
-        for (const lobe of n.lobes) {
-          const lx = cx + lobe.dx * W, ly = cy + lobe.dy * W;
-          const lr = lobe.r * W;
-          const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, lr);
-          g.addColorStop(0,    `rgba(${lobe.col},${(lobe.op*1.6).toFixed(3)})`);
-          g.addColorStop(0.25, `rgba(${lobe.col},${(lobe.op*1.1).toFixed(3)})`);
-          g.addColorStop(0.55, `rgba(${lobe.col},${(lobe.op*0.4).toFixed(3)})`);
-          g.addColorStop(0.82, `rgba(${lobe.col},${(lobe.op*0.08).toFixed(3)})`);
-          g.addColorStop(1,    `rgba(${lobe.col},0)`);
-          ctx.fillStyle = g;
-          ctx.beginPath(); ctx.arc(lx, ly, lr, 0, Math.PI*2);
-          ctx.fill();
-        }
+      if (variant === "features") {
+        // Blue-teal, right side, tilted -28°
+        nbScreenBlit(ctx,W,H,nbBuildCloud(W,H,{cx:0.84*W,cy:0.30*H,rx:0.40*W,ry:0.46*W,rot:-0.50,seed:10.0,warp:3.0,thresh:0.32,intensity:0.75,es:1.2,c0:[0.05,0.04,0.18],c1:[0.09,0.14,0.32],c2:[0.14,0.22,0.48],c3:[0.20,0.30,0.58]}));
+        nbScreenBlit(ctx,W,H,nbBuildCloud(W,H,{cx:0.86*W,cy:0.25*H,rx:0.30*W,ry:0.36*W,rot:-0.48,seed:11.5,warp:3.4,thresh:0.35,intensity:1.0,es:1.5,c0:[0.05,0.22,0.34],c1:[0.10,0.40,0.58],c2:[0.18,0.62,0.78],c3:[0.34,0.80,0.90]}));
+        nbScreenBlit(ctx,W,H,nbBuildCloud(W,H,{cx:0.88*W,cy:0.19*H,rx:0.17*W,ry:0.22*W,rot:-0.46,seed:12.8,warp:3.6,thresh:0.40,intensity:1.0,es:2.0,c0:[0.20,0.56,0.70],c1:[0.32,0.74,0.86],c2:[0.50,0.88,0.92],c3:[0.78,0.97,0.98]}));
+      } else {
+        // Pink-rose, bottom-centre, near-horizontal
+        nbScreenBlit(ctx,W,H,nbBuildCloud(W,H,{cx:0.50*W,cy:0.82*H,rx:0.48*W,ry:0.34*W,rot:0.05,seed:20.0,warp:2.9,thresh:0.30,intensity:0.75,es:1.1,c0:[0.10,0.03,0.20],c1:[0.22,0.07,0.36],c2:[0.34,0.10,0.48],c3:[0.42,0.14,0.58]}));
+        nbScreenBlit(ctx,W,H,nbBuildCloud(W,H,{cx:0.50*W,cy:0.79*H,rx:0.38*W,ry:0.26*W,rot:0.04,seed:21.5,warp:3.3,thresh:0.34,intensity:1.05,es:1.4,c0:[0.34,0.08,0.18],c1:[0.66,0.20,0.32],c2:[0.88,0.36,0.48],c3:[0.96,0.56,0.64]}));
+        nbScreenBlit(ctx,W,H,nbBuildCloud(W,H,{cx:0.49*W,cy:0.76*H,rx:0.22*W,ry:0.15*W,rot:0.03,seed:22.8,warp:3.5,thresh:0.39,intensity:1.05,es:1.8,c0:[0.76,0.32,0.42],c1:[0.90,0.54,0.60],c2:[0.96,0.72,0.76],c3:[0.99,0.88,0.90]}));
       }
       ctx.globalCompositeOperation = "source-over";
-
-      // ── 2. Galaxy core — slow drifting warm bloom ──
-      const cx = W * (0.42 + Math.sin(t * 0.00008) * 0.12);
-      const cy = H * (0.45 + Math.cos(t * 0.00006) * 0.1);
-      const bloom = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.55);
-      bloom.addColorStop(0,   "rgba(201,168,76,0.04)");
-      bloom.addColorStop(0.3, "rgba(180,140,50,0.018)");
-      bloom.addColorStop(1,   "rgba(0,0,0,0)");
-      ctx.fillStyle = bloom; ctx.fillRect(0, 0, W, H);
-
-      // ── 3. Stars — pulsing, drifting ──
-      for (const p of stars) {
-        p.x = (p.x + p.vx + 100) % 100;
-        p.y = (p.y + p.vy + 100) % 100;
-        const pulse = 0.55 + Math.sin(t * p.sp * 2 + p.ph) * 0.45;
-        const op = Math.min(0.9, p.op * pulse);
-        const px = p.x * W / 100, py = p.y * H / 100;
-
-        if (p.layer === 2) {
-          // Foreground — glowing corona
-          const coronaR = p.r * (5 + Math.sin(t * p.sp + p.ph) * 1.5);
-          const gr = ctx.createRadialGradient(px, py, 0, px, py, coronaR);
-          gr.addColorStop(0,   `rgba(255,248,210,${op})`);
-          gr.addColorStop(0.15,`rgba(232,201,122,${(op*0.65).toFixed(3)})`);
-          gr.addColorStop(0.5, `rgba(201,168,76,${(op*0.2).toFixed(3)})`);
-          gr.addColorStop(1,   "rgba(0,0,0,0)");
-          ctx.beginPath(); ctx.arc(px, py, coronaR, 0, Math.PI*2);
-          ctx.fillStyle = gr; ctx.fill();
-          ctx.beginPath(); ctx.arc(px, py, p.r, 0, Math.PI*2);
-          ctx.fillStyle = `rgba(255,252,225,${op})`; ctx.fill();
-        } else if (p.layer === 1) {
-          // Mid — warm gold, occasional soft halo
-          if (pulse > 0.78) {
-            const halo = ctx.createRadialGradient(px, py, 0, px, py, p.r * 4);
-            halo.addColorStop(0, `rgba(232,201,122,${(op*0.55).toFixed(3)})`);
-            halo.addColorStop(1, "rgba(0,0,0,0)");
-            ctx.beginPath(); ctx.arc(px, py, p.r*4, 0, Math.PI*2);
-            ctx.fillStyle = halo; ctx.fill();
-          }
-          ctx.beginPath(); ctx.arc(px, py, p.r, 0, Math.PI*2);
-          ctx.fillStyle = `rgba(218,183,98,${op})`; ctx.fill();
-        } else {
-          // Deep — tiny, cool white-gold
-          ctx.beginPath(); ctx.arc(px, py, p.r, 0, Math.PI*2);
-          ctx.fillStyle = `rgba(198,172,108,${op})`; ctx.fill();
-        }
-      }
-
-      // ── 4. Shooting stars ──
-      for (const s of shooters) {
-        if (!s.active) {
-          s.timer -= dt;
-          if (s.timer <= 0) {
-            s.x = Math.random() * W * 0.65;
-            s.y = Math.random() * H * 0.5;
-            s.vx = 3.5 + Math.random() * 5;
-            s.vy = 0.8 + Math.random() * 2.5;
-            s.len = 55 + Math.random() * 95;
-            s.op = 0.75 + Math.random() * 0.25;
-            s.active = true;
-            s.timer = 18000 + Math.random() * 22000;
-          }
-          continue;
-        }
-        s.x += s.vx; s.y += s.vy; s.op -= 0.01;
-        if (s.op <= 0 || s.x > W + 60 || s.y > H + 60) {
-          s.active = false; continue;
-        }
-        const spd = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
-        const tx = s.x - (s.vx/spd)*s.len;
-        const ty = s.y - (s.vy/spd)*s.len;
-        const sk = ctx.createLinearGradient(tx, ty, s.x, s.y);
-        sk.addColorStop(0, "rgba(255,245,200,0)");
-        sk.addColorStop(0.6, `rgba(232,201,122,${(s.op*0.5).toFixed(3)})`);
-        sk.addColorStop(1,   `rgba(255,252,225,${s.op.toFixed(3)})`);
-        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(s.x, s.y);
-        ctx.strokeStyle = sk; ctx.lineWidth = 1.4; ctx.stroke();
-        // Head glow
-        const hg = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 7);
-        hg.addColorStop(0, `rgba(255,252,225,${s.op})`);
-        hg.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.beginPath(); ctx.arc(s.x, s.y, 7, 0, Math.PI*2);
-        ctx.fillStyle = hg; ctx.fill();
-      }
-
-      raf = requestAnimationFrame(draw);
     }
-    raf = requestAnimationFrame(draw);
 
-    return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-      window.removeEventListener("resize", resize);
-    };
-  }, []);
+    // Build after layout so we have real dimensions
+    requestAnimationFrame(() => {
+      buildAndDraw();
+    });
+
+    const ro = new ResizeObserver(() => buildAndDraw());
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [variant]);
 
   return (
     <canvas ref={canvasRef} style={{
@@ -1549,6 +1413,7 @@ function GalaxySectionBg() {
     }} />
   );
 }
+
 
 export default function LandingPage() {
   const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
@@ -1644,7 +1509,7 @@ export default function LandingPage() {
 
       {/* FEATURES */}
       <div ref={featuresRef} style={{ position: "relative", background: "#060608", overflow: "hidden" }}>
-        <GalaxySectionBg />
+        <GalaxySectionBg variant="features" />
         {/* Mote particle field — absolutely covers the full section, no overflow clip */}
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
           {moteParticles.map(p => (
@@ -1837,7 +1702,7 @@ export default function LandingPage() {
       {/* CTA — cinematic closer */}
       <div ref={ctaRef}>
         <section style={{ position: "relative", overflow: "hidden", background: "#060608", padding: "140px 24px 120px" }}>
-          <GalaxySectionBg />
+          <GalaxySectionBg variant="cta" />
 
           {/* Dense gold particle field — echoes the hero galaxy */}
           {ctaVisible && Array.from({ length: 50 }, (_, i) => ({
