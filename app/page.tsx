@@ -763,7 +763,7 @@ function HeroScene({ scrollY, waitlistCount }: {
               s.len = 60 + Math.random() * 100;
               s.op = 0.7 + Math.random() * 0.3;
               s.active = true;
-              s.timer = 6000 + Math.random() * 12000;
+              s.timer = 18000 + Math.random() * 20000;
             }
             continue;
           }
@@ -959,7 +959,7 @@ function HeroScene({ scrollY, waitlistCount }: {
           textAlign: "right",
           background: "linear-gradient(135deg,#e8c97a,#c9a84c,#8a6e30)",
           WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-          filter: "drop-shadow(0 0 16px rgba(201,168,76,0.3))",
+          filter: "drop-shadow(0 0 6px rgba(232,201,122,0.6)) drop-shadow(0 0 18px rgba(201,168,76,0.35)) drop-shadow(0 0 40px rgba(201,168,76,0.15))",
         }}>
           your outreach is missing.
         </h2>
@@ -971,6 +971,26 @@ function HeroScene({ scrollY, waitlistCount }: {
         }}>
           Vantio finds local businesses and tells you exactly which ones are worth contacting — scored against your service, capability, and style.
         </p>
+
+        {/* CTA buttons */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, marginTop: 32 }}>
+          <GlowButton href="/login" style={{
+            padding: "13px 32px", borderRadius: 10,
+            background: "#c9a84c", color: "#080808",
+            fontWeight: 700, fontSize: 14, letterSpacing: "0.06em",
+            textDecoration: "none",
+            boxShadow: "0 8px 40px rgba(201,168,76,0.25)",
+          }}>
+            Request Early Access
+          </GlowButton>
+          <a href="#how-it-works" style={{
+            fontSize: 13, color: "rgba(201,168,76,0.55)",
+            textDecoration: "none", letterSpacing: "0.04em",
+            display: "flex", alignItems: "center", gap: 6,
+          }}>
+            See how it works <span style={{ fontSize: 11 }}>↓</span>
+          </a>
+        </div>
       </div>
 
       {/* Dashboard */}
@@ -1179,7 +1199,10 @@ function GoldText({ children, style = {}, as: Tag = "span" }: {
   as?: any;
 }) {
   return (
-    <Tag style={{ ...style, filter: "drop-shadow(0 0 8px rgba(201,168,76,0.45)) drop-shadow(0 0 20px rgba(201,168,76,0.18))" }}>
+    <Tag style={{
+      ...style,
+      filter: "drop-shadow(0 0 4px rgba(232,201,122,0.55)) drop-shadow(0 0 12px rgba(201,168,76,0.28)) drop-shadow(0 0 28px rgba(201,168,76,0.1))",
+    }}>
       {children}
     </Tag>
   );
@@ -1343,21 +1366,21 @@ function GalaxySectionBg() {
     const nebulae = Array.from({ length: 6 }, (_, i) => ({
       x: 8+Math.random()*84,
       y: 8+Math.random()*84,
-      rx: 130+Math.random()*200,
-      ry: 90+Math.random()*140,
-      op: Math.random()*0.032+0.01,
+      rx: 140+Math.random()*220,
+      ry: 95+Math.random()*155,
+      op: Math.random()*0.028+0.012,
       ph: Math.random()*Math.PI*2,
-      sp: Math.random()*0.00009+0.00003,
-      vx: (Math.random()-0.5)*0.0009,
-      vy: (Math.random()-0.5)*0.0007,
-      hue: i%3===0 ? "201,168,76" : i%3===1 ? "232,201,122" : "180,140,50",
+      sp: Math.random()*0.00004+0.00001,
+      vx: (Math.random()-0.5)*0.0006,
+      vy: (Math.random()-0.5)*0.0005,
+      hue: ["201,168,76","232,180,140","140,160,220","200,140,180","100,180,200","180,200,140"][i%6],
     }));
 
     // ── Shooting stars — 3 slots ──
     const shooters = Array.from({ length: 3 }, (_, i) => ({
       x: 0, y: 0, vx: 0, vy: 0, len: 0, op: 0,
       active: false,
-      timer: 4000 + i * 5000 + Math.random() * 8000,
+      timer: 12000 + i * 8000 + Math.random() * 12000,
     }));
 
     let lastT = 0;
@@ -1368,12 +1391,11 @@ function GalaxySectionBg() {
       if (W === 0 || H === 0) { raf = requestAnimationFrame(draw); return; }
       ctx.clearRect(0, 0, W, H);
 
-      // ── 1. Nebulae — breathe in and out ──
+      // ── 1. Nebulae — constant, realistic space clouds, very slow drift ──
       for (const n of nebulae) {
         n.x = (n.x + n.vx + 100) % 100;
         n.y = (n.y + n.vy + 100) % 100;
-        const breathe = 0.65 + Math.sin(t * n.sp + n.ph) * 0.35;
-        const op = n.op * breathe;
+        const op = n.op * (0.92 + Math.sin(t * n.sp * 0.3 + n.ph) * 0.08);
         const maxR = Math.max(n.rx, n.ry);
         const nx = n.x * W / 100, ny = n.y * H / 100;
         const grd = ctx.createRadialGradient(nx, ny, 0, nx, ny, maxR);
@@ -1447,7 +1469,7 @@ function GalaxySectionBg() {
             s.len = 55 + Math.random() * 95;
             s.op = 0.75 + Math.random() * 0.25;
             s.active = true;
-            s.timer = 6000 + Math.random() * 14000;
+            s.timer = 18000 + Math.random() * 22000;
           }
           continue;
         }
