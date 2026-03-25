@@ -545,7 +545,7 @@ function HeroScene({ scrollY, waitlistCount }: {
   waitlistCount: number | null;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const particlesRef = useRef<{x:number;y:number;vx:number;vy:number;r:number;baseOp:number;ph:number;sp:number;layer:number}[]>([]);
+  const particlesRef = useRef<{x:number;y:number;vx:number;vy:number;r:number;op:number;ph:number;sp:number;layer:number}[]>([]);
   const nebulaRef = useRef<{x:number;y:number;rx:number;ry:number;op:number;ph:number;sp:number;vx:number;vy:number;hue:string}[]>([]);
   const shooterRef = useRef<{x:number;y:number;vx:number;vy:number;len:number;op:number;active:boolean;timer:number}[]>([]);
   const burstRef = useRef({ v: 0, cx: 0.5, cy: 0.5 });
@@ -628,7 +628,7 @@ function HeroScene({ scrollY, waitlistCount }: {
       x: 0, y: 0, vx: 0, vy: 0, len: 0, op: 0, active: false, timer: Math.random() * 8000,
     }));
 
-    particlesRef.current = [...deep, ...mid, ...fore] as typeof particlesRef.current;
+    particlesRef.current = [...deep, ...mid, ...fore] as unknown as typeof particlesRef.current;
     nebulaRef.current = nebulae;
     shooterRef.current = shooters;
   }, []);
@@ -716,7 +716,7 @@ function HeroScene({ scrollY, waitlistCount }: {
         const burstBoost = burst.v * Math.max(0, 1 - Math.sqrt(bdx*bdx+bdy*bdy)/500);
         const op = Math.min(0.92, p.op * pulse + burstBoost * 0.8);
 
-        const layer = (p as typeof p & {layer:number}).layer;
+        const layer = p.layer;
 
         if (layer === 2) {
           // Foreground: large glowing star with corona
