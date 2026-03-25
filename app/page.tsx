@@ -1284,131 +1284,211 @@ function GlowButton({ href, children, style = {} }: { href: string; children: Re
 
 
 // ── GLOBAL GALAXY CANVAS — fixed behind Features + CTA sections ──
-function GalaxyCanvas() {
+// ── GALAXY SECTION BACKGROUND — living, breathing galaxy as section background ──
+// Each section gets its own canvas; position absolute, covers the full section height.
+// Same full galaxy system as hero: nebulae, star layers, galaxy core, shooting stars.
+function GalaxySectionBg() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
-    let W = canvas.width = window.innerWidth;
-    let H = canvas.height = window.innerHeight;
-    const onResize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; };
-    window.addEventListener("resize", onResize, { passive: true });
+    const container = canvas.parentElement!;
 
-    // Stars — 3 layers, same as hero
-    const deep  = Array.from({ length: 180 }, () => ({ x: Math.random()*100, y: Math.random()*100, r: Math.random()*0.6+0.15, op: Math.random()*0.2+0.04, ph: Math.random()*Math.PI*2, sp: Math.random()*0.00018+0.00004, vx: (Math.random()-0.5)*0.001, vy: (Math.random()-0.5)*0.001, layer: 0 }));
-    const mid   = Array.from({ length: 70  }, () => ({ x: Math.random()*100, y: Math.random()*100, r: Math.random()*1.0+0.35, op: Math.random()*0.28+0.07, ph: Math.random()*Math.PI*2, sp: Math.random()*0.00035+0.0001, vx: (Math.random()-0.5)*0.0025, vy: (Math.random()-0.5)*0.0025, layer: 1 }));
-    const fore  = Array.from({ length: 20  }, () => ({ x: Math.random()*100, y: Math.random()*100, r: Math.random()*1.6+0.7, op: Math.random()*0.4+0.18, ph: Math.random()*Math.PI*2, sp: Math.random()*0.0006+0.0003, vx: (Math.random()-0.5)*0.004, vy: (Math.random()-0.5)*0.004, layer: 2 }));
+    let W = 0, H = 0;
+    const c = canvas;
+    function resize() {
+      W = c.width  = container.offsetWidth;
+      H = c.height = container.offsetHeight;
+    }
+    resize();
+
+    // ResizeObserver to catch section height changes
+    const ro = new ResizeObserver(resize);
+    ro.observe(container);
+    window.addEventListener("resize", resize, { passive: true });
+
+    // ── Stars — 3 layers ──
+    const deep = Array.from({ length: 200 }, () => ({
+      x: Math.random()*100, y: Math.random()*100,
+      r: Math.random()*0.65+0.15,
+      op: Math.random()*0.22+0.05,
+      ph: Math.random()*Math.PI*2,
+      sp: Math.random()*0.00018+0.00004,
+      vx: (Math.random()-0.5)*0.0012, vy: (Math.random()-0.5)*0.0012,
+      layer: 0,
+    }));
+    const mid = Array.from({ length: 80 }, () => ({
+      x: Math.random()*100, y: Math.random()*100,
+      r: Math.random()*1.1+0.4,
+      op: Math.random()*0.32+0.08,
+      ph: Math.random()*Math.PI*2,
+      sp: Math.random()*0.00038+0.0001,
+      vx: (Math.random()-0.5)*0.0028, vy: (Math.random()-0.5)*0.0028,
+      layer: 1,
+    }));
+    const fore = Array.from({ length: 24 }, () => ({
+      x: Math.random()*100, y: Math.random()*100,
+      r: Math.random()*1.7+0.8,
+      op: Math.random()*0.45+0.2,
+      ph: Math.random()*Math.PI*2,
+      sp: Math.random()*0.0007+0.0003,
+      vx: (Math.random()-0.5)*0.004, vy: (Math.random()-0.5)*0.004,
+      layer: 2,
+    }));
     const stars = [...deep, ...mid, ...fore];
 
-    // Nebulae
-    const nebulae = Array.from({ length: 5 }, (_, i) => ({
-      x: 10+Math.random()*80, y: 10+Math.random()*80,
-      rx: 100+Math.random()*180, ry: 70+Math.random()*120,
-      op: Math.random()*0.022+0.006,
-      ph: Math.random()*Math.PI*2, sp: Math.random()*0.00007+0.00003,
-      vx: (Math.random()-0.5)*0.0008, vy: (Math.random()-0.5)*0.0006,
-      hue: i%2===0 ? "201,168,76" : "232,201,122",
+    // ── Nebulae — large breathing blobs ──
+    const nebulae = Array.from({ length: 6 }, (_, i) => ({
+      x: 8+Math.random()*84,
+      y: 8+Math.random()*84,
+      rx: 130+Math.random()*200,
+      ry: 90+Math.random()*140,
+      op: Math.random()*0.032+0.01,
+      ph: Math.random()*Math.PI*2,
+      sp: Math.random()*0.00009+0.00003,
+      vx: (Math.random()-0.5)*0.0009,
+      vy: (Math.random()-0.5)*0.0007,
+      hue: i%3===0 ? "201,168,76" : i%3===1 ? "232,201,122" : "180,140,50",
     }));
 
-    // Occasional shooting star
-    const shooter = { x:0, y:0, vx:0, vy:0, len:0, op:0, active:false, timer: 8000+Math.random()*10000 };
+    // ── Shooting stars — 3 slots ──
+    const shooters = Array.from({ length: 3 }, (_, i) => ({
+      x: 0, y: 0, vx: 0, vy: 0, len: 0, op: 0,
+      active: false,
+      timer: 4000 + i * 5000 + Math.random() * 8000,
+    }));
 
     let lastT = 0;
     let raf: number;
 
     function draw(t: number) {
       const dt = t - lastT; lastT = t;
+      if (W === 0 || H === 0) { raf = requestAnimationFrame(draw); return; }
       ctx.clearRect(0, 0, W, H);
 
-      // Nebulae
+      // ── 1. Nebulae — breathe in and out ──
       for (const n of nebulae) {
         n.x = (n.x + n.vx + 100) % 100;
         n.y = (n.y + n.vy + 100) % 100;
-        const breathe = 0.7 + Math.sin(t * n.sp + n.ph) * 0.3;
+        const breathe = 0.65 + Math.sin(t * n.sp + n.ph) * 0.35;
         const op = n.op * breathe;
         const maxR = Math.max(n.rx, n.ry);
-        const grd = ctx.createRadialGradient(n.x*W/100, n.y*H/100, 0, n.x*W/100, n.y*H/100, maxR);
-        grd.addColorStop(0, `rgba(${n.hue},${op.toFixed(3)})`);
-        grd.addColorStop(0.5, `rgba(${n.hue},${(op*0.35).toFixed(3)})`);
-        grd.addColorStop(1, `rgba(${n.hue},0)`);
+        const nx = n.x * W / 100, ny = n.y * H / 100;
+        const grd = ctx.createRadialGradient(nx, ny, 0, nx, ny, maxR);
+        grd.addColorStop(0,   `rgba(${n.hue},${op.toFixed(3)})`);
+        grd.addColorStop(0.45,`rgba(${n.hue},${(op*0.4).toFixed(3)})`);
+        grd.addColorStop(1,   `rgba(${n.hue},0)`);
         ctx.save();
-        ctx.translate(n.x*W/100, n.y*H/100);
-        ctx.scale(n.rx/maxR, n.ry/maxR);
-        ctx.beginPath(); ctx.arc(0, 0, maxR, 0, Math.PI*2);
+        ctx.translate(nx, ny);
+        ctx.scale(n.rx / maxR, n.ry / maxR);
+        ctx.beginPath(); ctx.arc(0, 0, maxR, 0, Math.PI * 2);
         ctx.fillStyle = grd; ctx.fill();
         ctx.restore();
       }
 
-      // Drifting warm centre bloom
-      const cx = W*0.5 + Math.sin(t*0.00007)*W*0.05;
-      const cy = H*0.5 + Math.cos(t*0.00005)*H*0.05;
-      const bloom = ctx.createRadialGradient(cx, cy, 0, cx, cy, W*0.5);
-      bloom.addColorStop(0, "rgba(201,168,76,0.025)");
-      bloom.addColorStop(1, "rgba(0,0,0,0)");
+      // ── 2. Galaxy core — slow drifting warm bloom ──
+      const cx = W * (0.42 + Math.sin(t * 0.00008) * 0.12);
+      const cy = H * (0.45 + Math.cos(t * 0.00006) * 0.1);
+      const bloom = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.55);
+      bloom.addColorStop(0,   "rgba(201,168,76,0.04)");
+      bloom.addColorStop(0.3, "rgba(180,140,50,0.018)");
+      bloom.addColorStop(1,   "rgba(0,0,0,0)");
       ctx.fillStyle = bloom; ctx.fillRect(0, 0, W, H);
 
-      // Stars
+      // ── 3. Stars — pulsing, drifting ──
       for (const p of stars) {
         p.x = (p.x + p.vx + 100) % 100;
         p.y = (p.y + p.vy + 100) % 100;
         const pulse = 0.55 + Math.sin(t * p.sp * 2 + p.ph) * 0.45;
-        const op = Math.min(0.85, p.op * pulse);
+        const op = Math.min(0.9, p.op * pulse);
+        const px = p.x * W / 100, py = p.y * H / 100;
+
         if (p.layer === 2) {
-          const cr = p.r * 5;
-          const gr = ctx.createRadialGradient(p.x*W/100, p.y*H/100, 0, p.x*W/100, p.y*H/100, cr);
-          gr.addColorStop(0, `rgba(255,245,200,${op})`);
-          gr.addColorStop(0.2, `rgba(232,201,122,${op*0.6})`);
-          gr.addColorStop(1, "rgba(0,0,0,0)");
-          ctx.beginPath(); ctx.arc(p.x*W/100, p.y*H/100, cr, 0, Math.PI*2);
+          // Foreground — glowing corona
+          const coronaR = p.r * (5 + Math.sin(t * p.sp + p.ph) * 1.5);
+          const gr = ctx.createRadialGradient(px, py, 0, px, py, coronaR);
+          gr.addColorStop(0,   `rgba(255,248,210,${op})`);
+          gr.addColorStop(0.15,`rgba(232,201,122,${(op*0.65).toFixed(3)})`);
+          gr.addColorStop(0.5, `rgba(201,168,76,${(op*0.2).toFixed(3)})`);
+          gr.addColorStop(1,   "rgba(0,0,0,0)");
+          ctx.beginPath(); ctx.arc(px, py, coronaR, 0, Math.PI*2);
           ctx.fillStyle = gr; ctx.fill();
-          ctx.beginPath(); ctx.arc(p.x*W/100, p.y*H/100, p.r, 0, Math.PI*2);
-          ctx.fillStyle = `rgba(255,250,220,${op})`; ctx.fill();
+          ctx.beginPath(); ctx.arc(px, py, p.r, 0, Math.PI*2);
+          ctx.fillStyle = `rgba(255,252,225,${op})`; ctx.fill();
         } else if (p.layer === 1) {
-          ctx.beginPath(); ctx.arc(p.x*W/100, p.y*H/100, p.r, 0, Math.PI*2);
-          ctx.fillStyle = `rgba(220,185,100,${op})`; ctx.fill();
+          // Mid — warm gold, occasional soft halo
+          if (pulse > 0.78) {
+            const halo = ctx.createRadialGradient(px, py, 0, px, py, p.r * 4);
+            halo.addColorStop(0, `rgba(232,201,122,${(op*0.55).toFixed(3)})`);
+            halo.addColorStop(1, "rgba(0,0,0,0)");
+            ctx.beginPath(); ctx.arc(px, py, p.r*4, 0, Math.PI*2);
+            ctx.fillStyle = halo; ctx.fill();
+          }
+          ctx.beginPath(); ctx.arc(px, py, p.r, 0, Math.PI*2);
+          ctx.fillStyle = `rgba(218,183,98,${op})`; ctx.fill();
         } else {
-          ctx.beginPath(); ctx.arc(p.x*W/100, p.y*H/100, p.r, 0, Math.PI*2);
-          ctx.fillStyle = `rgba(200,175,110,${op})`; ctx.fill();
+          // Deep — tiny, cool white-gold
+          ctx.beginPath(); ctx.arc(px, py, p.r, 0, Math.PI*2);
+          ctx.fillStyle = `rgba(198,172,108,${op})`; ctx.fill();
         }
       }
 
-      // Shooting star
-      if (!shooter.active) {
-        shooter.timer -= dt;
-        if (shooter.timer <= 0) {
-          shooter.x = Math.random()*W*0.6; shooter.y = Math.random()*H*0.4;
-          shooter.vx = 4+Math.random()*5; shooter.vy = 1+Math.random()*2;
-          shooter.len = 60+Math.random()*90; shooter.op = 0.8;
-          shooter.active = true; shooter.timer = 7000+Math.random()*12000;
+      // ── 4. Shooting stars ──
+      for (const s of shooters) {
+        if (!s.active) {
+          s.timer -= dt;
+          if (s.timer <= 0) {
+            s.x = Math.random() * W * 0.65;
+            s.y = Math.random() * H * 0.5;
+            s.vx = 3.5 + Math.random() * 5;
+            s.vy = 0.8 + Math.random() * 2.5;
+            s.len = 55 + Math.random() * 95;
+            s.op = 0.75 + Math.random() * 0.25;
+            s.active = true;
+            s.timer = 6000 + Math.random() * 14000;
+          }
+          continue;
         }
-      } else {
-        shooter.x += shooter.vx; shooter.y += shooter.vy; shooter.op -= 0.011;
-        if (shooter.op <= 0 || shooter.x > W+50) { shooter.active = false; }
-        else {
-          const spd = Math.sqrt(shooter.vx*shooter.vx+shooter.vy*shooter.vy);
-          const tx = shooter.x - (shooter.vx/spd)*shooter.len;
-          const ty = shooter.y - (shooter.vy/spd)*shooter.len;
-          const sk = ctx.createLinearGradient(tx, ty, shooter.x, shooter.y);
-          sk.addColorStop(0, "rgba(255,245,200,0)");
-          sk.addColorStop(1, `rgba(255,250,220,${shooter.op})`);
-          ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(shooter.x, shooter.y);
-          ctx.strokeStyle = sk; ctx.lineWidth = 1.2; ctx.stroke();
+        s.x += s.vx; s.y += s.vy; s.op -= 0.01;
+        if (s.op <= 0 || s.x > W + 60 || s.y > H + 60) {
+          s.active = false; continue;
         }
+        const spd = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
+        const tx = s.x - (s.vx/spd)*s.len;
+        const ty = s.y - (s.vy/spd)*s.len;
+        const sk = ctx.createLinearGradient(tx, ty, s.x, s.y);
+        sk.addColorStop(0, "rgba(255,245,200,0)");
+        sk.addColorStop(0.6, `rgba(232,201,122,${(s.op*0.5).toFixed(3)})`);
+        sk.addColorStop(1,   `rgba(255,252,225,${s.op.toFixed(3)})`);
+        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(s.x, s.y);
+        ctx.strokeStyle = sk; ctx.lineWidth = 1.4; ctx.stroke();
+        // Head glow
+        const hg = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 7);
+        hg.addColorStop(0, `rgba(255,252,225,${s.op})`);
+        hg.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.beginPath(); ctx.arc(s.x, s.y, 7, 0, Math.PI*2);
+        ctx.fillStyle = hg; ctx.fill();
       }
 
       raf = requestAnimationFrame(draw);
     }
     raf = requestAnimationFrame(draw);
-    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); };
+
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener("resize", resize);
+    };
   }, []);
 
   return (
     <canvas ref={canvasRef} style={{
-      position: "fixed", inset: 0,
+      position: "absolute", inset: 0,
       width: "100%", height: "100%",
-      pointerEvents: "none", zIndex: -1,
+      pointerEvents: "none", zIndex: 0,
+      display: "block",
     }} />
   );
 }
@@ -1463,7 +1543,6 @@ export default function LandingPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#080808", color: "#f5f0e8", overflowX: "hidden" }}>
-      <GalaxyCanvas />
 
       {/* NAV */}
       <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 40, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 48px", borderBottom: "1px solid #181818", background: "rgba(8,8,8,0.92)", backdropFilter: "blur(16px)" }}>
@@ -1507,7 +1586,8 @@ export default function LandingPage() {
       </div>
 
       {/* FEATURES */}
-      <div ref={featuresRef} style={{ position: "relative", background: "transparent" }}>
+      <div ref={featuresRef} style={{ position: "relative", background: "#060608", overflow: "hidden" }}>
+        <GalaxySectionBg />
         {/* Mote particle field — absolutely covers the full section, no overflow clip */}
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
           {moteParticles.map(p => (
@@ -1699,7 +1779,8 @@ export default function LandingPage() {
 
       {/* CTA — cinematic closer */}
       <div ref={ctaRef}>
-        <section style={{ position: "relative", overflow: "hidden", background: "rgba(4,4,4,0.7)", padding: "140px 24px 120px" }}>
+        <section style={{ position: "relative", overflow: "hidden", background: "#060608", padding: "140px 24px 120px" }}>
+          <GalaxySectionBg />
 
           {/* Dense gold particle field — echoes the hero galaxy */}
           {ctaVisible && Array.from({ length: 50 }, (_, i) => ({
