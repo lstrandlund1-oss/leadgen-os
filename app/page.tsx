@@ -691,12 +691,7 @@ function HeroScene({ scrollY, waitlistCount }: {
       core.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = core; ctx.fillRect(0, 0, W, H);
 
-      // ── 3. MOUSE PARALLAX glow ──
-      const mg = ctx.createRadialGradient(mx*W, my*H, 0, mx*W, my*H, 320);
-      mg.addColorStop(0, "rgba(232,201,122,0.05)"); mg.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = mg; ctx.fillRect(0, 0, W, H);
-
-      // ── 4. BURST GLOW ──
+      // ── 3. BURST GLOW ──
       if (burst.v > 0.01) {
         const bg = ctx.createRadialGradient(burst.cx*W, burst.cy*H, 0, burst.cx*W, burst.cy*H, 600);
         bg.addColorStop(0, `rgba(232,201,122,${(burst.v * 0.18).toFixed(3)})`);
@@ -1211,35 +1206,13 @@ function GoldText({ children, style = {}, as: Tag = "span" }: {
 // Button with internal mouse-tracking glow — Huly style
 // Section with clip-path reveal — mouse position reveals a gold underglow
 // Huly's technique: CSS vars --mx --my drive clip-path circle on a glowing layer
-function GlowSection({ children, style = {}, glowColor = "rgba(201,168,76,0.08)" }: {
+function GlowSection({ children, style = {} }: {
   children: React.ReactNode;
   style?: React.CSSProperties;
   glowColor?: string;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [clipPos, setClipPos] = useState<{ x: number; y: number } | null>(null);
-
-  const handleMove = (e: React.MouseEvent) => {
-    const rect = ref.current?.getBoundingClientRect();
-    if (!rect) return;
-    setClipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-  };
-
   return (
-    <div
-      ref={ref}
-      onMouseMove={handleMove}
-      onMouseLeave={() => setClipPos(null)}
-      style={{ position: "relative", ...style }}
-    >
-      {/* Revealed underglow layer */}
-      <div style={{
-        position: "absolute", inset: 0,
-        background: `radial-gradient(600px circle at ${clipPos ? clipPos.x : -9999}px ${clipPos ? clipPos.y : -9999}px, ${glowColor}, transparent 60%)`,
-        pointerEvents: "none",
-        transition: clipPos ? "none" : "background 0.6s ease",
-        zIndex: 0,
-      }} />
+    <div style={{ position: "relative", ...style }}>
       <div style={{ position: "relative", zIndex: 1 }}>
         {children}
       </div>
