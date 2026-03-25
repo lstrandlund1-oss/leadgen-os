@@ -546,7 +546,7 @@ function HeroScene({ scrollY, waitlistCount }: {
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<{x:number;y:number;vx:number;vy:number;r:number;op:number;ph:number;sp:number;layer:number}[]>([]);
-  const nebulaRef = useRef<{x:number;y:number;rx:number;ry:number;op:number;ph:number;sp:number;vx:number;vy:number;hue:string}[]>([]);
+  const nebulaRef = useRef<{x:number;y:number;rx:number;ry:number;opCore:number;opHalo:number;core:string;halo:string;ph:number;sp:number;vx:number;vy:number}[]>([]);
   const shooterRef = useRef<{x:number;y:number;vx:number;vy:number;len:number;op:number;active:boolean;timer:number}[]>([]);
   const burstRef = useRef({ v: 0, cx: 0.5, cy: 0.5 });
   const rafRef = useRef<number>(0);
@@ -610,19 +610,15 @@ function HeroScene({ scrollY, waitlistCount }: {
       vy: (Math.random() - 0.5) * 0.005,
       layer: 2,
     }));
-    // Nebula clouds — large soft blobs that drift slowly
-    const nebulae = Array.from({ length: 6 }, (_, i) => ({
-      x: 10 + Math.random() * 80,
-      y: 10 + Math.random() * 80,
-      rx: 120 + Math.random() * 200,
-      ry: 80 + Math.random() * 140,
-      op: Math.random() * 0.028 + 0.008,
-      ph: Math.random() * Math.PI * 2,
-      sp: Math.random() * 0.00008 + 0.00003,
-      vx: (Math.random() - 0.5) * 0.001,
-      vy: (Math.random() - 0.5) * 0.0008,
-      hue: i % 2 === 0 ? "201,168,76" : "232,201,122",
-    }));
+    // Nebula clouds — layered warm core + cool halo, like Hubble/Webb imagery
+    const nebulae = [
+      { x:15, y:20, rx:300, ry:210, opCore:0.055, opHalo:0.026, core:"201,155,60",  halo:"130,165,225", sp:0.000011, vx:0.00040, vy:0.00028, ph:0.0 },
+      { x:75, y:12, rx:260, ry:185, opCore:0.046, opHalo:0.021, core:"218,138,158", halo:"95,155,208",  sp:0.000014, vx:-0.00038, vy:0.00024, ph:1.2 },
+      { x:82, y:68, rx:320, ry:230, opCore:0.050, opHalo:0.023, core:"175,118,48",  halo:"152,196,218", sp:0.000010, vx:-0.00032, vy:-0.00027, ph:2.4 },
+      { x:28, y:78, rx:275, ry:195, opCore:0.048, opHalo:0.022, core:"196,148,176", halo:"115,175,198", sp:0.000013, vx:0.00035, vy:-0.00030, ph:3.6 },
+      { x:52, y:48, rx:340, ry:250, opCore:0.036, opHalo:0.018, core:"155,128,48",  halo:"175,208,228", sp:0.000009, vx:-0.00028, vy:0.00021, ph:4.8 },
+      { x:8,  y:55, rx:215, ry:165, opCore:0.042, opHalo:0.020, core:"208,162,78",  halo:"145,192,212", sp:0.000012, vx:0.00041, vy:0.00026, ph:5.6 },
+    ];
     // Shooting stars
     const shooters: {x:number;y:number;vx:number;vy:number;len:number;op:number;active:boolean;timer:number}[] = Array.from({ length: 4 }, () => ({
       x: 0, y: 0, vx: 0, vy: 0, len: 0, op: 0, active: false, timer: Math.random() * 8000,
@@ -658,27 +654,31 @@ function HeroScene({ scrollY, waitlistCount }: {
       const nebulae = nebulaRef.current;
       const shooters = shooterRef.current;
 
-      // ── 1. NEBULA CLOUDS ──
+      // ── 1. NEBULA CLOUDS — layered warm core + cool halo, no blinking ──
       if (nebulae?.length) {
         for (const n of nebulae) {
           n.x = (n.x + n.vx + 100) % 100;
           n.y = (n.y + n.vy + 100) % 100;
-          const breathe = 0.7 + Math.sin(t * n.sp + n.ph) * 0.3;
-          const op = n.op * breathe * (1 + burst.v * 1.5);
-          const grd = ctx.createRadialGradient(
-            n.x*W/100, n.y*H/100, 0,
-            n.x*W/100, n.y*H/100, Math.max(n.rx, n.ry)
-          );
-          grd.addColorStop(0, `rgba(${n.hue},${op.toFixed(3)})`);
-          grd.addColorStop(0.5, `rgba(${n.hue},${(op*0.4).toFixed(3)})`);
-          grd.addColorStop(1, `rgba(${n.hue},0)`);
-          ctx.save();
-          ctx.translate(n.x*W/100, n.y*H/100);
-          ctx.scale(n.rx/Math.max(n.rx,n.ry), n.ry/Math.max(n.rx,n.ry));
-          ctx.beginPath();
-          ctx.arc(0, 0, Math.max(n.rx,n.ry), 0, Math.PI*2);
-          ctx.fillStyle = grd; ctx.fill();
-          ctx.restore();
+          const nx = n.x*W/100, ny = n.y*H/100;
+          const maxR = Math.max(n.rx, n.ry);
+          const burstBoostN = 1 + burst.v * 0.8;
+          // Layer 1: warm luminous core
+          const coreG = ctx.createRadialGradient(nx, ny, 0, nx, ny, maxR * 0.55);
+          coreG.addColorStop(0,   `rgba(${n.core},${(n.opCore * burstBoostN).toFixed(3)})`);
+          coreG.addColorStop(0.5, `rgba(${n.core},${(n.opCore * 0.35 * burstBoostN).toFixed(3)})`);
+          coreG.addColorStop(1,   `rgba(${n.core},0)`);
+          ctx.save(); ctx.translate(nx, ny); ctx.scale(n.rx/maxR, n.ry/maxR);
+          ctx.beginPath(); ctx.arc(0, 0, maxR*0.55, 0, Math.PI*2);
+          ctx.fillStyle = coreG; ctx.fill(); ctx.restore();
+          // Layer 2: cool halo spreading outward
+          const haloG = ctx.createRadialGradient(nx, ny, maxR*0.18, nx, ny, maxR);
+          haloG.addColorStop(0,    `rgba(${n.halo},0)`);
+          haloG.addColorStop(0.35, `rgba(${n.halo},${(n.opHalo * burstBoostN).toFixed(3)})`);
+          haloG.addColorStop(0.72, `rgba(${n.halo},${(n.opHalo * 0.3 * burstBoostN).toFixed(3)})`);
+          haloG.addColorStop(1,    `rgba(${n.halo},0)`);
+          ctx.save(); ctx.translate(nx, ny); ctx.scale(n.rx/maxR, n.ry/maxR);
+          ctx.beginPath(); ctx.arc(0, 0, maxR, 0, Math.PI*2);
+          ctx.fillStyle = haloG; ctx.fill(); ctx.restore();
         }
       }
 
@@ -1335,19 +1335,15 @@ function GalaxySectionBg() {
     }));
     const stars = [...deep, ...mid, ...fore];
 
-    // ── Nebulae — large breathing blobs ──
-    const nebulae = Array.from({ length: 6 }, (_, i) => ({
-      x: 8+Math.random()*84,
-      y: 8+Math.random()*84,
-      rx: 140+Math.random()*220,
-      ry: 95+Math.random()*155,
-      op: Math.random()*0.028+0.012,
-      ph: Math.random()*Math.PI*2,
-      sp: Math.random()*0.00004+0.00001,
-      vx: (Math.random()-0.5)*0.0006,
-      vy: (Math.random()-0.5)*0.0005,
-      hue: ["201,168,76","232,180,140","140,160,220","200,140,180","100,180,200","180,200,140"][i%6],
-    }));
+    // ── Nebulae — layered warm core + cool halo, like real space ──
+    const nebulae = [
+      { x:12+Math.random()*18, y:15+Math.random()*18, rx:280+Math.random()*80, ry:195+Math.random()*60, opCore:0.052, opHalo:0.024, core:"201,155,60",  halo:"130,165,225", sp:0.000011, vx:0.00038, vy:0.00027 },
+      { x:65+Math.random()*18, y:10+Math.random()*18, rx:248+Math.random()*80, ry:178+Math.random()*60, opCore:0.044, opHalo:0.020, core:"215,135,155", halo:"95,152,208",  sp:0.000014, vx:-0.00036, vy:0.00023 },
+      { x:78+Math.random()*14, y:60+Math.random()*18, rx:295+Math.random()*80, ry:218+Math.random()*60, opCore:0.048, opHalo:0.022, core:"172,116,46",  halo:"150,194,216", sp:0.000010, vx:-0.00031, vy:-0.00025 },
+      { x:22+Math.random()*18, y:72+Math.random()*18, rx:262+Math.random()*80, ry:188+Math.random()*60, opCore:0.046, opHalo:0.021, core:"196,146,174", halo:"112,174,196", sp:0.000013, vx:0.00034, vy:-0.00029 },
+      { x:46+Math.random()*18, y:42+Math.random()*18, rx:315+Math.random()*80, ry:232+Math.random()*60, opCore:0.034, opHalo:0.017, core:"155,126,46",  halo:"172,206,226", sp:0.000009, vx:-0.00027, vy:0.00019 },
+      { x:4+Math.random()*12,  y:48+Math.random()*18, rx:205+Math.random()*80, ry:158+Math.random()*60, opCore:0.040, opHalo:0.018, core:"206,160,76",  halo:"144,190,210", sp:0.000012, vx:0.00039, vy:0.00024 },
+    ];
 
     // ── Shooting stars — 3 slots ──
     const shooters = Array.from({ length: 3 }, (_, i) => ({
@@ -1364,23 +1360,29 @@ function GalaxySectionBg() {
       if (W === 0 || H === 0) { raf = requestAnimationFrame(draw); return; }
       ctx.clearRect(0, 0, W, H);
 
-      // ── 1. Nebulae — constant, realistic space clouds, very slow drift ──
+      // ── 1. Nebulae — layered warm core + cool halo ──
       for (const n of nebulae) {
         n.x = (n.x + n.vx + 100) % 100;
         n.y = (n.y + n.vy + 100) % 100;
-        const op = n.op * (0.92 + Math.sin(t * n.sp * 0.3 + n.ph) * 0.08);
+        const nx = n.x*W/100, ny = n.y*H/100;
         const maxR = Math.max(n.rx, n.ry);
-        const nx = n.x * W / 100, ny = n.y * H / 100;
-        const grd = ctx.createRadialGradient(nx, ny, 0, nx, ny, maxR);
-        grd.addColorStop(0,   `rgba(${n.hue},${op.toFixed(3)})`);
-        grd.addColorStop(0.45,`rgba(${n.hue},${(op*0.4).toFixed(3)})`);
-        grd.addColorStop(1,   `rgba(${n.hue},0)`);
-        ctx.save();
-        ctx.translate(nx, ny);
-        ctx.scale(n.rx / maxR, n.ry / maxR);
-        ctx.beginPath(); ctx.arc(0, 0, maxR, 0, Math.PI * 2);
-        ctx.fillStyle = grd; ctx.fill();
-        ctx.restore();
+        // Warm luminous core
+        const coreG = ctx.createRadialGradient(nx, ny, 0, nx, ny, maxR*0.55);
+        coreG.addColorStop(0,   `rgba(${n.core},${n.opCore.toFixed(3)})`);
+        coreG.addColorStop(0.5, `rgba(${n.core},${(n.opCore*0.35).toFixed(3)})`);
+        coreG.addColorStop(1,   `rgba(${n.core},0)`);
+        ctx.save(); ctx.translate(nx, ny); ctx.scale(n.rx/maxR, n.ry/maxR);
+        ctx.beginPath(); ctx.arc(0, 0, maxR*0.55, 0, Math.PI*2);
+        ctx.fillStyle = coreG; ctx.fill(); ctx.restore();
+        // Cool spreading halo
+        const haloG = ctx.createRadialGradient(nx, ny, maxR*0.18, nx, ny, maxR);
+        haloG.addColorStop(0,    `rgba(${n.halo},0)`);
+        haloG.addColorStop(0.35, `rgba(${n.halo},${n.opHalo.toFixed(3)})`);
+        haloG.addColorStop(0.72, `rgba(${n.halo},${(n.opHalo*0.3).toFixed(3)})`);
+        haloG.addColorStop(1,    `rgba(${n.halo},0)`);
+        ctx.save(); ctx.translate(nx, ny); ctx.scale(n.rx/maxR, n.ry/maxR);
+        ctx.beginPath(); ctx.arc(0, 0, maxR, 0, Math.PI*2);
+        ctx.fillStyle = haloG; ctx.fill(); ctx.restore();
       }
 
       // ── 2. Galaxy core — slow drifting warm bloom ──
