@@ -1283,6 +1283,136 @@ function GlowButton({ href, children, style = {} }: { href: string; children: Re
 }
 
 
+// ── GLOBAL GALAXY CANVAS — fixed behind Features + CTA sections ──
+function GalaxyCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d")!;
+    let W = canvas.width = window.innerWidth;
+    let H = canvas.height = window.innerHeight;
+    const onResize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; };
+    window.addEventListener("resize", onResize, { passive: true });
+
+    // Stars — 3 layers, same as hero
+    const deep  = Array.from({ length: 180 }, () => ({ x: Math.random()*100, y: Math.random()*100, r: Math.random()*0.6+0.15, op: Math.random()*0.2+0.04, ph: Math.random()*Math.PI*2, sp: Math.random()*0.00018+0.00004, vx: (Math.random()-0.5)*0.001, vy: (Math.random()-0.5)*0.001, layer: 0 }));
+    const mid   = Array.from({ length: 70  }, () => ({ x: Math.random()*100, y: Math.random()*100, r: Math.random()*1.0+0.35, op: Math.random()*0.28+0.07, ph: Math.random()*Math.PI*2, sp: Math.random()*0.00035+0.0001, vx: (Math.random()-0.5)*0.0025, vy: (Math.random()-0.5)*0.0025, layer: 1 }));
+    const fore  = Array.from({ length: 20  }, () => ({ x: Math.random()*100, y: Math.random()*100, r: Math.random()*1.6+0.7, op: Math.random()*0.4+0.18, ph: Math.random()*Math.PI*2, sp: Math.random()*0.0006+0.0003, vx: (Math.random()-0.5)*0.004, vy: (Math.random()-0.5)*0.004, layer: 2 }));
+    const stars = [...deep, ...mid, ...fore];
+
+    // Nebulae
+    const nebulae = Array.from({ length: 5 }, (_, i) => ({
+      x: 10+Math.random()*80, y: 10+Math.random()*80,
+      rx: 100+Math.random()*180, ry: 70+Math.random()*120,
+      op: Math.random()*0.022+0.006,
+      ph: Math.random()*Math.PI*2, sp: Math.random()*0.00007+0.00003,
+      vx: (Math.random()-0.5)*0.0008, vy: (Math.random()-0.5)*0.0006,
+      hue: i%2===0 ? "201,168,76" : "232,201,122",
+    }));
+
+    // Occasional shooting star
+    const shooter = { x:0, y:0, vx:0, vy:0, len:0, op:0, active:false, timer: 8000+Math.random()*10000 };
+
+    let lastT = 0;
+    let raf: number;
+
+    function draw(t: number) {
+      const dt = t - lastT; lastT = t;
+      ctx.clearRect(0, 0, W, H);
+
+      // Nebulae
+      for (const n of nebulae) {
+        n.x = (n.x + n.vx + 100) % 100;
+        n.y = (n.y + n.vy + 100) % 100;
+        const breathe = 0.7 + Math.sin(t * n.sp + n.ph) * 0.3;
+        const op = n.op * breathe;
+        const maxR = Math.max(n.rx, n.ry);
+        const grd = ctx.createRadialGradient(n.x*W/100, n.y*H/100, 0, n.x*W/100, n.y*H/100, maxR);
+        grd.addColorStop(0, `rgba(${n.hue},${op.toFixed(3)})`);
+        grd.addColorStop(0.5, `rgba(${n.hue},${(op*0.35).toFixed(3)})`);
+        grd.addColorStop(1, `rgba(${n.hue},0)`);
+        ctx.save();
+        ctx.translate(n.x*W/100, n.y*H/100);
+        ctx.scale(n.rx/maxR, n.ry/maxR);
+        ctx.beginPath(); ctx.arc(0, 0, maxR, 0, Math.PI*2);
+        ctx.fillStyle = grd; ctx.fill();
+        ctx.restore();
+      }
+
+      // Drifting warm centre bloom
+      const cx = W*0.5 + Math.sin(t*0.00007)*W*0.05;
+      const cy = H*0.5 + Math.cos(t*0.00005)*H*0.05;
+      const bloom = ctx.createRadialGradient(cx, cy, 0, cx, cy, W*0.5);
+      bloom.addColorStop(0, "rgba(201,168,76,0.025)");
+      bloom.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = bloom; ctx.fillRect(0, 0, W, H);
+
+      // Stars
+      for (const p of stars) {
+        p.x = (p.x + p.vx + 100) % 100;
+        p.y = (p.y + p.vy + 100) % 100;
+        const pulse = 0.55 + Math.sin(t * p.sp * 2 + p.ph) * 0.45;
+        const op = Math.min(0.85, p.op * pulse);
+        if (p.layer === 2) {
+          const cr = p.r * 5;
+          const gr = ctx.createRadialGradient(p.x*W/100, p.y*H/100, 0, p.x*W/100, p.y*H/100, cr);
+          gr.addColorStop(0, `rgba(255,245,200,${op})`);
+          gr.addColorStop(0.2, `rgba(232,201,122,${op*0.6})`);
+          gr.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.beginPath(); ctx.arc(p.x*W/100, p.y*H/100, cr, 0, Math.PI*2);
+          ctx.fillStyle = gr; ctx.fill();
+          ctx.beginPath(); ctx.arc(p.x*W/100, p.y*H/100, p.r, 0, Math.PI*2);
+          ctx.fillStyle = `rgba(255,250,220,${op})`; ctx.fill();
+        } else if (p.layer === 1) {
+          ctx.beginPath(); ctx.arc(p.x*W/100, p.y*H/100, p.r, 0, Math.PI*2);
+          ctx.fillStyle = `rgba(220,185,100,${op})`; ctx.fill();
+        } else {
+          ctx.beginPath(); ctx.arc(p.x*W/100, p.y*H/100, p.r, 0, Math.PI*2);
+          ctx.fillStyle = `rgba(200,175,110,${op})`; ctx.fill();
+        }
+      }
+
+      // Shooting star
+      if (!shooter.active) {
+        shooter.timer -= dt;
+        if (shooter.timer <= 0) {
+          shooter.x = Math.random()*W*0.6; shooter.y = Math.random()*H*0.4;
+          shooter.vx = 4+Math.random()*5; shooter.vy = 1+Math.random()*2;
+          shooter.len = 60+Math.random()*90; shooter.op = 0.8;
+          shooter.active = true; shooter.timer = 7000+Math.random()*12000;
+        }
+      } else {
+        shooter.x += shooter.vx; shooter.y += shooter.vy; shooter.op -= 0.011;
+        if (shooter.op <= 0 || shooter.x > W+50) { shooter.active = false; }
+        else {
+          const spd = Math.sqrt(shooter.vx*shooter.vx+shooter.vy*shooter.vy);
+          const tx = shooter.x - (shooter.vx/spd)*shooter.len;
+          const ty = shooter.y - (shooter.vy/spd)*shooter.len;
+          const sk = ctx.createLinearGradient(tx, ty, shooter.x, shooter.y);
+          sk.addColorStop(0, "rgba(255,245,200,0)");
+          sk.addColorStop(1, `rgba(255,250,220,${shooter.op})`);
+          ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(shooter.x, shooter.y);
+          ctx.strokeStyle = sk; ctx.lineWidth = 1.2; ctx.stroke();
+        }
+      }
+
+      raf = requestAnimationFrame(draw);
+    }
+    raf = requestAnimationFrame(draw);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); };
+  }, []);
+
+  return (
+    <canvas ref={canvasRef} style={{
+      position: "fixed", inset: 0,
+      width: "100%", height: "100%",
+      pointerEvents: "none", zIndex: -1,
+    }} />
+  );
+}
+
 export default function LandingPage() {
   const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
   const [scrollY, setScrollY] = useState(0);
@@ -1333,6 +1463,7 @@ export default function LandingPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#080808", color: "#f5f0e8", overflowX: "hidden" }}>
+      <GalaxyCanvas />
 
       {/* NAV */}
       <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 40, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 48px", borderBottom: "1px solid #181818", background: "rgba(8,8,8,0.92)", backdropFilter: "blur(16px)" }}>
@@ -1376,7 +1507,7 @@ export default function LandingPage() {
       </div>
 
       {/* FEATURES */}
-      <div ref={featuresRef} style={{ position: "relative" }}>
+      <div ref={featuresRef} style={{ position: "relative", background: "transparent" }}>
         {/* Mote particle field — absolutely covers the full section, no overflow clip */}
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
           {moteParticles.map(p => (
@@ -1568,7 +1699,7 @@ export default function LandingPage() {
 
       {/* CTA — cinematic closer */}
       <div ref={ctaRef}>
-        <section style={{ position: "relative", overflow: "hidden", background: "#040404", padding: "140px 24px 120px" }}>
+        <section style={{ position: "relative", overflow: "hidden", background: "rgba(4,4,4,0.7)", padding: "140px 24px 120px" }}>
 
           {/* Dense gold particle field — echoes the hero galaxy */}
           {ctaVisible && Array.from({ length: 50 }, (_, i) => ({
