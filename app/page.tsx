@@ -1352,41 +1352,34 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
     // Snapshot of static nebula + dim stars — animated stars drawn on top each frame
     let staticSnap: HTMLCanvasElement | null = null;
 
-    // ── Animated star data ──────────────────────────────────────────
-    type AnimStar = {
-      x:number; y:number; vx:number; vy:number;
-      r:number; baseOp:number; ph:number; sp:number; big:boolean;
-      colR:number; colG:number; colB:number;
-    };
-    let animStars: AnimStar[] = [];
+    // ── Star layers — identical to hero ────────────────────────────
+    type StarP = { x:number;y:number;vx:number;vy:number;r:number;op:number;ph:number;sp:number;layer:number };
+    type Shooter = { x:number;y:number;vx:number;vy:number;len:number;op:number;active:boolean;timer:number };
+    let deep: StarP[] = [], mid: StarP[] = [], fore: StarP[] = [], shooters: Shooter[] = [];
 
-    function buildStars(w:number, h:number, seedV:number) {
-      let s = seedV >>> 0;
-      function rand(){s=(s*1664525+1013904223)>>>0;return s/0xffffffff;}
-      const stars: AnimStar[] = [];
-      // 200 animated twinkling/drifting stars
-      for (let i=0; i<200; i++) {
-        const big = rand() > 0.88;
-        const cr = rand();
-        let colR=255, colG=252, colB=228;
-        if (!big) {
-          if (cr>0.65){colR=180;colG=210;colB=255;}
-          else if (cr>0.35){colR=255;colG=248;colB=225;}
-          else {colR=255;colG=220;colB=175;}
-        }
-        stars.push({
-          x: rand()*w, y: rand()*h,
-          vx: (rand()-0.5)*0.018,  // slow drift
-          vy: (rand()-0.5)*0.014,
-          r: big ? rand()*1.0+0.5 : rand()*0.55+0.18,
-          baseOp: big ? rand()*0.45+0.35 : rand()*0.20+0.06,
-          ph: rand()*Math.PI*2,
-          sp: rand()*0.0016+0.0004,
-          big,
-          colR, colG, colB,
-        });
-      }
-      return stars;
+    function buildStarLayers() {
+      deep = Array.from({ length: 220 }, () => ({
+        x: Math.random()*100, y: Math.random()*100,
+        r: Math.random()*0.7+0.15, op: Math.random()*0.25+0.05,
+        ph: Math.random()*Math.PI*2, sp: Math.random()*0.0002+0.00005,
+        vx: (Math.random()-0.5)*0.0015, vy: (Math.random()-0.5)*0.0015, layer: 0,
+      }));
+      mid = Array.from({ length: 90 }, () => ({
+        x: Math.random()*100, y: Math.random()*100,
+        r: Math.random()*1.1+0.4, op: Math.random()*0.35+0.08,
+        ph: Math.random()*Math.PI*2, sp: Math.random()*0.0004+0.0001,
+        vx: (Math.random()-0.5)*0.003, vy: (Math.random()-0.5)*0.003, layer: 1,
+      }));
+      fore = Array.from({ length: 28 }, () => ({
+        x: Math.random()*100, y: Math.random()*100,
+        r: Math.random()*1.8+0.8, op: Math.random()*0.5+0.2,
+        ph: Math.random()*Math.PI*2, sp: Math.random()*0.0008+0.0003,
+        vx: (Math.random()-0.5)*0.005, vy: (Math.random()-0.5)*0.005, layer: 2,
+      }));
+      shooters = Array.from({ length: 3 }, () => ({
+        x:0,y:0,vx:0,vy:0,len:0,op:0,active:false,
+        timer: 18000+Math.random()*22000,
+      }));
     }
 
     function buildNebula(w:number, h:number): HTMLCanvasElement {
@@ -1435,11 +1428,10 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
       if (W===0||H===0) return;
       cancelAnimationFrame(rafId);
       staticSnap = null;
-      animStars = [];
       // Defer heavy computation
       setTimeout(() => {
         staticSnap = buildNebula(W, H);
-        animStars = buildStars(W, H, variant==="features" ? 54321 : 99887);
+        buildStarLayers();
         startAnim();
       }, 0);
     }
@@ -1452,25 +1444,74 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
         const dt = now - t; t = now;
         if (!staticSnap) { rafId=requestAnimationFrame(frame); return; }
         ctx.clearRect(0,0,W,H);
-        // Static nebula + bg stars
         ctx.drawImage(staticSnap,0,0);
 
-        // Animated stars — twinkle + slow drift
-        for (const p of animStars) {
-          p.x = (p.x + p.vx + W) % W;
-          p.y = (p.y + p.vy + H) % H;
-          const pulse = 0.55 + Math.sin(now * p.sp + p.ph) * 0.45;
-          const op = Math.min(0.95, p.baseOp * pulse);
-          if (p.big) {
-            const gr = ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*5);
-            gr.addColorStop(0,`rgba(${p.colR},${p.colG},${p.colB},${op})`);
-            gr.addColorStop(0.25,`rgba(${p.colR},${p.colG},${p.colB},${(op*0.4).toFixed(3)})`);
-            gr.addColorStop(1,"rgba(0,0,0,0)");
-            ctx.beginPath();ctx.arc(p.x,p.y,p.r*5,0,Math.PI*2);
-            ctx.fillStyle=gr;ctx.fill();
+        // ── Layer 0: deep tiny stars ──
+        for (const p of deep) {
+          p.x=(p.x+p.vx+100)%100; p.y=(p.y+p.vy+100)%100;
+          const pulse=0.55+Math.sin(now*p.sp*2+p.ph)*0.45;
+          const op=Math.min(0.92,p.op*pulse);
+          ctx.beginPath();ctx.arc(p.x*W/100,p.y*H/100,p.r,0,Math.PI*2);
+          ctx.fillStyle=`rgba(200,175,110,${op})`;ctx.fill();
+        }
+        // ── Layer 1: mid warm gold stars ──
+        for (const p of mid) {
+          p.x=(p.x+p.vx+100)%100; p.y=(p.y+p.vy+100)%100;
+          const pulse=0.55+Math.sin(now*p.sp*2+p.ph)*0.45;
+          const op=Math.min(0.92,p.op*pulse);
+          if (pulse>0.8) {
+            const gr2=ctx.createRadialGradient(p.x*W/100,p.y*H/100,0,p.x*W/100,p.y*H/100,p.r*4);
+            gr2.addColorStop(0,`rgba(232,201,122,${(op*0.6).toFixed(3)})`);
+            gr2.addColorStop(1,"rgba(0,0,0,0)");
+            ctx.beginPath();ctx.arc(p.x*W/100,p.y*H/100,p.r*4,0,Math.PI*2);
+            ctx.fillStyle=gr2;ctx.fill();
           }
-          ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-          ctx.fillStyle=`rgba(${p.colR},${p.colG},${p.colB},${op})`;ctx.fill();
+          ctx.beginPath();ctx.arc(p.x*W/100,p.y*H/100,p.r,0,Math.PI*2);
+          ctx.fillStyle=`rgba(220,185,100,${op})`;ctx.fill();
+        }
+        // ── Layer 2: bright foreground stars with corona ──
+        for (const p of fore) {
+          p.x=(p.x+p.vx+100)%100; p.y=(p.y+p.vy+100)%100;
+          const pulse=0.55+Math.sin(now*p.sp*2+p.ph)*0.45;
+          const op=Math.min(0.92,p.op*pulse);
+          const coronaR=p.r*6;
+          const gr=ctx.createRadialGradient(p.x*W/100,p.y*H/100,0,p.x*W/100,p.y*H/100,coronaR);
+          gr.addColorStop(0,`rgba(255,245,200,${op})`);
+          gr.addColorStop(0.15,`rgba(232,201,122,${(op*0.7).toFixed(3)})`);
+          gr.addColorStop(0.5,`rgba(201,168,76,${(op*0.2).toFixed(3)})`);
+          gr.addColorStop(1,"rgba(0,0,0,0)");
+          ctx.beginPath();ctx.arc(p.x*W/100,p.y*H/100,coronaR,0,Math.PI*2);
+          ctx.fillStyle=gr;ctx.fill();
+          ctx.beginPath();ctx.arc(p.x*W/100,p.y*H/100,p.r,0,Math.PI*2);
+          ctx.fillStyle=`rgba(255,250,220,${op})`;ctx.fill();
+        }
+        // ── Shooting stars ──
+        for (const s of shooters) {
+          if (!s.active) {
+            s.timer-=dt;
+            if (s.timer<=0) {
+              s.x=Math.random()*W*0.6; s.y=Math.random()*H*0.5;
+              s.vx=4+Math.random()*5; s.vy=1+Math.random()*2.5;
+              s.len=60+Math.random()*100; s.op=0.7+Math.random()*0.3;
+              s.active=true; s.timer=18000+Math.random()*22000;
+            }
+            continue;
+          }
+          s.x+=s.vx; s.y+=s.vy; s.op-=0.012;
+          if (s.op<=0||s.x>W+50||s.y>H+50){s.active=false;continue;}
+          const spd=Math.sqrt(s.vx*s.vx+s.vy*s.vy);
+          const tx=s.x-(s.vx/spd)*s.len, ty=s.y-(s.vy/spd)*s.len;
+          const streak=ctx.createLinearGradient(tx,ty,s.x,s.y);
+          streak.addColorStop(0,"rgba(255,245,200,0)");
+          streak.addColorStop(0.7,`rgba(232,201,122,${(s.op*0.4).toFixed(3)})`);
+          streak.addColorStop(1,`rgba(255,250,220,${s.op.toFixed(3)})`);
+          ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(s.x,s.y);
+          ctx.strokeStyle=streak;ctx.lineWidth=1.5;ctx.stroke();
+          const hg=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,8);
+          hg.addColorStop(0,`rgba(255,250,220,${s.op})`);
+          hg.addColorStop(1,"rgba(0,0,0,0)");
+          ctx.beginPath();ctx.arc(s.x,s.y,8,0,Math.PI*2);
+          ctx.fillStyle=hg;ctx.fill();
         }
         rafId = requestAnimationFrame(frame);
       }
