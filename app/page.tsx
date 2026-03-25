@@ -969,6 +969,8 @@ function HeroScene({ scrollY, waitlistCount }: {
       justifyContent: "center",
       background: "#060608",
       overflow: "hidden",
+      paddingTop: "clamp(80px, 12vh, 140px)",
+      paddingBottom: "clamp(60px, 10vh, 120px)",
     }}>
       {/* Canvas — particle field covers whole section */}
       <canvas ref={canvasRef} style={{
@@ -1015,7 +1017,7 @@ function HeroScene({ scrollY, waitlistCount }: {
           your outreach is missing.
         </h2>
         <p style={{
-          fontSize: 13, color: "#303040",
+          fontSize: 13, color: "#a09888",
           marginTop: 16, maxWidth: 460,
           marginLeft: "auto", marginRight: "auto",
           lineHeight: 1.7,
@@ -1077,7 +1079,7 @@ function HeroScene({ scrollY, waitlistCount }: {
           </div>
 
           {/* Two-column body */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: 300 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: 340 }}>
             {/* LEFT: search + leads */}
             <div style={{ padding: "18px 20px", borderRight: "1px solid rgba(201,168,76,0.06)" }}>
               {/* Search bar */}
@@ -1106,18 +1108,18 @@ function HeroScene({ scrollY, waitlistCount }: {
                 display: "flex", alignItems: "center", gap: 6, marginBottom: 9,
                 opacity: showResultsHead ? 1 : 0, transition: "opacity 0.4s",
               }}>
-                <span style={{ fontSize: 8, color: "#1e1e2c", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "monospace" }}>Results</span>
+                <span style={{ fontSize: 8, color: "#7a7068", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "monospace" }}>Results</span>
                 <span style={{ fontSize: 8, color: "#c9a84c", fontWeight: 700, fontFamily: "monospace" }}>{leadCount}</span>
-                <span style={{ fontSize: 8, color: "#1e1e2c", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "monospace" }}>leads</span>
+                <span style={{ fontSize: 8, color: "#7a7068", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "monospace" }}>leads</span>
                 <div style={{ marginLeft: "auto", display: "flex", gap: 3 }}>
                   {["Score ↓","Gap","Fit"].map(f => (
-                    <span key={f} style={{ fontSize: 7, padding: "1px 6px", border: "1px solid #181828", borderRadius: 3, color: "#181828", fontFamily: "monospace" }}>{f}</span>
+                    <span key={f} style={{ fontSize: 7, padding: "1px 6px", border: "1px solid #383848", borderRadius: 3, color: "#6a6068", fontFamily: "monospace" }}>{f}</span>
                   ))}
                 </div>
               </div>
 
-              {/* Leads list */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {/* Leads list — fixed height to prevent dashboard growing */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 5, minHeight: 205 }}>
                 {leads.map((l, idx) => (
                   <div key={idx} style={{
                     display: "flex", alignItems: "center", gap: 9,
@@ -1127,7 +1129,7 @@ function HeroScene({ scrollY, waitlistCount }: {
                     boxShadow: idx === 0 ? "0 0 20px rgba(201,168,76,0.06)" : "none",
                     animation: "leadIn 0.35s ease both",
                   }}>
-                    <span style={{ fontSize: 8, fontFamily: "monospace", color: idx === 0 ? "#c9a84c" : "#181828", minWidth: 18 }}>
+                    <span style={{ fontSize: 8, fontFamily: "monospace", color: idx === 0 ? "#c9a84c" : "#6a6068", minWidth: 18 }}>
                       {String(idx+1).padStart(2,"0")}
                     </span>
                     <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color: idx === 0 ? "#d8d0c0" : "#b0a898" }}>{l.n}</span>
@@ -1788,11 +1790,11 @@ export default function LandingPage() {
                     {/* Header */}
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
                       <span style={{ fontSize: col.highlight ? 20 : 14, color: col.iconColor }}>{col.icon}</span>
-                      <p style={{ fontSize: col.highlight ? 16 : 13, fontWeight: 700, letterSpacing: "0.04em", color: col.highlight ? "#e8c97a" : "#333" }}>{col.label}</p>
+                      <p style={{ fontSize: col.highlight ? 16 : 13, fontWeight: 700, letterSpacing: "0.04em", color: col.highlight ? "#e8c97a" : "#888" }}>{col.label}</p>
                       {col.highlight && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 999, background: "rgba(201,168,76,0.15)", color: "#c9a84c", letterSpacing: "0.12em", textTransform: "uppercase", marginLeft: "auto" }}>You are here</span>}
                     </div>
 
-                    <p style={{ fontSize: 12, color: col.highlight ? "#777" : "#2a2a2a", lineHeight: 1.6, marginBottom: 24 }}>{col.desc}</p>
+                    <p style={{ fontSize: 12, color: col.highlight ? "#888" : "#666", lineHeight: 1.6, marginBottom: 24 }}>{col.desc}</p>
 
                     {/* Divider */}
                     <div style={{ height: 1, background: col.highlight ? "rgba(201,168,76,0.1)" : "#111", marginBottom: 20 }} />
@@ -1802,7 +1804,7 @@ export default function LandingPage() {
                       {col.points.map((pt, j) => (
                         <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                           <span style={{ fontSize: 10, color: col.highlight ? "#4ade80" : "#2a2a2a", flexShrink: 0, marginTop: 2 }}>{col.highlight ? "✓" : "—"}</span>
-                          <p style={{ fontSize: 12, lineHeight: 1.5, color: col.highlight ? "#999" : "#2a2a2a" }}>{pt}</p>
+                          <p style={{ fontSize: 12, lineHeight: 1.5, color: col.highlight ? "#999" : "#666" }}>{pt}</p>
                         </div>
                       ))}
                     </div>
@@ -1885,7 +1887,7 @@ export default function LandingPage() {
 
             {/* Subtext */}
             <p style={{
-              fontSize: 15, color: "#555", maxWidth: 520, margin: "0 auto 56px", lineHeight: 1.75,
+              fontSize: 15, color: "#908880", maxWidth: 520, margin: "0 auto 56px", lineHeight: 1.75,
               opacity: ctaVisible ? 1 : 0,
               transition: "opacity 0.8s ease 0.5s",
             }}>
