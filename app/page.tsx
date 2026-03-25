@@ -682,26 +682,33 @@ function HeroScene({ scrollY, waitlistCount }: {
     particlesRef.current = [...deep, ...mid, ...fore] as unknown as typeof particlesRef.current;
     shooterRef.current = shooters;
 
-    // ── HERO NEBULA — gold/amber cloud, computed once ──
-    // Build on next frame so canvas dimensions are available
-    requestAnimationFrame(() => {
+    // ── HERO NEBULA — compute at 1/3 res then upscale (9x faster) ──
+    // Deferred after first paint so page loads instantly
+    setTimeout(() => {
       const cv = canvasRef.current; if (!cv) return;
       const W = cv.width || window.innerWidth;
       const H = cv.height || window.innerHeight;
+      const S = 3; // compute at 1/3 size
+      const LW = Math.ceil(W/S), LH = Math.ceil(H/S);
+      // Low-res offscreen for computation
+      const lo = document.createElement("canvas"); lo.width=LW; lo.height=LH;
+      const loCtx = lo.getContext("2d")!;
+      loCtx.globalCompositeOperation="screen";
+      nbScreenBlit(loCtx,LW,LH,nbBuildCloud(LW,LH,{cx:0.22*LW,cy:0.32*LH,rx:0.65*LW,ry:0.55*LW,rot:0.28,seed:1.0,warp:3.2,thresh:0.30,intensity:0.85,es:1.0,c0:[0.04,0.06,0.22],c1:[0.12,0.16,0.42],c2:[0.20,0.24,0.58],c3:[0.30,0.30,0.66]}));
+      nbScreenBlit(loCtx,LW,LH,nbBuildCloud(LW,LH,{cx:0.19*LW,cy:0.28*LH,rx:0.55*LW,ry:0.45*LW,rot:0.24,seed:2.2,warp:3.5,thresh:0.33,intensity:1.20,es:1.2,c0:[0.30,0.16,0.04],c1:[0.62,0.42,0.09],c2:[0.88,0.68,0.18],c3:[0.98,0.88,0.36]}));
+      nbScreenBlit(loCtx,LW,LH,nbBuildCloud(LW,LH,{cx:0.16*LW,cy:0.23*LH,rx:0.36*LW,ry:0.30*LW,rot:0.18,seed:3.5,warp:3.8,thresh:0.37,intensity:1.20,es:1.6,c0:[0.65,0.46,0.11],c1:[0.88,0.70,0.26],c2:[0.96,0.88,0.50],c3:[1.0,0.99,0.80]}));
+      nbScreenBlit(loCtx,LW,LH,nbBuildCloud(LW,LH,{cx:0.14*LW,cy:0.19*LH,rx:0.18*LW,ry:0.16*LW,rot:0.12,seed:4.8,warp:4.0,thresh:0.42,intensity:1.10,es:2.0,c0:[0.92,0.80,0.40],c1:[0.97,0.93,0.64],c2:[0.99,0.98,0.84],c3:[1.0,1.0,0.97]}));
+      loCtx.globalCompositeOperation="source-over";
+      // Upscale to full size with smoothing — LANCZOS-equivalent via bilinear
       const off = document.createElement("canvas"); off.width=W; off.height=H;
-      const oCtx = off.getContext("2d")!;
-      // Outer halo — blue-violet
-      oCtx.globalCompositeOperation="screen";
-      nbScreenBlit(oCtx,W,H,nbBuildCloud(W,H,{cx:0.22*W,cy:0.32*H,rx:0.65*W,ry:0.55*W,rot:0.28,seed:1.0,warp:3.2,thresh:0.30,intensity:0.85,es:1.0,c0:[0.04,0.06,0.22],c1:[0.12,0.16,0.42],c2:[0.20,0.24,0.58],c3:[0.30,0.30,0.66]}));
-      // Main amber
-      nbScreenBlit(oCtx,W,H,nbBuildCloud(W,H,{cx:0.19*W,cy:0.28*H,rx:0.55*W,ry:0.45*W,rot:0.24,seed:2.2,warp:3.5,thresh:0.33,intensity:1.20,es:1.2,c0:[0.30,0.16,0.04],c1:[0.62,0.42,0.09],c2:[0.88,0.68,0.18],c3:[0.98,0.88,0.36]}));
-      // Bright inner
-      nbScreenBlit(oCtx,W,H,nbBuildCloud(W,H,{cx:0.16*W,cy:0.23*H,rx:0.36*W,ry:0.30*W,rot:0.18,seed:3.5,warp:3.8,thresh:0.37,intensity:1.20,es:1.6,c0:[0.65,0.46,0.11],c1:[0.88,0.70,0.26],c2:[0.96,0.88,0.50],c3:[1.0,0.99,0.80]}));
-      // Hot nucleus
-      nbScreenBlit(oCtx,W,H,nbBuildCloud(W,H,{cx:0.14*W,cy:0.19*H,rx:0.18*W,ry:0.16*W,rot:0.12,seed:4.8,warp:4.0,thresh:0.42,intensity:1.10,es:2.0,c0:[0.92,0.80,0.40],c1:[0.97,0.93,0.64],c2:[0.99,0.98,0.84],c3:[1.0,1.0,0.97]}));
-      oCtx.globalCompositeOperation="source-over";
+      const offCtx = off.getContext("2d")!;
+      offCtx.imageSmoothingEnabled = true;
+      offCtx.imageSmoothingQuality = "high";
+      offCtx.globalCompositeOperation="screen";
+      offCtx.drawImage(lo, 0, 0, W, H);
+      offCtx.globalCompositeOperation="source-over";
       nebulaOffRef.current = off;
-    });
+    }, 0);
   }, []);
 
   // Canvas draw loop
@@ -1339,69 +1346,141 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
     const container = canvas.parentElement!;
-    let W = 0, H = 0;
     const c = canvas;
+    let W = 0, H = 0;
+    let rafId = 0;
+    // Snapshot of static nebula + dim stars — animated stars drawn on top each frame
+    let staticSnap: HTMLCanvasElement | null = null;
 
-    function buildAndDraw() {
-      W = c.width  = container.offsetWidth;
-      H = c.height = container.offsetHeight;
-      if (W === 0 || H === 0) return;
-      const ctx = c.getContext("2d")!;
+    // ── Animated star data ──────────────────────────────────────────
+    type AnimStar = {
+      x:number; y:number; vx:number; vy:number;
+      r:number; baseOp:number; ph:number; sp:number; big:boolean;
+      colR:number; colG:number; colB:number;
+    };
+    let animStars: AnimStar[] = [];
 
-      // Dark base
-      ctx.fillStyle = "#060608";
-      ctx.fillRect(0, 0, W, H);
-
-      // Background stars — seeded per variant
-      const seed = variant === "features" ? 67890 : 11223;
-      let s = seed >>> 0;
+    function buildStars(w:number, h:number, seedV:number) {
+      let s = seedV >>> 0;
       function rand(){s=(s*1664525+1013904223)>>>0;return s/0xffffffff;}
-      for(let i=0;i<2500;i++){
-        const x=rand()*W,y=rand()*H,op=rand()*0.08+0.02,r=rand()*0.3+0.08;
-        ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
-        ctx.fillStyle=`rgba(185,178,162,${op})`;ctx.fill();
+      const stars: AnimStar[] = [];
+      // 200 animated twinkling/drifting stars
+      for (let i=0; i<200; i++) {
+        const big = rand() > 0.88;
+        const cr = rand();
+        let colR=255, colG=252, colB=228;
+        if (!big) {
+          if (cr>0.65){colR=180;colG=210;colB=255;}
+          else if (cr>0.35){colR=255;colG=248;colB=225;}
+          else {colR=255;colG=220;colB=175;}
+        }
+        stars.push({
+          x: rand()*w, y: rand()*h,
+          vx: (rand()-0.5)*0.018,  // slow drift
+          vy: (rand()-0.5)*0.014,
+          r: big ? rand()*1.0+0.5 : rand()*0.55+0.18,
+          baseOp: big ? rand()*0.45+0.35 : rand()*0.20+0.06,
+          ph: rand()*Math.PI*2,
+          sp: rand()*0.0016+0.0004,
+          big,
+          colR, colG, colB,
+        });
       }
-      for(let i=0;i<400;i++){
-        const x=rand()*W,y=rand()*H,op=rand()*0.18+0.07,r=rand()*0.5+0.18;
-        const cr=rand();
-        const col=cr>0.65?`rgba(180,210,255,${op})`:cr>0.35?`rgba(255,248,225,${op})`:`rgba(255,225,180,${op})`;
-        ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
-      }
-      for(let i=0;i<40;i++){
-        const x=rand()*W,y=rand()*H,op=rand()*0.45+0.4,r=rand()*1.1+0.4;
-        const g=ctx.createRadialGradient(x,y,0,x,y,r*5);
-        g.addColorStop(0,`rgba(255,252,228,${op})`);
-        g.addColorStop(0.2,`rgba(220,192,115,${(op*0.45).toFixed(3)})`);
-        g.addColorStop(1,"rgba(0,0,0,0)");
-        ctx.beginPath();ctx.arc(x,y,r*5,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
-        ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
-        ctx.fillStyle=`rgba(255,252,228,${op})`;ctx.fill();
-      }
-
-      // Build nebula cloud layers — different per variant
-      ctx.globalCompositeOperation = "screen";
-      if (variant === "features") {
-        // Blue-teal, right side, tilted -28°
-        nbScreenBlit(ctx,W,H,nbBuildCloud(W,H,{cx:0.84*W,cy:0.30*H,rx:0.40*W,ry:0.46*W,rot:-0.50,seed:10.0,warp:3.0,thresh:0.32,intensity:0.75,es:1.2,c0:[0.05,0.04,0.18],c1:[0.09,0.14,0.32],c2:[0.14,0.22,0.48],c3:[0.20,0.30,0.58]}));
-        nbScreenBlit(ctx,W,H,nbBuildCloud(W,H,{cx:0.86*W,cy:0.25*H,rx:0.30*W,ry:0.36*W,rot:-0.48,seed:11.5,warp:3.4,thresh:0.35,intensity:1.0,es:1.5,c0:[0.05,0.22,0.34],c1:[0.10,0.40,0.58],c2:[0.18,0.62,0.78],c3:[0.34,0.80,0.90]}));
-        nbScreenBlit(ctx,W,H,nbBuildCloud(W,H,{cx:0.88*W,cy:0.19*H,rx:0.17*W,ry:0.22*W,rot:-0.46,seed:12.8,warp:3.6,thresh:0.40,intensity:1.0,es:2.0,c0:[0.20,0.56,0.70],c1:[0.32,0.74,0.86],c2:[0.50,0.88,0.92],c3:[0.78,0.97,0.98]}));
-      } else {
-        // Pink-rose, bottom-centre, near-horizontal
-        nbScreenBlit(ctx,W,H,nbBuildCloud(W,H,{cx:0.50*W,cy:0.82*H,rx:0.48*W,ry:0.34*W,rot:0.05,seed:20.0,warp:2.9,thresh:0.30,intensity:0.75,es:1.1,c0:[0.10,0.03,0.20],c1:[0.22,0.07,0.36],c2:[0.34,0.10,0.48],c3:[0.42,0.14,0.58]}));
-        nbScreenBlit(ctx,W,H,nbBuildCloud(W,H,{cx:0.50*W,cy:0.79*H,rx:0.38*W,ry:0.26*W,rot:0.04,seed:21.5,warp:3.3,thresh:0.34,intensity:1.05,es:1.4,c0:[0.34,0.08,0.18],c1:[0.66,0.20,0.32],c2:[0.88,0.36,0.48],c3:[0.96,0.56,0.64]}));
-        nbScreenBlit(ctx,W,H,nbBuildCloud(W,H,{cx:0.49*W,cy:0.76*H,rx:0.22*W,ry:0.15*W,rot:0.03,seed:22.8,warp:3.5,thresh:0.39,intensity:1.05,es:1.8,c0:[0.76,0.32,0.42],c1:[0.90,0.54,0.60],c2:[0.96,0.72,0.76],c3:[0.99,0.88,0.90]}));
-      }
-      ctx.globalCompositeOperation = "source-over";
+      return stars;
     }
 
-    // Build after layout so we have real dimensions
-    requestAnimationFrame(() => {
-      buildAndDraw();
-    });
+    function buildNebula(w:number, h:number): HTMLCanvasElement {
+      const S = 3;
+      const LW = Math.ceil(w/S), LH = Math.ceil(h/S);
+      const lo = document.createElement("canvas"); lo.width=LW; lo.height=LH;
+      const loCtx = lo.getContext("2d")!;
 
-    const ro = new ResizeObserver(() => buildAndDraw());
+      // Static faint bg stars (seeded, not animated)
+      const seed = variant === "features" ? 67890 : 11223;
+      let s2 = seed >>> 0;
+      function rand2(){s2=(s2*1664525+1013904223)>>>0;return s2/0xffffffff;}
+      for(let i=0;i<1200;i++){
+        const x=rand2()*LW,y=rand2()*LH,op=rand2()*0.08+0.02,r2=rand2()*0.3+0.08;
+        loCtx.beginPath();loCtx.arc(x,y,r2,0,Math.PI*2);
+        loCtx.fillStyle=`rgba(185,178,162,${op})`;loCtx.fill();
+      }
+
+      // Nebula clouds at low res
+      loCtx.globalCompositeOperation="screen";
+      if (variant === "features") {
+        nbScreenBlit(loCtx,LW,LH,nbBuildCloud(LW,LH,{cx:0.84*LW,cy:0.30*LH,rx:0.40*LW,ry:0.46*LW,rot:-0.50,seed:10.0,warp:3.0,thresh:0.32,intensity:0.75,es:1.2,c0:[0.05,0.04,0.18],c1:[0.09,0.14,0.32],c2:[0.14,0.22,0.48],c3:[0.20,0.30,0.58]}));
+        nbScreenBlit(loCtx,LW,LH,nbBuildCloud(LW,LH,{cx:0.86*LW,cy:0.25*LH,rx:0.30*LW,ry:0.36*LW,rot:-0.48,seed:11.5,warp:3.4,thresh:0.35,intensity:1.0,es:1.5,c0:[0.05,0.22,0.34],c1:[0.10,0.40,0.58],c2:[0.18,0.62,0.78],c3:[0.34,0.80,0.90]}));
+        nbScreenBlit(loCtx,LW,LH,nbBuildCloud(LW,LH,{cx:0.88*LW,cy:0.19*LH,rx:0.17*LW,ry:0.22*LW,rot:-0.46,seed:12.8,warp:3.6,thresh:0.40,intensity:1.0,es:2.0,c0:[0.20,0.56,0.70],c1:[0.32,0.74,0.86],c2:[0.50,0.88,0.92],c3:[0.78,0.97,0.98]}));
+      } else {
+        nbScreenBlit(loCtx,LW,LH,nbBuildCloud(LW,LH,{cx:0.50*LW,cy:0.82*LH,rx:0.48*LW,ry:0.34*LW,rot:0.05,seed:20.0,warp:2.9,thresh:0.30,intensity:0.75,es:1.1,c0:[0.10,0.03,0.20],c1:[0.22,0.07,0.36],c2:[0.34,0.10,0.48],c3:[0.42,0.14,0.58]}));
+        nbScreenBlit(loCtx,LW,LH,nbBuildCloud(LW,LH,{cx:0.50*LW,cy:0.79*LH,rx:0.38*LW,ry:0.26*LW,rot:0.04,seed:21.5,warp:3.3,thresh:0.34,intensity:1.05,es:1.4,c0:[0.34,0.08,0.18],c1:[0.66,0.20,0.32],c2:[0.88,0.36,0.48],c3:[0.96,0.56,0.64]}));
+        nbScreenBlit(loCtx,LW,LH,nbBuildCloud(LW,LH,{cx:0.49*LW,cy:0.76*LH,rx:0.22*LW,ry:0.15*LW,rot:0.03,seed:22.8,warp:3.5,thresh:0.39,intensity:1.05,es:1.8,c0:[0.76,0.32,0.42],c1:[0.90,0.54,0.60],c2:[0.96,0.72,0.76],c3:[0.99,0.88,0.90]}));
+      }
+      loCtx.globalCompositeOperation="source-over";
+
+      // Upscale to full canvas size
+      const snap = document.createElement("canvas"); snap.width=w; snap.height=h;
+      const snapCtx = snap.getContext("2d")!;
+      snapCtx.fillStyle="#060608"; snapCtx.fillRect(0,0,w,h);
+      snapCtx.imageSmoothingEnabled=true; snapCtx.imageSmoothingQuality="high";
+      snapCtx.globalCompositeOperation="screen";
+      snapCtx.drawImage(lo,0,0,w,h);
+      snapCtx.globalCompositeOperation="source-over";
+      return snap;
+    }
+
+    function init() {
+      W = c.width  = container.offsetWidth;
+      H = c.height = container.offsetHeight;
+      if (W===0||H===0) return;
+      cancelAnimationFrame(rafId);
+      staticSnap = null;
+      animStars = [];
+      // Defer heavy computation
+      setTimeout(() => {
+        staticSnap = buildNebula(W, H);
+        animStars = buildStars(W, H, variant==="features" ? 54321 : 99887);
+        startAnim();
+      }, 0);
+    }
+
+    function startAnim() {
+      const ctx = c.getContext("2d")!;
+      let t = performance.now();
+
+      function frame(now: number) {
+        const dt = now - t; t = now;
+        if (!staticSnap) { rafId=requestAnimationFrame(frame); return; }
+        ctx.clearRect(0,0,W,H);
+        // Static nebula + bg stars
+        ctx.drawImage(staticSnap,0,0);
+
+        // Animated stars — twinkle + slow drift
+        for (const p of animStars) {
+          p.x = (p.x + p.vx + W) % W;
+          p.y = (p.y + p.vy + H) % H;
+          const pulse = 0.55 + Math.sin(now * p.sp + p.ph) * 0.45;
+          const op = Math.min(0.95, p.baseOp * pulse);
+          if (p.big) {
+            const gr = ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*5);
+            gr.addColorStop(0,`rgba(${p.colR},${p.colG},${p.colB},${op})`);
+            gr.addColorStop(0.25,`rgba(${p.colR},${p.colG},${p.colB},${(op*0.4).toFixed(3)})`);
+            gr.addColorStop(1,"rgba(0,0,0,0)");
+            ctx.beginPath();ctx.arc(p.x,p.y,p.r*5,0,Math.PI*2);
+            ctx.fillStyle=gr;ctx.fill();
+          }
+          ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+          ctx.fillStyle=`rgba(${p.colR},${p.colG},${p.colB},${op})`;ctx.fill();
+        }
+        rafId = requestAnimationFrame(frame);
+      }
+      rafId = requestAnimationFrame(frame);
+    }
+
+    init();
+    const ro = new ResizeObserver(init);
     ro.observe(container);
-    return () => ro.disconnect();
+    return () => { cancelAnimationFrame(rafId); ro.disconnect(); };
   }, [variant]);
 
   return (
