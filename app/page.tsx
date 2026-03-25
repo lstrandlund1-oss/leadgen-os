@@ -1070,7 +1070,7 @@ function HeroScene({ scrollY, waitlistCount }: {
             {[0,1,2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: "#141420" }} />)}
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
               <span style={{ fontSize: 8, color: "rgba(201,168,76,0.25)" }}>◈</span>
-              <span style={{ fontSize: 9, color: "#1e1e2c", fontFamily: "monospace", letterSpacing: "0.04em" }}>vantioapp.com — Lead Scanner</span>
+              <span style={{ fontSize: 9, color: "#8a8478", fontFamily: "monospace", letterSpacing: "0.04em" }}>vantioapp.com — Lead Scanner</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#4ade80", animation: "pulse 1.4s infinite" }} />
@@ -1143,7 +1143,7 @@ function HeroScene({ scrollY, waitlistCount }: {
 
             {/* RIGHT: score ring + bars + AI message */}
             <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column" }}>
-              <div style={{ fontSize: 8, color: "rgba(201,168,76,0.3)", letterSpacing: "0.18em", textTransform: "uppercase", fontFamily: "monospace", marginBottom: 16 }}>
+              <div style={{ fontSize: 8, color: "rgba(201,168,76,0.6)", letterSpacing: "0.18em", textTransform: "uppercase", fontFamily: "monospace", marginBottom: 16 }}>
                 Top Match — Intelligence Report
               </div>
 
@@ -1165,7 +1165,7 @@ function HeroScene({ scrollY, waitlistCount }: {
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#d8d0c0", marginBottom: 4 }}>{topLead?.n}</div>
-                  <div style={{ fontSize: 8, color: "#222232", fontFamily: "monospace", marginBottom: 10 }}>Intelligence Report</div>
+                  <div style={{ fontSize: 8, color: "#7a7468", fontFamily: "monospace", marginBottom: 10 }}>Intelligence Report</div>
                   {topLead && (
                     <span style={{
                       display: "inline-flex", alignItems: "center", gap: 4,
@@ -1186,7 +1186,7 @@ function HeroScene({ scrollY, waitlistCount }: {
                 ].map(bar => (
                   <div key={bar.id}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                      <span style={{ fontSize: 8, color: "#1c1c2c", fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "0.08em" }}>{bar.label}</span>
+                      <span style={{ fontSize: 8, color: "#8a8478", fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "0.08em" }}>{bar.label}</span>
                       <span style={{ fontSize: 8, fontWeight: 700, fontFamily: "monospace", color: bar.color }}>{bar.val || "—"}</span>
                     </div>
                     <div style={{ height: 3, background: "rgba(255,255,255,0.04)", borderRadius: 99, overflow: "hidden" }}>
@@ -1209,10 +1209,10 @@ function HeroScene({ scrollY, waitlistCount }: {
                 opacity: showAiMsg ? 1 : 0,
                 transition: "opacity 0.5s 0.4s",
               }}>
-                <div style={{ fontSize: 7, color: "rgba(201,168,76,0.3)", letterSpacing: "0.16em", textTransform: "uppercase", fontFamily: "monospace", marginBottom: 7 }}>
+                <div style={{ fontSize: 7, color: "rgba(201,168,76,0.6)", letterSpacing: "0.16em", textTransform: "uppercase", fontFamily: "monospace", marginBottom: 7 }}>
                   ◈ AI Outreach — Generated
                 </div>
-                <div style={{ fontSize: 10.5, color: "#252535", lineHeight: 1.65 }}>
+                <div style={{ fontSize: 10.5, color: "#a09888", lineHeight: 1.65 }}>
                   {aiMsgDone
                     ? <span dangerouslySetInnerHTML={{ __html: aiMsgFull.replace(/<em>/g,'<em style="color:#c9a84c;font-style:normal">').replace(/<strong>/g,'<strong style="color:#8080a0">') }} />
                     : <>{aiMsgText}<span style={{ display: "inline-block", width: 2, height: 11, background: "#c9a84c", verticalAlign: "middle", animation: "blink 0.9s infinite" }} /></>
@@ -1229,7 +1229,7 @@ function HeroScene({ scrollY, waitlistCount }: {
             borderTop: "1px solid rgba(201,168,76,0.06)",
             background: "rgba(5,5,10,0.5)",
           }}>
-            <span style={{ fontSize: 8, color: "#1a1a28", letterSpacing: "0.1em", fontFamily: "monospace" }}>{footerHint}</span>
+            <span style={{ fontSize: 8, color: "#7a7468", letterSpacing: "0.1em", fontFamily: "monospace" }}>{footerHint}</span>
             <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
               <div style={{ fontSize: 8, padding: "5px 12px", borderRadius: 5, fontFamily: "monospace", fontWeight: 700, letterSpacing: "0.06em", background: "transparent", border: "1px solid rgba(201,168,76,0.15)", color: "rgba(201,168,76,0.35)" }}>Save Lead</div>
               <div style={{ fontSize: 8, padding: "5px 12px", borderRadius: 5, fontFamily: "monospace", fontWeight: 700, letterSpacing: "0.06em", background: "#c9a84c", color: "#080808" }}>Send Outreach</div>
