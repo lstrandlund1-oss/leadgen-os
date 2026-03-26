@@ -363,12 +363,28 @@ function StepCard({ s, i, visible, nodeActive, nodeGlow = 0 }: {
 }
 
 function StepsSection({ visible, scrollY }: { visible: boolean; scrollY: number }) {
-  // Scroll-driven: section starts entering view ~scrollY 1400, fully exits ~3400
-  // Map scrollY to t: 0→1 across a 1600px scroll window starting when section enters
-  const SCROLL_START = 2100;  // slightly before step 2 is fully visible
-  const SCROLL_RANGE = 600;   // faster — completes in 600px of scroll
+  // Scroll-driven animation that starts when step 2 is visible on screen.
+  // We measure step 2's actual position in the document and use that as the trigger.
+  const step2Ref = useRef<HTMLDivElement | null>(null);
+  const [scrollStart, setScrollStart] = useState(9999);
+
+  useEffect(() => {
+    if (!step2Ref.current) return;
+    const measure = () => {
+      const el = step2Ref.current; if (!el) return;
+      // Start when step 2's top reaches the bottom 30% of the viewport
+      const rect = el.getBoundingClientRect();
+      const triggerOffset = rect.top + window.scrollY - window.innerHeight * 0.7;
+      setScrollStart(triggerOffset);
+    };
+    measure();
+    window.addEventListener("resize", measure, { passive: true });
+    return () => window.removeEventListener("resize", measure);
+  }, [visible]);
+
+  const SCROLL_RANGE = 600;
   const t = visible
-    ? Math.max(0, Math.min(1, (scrollY - SCROLL_START) / SCROLL_RANGE))
+    ? Math.max(0, Math.min(1, (scrollY - scrollStart) / SCROLL_RANGE))
     : 0;
 
   // Smooth node value 0.0–3.0 — used for continuous fade in/out glow
@@ -484,10 +500,12 @@ function StepsSection({ visible, scrollY }: { visible: boolean; scrollY: number 
           const dist = Math.abs(smoothNode - i);
           const glow = Math.max(0, 1 - dist * 1.8);
           return (
-            <StepCard key={i} s={s} i={i} visible={visible}
-              nodeActive={glow > 0.1}
-              nodeGlow={glow}
-            />
+            <div key={i} ref={i === 1 ? step2Ref : undefined}>
+              <StepCard s={s} i={i} visible={visible}
+                nodeActive={glow > 0.1}
+                nodeGlow={glow}
+              />
+            </div>
           );
         })}
       </div>
