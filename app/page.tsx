@@ -686,8 +686,9 @@ function HeroScene({ scrollY, waitlistCount }: {
     // Deferred after first paint so page loads instantly
     setTimeout(() => {
       const cv = canvasRef.current; if (!cv) return;
-      const W = cv.width || window.innerWidth;
-      const H = cv.height || window.innerHeight;
+      const sec2 = cv.parentElement;
+      const W = sec2?.offsetWidth || cv.width || window.innerWidth;
+      const H = sec2?.offsetHeight || cv.height || window.innerHeight;
       const S = 3; // compute at 1/3 size
       const LW = Math.ceil(W/S), LH = Math.ceil(H/S);
       // Low-res offscreen for computation
@@ -716,9 +717,10 @@ function HeroScene({ scrollY, waitlistCount }: {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
-    let W = canvas.width = window.innerWidth;
-    let H = canvas.height = window.innerHeight;
-    const onResize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; };
+    const sec = canvas.parentElement!;
+    let W = canvas.width = sec.offsetWidth || window.innerWidth;
+    let H = canvas.height = sec.offsetHeight || window.innerHeight;
+    const onResize = () => { W = canvas.width = sec.offsetWidth || window.innerWidth; H = canvas.height = sec.offsetHeight || window.innerHeight; };
     window.addEventListener("resize", onResize, { passive: true });
     const onMouse = (e: MouseEvent) => { mouseRef.current = { x: e.clientX / W, y: e.clientY / H }; };
     window.addEventListener("mousemove", onMouse, { passive: true });
@@ -1823,7 +1825,7 @@ export default function LandingPage() {
 
       {/* CTA — cinematic closer */}
       <div ref={ctaRef}>
-        <section style={{ position: "relative", overflow: "hidden", background: "#060608", padding: "140px 24px 120px" }}>
+        <section style={{ position: "relative", overflow: "hidden", background: "#060608", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "clamp(80px,12vh,140px) 24px clamp(60px,10vh,120px)" }}>
           <GalaxySectionBg variant="cta" />
 
           {/* Dense gold particle field — echoes the hero galaxy */}
