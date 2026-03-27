@@ -59,7 +59,7 @@ function conversionRate(a: number, b: number): string {
 
 export default function ProfileOverviewPage() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [capabilities, setCapabilities] = useState<Record<string, boolean>>({});
+  const [capabilities, setCapabilities] = useState<Record<string, number>>({});
   const [stats, setStats] = useState<OutcomeStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [savedLeads, setSavedLeads] = useState<SavedLead[]>([]);
@@ -97,7 +97,14 @@ export default function ProfileOverviewPage() {
             });
           }
           if (data.capabilities?.capabilities) {
-            setCapabilities(data.capabilities.capabilities);
+            const rawCaps = data.capabilities.capabilities as Record<string, unknown>;
+            const migratedCaps = Object.fromEntries(
+              Object.entries(rawCaps).map(([k, v]) => [
+                k,
+                typeof v === "boolean" ? (v ? 100 : 0) : typeof v === "number" ? v : 0,
+              ])
+            );
+            setCapabilities(migratedCaps);
           }
         }
 
@@ -159,11 +166,11 @@ export default function ProfileOverviewPage() {
   };
 
   const activeCapabilities = Object.entries(capabilities)
-    .filter(([, v]) => v)
+    .filter(([, v]) => (v as number) > 0)
     .map(([k]) => k as Capability);
 
   return (
-    <div className="min-h-screen bg-[#080808] text-[#f5f0e8]">
+    <div className="min-h-screen bg-[#080808] text-[#f5f0e8] overflow-x-hidden">
 
       {/* Nav */}
       <nav className="w-full border-b border-[#151515] bg-[#080808]/90 backdrop-blur-md sticky top-0 z-40">
