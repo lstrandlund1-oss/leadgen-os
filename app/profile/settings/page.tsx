@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import HamburgerMenu from "@/app/components/HamburgerMenu";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
+import type { Capability } from "@/lib/fit/needs";
+import { PROFILE_TYPE_DEFINITIONS, PROFILE_TYPE_KEYS, type ProfileTypeKey } from "@/lib/profile/profileTypes";
 
 type Tab = "profile" | "account" | "preferences" | "notifications" | "danger";
 
@@ -15,6 +17,15 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: "account",       label: "Account",       icon: "◇" },
   { key: "danger",        label: "Danger zone",   icon: "△" },
 ];
+
+const ALL_CAPABILITIES: Capability[] = ["ads","tracking","funnel","content","website","seo","crm"];
+const CAPABILITY_LABELS: Record<Capability, string> = {
+  ads: "Paid Ads", tracking: "Analytics & Tracking", funnel: "Funnel Building",
+  content: "Content Creation", website: "Website / Landing Pages", seo: "SEO", crm: "CRM / Follow-up",
+};
+const CAPABILITY_ICONS: Record<Capability, string> = {
+  ads: "📢", tracking: "📊", funnel: "🔻", content: "✍️", website: "🌐", seo: "🔍", crm: "🤝",
+};
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -31,6 +42,12 @@ export default function SettingsPage() {
   const [acquisitionStyle, setAcquisitionStyle] = useState<"volume"|"balanced"|"selective">("balanced");
   const [targetBusinessSize, setTargetBusinessSize] = useState<"small"|"medium"|"large">("small");
   const [language, setLanguage] = useState<"en"|"sv">("en");
+
+  // Capabilities
+  const [profileType, setProfileType] = useState<ProfileTypeKey>("performance_marketer");
+  const [capabilities, setCapabilities] = useState<Record<Capability, number>>({
+    ads: 90, tracking: 80, funnel: 80, content: 20, website: 20, seo: 10, crm: 30,
+  });
 
   // Notification prefs (stored client-side)
   const [notifyFollowup, setNotifyFollowup] = useState(true);
@@ -54,7 +71,11 @@ export default function SettingsPage() {
       profile?: {
         businessName?: string; targetLocation?: string; offerDescription?: string;
         experienceLevel?: string; acquisitionStyle?: string; targetBusinessSize?: string; language?: string;
-      }
+        profileType?: string;
+      };
+      capabilities?: {
+        capabilities?: Record<string, unknown>;
+      };
     }) => {
       if (d.profile) {
         setBusinessName(d.profile.businessName ?? "");
@@ -64,6 +85,14 @@ export default function SettingsPage() {
         setAcquisitionStyle((d.profile.acquisitionStyle as typeof acquisitionStyle) ?? "balanced");
         setTargetBusinessSize((d.profile.targetBusinessSize as typeof targetBusinessSize) ?? "small");
         setLanguage((d.profile.language as typeof language) ?? "en");
+        if (d.profile.profileType) setProfileType((d.profile.profileType as ProfileTypeKey) ?? "performance_marketer");
+      }
+      if (d.capabilities?.capabilities) {
+        const raw = d.capabilities.capabilities as Record<string, unknown>;
+        const migrated = Object.fromEntries(
+          Object.entries(raw).map(([k, v]) => [k, typeof v === "boolean" ? (v ? 100 : 0) : typeof v === "number" ? v : 0])
+        ) as Record<Capability, number>;
+        setCapabilities(migrated);
       }
     }).finally(() => setLoading(false));
 
@@ -83,8 +112,9 @@ export default function SettingsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          businessName, targetLocation, offerDescription: yourOffer,
+          profileType, businessName, targetLocation, offerDescription: yourOffer,
           experienceLevel, acquisitionStyle, targetBusinessSize, language,
+          capabilities,
         }),
       });
       setSaved(true);
@@ -232,6 +262,73 @@ export default function SettingsPage() {
                           </div>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Service Type */}
+                    <div className={sectionClass}>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Service Type</p>
+                        <h2 className="text-[15px] font-semibold text-[#c8c0b0]">What You Offer</h2>
+                        <p className="text-[12px] text-[#444] mt-1">Shapes how leads are scored and matched to your capabilities.</p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                        {PROFILE_TYPE_KEYS.map((key) => {
+                          const def = PROFILE_TYPE_DEFINITIONS[key];
+                          const isActive = profileType === key;
+                          return (
+                            <button key={key} type="button"
+                              onClick={() => {
+                                setProfileType(key);
+                                const defaults = def.defaultCapabilities as Record<Capability, number>;
+                                setCapabilities(Object.fromEntries(
+                                  Object.entries(defaults).map(([k, v]) => [k, typeof v === "boolean" ? (v ? 100 : 0) : v])
+                                ) as Record<Capability, number>);
+                              }}
+                              className={"text-left p-3.5 rounded-xl border transition-all " + (isActive ? "border-[#c9a84c] bg-[rgba(201,168,76,0.06)] text-[#f5f0e8]" : "border-[#1a1a1a] bg-[#080808] text-[#555] hover:border-[#333]")}>
+                              <p className="text-[13px] font-semibold">{def.label}</p>
+                              <p className="text-[11px] text-[#555] mt-0.5 leading-relaxed">{def.description}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Capability Depths */}
+                    <div className={sectionClass}>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Capabilities</p>
+                        <h2 className="text-[15px] font-semibold text-[#c8c0b0]">Capability Depths</h2>
+                        <p className="text-[12px] text-[#444] mt-1">
+                          0 = not offered · 100 = core specialisation. A specialist with deep focus scores higher than a generalist on leads that need that specific skill.
+                        </p>
+                      </div>
+                      <div className="space-y-4">
+                        {ALL_CAPABILITIES.map((cap) => {
+                          const depth = capabilities[cap] ?? 0;
+                          const isStrong = depth >= 70;
+                          const isActive = depth > 0;
+                          const depthLabel = depth === 0 ? "Not offered" : depth < 30 ? "Light" : depth < 60 ? "Capable" : depth < 80 ? "Strong" : "Specialist";
+                          return (
+                            <div key={cap} className="space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <span className={"flex items-center gap-2 text-[12px] font-medium " + (isStrong ? "text-[#c9a84c]" : isActive ? "text-[#f5f0e8]" : "text-[#444]")}>
+                                  <span>{CAPABILITY_ICONS[cap]}</span>
+                                  <span>{CAPABILITY_LABELS[cap]}</span>
+                                </span>
+                                <span className="text-[11px] tabular-nums">
+                                  {depth > 0 && <span className="text-[#555]">{depthLabel} · </span>}
+                                  <span className={isStrong ? "text-[#c9a84c]" : "text-[#444]"}>{depth}%</span>
+                                </span>
+                              </div>
+                              <input type="range" min={0} max={100} step={5} value={depth}
+                                onChange={(e) => setCapabilities(c => ({ ...c, [cap]: Number(e.target.value) }))}
+                                className={"w-full h-1.5 rounded-full appearance-none bg-[#1a1a1a] cursor-pointer " + (isStrong ? "accent-[#c9a84c]" : isActive ? "accent-emerald-400" : "accent-[#333]")}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[11px] text-[#333] pt-1">Tip — one or two capabilities at 80%+ gets a specialist bonus on leads where those are the primary need.</p>
                     </div>
 
                     <button type="button" onClick={saveProfile} disabled={saving}
