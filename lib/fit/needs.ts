@@ -30,10 +30,15 @@ export type DerivedNeeds = {
  * If your V2 signal unions change, update these arrays.
  */
 const WORKTYPE_CODES = new Set<string>([
+  // Original codes
   "untapped_attention",
   "conversion_gap",
   "scaling_ready",
   "underexposed_quality",
+  // v2 codes from detectSignalsV2 (opportunitySignals.ts)
+  "trust_gap_no_website",
+  "conversion_gap_no_website",
+  "content_gap_low_social",
 ]);
 
 const RESISTANCE_CODES = new Set<string>([
@@ -186,20 +191,23 @@ export function deriveNeedsFromSignals(args: {
     }
 
     if (code === "underexposed_quality") {
-      addNeed(
-        needs,
-        reasons,
-        "ads",
-        4,
-        "Underexposed quality → ads to increase visibility.",
-      );
-      addNeed(
-        needs,
-        reasons,
-        "content",
-        4,
-        "Underexposed quality → content to build attention.",
-      );
+      addNeed(needs, reasons, "ads", 4, "Underexposed quality → ads to increase visibility.");
+      addNeed(needs, reasons, "content", 4, "Underexposed quality → content to build attention.");
+    }
+
+    // v2 codes from detectSignalsV2
+    if (code === "trust_gap_no_website" || code === "conversion_gap_no_website") {
+      addNeed(needs, reasons, "website", 5, "No website → foundation needed first.");
+      addNeed(needs, reasons, "funnel", 4, "No website → funnel/capture system needed.");
+      if (code === "conversion_gap_no_website") {
+        addNeed(needs, reasons, "ads", 4, "Strong reputation + no website → ads to drive traffic once live.");
+        addNeed(needs, reasons, "tracking", 4, "Conversion gap → tracking to measure impact.");
+      }
+    }
+
+    if (code === "content_gap_low_social") {
+      addNeed(needs, reasons, "content", 5, "High demand but low social → content engine needed.");
+      addNeed(needs, reasons, "ads", 4, "Content gap → ads to amplify reach.");
     }
   }
 

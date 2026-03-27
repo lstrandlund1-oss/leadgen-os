@@ -39,9 +39,11 @@ import type {
 } from "@/lib/types";
 import { scoreOpportunity } from "@/lib/scoring/opportunity";
 import { bucketOpportunity } from "@/lib/scoring/buckets";
-import { buildCategoryScores } from "@/lib/scoring/categoryScores";
+import { buildCategoryScores, getAbilityToPayScore, getApproachabilityScore } from "@/lib/scoring/categoryScores";
 import { classifyBusinessCondition } from "@/lib/scoring/businessCondition";
 import { computeUniversalScore } from "@/lib/scoring/universalScore";
+
+function clamp100(n: number): number { return Math.max(0, Math.min(100, n)); }
 
 type RawRow = {
   id: number;
@@ -705,8 +707,33 @@ export async function GET(
           classificationConfidence: lead.classification.confidence ?? null,
         });
 
+        // ── Recompute composite value using the final opportunity score ──────
+        // closeOpp.opportunity is the richest signal we have — it accounts for
+        // gap type, proof, risk, and fit. We use it to recompute the final value
+        // so the displayed score reflects the full picture, not just categoryScores.
+        const finalOppScale = (closeOpp.opportunity / 100) * 0.70 + 0.30;
+        const rawFitForFinal = clamp100(fit.fitScore ?? 50);
+        const fitForFinal = clamp100(Math.round(rawFitForFinal * finalOppScale));
+        const abilityToPayFinal = getAbilityToPayScore({
+          rating: lead.metrics.rating ?? 0,
+          reviews: lead.metrics.reviewCount ?? 0,
+          hasWebsite: pitchContext.hasWebsite,
+        });
+        const approachFinal = getApproachabilityScore(reRiskProfile);
+        let finalValue = clamp100(Math.round(
+          closeOpp.opportunity * 0.40 +
+          fitForFinal          * 0.28 +
+          abilityToPayFinal    * 0.18 +
+          approachFinal        * 0.14
+        ));
+        // Hard caps
+        if (reRiskProfile === "unstable_business") finalValue = Math.min(finalValue, 22);
+        if (reRiskProfile === "mature_competitor" && closeOpp.opportunity <= 15) finalValue = Math.min(finalValue, 32);
+
         lead.score = {
           ...lead.score,
+          value:       finalValue,
+          priority:    finalValue,
           opportunity: closeOpp.opportunity,
         };
 
