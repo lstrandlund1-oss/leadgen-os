@@ -484,7 +484,6 @@ async function runProviderSearchAndFetchLeads(args: {
   const timeoutId = setTimeout(() => timeoutController.abort(), 30000);
 
   // Expand niche into synonym queries (e.g. "mäklare" → ["mäklare", "real estate"])
-  // Only expand on first page (no cursor) to avoid doubling paginated requests
   const searchQueries = cursor ? [niche] : getSearchQueries(niche);
   const primaryQuery = searchQueries[0];
   const expandedQueries = searchQueries.slice(1);
@@ -519,13 +518,11 @@ async function runProviderSearchAndFetchLeads(args: {
     .json()
     .catch(() => ({}))) as ProviderSearchResponse;
   const runId = typeof searchData.runId === "number" ? searchData.runId : null;
-  // Expose cache metadata for UI badge
   const _cacheInfo = (searchData.summary as Record<string, unknown> | null) ?? null;
 
   if (!runId) return null;
 
   // ── Auto-paginate: fetch up to 2 additional pages automatically on first load ──
-  // Gets 40–60 results instead of 20 without requiring the user to click "Load more".
   let finalNextCursor = searchData.nextCursor ?? null;
   let finalExhausted = searchData.exhausted ?? false;
 
@@ -558,23 +555,17 @@ async function runProviderSearchAndFetchLeads(args: {
   ).catch(() => null);
   if (!leadsRes?.ok) return null;
 
-  const leadsData = (await leadsRes
-    .json()
-    .catch(() => ({}))) as RunLeadsResponse;
+  const leadsData = (await leadsRes.json().catch(() => ({}))) as RunLeadsResponse;
   const incoming = (leadsData?.leads ?? null) as unknown;
   const primaryLeads: LeadUI[] = Array.isArray(incoming) ? (incoming as LeadUI[]) : [];
 
   // ── Synonym expansion + city zone grid ──────────────────────────────────
-  // Zone expansion fires when results are thin (<15) so we cover the whole city.
   let expandedLeads: LeadUI[] = [];
-
   const zoneQueries: string[] = [];
   if (!cursor && primaryLeads.length < 15 && locationText) {
     const zones = getCityZones(locationText);
     if (zones.length > 1) {
-      const zonesExcludingBase = zones.filter(
-        (z) => z.toLowerCase() !== locationText.toLowerCase()
-      );
+      const zonesExcludingBase = zones.filter(z => z.toLowerCase() !== locationText.toLowerCase());
       zoneQueries.push(...zonesExcludingBase.slice(0, 3));
     }
   }
@@ -590,14 +581,7 @@ async function runProviderSearchAndFetchLeads(args: {
         const res = await fetch("/api/providers/search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            provider,
-            query: q,
-            country: "Sweden",
-            location: loc,
-            socialPresence: socialPresence,
-            limit: 20,
-          }),
+          body: JSON.stringify({ provider, query: q, country: "Sweden", location: loc, socialPresence, limit: 20 }),
         }).catch(() => null);
         if (!res?.ok) return [];
         const data = (await res.json().catch(() => ({}))) as ProviderSearchResponse;
@@ -616,12 +600,8 @@ async function runProviderSearchAndFetchLeads(args: {
     }
   }
 
-  // Deduplicate: by sourceId first, then name fallback
-  const seenIds = new Set(
-    primaryLeads
-      .map((l: LeadUI) => (l as LeadUI & { sourceId?: string }).sourceId)
-      .filter(Boolean)
-  );
+  // Deduplicate by sourceId first, name fallback
+  const seenIds = new Set(primaryLeads.map((l: LeadUI) => (l as LeadUI & { sourceId?: string }).sourceId).filter(Boolean));
   const seenNames = new Set(primaryLeads.map((l: LeadUI) => l.company.name.toLowerCase()));
   const uniqueExpanded = expandedLeads.filter((l: LeadUI) => {
     const srcId = (l as LeadUI & { sourceId?: string }).sourceId;
@@ -792,9 +772,19 @@ export default function Home() {
   const [area, setArea] = useState(() => {
     try { const p = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}"); return typeof p.area === "string" ? p.area : ""; } catch { return ""; }
   });
-  const [socialPresence, setSocialPresence] = useState<SocialPresenceFilter>("any"); // filter removed from UI
+  const [socialPresence, setSocialPresence] = useState<SocialPresenceFilter>(() => {
+    if (typeof window === "undefined") return "any";
+    try {
+      const p = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}");
+      const v = p.socialPresence;
+      return (v === "low" || v === "medium" || v === "high" || v === "") ? v : "any";
+    } catch { return "any"; }
+  });
 
   const [leads, setLeads] = useState<LeadUI[]>([]);
+  // Stable display order — set once when a search completes, never changes
+  // until a new search runs. Prevents lead selection/rescore from reordering the list.
+  const [stableOrder, setStableOrder] = useState<Map<string, number>>(new Map());
   const [sortBy, setSortBy] = useState<
     "score" | "opportunity" | "risk" | "confidence" | "fit"
   >("score");
@@ -891,6 +881,8 @@ export default function Home() {
         for (const lead of more.leads) {
           if (!seen.has(lead.id)) merged.push(lead);
         }
+        // Extend stable order with newly appended leads
+        setStableOrder(new Map(merged.map((l: LeadUI, i: number) => [l.id, i])));
         return merged;
       });
     } finally {
@@ -1100,6 +1092,18 @@ export default function Home() {
   const sortedLeads = useMemo(() => {
     const arr = [...filteredLeads];
 
+    // If we have a stable order from the last search and the user hasn't explicitly
+    // changed sort criteria, use it. This prevents score updates (from deep scan
+    // restore or enrichment) from reordering the list while the user is reading a lead.
+    if (stableOrder.size > 0 && sortBy === "score") {
+      arr.sort((a: LeadUI, b: LeadUI) => {
+        const ai = stableOrder.get(a.id) ?? 9999;
+        const bi = stableOrder.get(b.id) ?? 9999;
+        return ai - bi;
+      });
+      return arr;
+    }
+
     arr.sort((a: LeadUI, b: LeadUI) => {
       if (sortBy === "confidence") {
         return (
@@ -1132,7 +1136,7 @@ export default function Home() {
     });
 
     return arr;
-  }, [filteredLeads, sortBy]);
+  }, [filteredLeads, sortBy, stableOrder]);
 
   const LEADS_PER_PAGE = 20;
   const [currentPage, setCurrentPage] = useState(1);
@@ -1542,6 +1546,8 @@ export default function Home() {
 
       if (providerLeads !== null) {
         setLeads(providerLeads.leads);
+        // Freeze the display order at search time — score updates won't reorder
+        setStableOrder(new Map(providerLeads.leads.map((l: LeadUI, i: number) => [l.id, i])));
         setRunId(providerLeads.runId);
         setNextCursor(providerLeads.nextCursor);
         setExhausted(providerLeads.exhausted);
@@ -1804,9 +1810,7 @@ export default function Home() {
             {/* Row 1: Niche + City */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1 relative">
-                <label className="block text-sm font-medium">
-                  {t.ui.filters.nicheLabel}
-                </label>
+                <label className="block text-sm font-medium">{t.ui.filters.nicheLabel}</label>
                 <input
                   type="text"
                   value={niche}
@@ -1822,8 +1826,7 @@ export default function Home() {
                     {recentSearches.slice(0, 5).map((s: SearchRecord, i: number) => (
                       <button key={i} type="button"
                         onMouseDown={() => { setNiche(s.niche || ""); setLocation(s.location || ""); setShowNicheDropdown(false); }}
-                        className="w-full text-left px-3 py-2 text-[12px] text-[#888] hover:bg-[#1a1a1a] hover:text-[#c8c0b0] transition-colors flex items-center justify-between"
-                      >
+                        className="w-full text-left px-3 py-2 text-[12px] text-[#888] hover:bg-[#1a1a1a] hover:text-[#c8c0b0] transition-colors flex items-center justify-between">
                         <span>{s.niche || "—"}</span>
                         <span className="text-[#444]">{s.location || ""}</span>
                       </button>
@@ -1831,7 +1834,6 @@ export default function Home() {
                   </div>
                 )}
               </div>
-
               <div className="space-y-1 relative">
                 <label className="block text-sm font-medium">City</label>
                 <input
@@ -1849,8 +1851,7 @@ export default function Home() {
                     {recentSearches.slice(0, 5).map((s: SearchRecord, i: number) => (
                       <button key={i} type="button"
                         onMouseDown={() => { setNiche(s.niche || ""); setLocation(s.location || ""); setShowLocationDropdown(false); }}
-                        className="w-full text-left px-3 py-2 text-[12px] text-[#888] hover:bg-[#1a1a1a] hover:text-[#c8c0b0] transition-colors flex items-center justify-between"
-                      >
+                        className="w-full text-left px-3 py-2 text-[12px] text-[#888] hover:bg-[#1a1a1a] hover:text-[#c8c0b0] transition-colors flex items-center justify-between">
                         <span>{s.location || "—"}</span>
                         <span className="text-[#444]">{s.niche || ""}</span>
                       </button>
@@ -1859,7 +1860,6 @@ export default function Home() {
                 )}
               </div>
             </div>
-
             {/* Row 2: Area + Generate button */}
             <div className="grid grid-cols-2 gap-4 items-end">
               <div className="space-y-1">
@@ -1874,15 +1874,12 @@ export default function Home() {
                   className="w-full rounded-lg bg-[#111111] border border-[#2a2a2a] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(201,168,76,0.5)]"
                 />
               </div>
-
               <button
                 type="submit"
                 disabled={isLoading}
                 className="w-full inline-flex items-center justify-center rounded-lg bg-[#c9a84c] text-[#080808] hover:bg-[#e8c97a] disabled:bg-[rgba(201,168,76,0.1)] disabled:text-[#666] px-6 py-2.5 text-sm font-semibold tracking-wide transition-all shadow-lg shadow-[rgba(201,168,76,0.15)]"
               >
-                {isLoading
-                  ? t.ui.filters.generatingButton
-                  : t.ui.filters.generateButton}
+                {isLoading ? t.ui.filters.generatingButton : t.ui.filters.generateButton}
               </button>
             </div>
           </form>
@@ -2820,7 +2817,11 @@ export default function Home() {
                                           )}
                                         </div>
                                         <div className="flex items-center gap-3">
-                                          <span className="text-2xl font-bold text-[#c9a84c]">{deepScanData.deepScore}</span>
+                                          {deepScanData.pageReachable ? (
+                                            <span className="text-2xl font-bold text-[#c9a84c]">{deepScanData.deepScore}</span>
+                                          ) : (
+                                            <span className="text-2xl font-bold text-[#444]">—</span>
+                                          )}
                                           {deepScanData.isFromCache && (
                                             <button
                                               type="button"
@@ -2835,31 +2836,38 @@ export default function Home() {
                                       )}
                                     </div>
 
-                                    {/* Website scores */}
-                                    <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                                      <div className="flex items-center justify-between">
-                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Website</p>
-                                        {deepScanData.website.summary && (
-                                          <p className="text-[10px] text-[#444] max-w-[60%] text-right truncate">{deepScanData.website.summary}</p>
-                                        )}
+                                    {/* Website scores — only show if page was actually reachable */}
+                                    {deepScanData.pageReachable ? (
+                                      <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Website</p>
+                                          {deepScanData.website.summary && (
+                                            <p className="text-[10px] text-[#444] max-w-[60%] text-right truncate">{deepScanData.website.summary}</p>
+                                          )}
+                                        </div>
+                                        {Object.entries(deepScanData.website.scores).map(([key, val]) => {
+                                          const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (s: string) => s.toUpperCase());
+                                          const score = val as number;
+                                          const color = score >= 65 ? "#4ade80" : score >= 35 ? "#c9a84c" : "#f87171";
+                                          return (
+                                            <div key={key} className="space-y-1">
+                                              <div className="flex items-center justify-between">
+                                                <p className="text-[11px] text-[#888]">{label}</p>
+                                                <p className="text-[12px] font-bold tabular-nums" style={{ color }}>{val}</p>
+                                              </div>
+                                              <div className="h-1.5 w-full rounded-full bg-[#1a1a1a]">
+                                                <div className="h-full rounded-full transition-all duration-700" style={{ width: `${val}%`, backgroundColor: color }} />
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
                                       </div>
-                                      {Object.entries(deepScanData.website.scores).map(([key, val]) => {
-                                        const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (s: string) => s.toUpperCase());
-                                        const score = val as number;
-                                        const color = score >= 65 ? "#4ade80" : score >= 35 ? "#c9a84c" : "#f87171";
-                                        return (
-                                          <div key={key} className="space-y-1">
-                                            <div className="flex items-center justify-between">
-                                              <p className="text-[11px] text-[#888]">{label}</p>
-                                              <p className="text-[12px] font-bold tabular-nums" style={{ color }}>{val}</p>
-                                            </div>
-                                            <div className="h-1.5 w-full rounded-full bg-[#1a1a1a]">
-                                              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${val}%`, backgroundColor: color }} />
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
+                                    ) : (
+                                      <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4">
+                                        <p className="text-[10px] uppercase tracking-widest text-[#555] mb-1">Website</p>
+                                        <p className="text-[12px] text-[#444]">No website — page scores not applicable.</p>
+                                      </div>
+                                    )}
 
                                     {/* Market signals */}
                                     <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
