@@ -622,6 +622,7 @@ export async function GET(
           fitScore: fit.fitScore,
           matchedNeeds: fit.matchedNeeds,
           missingNeeds: fit.missingNeeds,
+          partialNeeds: fit.partialNeeds ?? [],
           geoMatch: fit.geoMatch,
 
           // merged reasoning layer (this is your real asset)
