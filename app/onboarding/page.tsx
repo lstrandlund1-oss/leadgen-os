@@ -109,8 +109,8 @@ export default function OnboardingPage() {
     "performance_marketer",
   );
   const [businessName, setBusinessName] = useState("");
-  const [capabilities, setCapabilities] = useState<Record<Capability, boolean>>(
-    PROFILE_TYPE_DEFINITIONS["performance_marketer"].defaultCapabilities,
+  const [capabilities, setCapabilities] = useState<Record<Capability, number>>(
+    PROFILE_TYPE_DEFINITIONS["performance_marketer"].defaultCapabilities as Record<Capability, number>,
   );
   const [experienceLevel, setExperienceLevel] = useState<
     "beginner" | "intermediate" | "advanced"
@@ -325,13 +325,13 @@ export default function OnboardingPage() {
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {ALL_CAPABILITIES.map((cap) => {
-                  const active = !!capabilities[cap];
+                  const active = (capabilities[cap] ?? 0) > 0;
                   return (
                     <button
                       key={cap}
                       type="button"
                       onClick={() =>
-                        setCapabilities((c: Record<Capability, boolean>) => ({
+                        setCapabilities((c: Record<Capability, number>) => ({
                           ...c,
                           [cap]: !c[cap],
                         }))
