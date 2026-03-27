@@ -63,7 +63,12 @@ export function computeUniversalScore(input: {
   const approachability = getApproachabilityScore(input.riskProfile);
 
   // fitAlignment: from fit score (0-100), default 50 if not provided
-  const fitAlignment = clamp(input.fitScore ?? (input.isGoodFit ? 70 : 45));
+  // Cap: when opportunityGap is very low (<20), a perfect fit is still a bad lead —
+  // there's nothing to sell. Scale fitAlignment contribution down proportionally
+  // so "everything matches" doesn't save a lead with no detectable gap.
+  const rawFitAlignment = clamp(input.fitScore ?? (input.isGoodFit ? 70 : 45));
+  const opportunityScale = clamp(s.opportunityGap / 100) * 0.7 + 0.3; // 0.3–1.0 multiplier
+  const fitAlignment = clamp(round(rawFitAlignment * opportunityScale));
 
   // Composite
   let value = clamp(round(

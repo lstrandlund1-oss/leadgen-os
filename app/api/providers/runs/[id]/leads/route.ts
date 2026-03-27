@@ -30,7 +30,7 @@ import {
   inferSellerType,
 } from "@/lib/outreach/generateScript";
 // ✅ NEW: Fit layer imports (typed, deterministic, no TS union fights)
-import { deriveNeedsFromSignals } from "@/lib/fit/needs";
+import { deriveNeedsFromSignals, deriveNeedsForLead } from "@/lib/fit/needs";
 import { scoreFit, type FitResult } from "@/lib/fit/fitScore";
 import type {
   RiskProfile,
@@ -39,6 +39,9 @@ import type {
 } from "@/lib/types";
 import { scoreOpportunity } from "@/lib/scoring/opportunity";
 import { bucketOpportunity } from "@/lib/scoring/buckets";
+import { buildCategoryScores } from "@/lib/scoring/categoryScores";
+import { classifyBusinessCondition } from "@/lib/scoring/businessCondition";
+import { computeUniversalScore } from "@/lib/scoring/universalScore";
 
 type RawRow = {
   id: number;
@@ -587,11 +590,28 @@ export async function GET(
         lead.opportunitySignals = toLegacySignals(workTypes, resistances);
         lead.primaryInsight = toLegacyPrimaryInsightFromWorkType(primaryWork);
 
-        // ✅ Fit: derive needs from signals, then score vs ads specialist profile
-        const { needs, reasons: needReasons } = deriveNeedsFromSignals({
+        // ✅ Fit: derive needs from signals, then score vs user profile
+        // PRIMARY: derive from detected work/resistance signals
+        const { needs: signalNeeds, reasons: needReasons } = deriveNeedsFromSignals({
           workTypes,
           resistances,
         });
+
+        // FALLBACK: when signal detection returns no needs (common at base-ingest stage
+        // before enrichment has run), fall back to industry + raw facts baseline.
+        // This prevents every lead from getting a flat fitScore=50 due to empty needs.
+        const primaryIndustry = classification.primaryIndustry ?? "other";
+        const hasWebsiteForFit = !!(website && website.trim().length > 0);
+        const needs =
+          signalNeeds.length > 0
+            ? signalNeeds
+            : deriveNeedsForLead({
+                primaryIndustry,
+                hasWebsite: hasWebsiteForFit,
+                socialPresence: computedPresence,
+                workTypes,
+                resistances,
+              }).needs;
 
         const fit = scoreFit(activeProfile, activeCapabilities, needs, {
           city: lead.company.city,
@@ -608,7 +628,48 @@ export async function GET(
           reasons: [...fit.reasons, ...needReasons],
         };
 
-        lead.score = normalizeScore(lead.score);
+        // ── Re-run composite score with the real fitScore ──────────────────
+        // Without this, the composite value uses fitScore=50 (neutral default)
+        // which collapses all scores toward the same range.
+        const reBuildCs = buildCategoryScores({
+          rating,
+          reviews,
+          hasWebsite: hasWebsiteForFit,
+          socialPresence: computedPresence,
+          classificationConfidence01:
+            typeof classification.confidence === "number"
+              ? Math.max(0, Math.min(1, classification.confidence / 100))
+              : null,
+        });
+
+        const reRiskProfile = classifyBusinessCondition({
+          scores: reBuildCs,
+          isGoodFit: fit.fitScore >= 60,
+          hasWebsite: hasWebsiteForFit,
+          socialPresence: computedPresence,
+          reviews,
+          rating,
+        });
+
+        const reUniversal = computeUniversalScore({
+          scores: reBuildCs,
+          riskProfile: reRiskProfile,
+          isGoodFit: fit.fitScore >= 60,
+          classificationConfidence: classification.confidence ?? null,
+          fitScore: fit.fitScore,
+          rating,
+          reviews,
+          hasWebsite: hasWebsiteForFit,
+        });
+
+        lead.score = {
+          ...normalizeScore(lead.score),
+          value:       reUniversal.value,
+          readiness:   reUniversal.readiness,
+          risk:        reUniversal.risk,
+          riskProfile: reRiskProfile,
+          breakdown:   reBuildCs,
+        };
 
         const pitchContext = {
           hasWebsite: Boolean(lead.company.website),

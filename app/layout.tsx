@@ -4,7 +4,8 @@ import { Cormorant_Garamond, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "./components/ToastProvider";
 import { ThemeProvider } from "./components/ThemeProvider";
-import SupportChatWrapper from "./components/SupportChatWrapper";
+// SupportChat removed — /chat not yet built, will be re-enabled in a future release
+
 
 const cormorant = Cormorant_Garamond({
   variable: "--font-display",
@@ -72,7 +73,6 @@ export default function RootLayout({
         <ThemeProvider>
           <ToastProvider>
             {children}
-            <SupportChatWrapper />
           </ToastProvider>
         </ThemeProvider>
       </body>

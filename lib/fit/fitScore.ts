@@ -124,10 +124,18 @@ export function scoreFit(
 
   const baseFitScore =
     totalWeight > 0 ? Math.round((matchedWeight / totalWeight) * 100) : 50;
+
+  // Specificity signal: reward leads where there are more, heavier matched needs.
+  // Without this, a full-service agency (all caps true) scores 100 on every lead,
+  // making fitAlignment a flat constant across all results.
+  // Formula: bonus proportional to matched weight density (max +10).
+  const matchedWeightDensity = totalWeight > 0 ? matchedWeight / (totalWeight + 5) : 0;
+  const specificityBonus = Math.round(matchedWeightDensity * 10);
+
   const geo = scoreGeo(userProfile.targetLocation, leadLocation?.city, leadLocation?.country);
   const finalFitScore = Math.max(
     0,
-    Math.min(100, baseFitScore + profileModifier + geo.modifier),
+    Math.min(100, baseFitScore + profileModifier + geo.modifier + specificityBonus),
   );
 
   const reasons: string[] = [];

@@ -61,3 +61,40 @@ export function getSearchQueries(raw: string): string[] {
   // and: "real estate" → ["real estate"] (already canonical)
   return [cleaned, canonical];
 }
+/**
+ * City zone suffixes for grid-based coverage.
+ * For a given city, returns sub-location strings that cover different
+ * geographic zones so a single 20-result cap doesn't miss half the city.
+ * Returns [] for unknown cities (falls back to plain city search).
+ */
+const CITY_ZONES: Record<string, string[]> = {
+  stockholm:   ["stockholm city", "stockholm south", "stockholm west", "stockholm north", "stockholm east"],
+  göteborg:    ["göteborg centrum", "göteborg hisingen", "göteborg majorna", "göteborg öster"],
+  gothenburg:  ["gothenburg city centre", "gothenburg hisingen", "gothenburg south"],
+  malmö:       ["malmö centrum", "malmö söder", "malmö hyllie"],
+  malmo:       ["malmo city centre", "malmo south"],
+  london:      ["london city", "london east", "london west", "london north", "london south"],
+  manchester:  ["manchester city centre", "manchester north", "manchester south"],
+  berlin:      ["berlin mitte", "berlin west", "berlin east", "berlin north"],
+  paris:       ["paris 1er", "paris 8eme", "paris 15eme", "paris 20eme"],
+  amsterdam:   ["amsterdam centrum", "amsterdam west", "amsterdam oost"],
+  oslo:        ["oslo sentrum", "oslo east", "oslo west"],
+  copenhagen:  ["copenhagen city", "copenhagen north", "copenhagen south"],
+  helsinki:    ["helsinki city centre", "helsinki east", "helsinki west"],
+};
+
+/**
+ * Returns location strings covering different zones of a city,
+ * or [location] if the city is unknown.
+ * Used to fan out parallel searches and union results when a single
+ * query returns fewer than ~15 results (Google Places 20-result cap).
+ */
+export function getCityZones(location: string): string[] {
+  const normalised = location.trim().toLowerCase();
+  const zones = CITY_ZONES[normalised];
+  if (zones) return zones;
+  for (const [city, cityZones] of Object.entries(CITY_ZONES)) {
+    if (normalised.includes(city)) return cityZones;
+  }
+  return [location.trim()];
+}

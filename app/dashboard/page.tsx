@@ -11,7 +11,7 @@ import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import type { TranslationSchema as Translations } from "@/lib/i18n/types";
 import type { SocialPresenceFilter } from "@/lib/providers/types";
 import { useToast } from "../components/ToastProvider";
-import { getSearchQueries } from "@/lib/niche/synonyms";
+import { getSearchQueries, getCityZones } from "@/lib/niche/synonyms";
 import { rescoreWithLightSignals } from "@/lib/scoring/rescoreWithSignals";
 
 const STORAGE_KEY = "vantio_state_v1";
@@ -499,7 +499,7 @@ async function runProviderSearchAndFetchLeads(args: {
       country: "Sweden",
       location: locationText || undefined,
       socialPresence: socialPresence,
-      limit: 25,
+      limit: 20,
       ...(runIdArg != null ? { runId: runIdArg } : {}),
       ...(cursor != null ? { cursor } : {}),
       forceRefresh: args.forceRefresh ?? false,
@@ -524,9 +524,38 @@ async function runProviderSearchAndFetchLeads(args: {
 
   if (!runId) return null;
 
-  const leadsRes = await fetch(`/api/providers/runs/${runId}/leads`).catch(
-    () => null,
-  );
+  // ── Auto-paginate: fetch up to 2 additional pages automatically on first load ──
+  // Gets 40–60 results instead of 20 without requiring the user to click "Load more".
+  let finalNextCursor = searchData.nextCursor ?? null;
+  let finalExhausted = searchData.exhausted ?? false;
+
+  if (!cursor && finalNextCursor && !finalExhausted) {
+    let pagesRemaining = 2;
+    while (pagesRemaining > 0 && finalNextCursor && !finalExhausted) {
+      const pageRes = await fetch("/api/providers/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider,
+          query: primaryQuery,
+          country: "Sweden",
+          location: locationText || undefined,
+          socialPresence: socialPresence,
+          limit: 20,
+          cursor: finalNextCursor,
+        }),
+      }).catch(() => null);
+      if (!pageRes?.ok) break;
+      const pageData = (await pageRes.json().catch(() => ({}))) as ProviderSearchResponse;
+      finalNextCursor = pageData.nextCursor ?? null;
+      finalExhausted = pageData.exhausted ?? finalNextCursor === null;
+      pagesRemaining--;
+    }
+  }
+
+  const leadsRes = await fetch(
+    `/api/providers/runs/${runId}/leads?${locationText ? `location=${encodeURIComponent(locationText)}&` : ""}${niche ? `niche=${encodeURIComponent(niche)}` : ""}`
+  ).catch(() => null);
   if (!leadsRes?.ok) return null;
 
   const leadsData = (await leadsRes
@@ -535,12 +564,29 @@ async function runProviderSearchAndFetchLeads(args: {
   const incoming = (leadsData?.leads ?? null) as unknown;
   const primaryLeads: LeadUI[] = Array.isArray(incoming) ? (incoming as LeadUI[]) : [];
 
-  // ── Synonym expansion: fire secondary searches in parallel ──────────────
-  // e.g. if user searched "mäklare", also search "real estate" and merge
+  // ── Synonym expansion + city zone grid ──────────────────────────────────
+  // Zone expansion fires when results are thin (<15) so we cover the whole city.
   let expandedLeads: LeadUI[] = [];
-  if (expandedQueries.length > 0) {
+
+  const zoneQueries: string[] = [];
+  if (!cursor && primaryLeads.length < 15 && locationText) {
+    const zones = getCityZones(locationText);
+    if (zones.length > 1) {
+      const zonesExcludingBase = zones.filter(
+        (z) => z.toLowerCase() !== locationText.toLowerCase()
+      );
+      zoneQueries.push(...zonesExcludingBase.slice(0, 3));
+    }
+  }
+
+  const allSecondaryQueries = [
+    ...expandedQueries.map((q) => ({ query: q, location: locationText || undefined })),
+    ...zoneQueries.map((zone) => ({ query: primaryQuery, location: zone })),
+  ];
+
+  if (allSecondaryQueries.length > 0) {
     const secondaryResults = await Promise.allSettled(
-      expandedQueries.map(async (q) => {
+      allSecondaryQueries.map(async ({ query: q, location: loc }) => {
         const res = await fetch("/api/providers/search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -548,16 +594,18 @@ async function runProviderSearchAndFetchLeads(args: {
             provider,
             query: q,
             country: "Sweden",
-            location: locationText || undefined,
+            location: loc,
             socialPresence: socialPresence,
-            limit: 25,
+            limit: 20,
           }),
         }).catch(() => null);
         if (!res?.ok) return [];
         const data = (await res.json().catch(() => ({}))) as ProviderSearchResponse;
         const secRunId = typeof data.runId === "number" ? data.runId : null;
         if (!secRunId) return [];
-        const secLeadsRes = await fetch(`/api/providers/runs/${secRunId}/leads`).catch(() => null);
+        const secLeadsRes = await fetch(
+          `/api/providers/runs/${secRunId}/leads?${loc ? `location=${encodeURIComponent(loc)}&` : ""}niche=${encodeURIComponent(q)}`
+        ).catch(() => null);
         if (!secLeadsRes?.ok) return [];
         const secLeadsData = (await secLeadsRes.json().catch(() => ({}))) as RunLeadsResponse;
         return Array.isArray(secLeadsData?.leads) ? (secLeadsData.leads as LeadUI[]) : [];
@@ -568,16 +616,25 @@ async function runProviderSearchAndFetchLeads(args: {
     }
   }
 
-  // Deduplicate by company name (case-insensitive) — primary results take precedence
+  // Deduplicate: by sourceId first, then name fallback
+  const seenIds = new Set(
+    primaryLeads
+      .map((l: LeadUI) => (l as LeadUI & { sourceId?: string }).sourceId)
+      .filter(Boolean)
+  );
   const seenNames = new Set(primaryLeads.map((l: LeadUI) => l.company.name.toLowerCase()));
-  const uniqueExpanded = expandedLeads.filter((l: LeadUI) => !seenNames.has(l.company.name.toLowerCase()));
+  const uniqueExpanded = expandedLeads.filter((l: LeadUI) => {
+    const srcId = (l as LeadUI & { sourceId?: string }).sourceId;
+    if (srcId && seenIds.has(srcId)) return false;
+    return !seenNames.has(l.company.name.toLowerCase());
+  });
   const allLeads = [...primaryLeads, ...uniqueExpanded];
 
   return {
     runId,
     leads: allLeads,
-    nextCursor: searchData.nextCursor ?? null,
-    exhausted: searchData.exhausted ?? false,
+    nextCursor: finalNextCursor,
+    exhausted: finalExhausted,
     cached: (_cacheInfo?.cached as boolean) ?? false,
     ageDays: (_cacheInfo?.ageDays as number) ?? 0,
     cachedAt: (_cacheInfo?.cachedAt as string) ?? null,
