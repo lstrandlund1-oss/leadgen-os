@@ -789,7 +789,9 @@ export default function Home() {
   });
   const [showNicheDropdown, setShowNicheDropdown] = useState(false);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
-  const [area, setArea] = useState("");
+  const [area, setArea] = useState(() => {
+    try { const p = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}"); return typeof p.area === "string" ? p.area : ""; } catch { return ""; }
+  });
   const [socialPresence, setSocialPresence] = useState<SocialPresenceFilter>("any"); // filter removed from UI
 
   const [leads, setLeads] = useState<LeadUI[]>([]);
@@ -1450,6 +1452,7 @@ export default function Home() {
           language,
           niche,
           location,
+          area,
           socialPresence,
           checklistDismissed,
           checklistHasSearched: checklistState.hasSearched,
@@ -1460,7 +1463,7 @@ export default function Home() {
     } catch (e) {
       console.error("Failed to save state to localStorage:", e);
     }
-  }, [language, niche, location, socialPresence, checklistDismissed, checklistState.hasSearched, checklistState.hasSelected, checklistState.hasOutcome]);
+  }, [language, niche, location, area, socialPresence, checklistDismissed, checklistState.hasSearched, checklistState.hasSelected, checklistState.hasOutcome]);
 
   // =====================
   // HANDLERS
