@@ -15,12 +15,12 @@ export const DEFAULT_USER_PROFILE_V1: UserProfileV1 = {
 export const DEFAULT_CAPABILITY_PROFILE: CapabilityProfile = {
   id: "default_caps_v1",
   capabilities: {
-    ads: true,
-    tracking: true,
-    funnel: true,
-    content: true,
-    website: false,
-    seo: false,
-    crm: false,
-  } satisfies Record<Capability, boolean>,
+    ads: 90,
+    tracking: 80,
+    funnel: 80,
+    content: 70,
+    website: 20,
+    seo: 10,
+    crm: 30,
+  } satisfies Record<Capability, number>,
 };

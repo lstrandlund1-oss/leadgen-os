@@ -64,17 +64,15 @@ export default function ProfilePage() {
     offerDescription: "",
   });
 
-  const [capabilities, setCapabilities] = useState<Record<Capability, boolean>>(
-    {
-      ads: true,
-      tracking: true,
-      funnel: true,
-      content: false,
-      website: false,
-      seo: false,
-      crm: false,
-    },
-  );
+  const [capabilities, setCapabilities] = useState<Record<Capability, number>>({
+      ads: 90,
+      tracking: 80,
+      funnel: 80,
+      content: 20,
+      website: 20,
+      seo: 10,
+      crm: 30,
+  });
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -106,7 +104,15 @@ export default function ProfilePage() {
             });
           }
           if (data.capabilities?.capabilities) {
-            setCapabilities(data.capabilities.capabilities);
+            // Migrate legacy boolean profiles to numeric on load
+            const raw = data.capabilities.capabilities as Record<string, unknown>;
+            const migrated = Object.fromEntries(
+              Object.entries(raw).map(([k, v]) => [
+                k,
+                typeof v === "boolean" ? (v ? 100 : 0) : typeof v === "number" ? v : 0,
+              ])
+            ) as Record<Capability, number>;
+            setCapabilities(migrated);
           }
         }
       } catch (err) {
@@ -122,7 +128,9 @@ export default function ProfilePage() {
   function handleProfileTypeChange(key: ProfileTypeKey) {
     const def = PROFILE_TYPE_DEFINITIONS[key];
     setProfile((p: ProfileData) => ({ ...p, profileType: key }));
-    setCapabilities({ ...def.defaultCapabilities });
+    setCapabilities(Object.fromEntries(
+      Object.entries(def.defaultCapabilities).map(([k, v]) => [k, typeof v === 'boolean' ? (v ? 100 : 0) : v])
+    ) as Record<Capability, number>);
   }
 
   async function handleSave() {
@@ -269,39 +277,75 @@ export default function ProfilePage() {
           </section>
 
           {/* Capabilities */}
-          <section className="bg-[#111111]/60 border border-[#252525] rounded-2xl p-5 space-y-4">
+          <section className="bg-[#111111]/60 border border-[#252525] rounded-2xl p-5 space-y-5">
             <div>
               <h2 className="text-sm font-semibold text-[#f5f0e8]">
-                Your Capabilities
+                Capability Depths
               </h2>
               <p className="text-[12px] text-[#888] mt-1">
-                Toggle what you can actually deliver. This directly affects fit
-                scoring — only leads you can serve will score highly.
+                Set how much resource and expertise your team allocates to each area.
+                0 = not offered. 100 = your core specialisation.
+                A specialist with deep focus in one area scores higher than a generalist
+                who spreads resources thin — leads are matched accordingly.
               </p>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="space-y-4">
               {ALL_CAPABILITIES.map((cap) => {
-                const active = !!capabilities[cap];
+                const depth = typeof capabilities[cap] === "number" ? capabilities[cap] : 0;
+                const isActive = depth > 0;
+                const isStrong = depth >= 70;
+                const labelColor = isStrong
+                  ? "text-[#c9a84c]"
+                  : isActive
+                  ? "text-[#f5f0e8]"
+                  : "text-[#555]";
+                const depthLabel =
+                  depth === 0 ? "Not offered"
+                  : depth < 30 ? "Light"
+                  : depth < 60 ? "Capable"
+                  : depth < 80 ? "Strong"
+                  : "Specialist";
+                const trackColor = isStrong
+                  ? "accent-[#c9a84c]"
+                  : isActive
+                  ? "accent-emerald-400"
+                  : "accent-[#444]";
                 return (
-                  <button
-                    key={cap}
-                    type="button"
-                    onClick={() =>
-                      setCapabilities((c: Record<Capability, boolean>) => ({ ...c, [cap]: !c[cap] }))
-                    }
-                    className={
-                      "flex items-center gap-2 px-3 py-2 rounded-lg border text-[12px] font-medium transition-all " +
-                      (active
-                        ? "border-emerald-500 bg-emerald-500/10 text-emerald-300"
-                        : "border-[#2a2a2a] bg-[#111111]/40 text-[#888] hover:border-[#333]")
-                    }
-                  >
-                    <span>{CAPABILITY_ICONS[cap]}</span>
-                    <span>{CAPABILITY_LABELS[cap]}</span>
-                  </button>
+                  <div key={cap} className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className={"flex items-center gap-2 text-[12px] font-medium " + labelColor}>
+                        <span>{CAPABILITY_ICONS[cap]}</span>
+                        <span>{CAPABILITY_LABELS[cap]}</span>
+                      </span>
+                      <span className="text-[11px] text-[#555] tabular-nums">
+                        {depth > 0 ? <span className="text-[#888]">{depthLabel} · </span> : null}
+                        <span className={isStrong ? "text-[#c9a84c]" : "text-[#555]"}>
+                          {depth}%
+                        </span>
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={depth}
+                      onChange={(e) =>
+                        setCapabilities((c: Record<Capability, number>) => ({
+                          ...c,
+                          [cap]: Number(e.target.value),
+                        }))
+                      }
+                      className={"w-full h-1.5 rounded-full appearance-none bg-[#1a1a1a] cursor-pointer " + trackColor}
+                    />
+                  </div>
                 );
               })}
             </div>
+            <p className="text-[11px] text-[#444] pt-1">
+              Tip — a specialist with one or two capabilities at 80%+ gets a match bonus
+              on leads where those are the primary need.
+            </p>
           </section>
 
           {/* Profile settings */}
