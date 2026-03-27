@@ -33,7 +33,11 @@ export type CapabilityKey = Capability; // if Capability is already an enum/unio
 
 export type CapabilityProfile = {
   id: string;
-  capabilities: Record<CapabilityKey, boolean>;
+  // 0 = not offered, 1–100 = depth/resource allocation for that capability.
+  // 100 = core specialisation. 50 = offered but not primary focus.
+  // This replaces the old boolean so fit scoring can reward specialists
+  // and penalise generalists who spread resources thin.
+  capabilities: Record<CapabilityKey, number>;
 };
 
 export type UserProfileV1 = {

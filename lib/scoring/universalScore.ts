@@ -1,12 +1,21 @@
 // lib/scoring/universalScore.ts
 //
-// v2 composite score engine.
+// v3 composite score engine.
 //
-// score = needSignal*0.38 + fitAlignment*0.30 + abilityToPay*0.18 + approachability*0.14
+// score = opportunitySignal*0.40 + fitAlignment*0.28 + abilityToPay*0.18 + approachability*0.14
 //
-// readiness  = how operationally capable the business is (unchanged, used in detail panel)
-// risk       = stability risk (unchanged, used in detail panel)
-// opportunity = needSignal remapped 0-100 (replaces old opportunity which was confusingly named)
+// Key principle: fit and opportunity are INDEPENDENT axes.
+//   - fitAlignment  = "are you the right person to solve this?" (from fitScore)
+//   - opportunityGap = "does this lead actually have a problem worth solving?" (from signals)
+//
+// A lead with great SEO + you're an SEO specialist = high fit, LOW opportunity
+//   → fitAlignment high, but opportunityGap low → composite stays moderate
+//
+// A lead with no website + you build websites = high fit, HIGH opportunity
+//   → both high → composite is high
+//
+// fitAlignment is scaled by opportunityGap so a perfect fit on a solved problem
+// never inflates the overall score.
 
 import type { ScoreCategoryBreakdown, RiskProfile } from "@/lib/types";
 import { getAbilityToPayScore, getApproachabilityScore } from "./categoryScores";
@@ -24,7 +33,6 @@ export function computeUniversalScore(input: {
   riskProfile: RiskProfile;
   isGoodFit: boolean;
   classificationConfidence: number | null;
-  // v2 inputs (with fallbacks for backward compat)
   fitScore?: number;
   rating?: number;
   reviews?: number;
@@ -37,48 +45,58 @@ export function computeUniversalScore(input: {
 } {
   const s = input.scores;
 
-  // readiness: how operationally prepared are they (shown in detail panel)
+  // readiness: operational viability — shown in detail panel
   const readiness = clamp(round(
     s.businessStrength * 0.6 + s.digitalPresence * 0.2 + s.evidenceConfidence * 0.2
   ));
 
-  // risk: stability risk (shown in detail panel)
+  // risk: stability risk — shown in detail panel
   const risk = clamp(round(
     s.stabilityRisk * 0.75 +
     (100 - s.evidenceConfidence) * 0.15 +
     (input.riskProfile === "mature_competitor" ? 10 : 0)
   ));
 
-  // opportunity = needSignal (opportunityGap in v2 IS the need signal)
+  // opportunity = the raw need/gap signal (0-100)
+  // This is what the lead LACKS — not how good a fit you are for it.
   const opportunity = clamp(s.opportunityGap);
 
-  // abilityToPay: use stored scores or recompute from inputs
+  // abilityToPay: review count + rating proxies revenue and budget
   const abilityToPay = getAbilityToPayScore({
     rating: input.rating ?? 0,
     reviews: input.reviews ?? 0,
     hasWebsite: input.hasWebsite ?? false,
   });
 
-  // approachability: profile-based
+  // approachability: how easy is this type of business to pitch?
   const approachability = getApproachabilityScore(input.riskProfile);
 
-  // fitAlignment: from fit score (0-100), default 50 if not provided
-  // Cap: when opportunityGap is very low (<20), a perfect fit is still a bad lead —
-  // there's nothing to sell. Scale fitAlignment contribution down proportionally
-  // so "everything matches" doesn't save a lead with no detectable gap.
-  const rawFitAlignment = clamp(input.fitScore ?? (input.isGoodFit ? 70 : 45));
-  const opportunityScale = clamp(s.opportunityGap / 100) * 0.7 + 0.3; // 0.3–1.0 multiplier
+  // fitAlignment: depth-weighted fit score from scoreFit (0-100)
+  // Default 50 (neutral) if not yet computed.
+  const rawFitAlignment = clamp(input.fitScore ?? (input.isGoodFit ? 65 : 40));
+
+  // ── Opportunity gate on fit ───────────────────────────────────────────────
+  // A perfect fit means nothing if the lead doesn't have a gap.
+  // Example: lead has great SEO, you're an SEO expert → fit=95, opportunity=8
+  // Without this gate, fit would prop up the score even though there's nothing to sell.
+  //
+  // Scale: opportunityGap=0 → fitAlignment contributes 30% of its value
+  //        opportunityGap=100 → fitAlignment contributes 100% of its value
+  // This preserves fit differentiation at high opportunity, kills it when there's no gap.
+  const opportunityScale = clamp(s.opportunityGap / 100) * 0.70 + 0.30;
   const fitAlignment = clamp(round(rawFitAlignment * opportunityScale));
 
-  // Composite
+  // ── Composite ─────────────────────────────────────────────────────────────
+  // Opportunity carries the most weight — if there's nothing to sell, no amount
+  // of fit, ability to pay, or approachability rescues the lead.
   let value = clamp(round(
-    opportunity    * 0.38 +
-    fitAlignment   * 0.30 +
-    abilityToPay   * 0.18 +
+    opportunity     * 0.40 +
+    fitAlignment    * 0.28 +
+    abilityToPay    * 0.18 +
     approachability * 0.14
   ));
 
-  // Hard caps for unwinnable situations
+  // Hard caps for genuinely unwinnable situations
   if (input.riskProfile === "unstable_business") {
     value = Math.min(value, 22);
   }

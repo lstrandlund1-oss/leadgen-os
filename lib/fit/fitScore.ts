@@ -1,11 +1,23 @@
 // lib/fit/fitScore.ts
+//
+// v3 weighted fit scoring.
+//
+// Key changes from v2:
+//   - capabilities are now 0-100 depth values, not booleans
+//   - matchedWeight uses depth as a multiplier: need.weight * (depth/100)
+//   - specialisation bonus: if user has 1-2 capabilities at 80+, those leads
+//     score higher — a laser-focused specialist beats a generalist on their niche
+//   - opportunity separation: fit score reflects "can you serve this lead",
+//     NOT "is there a gap" — opportunity is scored separately in universalScore
+
 import type { Capability, WeightedNeed } from "@/lib/fit/needs";
 import type { UserProfileV1, CapabilityProfile } from "@/lib/types.ts";
 
 export type FitResult = {
   fitScore: number; // 0-100
   matchedNeeds: Capability[];
-  missingNeeds: Capability[];
+  missingNeeds: Capability[];        // capabilities with depth=0
+  partialNeeds: Capability[];        // capabilities with depth 1-49
   reasons: string[];
   geoMatch?: "exact" | "partial" | "none" | "unset";
 };
@@ -28,7 +40,6 @@ function scoreGeo(
   const parts = target.split(/[\s,]+/).filter(Boolean);
   const haystack = normLoc(`${city ?? ""} ${country ?? ""}`);
 
-  // Exact: every token in target found in haystack
   const exactMatch = parts.every((p) => haystack.includes(p));
   if (exactMatch) {
     return {
@@ -38,7 +49,6 @@ function scoreGeo(
     };
   }
 
-  // Partial: at least one token matches
   const partialMatch = parts.some((p) => haystack.includes(p));
   if (partialMatch) {
     return {
@@ -48,7 +58,6 @@ function scoreGeo(
     };
   }
 
-  // No match — penalise slightly so in-area leads surface first
   return {
     modifier: -8,
     match: "none",
@@ -57,10 +66,68 @@ function scoreGeo(
 }
 
 /**
- * Deterministic weighted fit scoring:
- * - Fit is coverage of required needs by the user's capabilities.
- * - Weighted so "website(5)" matters more than "crm(2)" etc.
- * - If needs are empty, return neutral 50 (avoid false certainty).
+ * Reads capability depth from the profile.
+ * Handles both legacy boolean profiles (true=100, false=0) and new numeric profiles.
+ */
+function getDepth(cap: CapabilityProfile, key: Capability): number {
+  const raw = cap.capabilities[key];
+  if (typeof raw === "boolean") return raw ? 100 : 0; // backward compat
+  if (typeof raw === "number") return Math.max(0, Math.min(100, raw));
+  return 0;
+}
+
+/**
+ * Specialisation bonus: reward profiles that are deeply focused.
+ * If the user has 1-2 capabilities at depth 80+, they get a bonus on leads
+ * where those exact capabilities are the primary need (weight >= 4).
+ *
+ * Logic: a specialist beats a generalist on their home turf.
+ * An agency with seo=60 loses to a specialist with seo=95, even if the agency
+ * technically "has" SEO in their offering.
+ *
+ * Returns a bonus between 0-15.
+ */
+function computeSpecialisationBonus(
+  cap: CapabilityProfile,
+  needs: WeightedNeed[],
+): number {
+  const allDepths = Object.entries(cap.capabilities).map(([, v]) =>
+    typeof v === "boolean" ? (v ? 100 : 0) : Number(v)
+  );
+
+  // Count how many capabilities are at "specialist" level (80+)
+  const specialistCaps = allDepths.filter((d) => d >= 80).length;
+
+  // Only applies when the user is genuinely specialised (1-2 deep caps)
+  if (specialistCaps === 0 || specialistCaps > 3) return 0;
+
+  // Check how many of the lead's primary needs (weight >= 4) match a specialist cap
+  let primaryMatchBonus = 0;
+  for (const need of needs) {
+    if (need.weight < 4) continue;
+    const depth = getDepth(cap, need.key);
+    if (depth >= 80) {
+      // Specialist-level match on a primary need
+      primaryMatchBonus += 5;
+    }
+  }
+
+  // Bonus is higher when the specialist has fewer total offerings
+  // (a pure SEO shop gets more credit than an agency that also does SEO)
+  const breadthPenalty = Math.max(0, specialistCaps - 1) * 2;
+  return Math.min(15, primaryMatchBonus - breadthPenalty);
+}
+
+/**
+ * v3 deterministic weighted fit scoring.
+ *
+ * fit = Σ(need.weight × depth/100) / Σ(need.weight) × 100
+ *
+ * This means:
+ * - A specialist with seo=95 on an SEO need scores near-perfect
+ * - An agency with seo=60 on the same need scores 60% of that weight
+ * - A specialist with seo=95 + ads=0 on an ads need scores 0 for that need
+ * - Missing a need entirely (depth=0) contributes 0 — same as before
  */
 export function scoreFit(
   userProfile: UserProfileV1,
@@ -68,12 +135,14 @@ export function scoreFit(
   needs: WeightedNeed[],
   leadLocation?: { city?: string | null; country?: string | null },
 ): FitResult {
+  const geo = scoreGeo(userProfile.targetLocation, leadLocation?.city, leadLocation?.country);
+
   if (!needs.length) {
-    const geo = scoreGeo(userProfile.targetLocation, leadLocation?.city, leadLocation?.country);
     return {
       fitScore: 50,
       matchedNeeds: [],
       missingNeeds: [],
+      partialNeeds: [],
       reasons: ["No clear need signature detected yet → neutral fit.", ...(geo.reason ? [geo.reason] : [])],
       geoMatch: geo.match,
     };
@@ -84,91 +153,71 @@ export function scoreFit(
   let profileModifier = 0;
 
   const profileReasons: string[] = [];
-  const matched: Capability[] = [];
-  const missing: Capability[] = [];
+  const matched: Capability[] = [];   // depth >= 50
+  const partial: Capability[] = [];   // depth 1-49
+  const missing: Capability[] = [];   // depth 0
 
-  // Profile-based modifiers (deterministic layer)
+  // Profile-based modifiers
   if (userProfile.acquisitionStyle === "volume") {
-    profileModifier += 10;
-    profileReasons.push(
-      "Aggressive profile → higher tolerance for imperfect leads.",
-    );
+    profileModifier += 8;
+    profileReasons.push("Volume-focused profile → higher tolerance for imperfect leads.");
   } else if (userProfile.acquisitionStyle === "selective") {
-    profileModifier -= 10;
-    profileReasons.push("Premium profile → stricter qualification standard.");
-  }
-
-  // Use missing capabilities as a proxy for conversion difficulty
-  if (userProfile.experienceLevel === "beginner" && missing.length >= 3) {
-    profileModifier -= 15;
-    profileReasons.push(
-      "Beginner profile → too many gaps to convert confidently.",
-    );
-  } else if (userProfile.experienceLevel === "advanced" && missing.length >= 3) {
-    profileModifier += 5;
-    profileReasons.push(
-      "Advanced profile → capable of handling imperfect leads.",
-    );
+    profileModifier -= 8;
+    profileReasons.push("Selective profile → stricter qualification standard.");
   }
 
   for (const n of needs) {
     totalWeight += n.weight;
+    const depth = getDepth(capabilityProfile, n.key);
 
-    if (capabilityProfile.capabilities[n.key]) {
-      matchedWeight += n.weight;
+    // Weighted contribution: full weight only at depth=100, scales linearly
+    const contribution = n.weight * (depth / 100);
+    matchedWeight += contribution;
+
+    if (depth >= 50) {
       matched.push(n.key);
+    } else if (depth > 0) {
+      partial.push(n.key);
     } else {
       missing.push(n.key);
     }
   }
 
+  // Experience modifier on missing coverage
+  if (userProfile.experienceLevel === "beginner" && missing.length >= 3) {
+    profileModifier -= 15;
+    profileReasons.push("Beginner profile → too many gaps to convert confidently.");
+  } else if (userProfile.experienceLevel === "advanced" && missing.length >= 3) {
+    profileModifier += 5;
+    profileReasons.push("Advanced profile → capable of handling imperfect leads.");
+  }
+
   const baseFitScore =
     totalWeight > 0 ? Math.round((matchedWeight / totalWeight) * 100) : 50;
 
-  // Specificity signal: reward leads where there are more, heavier matched needs.
-  // Without this, a full-service agency (all caps true) scores 100 on every lead,
-  // making fitAlignment a flat constant across all results.
-  // Formula: bonus proportional to matched weight density (max +10).
-  const matchedWeightDensity = totalWeight > 0 ? matchedWeight / (totalWeight + 5) : 0;
-  const specificityBonus = Math.round(matchedWeightDensity * 10);
+  const specialisationBonus = computeSpecialisationBonus(capabilityProfile, needs);
 
-  const geo = scoreGeo(userProfile.targetLocation, leadLocation?.city, leadLocation?.country);
   const finalFitScore = Math.max(
     0,
-    Math.min(100, baseFitScore + profileModifier + geo.modifier + specificityBonus),
+    Math.min(100, baseFitScore + profileModifier + geo.modifier + specialisationBonus),
   );
 
   const reasons: string[] = [];
   reasons.push(
-    `Weighted coverage: ${matchedWeight}/${totalWeight} (matchedWeight/totalWeight).`,
+    `Weighted depth coverage: ${Math.round(matchedWeight * 10) / 10}/${totalWeight} pts.`,
   );
-
-  if (matched.length) reasons.push(`Matches: ${matched.join(", ")}.`);
-  if (missing.length) reasons.push(`Missing: ${missing.join(", ")}.`);
+  if (matched.length) reasons.push(`Strong match: ${matched.join(", ")}.`);
+  if (partial.length) reasons.push(`Partial capability: ${partial.join(", ")}.`);
+  if (missing.length) reasons.push(`Not offered: ${missing.join(", ")}.`);
+  if (specialisationBonus > 0) reasons.push(`Specialist bonus: +${specialisationBonus} (deep focus on primary need).`);
   if (geo.reason) reasons.push(geo.reason);
 
   return {
     fitScore: finalFitScore,
     matchedNeeds: matched,
     missingNeeds: missing,
+    partialNeeds: partial,
     reasons: [...reasons, ...profileReasons],
     geoMatch: geo.match,
   };
 }
-
-/**
- * v1 temporary profile: Ads specialist (Option C).
- * Keep it here so route.ts stays thin.
- */
-export const TEMP_ADS_SPECIALIST_CAPS: CapabilityProfile = {
-  id: "temp_ads_specialist_caps",
-  capabilities: {
-    ads: true,
-    tracking: true,
-    funnel: true,
-    content: false,
-    website: false,
-    seo: false,
-    crm: false,
-  },
-};

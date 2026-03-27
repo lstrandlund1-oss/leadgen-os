@@ -19,7 +19,7 @@ export type ProfileTypeDefinition = {
   label: string;
   description: string;
   sellerType: SellerType;
-  defaultCapabilities: Record<Capability, boolean>;
+  defaultCapabilities: Record<Capability, number>; // 0=none, 1-100=depth
   defaultProfile: Omit<UserProfileV1, "id" | "notes">;
 };
 
@@ -34,13 +34,13 @@ export const PROFILE_TYPE_DEFINITIONS: Record<
       "You run paid ads, build funnels, and drive measurable ROI for clients. Best leads have traffic potential but no conversion system.",
     sellerType: "MARKETING",
     defaultCapabilities: {
-      ads: true,
-      tracking: true,
-      funnel: true,
-      content: false,
-      website: false,
-      seo: false,
-      crm: false,
+      ads: 90,
+      tracking: 80,
+      funnel: 80,
+      content: 20,
+      website: 20,
+      seo: 10,
+      crm: 30,
     },
     defaultProfile: {
       niche: "general",
@@ -59,13 +59,13 @@ export const PROFILE_TYPE_DEFINITIONS: Record<
       "You build websites, landing pages, and conversion infrastructure. Best leads have no website, outdated sites, or trust gap signals.",
     sellerType: "WEB_DEV",
     defaultCapabilities: {
-      ads: false,
-      tracking: true,
-      funnel: true,
-      content: false,
-      website: true,
-      seo: false,
-      crm: false,
+      ads: 0,
+      tracking: 60,
+      funnel: 70,
+      content: 20,
+      website: 95,
+      seo: 30,
+      crm: 10,
     },
     defaultProfile: {
       niche: "general",
@@ -84,13 +84,13 @@ export const PROFILE_TYPE_DEFINITIONS: Record<
       "You create content, manage social media, and build organic audiences. Best leads have low social presence or underexposed quality.",
     sellerType: "CONTENT",
     defaultCapabilities: {
-      ads: false,
-      tracking: false,
-      funnel: false,
-      content: true,
-      website: false,
-      seo: false,
-      crm: false,
+      ads: 20,
+      tracking: 10,
+      funnel: 10,
+      content: 95,
+      website: 10,
+      seo: 30,
+      crm: 0,
     },
     defaultProfile: {
       niche: "general",
@@ -109,13 +109,13 @@ export const PROFILE_TYPE_DEFINITIONS: Record<
       "You improve search visibility, local SEO, and organic rankings. Best leads are local businesses with no search presence.",
     sellerType: "MARKETING",
     defaultCapabilities: {
-      ads: false,
-      tracking: true,
-      funnel: false,
-      content: true,
-      website: false,
-      seo: true,
-      crm: false,
+      ads: 10,
+      tracking: 70,
+      funnel: 20,
+      content: 60,
+      website: 30,
+      seo: 95,
+      crm: 10,
     },
     defaultProfile: {
       niche: "general",
@@ -131,16 +131,16 @@ export const PROFILE_TYPE_DEFINITIONS: Record<
     key: "full_service_agency",
     label: "Full-Service Agency",
     description:
-      "You offer a broad range of services and target businesses ready to scale. Best leads are higher-scoring businesses with budget and readiness.",
+      "You offer a broad range of services and target businesses ready to scale. Configure your capability depths below to reflect where your team is strongest.",
     sellerType: "MARKETING",
     defaultCapabilities: {
-      ads: true,
-      tracking: true,
-      funnel: true,
-      content: true,
-      website: true,
-      seo: true,
-      crm: false,
+      ads: 60,
+      tracking: 60,
+      funnel: 60,
+      content: 60,
+      website: 60,
+      seo: 60,
+      crm: 40,
     },
     defaultProfile: {
       niche: "general",
@@ -179,7 +179,7 @@ export function buildUserProfile(
 export function buildCapabilityProfile(
   id: string,
   typeKey: ProfileTypeKey,
-  overrides?: Partial<Record<Capability, boolean>>,
+  overrides?: Partial<Record<Capability, number>>,
 ): CapabilityProfile {
   const def = PROFILE_TYPE_DEFINITIONS[typeKey];
   return {
