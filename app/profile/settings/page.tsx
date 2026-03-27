@@ -8,14 +8,13 @@ import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import type { Capability } from "@/lib/fit/needs";
 import { PROFILE_TYPE_DEFINITIONS, PROFILE_TYPE_KEYS, type ProfileTypeKey } from "@/lib/profile/profileTypes";
 
-type Tab = "profile" | "account" | "preferences" | "notifications" | "danger";
+type Tab = "profile" | "account" | "preferences" | "notifications";
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: "profile",       label: "Profile",       icon: "◈" },
   { key: "preferences",   label: "Preferences",   icon: "◆" },
   { key: "notifications", label: "Notifications", icon: "◉" },
   { key: "account",       label: "Account",       icon: "◇" },
-  { key: "danger",        label: "Danger zone",   icon: "△" },
 ];
 
 const ALL_CAPABILITIES: Capability[] = ["ads","tracking","funnel","content","website","seo","crm"];
@@ -401,41 +400,39 @@ export default function SettingsPage() {
 
                 {/* ── Account tab ── */}
                 {activeTab === "account" && (
-                  <div className={sectionClass}>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Account</p>
-                      <h2 className="text-[15px] font-semibold text-[#c8c0b0]">Your Account</h2>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="rounded-xl border border-[#1a1a1a] bg-[#080808] px-4 py-4 space-y-1">
-                        <p className="text-[10px] uppercase tracking-widest text-[#444]">Signed in as</p>
-                        <p className="text-[14px] text-[#f5f0e8]">{userEmail || "—"}</p>
+                  <div className="space-y-5">
+                    <div className={sectionClass}>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Account</p>
+                        <h2 className="text-[15px] font-semibold text-[#c8c0b0]">Your Account</h2>
                       </div>
-                      <div className="flex gap-2">
-                        <Link href="/forgot-password"
-                          className="flex-1 py-2.5 rounded-xl border border-[#252525] text-[12px] text-[#555] hover:border-[#444] hover:text-[#888] transition-all text-center">
-                          Change password →
-                        </Link>
-                        <button type="button" onClick={handleSignOut}
-                          className="flex-1 py-2.5 rounded-xl border border-[#252525] text-[12px] text-[#555] hover:border-[#f87171]/30 hover:text-[#f87171] transition-all">
-                          Sign out
-                        </button>
-                      </div>
-                      <div className="rounded-xl border border-[#1a1a1a] bg-[#080808] px-4 py-4 space-y-1">
-                        <p className="text-[10px] uppercase tracking-widests text-[#444]">Subscription</p>
-                        <div className="flex items-center justify-between">
-                          <p className="text-[13px] text-[#888] capitalize">Beta access</p>
-                          <Link href="/plans" className="text-[11px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors">View plans →</Link>
+                      <div className="space-y-4">
+                        <div className="rounded-xl border border-[#1a1a1a] bg-[#080808] px-4 py-4 space-y-1">
+                          <p className="text-[10px] uppercase tracking-widest text-[#444]">Signed in as</p>
+                          <p className="text-[14px] text-[#f5f0e8]">{userEmail || "—"}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Link href="/forgot-password"
+                            className="flex-1 py-2.5 rounded-xl border border-[#252525] text-[12px] text-[#555] hover:border-[#444] hover:text-[#888] transition-all text-center">
+                            Change password →
+                          </Link>
+                          <button type="button" onClick={handleSignOut}
+                            className="flex-1 py-2.5 rounded-xl border border-[#252525] text-[12px] text-[#555] hover:border-[#f87171]/30 hover:text-[#f87171] transition-all">
+                            Sign out
+                          </button>
+                        </div>
+                        <div className="rounded-xl border border-[#1a1a1a] bg-[#080808] px-4 py-4 space-y-1">
+                          <p className="text-[10px] uppercase tracking-widests text-[#444]">Subscription</p>
+                          <div className="flex items-center justify-between">
+                            <p className="text-[13px] text-[#888] capitalize">Beta access</p>
+                            <Link href="/plans" className="text-[11px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors">View plans →</Link>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
 
-                {/* ── Danger zone tab ── */}
-                {activeTab === "danger" && (
-                  <div className="space-y-4">
-                    <div className="rounded-2xl border border-[#252525] bg-[#0d0d0d] p-5 space-y-3">
+                    {/* Clear local data */}
+                    <div className={sectionClass}>
                       <div>
                         <p className="text-[13px] text-[#c8c0b0] font-medium">Clear local data</p>
                         <p className="text-[11px] text-[#555] mt-0.5">Reset notes, saved leads, and local preferences stored in this browser only.</p>
@@ -450,8 +447,8 @@ export default function SettingsPage() {
                       </button>
                     </div>
 
-                    {/* Delete account — stepped confirmation */}
-                    <div className="rounded-2xl border border-[#f87171]/20 bg-[#0d0d0d] p-5 space-y-4">
+                    {/* Delete account */}
+                    <div className="rounded-2xl border border-[#f87171]/20 bg-[#0d0d0d] p-6 space-y-4">
                       <div>
                         <p className="text-[10px] uppercase tracking-[0.15em] text-[#f87171]/50 mb-1">Permanent action</p>
                         <p className="text-[14px] font-semibold text-[#c8c0b0]">Delete account</p>
@@ -459,86 +456,52 @@ export default function SettingsPage() {
                           Deletes your profile, all searches, lead outcomes, and login credentials in accordance with GDPR Article 17.
                         </p>
                       </div>
-
-                      {/* Step 0 — initial button */}
                       {deleteStep === 0 && (
                         <button type="button" onClick={() => setDeleteStep(1)}
                           className="text-[12px] px-4 py-2 rounded-lg border border-[#f87171]/25 text-[#f87171]/70 hover:border-[#f87171]/50 hover:text-[#f87171] transition-all">
                           Delete my account
                         </button>
                       )}
-
-                      {/* Step 1 — first confirmation */}
                       {deleteStep === 1 && (
                         <div className="rounded-xl border border-[#f87171]/20 bg-[#f87171]/04 p-4 space-y-4">
                           <div className="space-y-2">
                             <p className="text-[13px] font-medium text-[#f87171]">Are you sure?</p>
-                            <p className="text-[12px] text-[#888] leading-relaxed">
-                              This will permanently erase your account. There is no recovery option and no exceptions.
-                            </p>
-                            <p className="text-[11px] text-[#555] leading-relaxed">
-                              If you are on a paid plan, no refund will be issued for the remaining billing period. Please cancel your subscription first if applicable.
-                            </p>
+                            <p className="text-[12px] text-[#888] leading-relaxed">This will permanently erase your account. There is no recovery option and no exceptions.</p>
+                            <p className="text-[11px] text-[#555] leading-relaxed">If you are on a paid plan, no refund will be issued for the remaining billing period. Please cancel your subscription first if applicable.</p>
                           </div>
                           <div className="flex gap-2">
                             <button type="button" onClick={() => setDeleteStep(0)}
-                              className="flex-1 py-2 rounded-lg border border-[#252525] text-[#555] text-[12px] hover:border-[#444] transition-all">
-                              Cancel
-                            </button>
+                              className="flex-1 py-2 rounded-lg border border-[#252525] text-[#555] text-[12px] hover:border-[#444] transition-all">Cancel</button>
                             <button type="button" onClick={() => setDeleteStep(2)}
-                              className="flex-1 py-2 rounded-lg border border-[#f87171]/40 text-[#f87171] text-[12px] hover:bg-[#f87171]/08 transition-all">
-                              Yes, continue
-                            </button>
+                              className="flex-1 py-2 rounded-lg border border-[#f87171]/40 text-[#f87171] text-[12px] hover:bg-[#f87171]/08 transition-all">Yes, continue</button>
                           </div>
                         </div>
                       )}
-
-                      {/* Step 2 — type to confirm */}
                       {deleteStep === 2 && (
                         <div className="rounded-xl border border-[#f87171]/20 bg-[#f87171]/04 p-4 space-y-4">
-                          <p className="text-[12px] text-[#888]">
-                            Type <span className="font-mono text-[#f87171] font-bold">DELETE</span> to confirm permanent deletion.
-                          </p>
-                          <input
-                            type="text"
-                            value={deleteConfirm}
-                            onChange={e => { setDeleteConfirm(e.target.value); setDeleteError(null); }}
+                          <p className="text-[12px] text-[#888]">Type <span className="font-mono text-[#f87171] font-bold">DELETE</span> to confirm permanent deletion.</p>
+                          <input type="text" value={deleteConfirm} onChange={e => { setDeleteConfirm(e.target.value); setDeleteError(null); }}
                             placeholder="DELETE"
-                            className="w-full bg-[#080808] border border-[#f87171]/30 rounded-lg px-3 py-2 text-[13px] text-[#f87171] placeholder-[#444] focus:outline-none focus:border-[#f87171]/60 transition-colors font-mono"
-                          />
+                            className="w-full bg-[#080808] border border-[#f87171]/30 rounded-lg px-3 py-2 text-[13px] text-[#f87171] placeholder-[#444] focus:outline-none focus:border-[#f87171]/60 transition-colors font-mono" />
                           {deleteError && <p className="text-[11px] text-[#f87171]">{deleteError}</p>}
                           <div className="flex gap-2">
                             <button type="button" onClick={() => { setDeleteStep(0); setDeleteConfirm(""); setDeleteError(null); }}
-                              className="flex-1 py-2 rounded-lg border border-[#252525] text-[#555] text-[12px] hover:border-[#444] transition-all">
-                              Cancel
-                            </button>
+                              className="flex-1 py-2 rounded-lg border border-[#252525] text-[#555] text-[12px] hover:border-[#444] transition-all">Cancel</button>
                             <button type="button" disabled={deleting}
                               onClick={async () => {
-                                if (deleteConfirm !== "DELETE") { setDeleteError('Type "DELETE" exactly to confirm.'); return; }
-                                setDeleting(true);
-                                setDeleteError(null);
+                                if (deleteConfirm !== "DELETE") { setDeleteError(`Type "DELETE" exactly to confirm.`); return; }
+                                setDeleting(true); setDeleteError(null);
                                 try {
                                   const res = await fetch("/api/account/delete", { method: "DELETE" });
                                   if (!res.ok) {
                                     const j = await res.json().catch(() => ({}));
                                     setDeleteError((j as {error?:string}).error ?? "Deletion failed. Contact hello@vantioapp.com");
-                                    setDeleting(false);
-                                    return;
+                                    setDeleting(false); return;
                                   }
-                                  // Sign out client-side session then redirect to landing
-                                  try {
-                                    const { createSupabaseBrowser } = await import("@/lib/supabaseBrowser");
-                                    await createSupabaseBrowser().auth.signOut();
-                                  } catch { /* ignore — session will expire anyway */ }
-                                  // Clear any local state
-                                  ["vantio_saved_leads_v1","vantio_lead_notes_v1","vantio_outreach_lead","vantio_notif_prefs","vantio_state_v1","vantio_theme"].forEach(k => {
-                                    try { localStorage.removeItem(k); } catch { /* ignore */ }
-                                  });
+                                  try { const { createSupabaseBrowser } = await import("@/lib/supabaseBrowser"); await createSupabaseBrowser().auth.signOut(); } catch { /* ignore */ }
+                                  ["vantio_saved_leads_v1","vantio_lead_notes_v1","vantio_outreach_lead","vantio_notif_prefs","vantio_state_v1","vantio_theme"].forEach(k => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
                                   window.location.href = "/?account=deleted";
-                                } catch {
-                                  setDeleteError("Network error. Please try again.");
-                                  setDeleting(false);
-                                }
+                                } catch { setDeleteError("Network error. Please try again."); setDeleting(false); }
                               }}
                               className="flex-1 py-2 rounded-lg bg-[#f87171]/15 border border-[#f87171]/40 text-[#f87171] text-[12px] font-semibold hover:bg-[#f87171]/25 disabled:opacity-50 transition-all">
                               {deleting ? "Deleting…" : "Delete permanently"}
