@@ -757,7 +757,7 @@ export default function Home() {
   // STATE
   // =====================
 
-  const [provider, setProvider] = useState<ProviderName>("google_places");
+  const provider: ProviderName = "google_places"; // hardcoded — provider dropdown removed
 
   const [language, setLanguage] = useState<Language>(() => {
     if (typeof window === "undefined") return "en";
@@ -789,14 +789,8 @@ export default function Home() {
   });
   const [showNicheDropdown, setShowNicheDropdown] = useState(false);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
-  const [socialPresence, setSocialPresence] = useState<SocialPresenceFilter>(() => {
-    if (typeof window === "undefined") return "any";
-    try {
-      const p = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}");
-      const v = p.socialPresence;
-      return (v === "low" || v === "medium" || v === "high" || v === "") ? v : "any";
-    } catch { return "any"; }
-  });
+  const [area, setArea] = useState("");
+  const [socialPresence, setSocialPresence] = useState<SocialPresenceFilter>("any"); // filter removed from UI
 
   const [leads, setLeads] = useState<LeadUI[]>([]);
   const [sortBy, setSortBy] = useState<
@@ -875,7 +869,7 @@ export default function Home() {
       const more = await runProviderSearchAndFetchLeads({
         provider,
         niche,
-        location,
+        location: area.trim() ? `${location.trim()}, ${area.trim()}` : location,
         socialPresence,
         runId,
         cursor: nextCursor,
@@ -1539,7 +1533,7 @@ export default function Home() {
       const providerLeads = await runProviderSearchAndFetchLeads({
         provider,
         niche,
-        location,
+        location: area.trim() ? `${location.trim()}, ${area.trim()}` : location,
         socialPresence,
       });
 
@@ -1804,7 +1798,8 @@ export default function Home() {
           )}
           <h2 className="text-xl font-semibold mt-3">{t.ui.filters.title}</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
+            {/* Row 1: Niche + City */}
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1 relative">
                 <label className="block text-sm font-medium">
                   {t.ui.filters.nicheLabel}
@@ -1815,12 +1810,12 @@ export default function Home() {
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setNiche(e.target.value)}
                   onFocus={() => setShowNicheDropdown(true)}
                   onBlur={() => setTimeout(() => setShowNicheDropdown(false), 150)}
-                  placeholder="e.g. real estate, tattoo studio"
-                  className="w-full rounded-lg bg-[#111111] border border-[#2a2a2a] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="e.g. frisör, tattoo studio"
+                  className="w-full rounded-lg bg-[#111111] border border-[#2a2a2a] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(201,168,76,0.5)]"
                 />
                 {showNicheDropdown && recentSearches.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border border-[#252525] bg-[#111] shadow-xl overflow-hidden">
-                    <p className="text-[10px] uppercase tracking-widests text-[#444] px-3 pt-2.5 pb-1">Recent searches</p>
+                    <p className="text-[10px] uppercase tracking-widest text-[#444] px-3 pt-2.5 pb-1">Recent searches</p>
                     {recentSearches.slice(0, 5).map((s: SearchRecord, i: number) => (
                       <button key={i} type="button"
                         onMouseDown={() => { setNiche(s.niche || ""); setLocation(s.location || ""); setShowNicheDropdown(false); }}
@@ -1834,32 +1829,8 @@ export default function Home() {
                 )}
               </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-[#888]">
-                  {t.ui.filters.providerLabel}
-                </label>
-                <select
-                  value={provider}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) => {
-                    const v = e.target.value as ProviderName;
-                    setProvider(v);
-                  }}
-                  className="bg-[#111111] border border-[#2a2a2a] rounded-md px-3 py-2 text-sm"
-                >
-                  <option value="google_places">Google Places</option>
-                  {process.env.NEXT_PUBLIC_SERP_API_KEY && (
-                    <option value="serp">SERP (Organic)</option>
-                  )}
-                  {process.env.NEXT_PUBLIC_SHOW_MOCK_PROVIDER === "true" && (
-                    <option value="mock">Mock (Dev)</option>
-                  )}
-                </select>
-              </div>
-
               <div className="space-y-1 relative">
-                <label className="block text-sm font-medium">
-                  {t.ui.filters.locationLabel}
-                </label>
+                <label className="block text-sm font-medium">City</label>
                 <input
                   type="text"
                   value={location}
@@ -1867,11 +1838,11 @@ export default function Home() {
                   onFocus={() => setShowLocationDropdown(true)}
                   onBlur={() => setTimeout(() => setShowLocationDropdown(false), 150)}
                   placeholder="e.g. Stockholm"
-                  className="w-full rounded-lg bg-[#111111] border border-[#2a2a2a] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full rounded-lg bg-[#111111] border border-[#2a2a2a] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(201,168,76,0.5)]"
                 />
                 {showLocationDropdown && recentSearches.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border border-[#252525] bg-[#111] shadow-xl overflow-hidden">
-                    <p className="text-[10px] uppercase tracking-widests text-[#444] px-3 pt-2.5 pb-1">Recent searches</p>
+                    <p className="text-[10px] uppercase tracking-widest text-[#444] px-3 pt-2.5 pb-1">Recent searches</p>
                     {recentSearches.slice(0, 5).map((s: SearchRecord, i: number) => (
                       <button key={i} type="button"
                         onMouseDown={() => { setNiche(s.niche || ""); setLocation(s.location || ""); setShowLocationDropdown(false); }}
@@ -1884,43 +1855,33 @@ export default function Home() {
                   </div>
                 )}
               </div>
-
-              <div className="space-y-1">
-                <label className="block text-sm font-medium">
-                  {t.ui.filters.socialPresenceLabel}
-                </label>
-                <select
-                  value={socialPresence}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                setSocialPresence(e.target.value as SocialPresenceFilter)
-                  }
-                  className="w-full rounded-lg bg-[#111111] border border-[#2a2a2a] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="any">
-                    {t.ui.filters.socialPresenceOptions.any}
-                  </option>
-                  <option value="low">
-                    {t.ui.filters.socialPresenceOptions.low}
-                  </option>
-                  <option value="medium">
-                    {t.ui.filters.socialPresenceOptions.medium}
-                  </option>
-                  <option value="high">
-                    {t.ui.filters.socialPresenceOptions.high}
-                  </option>
-                </select>
-              </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="inline-flex items-center justify-center rounded-lg bg-[#c9a84c] text-[#080808] hover:bg-[#e8c97a] disabled:bg-[rgba(201,168,76,0.1)] disabled:text-[#666] px-6 py-2.5 text-sm font-semibold tracking-wide transition-all shadow-lg shadow-[rgba(201,168,76,0.15)]"
-            >
-              {isLoading
-                ? t.ui.filters.generatingButton
-                : t.ui.filters.generateButton}
-            </button>
+            {/* Row 2: Area + Generate button */}
+            <div className="grid grid-cols-2 gap-4 items-end">
+              <div className="space-y-1">
+                <label className="block text-sm font-medium">
+                  Area <span className="text-[#555] font-normal text-xs">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={area}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setArea(e.target.value)}
+                  placeholder="e.g. Södermalm, Vasastan"
+                  className="w-full rounded-lg bg-[#111111] border border-[#2a2a2a] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(201,168,76,0.5)]"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full inline-flex items-center justify-center rounded-lg bg-[#c9a84c] text-[#080808] hover:bg-[#e8c97a] disabled:bg-[rgba(201,168,76,0.1)] disabled:text-[#666] px-6 py-2.5 text-sm font-semibold tracking-wide transition-all shadow-lg shadow-[rgba(201,168,76,0.15)]"
+              >
+                {isLoading
+                  ? t.ui.filters.generatingButton
+                  : t.ui.filters.generateButton}
+              </button>
+            </div>
           </form>
         </section>
 
