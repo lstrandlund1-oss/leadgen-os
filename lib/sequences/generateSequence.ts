@@ -37,18 +37,18 @@ export type GeneratedSequence = {
 };
 
 // Day offsets by cadence type — based on research benchmarks
-const CADENCE_DAYS = {
+const CADENCE_DAYS: Record<"aggressive" | "standard" | "nurture", number[]> = {
   aggressive: [1, 2, 5, 9, 14],   // hot lead, clear gap, high score
   standard:   [1, 3, 7, 12, 18],  // typical lead
   nurture:    [1, 5, 10, 16, 21], // low score, mature competitor
-} as const;
+};
 
 // Channel rotation patterns — never single-channel
-const CHANNEL_PATTERNS = {
-  aggressive: ["call", "email", "email", "call", "email"] as SequenceChannel[],
-  standard:   ["email", "call", "email", "dm", "email"] as SequenceChannel[],
-  nurture:    ["email", "email", "call", "email", "dm"] as SequenceChannel[],
-} as const;
+const CHANNEL_PATTERNS: Record<"aggressive" | "standard" | "nurture", SequenceChannel[]> = {
+  aggressive: ["call", "email", "email", "call", "email"],
+  standard:   ["email", "call", "email", "dm", "email"],
+  nurture:    ["email", "email", "call", "email", "dm"],
+};
 
 function decideCadenceType(
   opportunity: number,
@@ -108,7 +108,7 @@ function buildUserPrompt(
   brief: StrategyBrief,
   cadenceType: "aggressive" | "standard" | "nurture",
   channels: SequenceChannel[],
-  days: readonly number[],
+  days: number[],
   opportunity: number,
   fitScore: number,
   riskProfile: string,
