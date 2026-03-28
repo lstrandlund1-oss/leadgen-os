@@ -92,6 +92,9 @@ export async function POST(request: Request) {
       body["socialPresence"],
     );
 
+    const areaRaw = getString(body, "area");
+    const area = typeof areaRaw === "string" && areaRaw.trim().length > 0 ? areaRaw.trim() : undefined;
+
     const intent: ProviderSearchIntent = {
       provider,
       query: queryRaw.trim(),

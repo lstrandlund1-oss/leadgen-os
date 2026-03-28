@@ -478,6 +478,7 @@ async function runProviderSearchAndFetchLeads(args: {
   provider: ProviderName;
   niche: string;
   location: string;
+  area?: string;
   socialPresence: SocialPresenceFilter;
   runId?: number | null;
   cursor?: string | null;
@@ -495,6 +496,7 @@ async function runProviderSearchAndFetchLeads(args: {
   if (!niche) return null;
 
   const locationText = args.location.trim();
+  const areaText = args.area?.trim() || undefined;
   const socialPresence = args.socialPresence;
 
   const provider = args.provider;
@@ -519,6 +521,7 @@ async function runProviderSearchAndFetchLeads(args: {
       query: primaryQuery,
       country: "Sweden",
       location: locationText || undefined,
+      ...(areaText ? { area: areaText } : {}),
       socialPresence,
       limit: 20,
       ...(runIdArg != null ? { runId: runIdArg } : {}),
@@ -1065,7 +1068,8 @@ export default function Home() {
       const more = await runProviderSearchAndFetchLeads({
         provider,
         niche,
-        location: area.trim() ? `${location.trim()}, ${area.trim()}` : location,
+        location: location,
+        area: area.trim() || undefined,
         socialPresence,
         runId,
         cursor: nextCursor,
@@ -1924,7 +1928,8 @@ export default function Home() {
       const providerLeads = await runProviderSearchAndFetchLeads({
         provider,
         niche,
-        location: area.trim() ? `${location.trim()}, ${area.trim()}` : location,
+        location: location,
+        area: area.trim() || undefined,
         socialPresence,
       });
 

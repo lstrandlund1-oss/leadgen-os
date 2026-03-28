@@ -134,9 +134,14 @@ export const googlePlacesAdapter: ProviderAdapter = {
 
       const query = i.query.trim();
       const location = typeof i.location === "string" ? i.location.trim() : "";
+      const area = typeof i.area === "string" && i.area.trim().length > 0 ? i.area.trim() : undefined;
       const city = location.length > 0 ? location : undefined;
 
-      const textQuery = location.length > 0 ? `${query} ${location}` : query;
+      // Build textQuery: if area is given, search "frisör i Södermalm Stockholm"
+      // This is far more effective than appending area to location string
+      const textQuery = area
+        ? `${query} i ${area}${location.length > 0 ? ` ${location}` : ""}`
+        : location.length > 0 ? `${query} ${location}` : query;
 
       const cursor =
         typeof i.cursor === "string" && i.cursor.trim().length > 0
@@ -184,12 +189,20 @@ export const googlePlacesAdapter: ProviderAdapter = {
           : null;
 
       const records: ProviderRecord[] = places
-        // Skip dead businesses so they don't pollute runs
+        // Skip dead businesses
         .filter((p) => p.businessStatus !== "CLOSED_PERMANENTLY")
         // Basic sanity: must have an id
         .filter(
           (p): p is GooglePlace => typeof p?.id === "string" && p.id.length > 0,
         )
+        // Area filter: if area specified, only keep results whose address contains it
+        .filter((p) => {
+          if (!area) return true;
+          const addr = (p.formattedAddress ?? "").toLowerCase();
+          // Normalize area for matching — try exact and partial match
+          const areaNorm = area.toLowerCase();
+          return addr.includes(areaNorm);
+        })
         .map((p) => toProviderRecord(p, query, city));
 
       if (!res.ok) {

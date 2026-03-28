@@ -55,6 +55,12 @@ export type ProviderSearchIntent = {
    * "any" means do not filter.
    */
   socialPresence?: SocialPresenceFilter;
+
+  /**
+   * Sub-area / neighbourhood filter (e.g. "Södermalm", "Vasastan").
+   * When present, providers should bias/filter results to this area.
+   */
+  area?: string;
 };
 
 export type ProviderRecord = {
@@ -98,7 +104,3 @@ export type ProviderAdapter = {
   name: ProviderName;
   search(intent: ProviderSearchIntent): Promise<ProviderResult>;
 };
-
-
-
-
