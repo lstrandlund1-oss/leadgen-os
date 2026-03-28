@@ -158,6 +158,7 @@ export default function HamburgerMenu({ userEmail }: HamburgerMenuProps) {
 
       {/* Dropdown */}
       <div
+        data-vantio-menu="true"
         style={{
           position: "fixed",
           top: btnPos.top + 48,
@@ -166,6 +167,8 @@ export default function HamburgerMenu({ userEmail }: HamburgerMenuProps) {
           width: 256,
           maxHeight: "82vh",
           overflowY: "auto",
+          scrollbarWidth: "thin",
+          scrollbarColor: "#2a2010 #0e0e0e",
           borderRadius: 14,
           border: "1px solid rgba(201,168,76,0.25)",
           background: "#0e0e0e",

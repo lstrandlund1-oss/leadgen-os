@@ -2173,8 +2173,8 @@ export default function Home() {
               </div>
 
               {/* DESKTOP TABLE — hidden on mobile except when a lead is selected */}
-              <div className={selectedLead ? "block overflow-x-auto" : "hidden sm:block overflow-x-auto"}>
-              <table className="w-full text-sm border-collapse min-w-[600px]">
+              <div className={selectedLead ? "block overflow-x-hidden" : "hidden sm:block overflow-x-hidden"}>
+              <table className="w-full text-sm border-collapse">
                 <thead className="hidden sm:table-header-group">
                   <tr className="bg-[#111111] border-b border-[#252525]">
                     <th className="text-left py-2 px-3 w-[30%]">
