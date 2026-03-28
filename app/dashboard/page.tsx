@@ -815,13 +815,21 @@ export default function Home() {
 
   const [selectedLead, setSelectedLead] = useState<LeadUI | null>(null);
   const [detailTab, setDetailTab] = useState<
-    "overview" | "signals" | "outreach" | "tracking"
+    "overview" | "signals" | "outreach" | "tracking" | "sequence"
   >("overview");
   const userPlan = getEffectivePlan();
   const deepScanUnlocked = canUseDeepEnrichment(userPlan);
 
   const [enrichmentLoading, setEnrichmentLoading] = useState(false);
   const [isRescoring, setIsRescoring] = useState(false);
+  const [sequenceSteps, setSequenceSteps] = useState<Array<{
+    id: number; step: number; day_offset: number; scheduled_date: string;
+    channel: string; subject: string | null; message: string;
+    objective: string; cta: string; status: string; cadence_type: string;
+  }>>([]);
+  const [sequenceLoading, setSequenceLoading] = useState(false);
+  const [sequenceGenerating, setSequenceGenerating] = useState(false);
+  const [sequenceExpandedStep, setSequenceExpandedStep] = useState<number | null>(null);
 
   const [enrichmentData, setEnrichmentData] = useState<{
     reachable: boolean;
@@ -1263,6 +1271,20 @@ export default function Home() {
         // fail soft — no deep scan cached
       }
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLead?.id]);
+
+  // Load existing sequence when lead is selected
+  useEffect(() => {
+    if (!selectedLead) { setSequenceSteps([]); return; }
+    setSequenceLoading(true);
+    fetch(`/api/sequences?leadId=${encodeURIComponent(selectedLead.id)}`)
+      .then(r => r.ok ? r.json() : { steps: [] })
+      .then((d: { steps?: unknown[] }) => {
+        setSequenceSteps((d.steps ?? []) as typeof sequenceSteps);
+      })
+      .catch(() => setSequenceSteps([]))
+      .finally(() => setSequenceLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLead?.id]);
 
@@ -2199,6 +2221,7 @@ export default function Home() {
                       { key: "signals", label: t.ui.detail.tabSignals },
                       { key: "outreach", label: t.ui.detail.tabOutreach },
                       { key: "tracking", label: t.ui.detail.tabTracking },
+                      { key: "sequence", label: "Sequence" },
                     ] as const;
 
                     const detailWebsiteUrl =
@@ -3380,6 +3403,165 @@ export default function Home() {
                                           </div>
                                         );
                                       })()}
+                                    </div>
+                                  );
+                                })()}
+
+                                {detailTab === "sequence" && (() => {
+                                  const CH_ICONS: Record<string, string> = { email: "✉", call: "☎", dm: "◎", linkedin: "in" };
+                                  const CH_LABELS: Record<string, string> = { email: "Email", call: "Call", dm: "DM", linkedin: "LinkedIn" };
+                                  const ST_STYLES: Record<string, { color: string; label: string }> = {
+                                    pending:  { color: "#555",    label: "Pending" },
+                                    sent:     { color: "#3b82f6", label: "Sent" },
+                                    replied:  { color: "#4ade80", label: "Replied" },
+                                    skipped:  { color: "#333",    label: "Skipped" },
+                                  };
+                                  const CAD_LABELS: Record<string, string> = { aggressive: "Hot cadence", standard: "Standard cadence", nurture: "Nurture cadence" };
+
+                                  async function buildSequence() {
+                                    if (!detailLead || sequenceGenerating) return;
+                                    setSequenceGenerating(true);
+                                    try {
+                                      const res = await fetch("/api/sequences", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                          leadId: detailLead.id,
+                                          runId: Number(detailLead.metadata.runId),
+                                          companyName: detailLead.company.name,
+                                          outreachRequest: {
+                                            company_name: detailLead.company.name,
+                                            industry: detailLead.classification.primaryIndustry ?? null,
+                                            city: detailLead.company.city ?? null,
+                                            website: detailLead.company.website ?? null,
+                                            rating: detailLead.metrics.rating ?? null,
+                                            review_count: detailLead.metrics.reviewCount ?? null,
+                                            social_presence: detailLead.metrics.socialPresence ?? null,
+                                            opportunity: detailLead.score.opportunity ?? 0,
+                                            readiness: detailLead.score.readiness ?? 0,
+                                            risk: detailLead.score.risk ?? 0,
+                                            signals: enrichmentSignals ?? {},
+                                            matched_needs: detailLead.fit?.matchedNeeds ?? [],
+                                            missing_needs: detailLead.fit?.missingNeeds ?? [],
+                                            fit_score: detailLead.fit?.fitScore ?? 50,
+                                            language: language,
+                                          },
+                                          opportunity: detailLead.score.opportunity ?? 0,
+                                          fitScore: detailLead.fit?.fitScore ?? 50,
+                                          riskProfile: detailLead.score.riskProfile ?? "unknown",
+                                        }),
+                                      });
+                                      if (res.ok) {
+                                        const data = await res.json() as { steps?: typeof sequenceSteps };
+                                        setSequenceSteps(data.steps ?? []);
+                                      }
+                                    } finally {
+                                      setSequenceGenerating(false);
+                                    }
+                                  }
+
+                                  async function patchStep(stepId: number, status: string) {
+                                    const res = await fetch(`/api/sequences/${stepId}`, {
+                                      method: "PATCH",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ status }),
+                                    });
+                                    if (res.ok) setSequenceSteps(prev => prev.map(s => s.id === stepId ? { ...s, status } : s));
+                                  }
+
+                                  if (sequenceLoading) return <div className="py-8 text-center text-[#444] text-sm animate-pulse">Loading…</div>;
+
+                                  return (
+                                    <div className="space-y-4">
+                                      <div className="flex items-center justify-between">
+                                        <div>
+                                          <p className="text-[11px] text-[#555]">
+                                            {sequenceSteps.length > 0 ? `${sequenceSteps.length}-step ${CAD_LABELS[sequenceSteps[0]?.cadence_type] ?? "cadence"}` : "No sequence yet"}
+                                          </p>
+                                          {sequenceSteps.length > 0 && (
+                                            <p className="text-[10px] text-[#333] mt-0.5">
+                                              {sequenceSteps.filter(s => s.status === "sent").length} sent · {sequenceSteps.filter(s => s.status === "pending").length} pending
+                                            </p>
+                                          )}
+                                        </div>
+                                        <button type="button" onClick={buildSequence} disabled={sequenceGenerating}
+                                          className="px-4 py-2 rounded-xl border border-[rgba(201,168,76,0.3)] text-[11px] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.06)] disabled:opacity-40 transition-all">
+                                          {sequenceGenerating ? "Generating…" : sequenceSteps.length > 0 ? "↻ Rebuild" : "⇉ Build Sequence"}
+                                        </button>
+                                      </div>
+
+                                      {sequenceGenerating ? (
+                                        <div className="rounded-xl border border-[#1a1a1a] bg-[#0a0a0a] p-8 text-center space-y-2">
+                                          <div className="w-6 h-6 border border-[#c9a84c] border-t-transparent rounded-full animate-spin mx-auto" />
+                                          <p className="text-[12px] text-[#555]">Generating sequence…</p>
+                                          <p className="text-[11px] text-[#333]">Analysing signals and crafting 5 steps</p>
+                                        </div>
+                                      ) : sequenceSteps.length === 0 ? (
+                                        <div className="rounded-xl border border-[#1a1a1a] bg-[#0a0a0a] p-6 text-center space-y-2">
+                                          <p className="text-[13px] text-[#2a2a2a]">⇉</p>
+                                          <p className="text-[12px] text-[#444]">No sequence for this lead yet</p>
+                                          <p className="text-[11px] text-[#2a2a2a] leading-relaxed max-w-[240px] mx-auto">
+                                            Build a 5-step cadence tailored to this lead&apos;s gap type and signals.
+                                          </p>
+                                        </div>
+                                      ) : (
+                                        <div className="space-y-1.5">
+                                          {sequenceSteps.map(step => {
+                                            const isExp = sequenceExpandedStep === step.id;
+                                            const st = ST_STYLES[step.status] ?? ST_STYLES.pending;
+                                            const daysOff = Math.round((new Date(step.scheduled_date).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / 86400000);
+                                            const dayStr = daysOff < 0 ? `${Math.abs(daysOff)}d overdue` : daysOff === 0 ? "Today" : daysOff === 1 ? "Tomorrow" : `Day ${step.day_offset}`;
+                                            const dayClr = daysOff < 0 ? "#f87171" : daysOff === 0 ? "#c9a84c" : "#555";
+                                            return (
+                                              <div key={step.id} className="rounded-xl border border-[#1a1a1a] overflow-hidden">
+                                                <div className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-[#111] transition-colors"
+                                                  onClick={() => setSequenceExpandedStep(isExp ? null : step.id)}>
+                                                  <span className="text-[10px] text-[#2a2a2a] w-3 text-center">{step.step}</span>
+                                                  <span className="text-[11px] w-20 font-medium" style={{ color: dayClr }}>{dayStr}</span>
+                                                  <span className="text-[11px] text-[#444] w-14">{CH_ICONS[step.channel]} {CH_LABELS[step.channel]}</span>
+                                                  <span className="flex-1 text-[11px] text-[#555] truncate">{step.objective}</span>
+                                                  <span className="text-[10px]" style={{ color: st.color }}>{st.label}</span>
+                                                  <span className="text-[10px] text-[#1a1a1a]">{isExp ? "▲" : "▼"}</span>
+                                                </div>
+                                                {isExp && (
+                                                  <div className="px-3 pb-3 pt-2 bg-[#0a0a0a] space-y-2 border-t border-[#0f0f0f]">
+                                                    {step.subject && (
+                                                      <div>
+                                                        <p className="text-[9px] uppercase tracking-widest text-[#2a2a2a] mb-1">Subject</p>
+                                                        <p className="text-[12px] text-[#777]">{step.subject}</p>
+                                                      </div>
+                                                    )}
+                                                    <div>
+                                                      <p className="text-[9px] uppercase tracking-widest text-[#2a2a2a] mb-1.5">Message</p>
+                                                      <p className="text-[12px] text-[#c8c0b0] leading-relaxed whitespace-pre-wrap">{step.message}</p>
+                                                    </div>
+                                                    <div>
+                                                      <p className="text-[9px] uppercase tracking-widest text-[#2a2a2a] mb-1">CTA</p>
+                                                      <p className="text-[11px] text-[#555]">{step.cta}</p>
+                                                    </div>
+                                                    <div className="flex gap-2 pt-0.5 flex-wrap">
+                                                      {step.status === "pending" && <>
+                                                        <button type="button" onClick={() => patchStep(step.id, "sent")}
+                                                          className="px-3 py-1.5 rounded-lg border border-[#3b82f6]/25 text-[10px] text-[#3b82f6] hover:bg-[#3b82f6]/08 transition-all">✓ Sent</button>
+                                                        <button type="button" onClick={() => patchStep(step.id, "skipped")}
+                                                          className="px-3 py-1.5 rounded-lg border border-[#252525] text-[10px] text-[#444] hover:border-[#333] transition-all">Skip</button>
+                                                      </>}
+                                                      {step.status === "sent" && (
+                                                        <button type="button" onClick={() => patchStep(step.id, "replied")}
+                                                          className="px-3 py-1.5 rounded-lg border border-[#4ade80]/25 text-[10px] text-[#4ade80] hover:bg-[#4ade80]/08 transition-all">✓ Got reply</button>
+                                                      )}
+                                                      {step.status === "replied" && <span className="text-[10px] text-[#4ade80]">🎉 Replied</span>}
+                                                    </div>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                      {sequenceSteps.length > 0 && (
+                                        <a href="/followups" className="block text-center text-[11px] text-[#333] hover:text-[#c9a84c] transition-colors pt-1">View all sequences →</a>
+                                      )}
                                     </div>
                                   );
                                 })()}
