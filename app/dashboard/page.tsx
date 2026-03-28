@@ -815,7 +815,7 @@ export default function Home() {
 
   const [selectedLead, setSelectedLead] = useState<LeadUI | null>(null);
   const [detailTab, setDetailTab] = useState<
-    "overview" | "signals" | "outreach" | "tracking" | "sequence"
+    "overview" | "signals" | "outreach" | "tracking" | "followup"
   >("overview");
   const userPlan = getEffectivePlan();
   const deepScanUnlocked = canUseDeepEnrichment(userPlan);
@@ -2221,7 +2221,7 @@ export default function Home() {
                       { key: "signals", label: t.ui.detail.tabSignals },
                       { key: "outreach", label: t.ui.detail.tabOutreach },
                       { key: "tracking", label: t.ui.detail.tabTracking },
-                      { key: "sequence", label: "Sequence" },
+                      { key: "followup", label: "Follow-up" },
                     ] as const;
 
                     const detailWebsiteUrl =
@@ -3354,10 +3354,23 @@ export default function Home() {
                                         );
                                       })()}
 
-                                      {/* Follow-up reminder — auto-suggested from friction level */}
+                                    </div>
+                                  );
+                                })()}
+
+                                {detailTab === "followup" && (() => {
+
+                                  // Follow-up variables (same as tracking tab)
+                                  const canSaveFollowup = Number.isFinite(runIdNum) && runIdNum > 0;
+                                  const followupVal = selectedOutcome?.followup_date ?? "";
+                                  const safeOutreachFU = (detailLead?.metadata?.outreach ?? null) as { difficulty?: string } | null;
+                                  const difficultyFU = safeOutreachFU?.difficulty ?? null;
+                                  const closedFU = !!(selectedOutcome?.closed);
+
+                                                                        {/* Follow-up reminder — auto-suggested from friction level */}
                                       {(() => {
                                         const frictionDays: Record<string, number> = { LOW: 3, MEDIUM: 5, HIGH: 7 };
-                                        const suggestedDays = difficultyForTracking ? (frictionDays[difficultyForTracking] ?? 5) : 5;
+                                        const suggestedDays = difficultyFU ? (frictionDays[difficultyFU] ?? 5) : 5;
                                         const suggestedDate = (() => {
                                           const d = new Date();
                                           d.setDate(d.getDate() + suggestedDays);
@@ -3373,7 +3386,7 @@ export default function Home() {
                                                   auto · {suggestedDays}d
                                                 </span>
                                               )}
-                                              {followupVal && !closed && (() => {
+                                              {followupVal && !closedFU && (() => {
                                                 const diff = Math.ceil((new Date(followupVal).getTime() - Date.now()) / 86400000);
                                                 const overdue = diff < 0;
                                                 const today = diff === 0;
@@ -3386,11 +3399,11 @@ export default function Home() {
                                             </div>
                                             <input
                                               type="date"
-                                              disabled={!canSave}
+                                              disabled={!canSaveFollowup}
                                               defaultValue={displayVal}
                                               key={displayVal}
                                               onBlur={(e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-                                                if (!canSave) return;
+                                                if (!canSaveFollowup) return;
                                                 saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { followup_date: e.target.value || null } });
                                               }}
                                               className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-[12px] text-[#c8c0b0] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40 [color-scheme:dark]"
@@ -3398,17 +3411,19 @@ export default function Home() {
                                             <p className="text-[10px] text-[#333]">
                                               {followupVal
                                                 ? t.ui.detail.followUpHint
-                                                : `${difficultyForTracking ? difficultyForTracking.charAt(0) + difficultyForTracking.slice(1).toLowerCase() : "Medium"} friction — edit to override`}
+                                                : `${difficultyFU ? difficultyFU.charAt(0) + difficultyFU.slice(1).toLowerCase() : "Medium"} friction — edit to override`}
                                             </p>
                                           </div>
                                         );
                                       })()}
-                                    </div>
-                                  );
-                                })()}
 
-                                {detailTab === "sequence" && (() => {
-                                  const CH_ICONS: Record<string, string> = { email: "✉", call: "☎", dm: "◎", linkedin: "in" };
+
+                                  {/* ── Sequence builder ──────────────────── */}
+                                  <div className="pt-2 border-t border-[#141414]">
+                                    <p className="text-[10px] uppercase tracking-widest text-[#333] mb-3">Outreach Sequence</p>
+                                  </div>
+
+                                                                    const CH_ICONS: Record<string, string> = { email: "✉", call: "☎", dm: "◎", linkedin: "in" };
                                   const CH_LABELS: Record<string, string> = { email: "Email", call: "Call", dm: "DM", linkedin: "LinkedIn" };
                                   const ST_STYLES: Record<string, { color: string; label: string }> = {
                                     pending:  { color: "#555",    label: "Pending" },
