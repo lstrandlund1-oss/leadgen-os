@@ -2434,23 +2434,7 @@ export default function Home() {
                             </div>
                           </td>
 
-                          <td className="py-2 px-2 w-8">
-                            {!isSelected && (
-                              <button
-                                type="button"
-                                title={savedLeadIds.has(lead.id) ? "Remove from Contact Leads" : "Save to Contact Leads"}
-                                onClick={(e: MouseEvent) => { e.stopPropagation(); toggleSaveLead(lead); }}
-                                className="w-7 h-7 flex items-center justify-center rounded-lg border transition-all"
-                                style={{
-                                  borderColor: savedLeadIds.has(lead.id) ? "rgba(201,168,76,0.5)" : "#252525",
-                                  background: savedLeadIds.has(lead.id) ? "rgba(201,168,76,0.1)" : "transparent",
-                                  color: savedLeadIds.has(lead.id) ? "#c9a84c" : "#444",
-                                }}
-                              >
-                                {savedLeadIds.has(lead.id) ? "◈" : "◇"}
-                              </button>
-                            )}
-                          </td>
+
 
                         </tr>
 
