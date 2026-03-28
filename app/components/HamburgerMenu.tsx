@@ -12,9 +12,25 @@ interface HamburgerMenuProps {
   hasProfile?: boolean;
 }
 
-export default function HamburgerMenu({
-  userEmail,
-}: HamburgerMenuProps) {
+type MenuItem = {
+  label: string;
+  href: string;
+  icon: string;
+  locked: false;
+} | {
+  label: string;
+  href: null;
+  icon: string;
+  locked: true;
+  soon: true; // coming soon — not a plan lock
+};
+
+type MenuSection = {
+  heading: string;
+  items: MenuItem[];
+};
+
+export default function HamburgerMenu({ userEmail }: HamburgerMenuProps) {
   const [open, setOpen] = useState(false);
   const [btnPos, setBtnPos] = useState({ top: 16, left: 16 });
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -26,7 +42,6 @@ export default function HamburgerMenu({
   function toggleMenu() {
     if (!open && buttonRef.current) {
       const r = buttonRef.current.getBoundingClientRect();
-      // Use clientWidth to avoid scrollbar/zoom inconsistencies
       setBtnPos({ top: r.top, left: r.left });
     }
     setOpen(o => !o);
@@ -50,20 +65,63 @@ export default function HamburgerMenu({
     router.refresh();
   }
 
-  const menuItems = [
-    { label: "Home",             href: "/",           icon: "◇", locked: false },
-    { label: "Dashboard",        href: "/dashboard",  icon: "◈", locked: false },
-    { label: "Outreach",         href: "/outreach",   icon: "✦", locked: !outreachUnlocked },
-    { label: "Profile",          href: "/profile",    icon: "◈", locked: false },
-    { label: "Analytics",        href: "/analytics",  icon: "◉", locked: false },
-    { label: "Follow-up Queue",  href: "/followups",  icon: "↩", locked: false },
-    { label: "Import Leads",     href: "/import",     icon: "↑", locked: false },
-    { label: "Settings",         href: "/settings",   icon: "⚙", locked: false },
-    { label: "Contact & Support",href: "/contact",    icon: "✉", locked: false },
+  // ── Menu structure — full Vantio ecosystem ──────────────────────────────
+  // Unlocked = live in beta. soon=true = coming soon, visible but locked.
+  const sections: MenuSection[] = [
+    {
+      heading: "Core",
+      items: [
+        { label: "Dashboard",       href: "/dashboard",  icon: "◈", locked: false },
+        { label: "Outreach",        href: outreachUnlocked ? "/outreach" : "/plans", icon: "✦", locked: false },
+        { label: "Follow-up Queue", href: "/followups",  icon: "↩", locked: false },
+        { label: "Collections",     href: "/collections",icon: "◇", locked: false },
+        { label: "Analytics",       href: "/analytics",  icon: "◉", locked: false },
+      ],
+    },
+    {
+      heading: "Intelligence",
+      items: [
+        { label: "Market Radar",       href: null, icon: "⊕", locked: true, soon: true },
+        { label: "Territory Globe",    href: null, icon: "◎", locked: true, soon: true },
+        { label: "Deal Angle Engine",  href: null, icon: "◆", locked: true, soon: true },
+        { label: "Objection Predictor",href: null, icon: "⟡", locked: true, soon: true },
+      ],
+    },
+    {
+      heading: "Engagement",
+      items: [
+        { label: "Sequence Builder",   href: null, icon: "⇉", locked: true, soon: true },
+        { label: "Channel Strategy",   href: null, icon: "⊞", locked: true, soon: true },
+        { label: "Reply Assistant",    href: null, icon: "⌁", locked: true, soon: true },
+      ],
+    },
+    {
+      heading: "Conversion",
+      items: [
+        { label: "Offer Builder",      href: null, icon: "◑", locked: true, soon: true },
+        { label: "Proposal Generator", href: null, icon: "▤", locked: true, soon: true },
+        { label: "Call Assistant",     href: null, icon: "⌖", locked: true, soon: true },
+      ],
+    },
+    {
+      heading: "Delivery",
+      items: [
+        { label: "Fulfillment Blueprint", href: null, icon: "⊟", locked: true, soon: true },
+        { label: "Asset Generator",       href: null, icon: "⊞", locked: true, soon: true },
+        { label: "ROI Tracker",           href: null, icon: "⊿", locked: true, soon: true },
+      ],
+    },
+    {
+      heading: "Platform",
+      items: [
+        { label: "Import Leads",     href: "/import",           icon: "↑",  locked: false },
+        { label: "Profile",          href: "/profile",          icon: "◈",  locked: false },
+        { label: "Settings",         href: "/profile/settings", icon: "⚙",  locked: false },
+        { label: "Contact & Support",href: "/contact",          icon: "✉",  locked: false },
+      ],
+    },
   ];
 
-  // The portal renders the backdrop, the animated button clone, and the dropdown
-  // All as direct children of document.body — guaranteed above everything
   const portal = (typeof window !== "undefined") && open ? createPortal(
     <>
       {/* Backdrop */}
@@ -71,14 +129,14 @@ export default function HamburgerMenu({
         onClick={() => setOpen(false)}
         style={{
           position: "fixed", inset: 0, zIndex: 99997,
-          background: "rgba(8,8,8,0.75)",
-          backdropFilter: "blur(3px)",
-          WebkitBackdropFilter: "blur(3px)",
+          background: "rgba(8,8,8,0.82)",
+          backdropFilter: "blur(4px)",
+          WebkitBackdropFilter: "blur(4px)",
         }}
         aria-hidden="true"
       />
 
-      {/* Close button — unicode ✕, always a perfect X */}
+      {/* Close button */}
       <button
         type="button"
         onClick={() => setOpen(false)}
@@ -88,19 +146,11 @@ export default function HamburgerMenu({
           top: btnPos.top,
           left: btnPos.left,
           zIndex: 99999,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: 40,
-          height: 40,
-          borderRadius: 8,
-          border: "1px solid #8a6e30",
-          background: "#111",
-          cursor: "pointer",
-          fontSize: 18,
-          color: "#f5f0e8",
-          lineHeight: 1,
-          boxSizing: "border-box",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          width: 40, height: 40, borderRadius: 8,
+          border: "1px solid #8a6e30", background: "#111",
+          cursor: "pointer", fontSize: 18, color: "#f5f0e8",
+          lineHeight: 1, boxSizing: "border-box",
         }}
       >
         ✕
@@ -111,66 +161,118 @@ export default function HamburgerMenu({
         style={{
           position: "fixed",
           top: btnPos.top + 48,
-          left: btnPos.left - 184,
+          left: btnPos.left - 220,
           zIndex: 99998,
-          width: 224,
-          maxHeight: "80vh",
+          width: 256,
+          maxHeight: "82vh",
           overflowY: "auto",
-          borderRadius: 12,
-          border: "1px solid rgba(201,168,76,0.3)",
-          background: "#111",
-          boxShadow: "0 25px 60px rgba(0,0,0,0.8)",
+          borderRadius: 14,
+          border: "1px solid rgba(201,168,76,0.25)",
+          background: "#0e0e0e",
+          boxShadow: "0 30px 80px rgba(0,0,0,0.9)",
         }}
       >
+        {/* Gold top line */}
         <div style={{ height: 1, background: "linear-gradient(90deg, transparent, #c9a84c, transparent)" }} />
 
+        {/* User email */}
         {userEmail && (
           <>
             <div style={{ padding: "12px 16px" }}>
-              <p style={{ fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", color: "#555", marginBottom: 2 }}>Signed in as</p>
-              <p style={{ fontSize: 12, color: "#888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userEmail}</p>
+              <p style={{ fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", color: "#444", marginBottom: 2 }}>Signed in as</p>
+              <p style={{ fontSize: 12, color: "#666", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userEmail}</p>
             </div>
             <div style={{ height: 1, background: "#1a1a1a" }} />
           </>
         )}
 
-        <div style={{ paddingTop: 8, paddingBottom: 8 }}>
-          {menuItems.map((item, i) =>
-            item.locked ? (
-              <Link key={i} href="/plans" onClick={() => setOpen(false)}
-                style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", fontSize: 14, color: "#555", textDecoration: "none" }}
-                onMouseEnter={e => (e.currentTarget.style.background = "#1a1a1a")}
-                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                <span style={{ fontSize: 11, color: "#3a3a3a" }}>{item.icon}</span>
-                <span style={{ flex: 1 }}>{item.label}</span>
-                <span style={{ fontSize: 11 }}>🔒</span>
-              </Link>
-            ) : (
-              <Link key={i} href={item.href} onClick={() => setOpen(false)}
-                style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", fontSize: 14, color: "#f5f0e8", textDecoration: "none" }}
-                onMouseEnter={e => { e.currentTarget.style.background = "#1a1a1a"; (e.currentTarget as HTMLElement).style.color = "#e8c97a"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#f5f0e8"; }}>
-                <span style={{ fontSize: 11, color: "#8a6e30" }}>{item.icon}</span>
-                <span>{item.label}</span>
-              </Link>
-            )
-          )}
-        </div>
+        {/* Sections */}
+        {sections.map((section, si) => (
+          <div key={si}>
+            {/* Section heading */}
+            <div style={{ padding: "10px 16px 4px", display: "flex", alignItems: "center", gap: 8 }}>
+              <p style={{ fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase", color: "#3a3a3a", margin: 0 }}>
+                {section.heading}
+              </p>
+              <div style={{ flex: 1, height: 1, background: "#1a1a1a" }} />
+            </div>
 
+            {/* Items */}
+            {section.items.map((item, ii) =>
+              item.locked ? (
+                // Coming soon — not navigable, styled dimly with "soon" badge
+                <div
+                  key={ii}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "8px 16px", fontSize: 13, color: "#333",
+                    cursor: "default", userSelect: "none",
+                  }}
+                >
+                  <span style={{ fontSize: 10, color: "#2a2a2a", width: 14, textAlign: "center" }}>{item.icon}</span>
+                  <span style={{ flex: 1 }}>{item.label}</span>
+                  <span style={{
+                    fontSize: 8, letterSpacing: "0.12em", textTransform: "uppercase",
+                    color: "#4a3a1a", border: "1px solid #2a2010",
+                    borderRadius: 4, padding: "1px 5px",
+                  }}>
+                    Soon
+                  </span>
+                </div>
+              ) : (
+                <Link
+                  key={ii}
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "8px 16px", fontSize: 13, color: "#c8c0b0",
+                    textDecoration: "none", transition: "background 0.1s",
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = "#161616";
+                    e.currentTarget.style.color = "#e8c97a";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "#c8c0b0";
+                  }}
+                >
+                  <span style={{ fontSize: 10, color: "#6a5a30", width: 14, textAlign: "center" }}>{item.icon}</span>
+                  <span>{item.label}</span>
+                </Link>
+              )
+            )}
 
+            {/* Section divider (not after last section) */}
+            {si < sections.length - 1 && (
+              <div style={{ height: 1, background: "#141414", margin: "4px 0" }} />
+            )}
+          </div>
+        ))}
 
-        <div style={{ height: 1, background: "#1a1a1a" }} />
-        <button type="button" onClick={handleSignOut}
-          style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", width: "100%", fontSize: 14, color: "#666", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
-          onMouseEnter={e => { e.currentTarget.style.background = "#1a1a1a"; e.currentTarget.style.color = "#f87171"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#666"; }}>
-          <span style={{ fontSize: 11, color: "#444" }}>⎋</span>
+        {/* Footer — sign out + version */}
+        <div style={{ height: 1, background: "#1a1a1a", marginTop: 4 }} />
+        <button
+          type="button"
+          onClick={handleSignOut}
+          style={{
+            display: "flex", alignItems: "center", gap: 10,
+            padding: "10px 16px", width: "100%", fontSize: 13,
+            color: "#444", background: "none", border: "none",
+            cursor: "pointer", textAlign: "left",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = "#161616"; e.currentTarget.style.color = "#f87171"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#444"; }}
+        >
+          <span style={{ fontSize: 10, color: "#333", width: 14, textAlign: "center" }}>⎋</span>
           <span>Sign Out</span>
         </button>
 
-        <div style={{ height: 1, background: "#1a1a1a" }} />
-        <div style={{ padding: "8px 16px" }}>
-          <p style={{ fontSize: 10, color: "#333", letterSpacing: "0.1em", textTransform: "uppercase" }}>Vantio Beta</p>
+        <div style={{ height: 1, background: "#141414" }} />
+        <div style={{ padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <p style={{ fontSize: 9, color: "#2a2a2a", letterSpacing: "0.12em", textTransform: "uppercase", margin: 0 }}>Vantio</p>
+          <p style={{ fontSize: 9, color: "#2a2a2a", letterSpacing: "0.08em", margin: 0 }}>Beta</p>
         </div>
       </div>
     </>,
@@ -179,7 +281,6 @@ export default function HamburgerMenu({
 
   return (
     <>
-      {/* Real button — visible when closed, hidden (but in DOM) when open so portal clone shows */}
       <button
         ref={buttonRef}
         type="button"
@@ -189,8 +290,8 @@ export default function HamburgerMenu({
         style={{
           display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center",
           width: 40, height: 40, gap: 5, borderRadius: 8,
-          border: "1px solid #252525", background: "#111", cursor: "pointer",
-          transition: "border-color 0.2s",
+          border: "1px solid #252525", background: "#111",
+          cursor: "pointer", transition: "border-color 0.2s",
           visibility: open ? "hidden" : "visible",
         }}
         onMouseEnter={e => (e.currentTarget.style.borderColor = "#8a6e30")}
