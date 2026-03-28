@@ -3348,10 +3348,7 @@ export default function Home() {
                                   const safeOutreachFU = (detailLead?.metadata?.outreach ?? null) as { difficulty?: string } | null;
                                   const difficultyFU = safeOutreachFU?.difficulty ?? null;
                                   const closedFU = !!(selectedOutcome?.closed);
-                                  const frictionDays: Record<string, number> = { LOW: 3, MEDIUM: 5, HIGH: 7 };
-                                  const suggestedDays = difficultyFU ? (frictionDays[difficultyFU] ?? 5) : 5;
-                                  const suggestedDate = (() => { const d = new Date(); d.setDate(d.getDate() + suggestedDays); return d.toISOString().slice(0, 10); })();
-                                  const displayVal = followupVal || suggestedDate;
+
                                   const CH_ICONS: Record<string, string> = { email: "✉", call: "☎", dm: "◎", linkedin: "in" };
                                   const CH_LABELS: Record<string, string> = { email: "Email", call: "Call", dm: "DM", linkedin: "LinkedIn" };
                                   const ST_STYLES: Record<string, { color: string; label: string }> = {
@@ -3416,35 +3413,82 @@ export default function Home() {
                                   return (
                                     <div className="space-y-4 pt-1">
 
-                                      {/* Follow-up reminder */}
-                                      <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
-                                        <div className="flex items-center justify-between">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.followUpReminder}</p>
-                                          {!followupVal && (
-                                            <span className="text-[9px] px-2 py-0.5 rounded-full border border-[#252525] text-[#444]">auto · {suggestedDays}d</span>
-                                          )}
-                                          {followupVal && !closedFU && (() => {
-                                            const diff = Math.ceil((new Date(followupVal).getTime() - Date.now()) / 86400000);
-                                            const overdue = diff < 0;
-                                            const tod = diff === 0;
-                                            return (
-                                              <span className={"text-[10px] px-2 py-0.5 rounded-full border " + (overdue ? "border-[#f87171]/30 text-[#f87171] bg-[#f87171]/5" : tod ? "border-[#c9a84c]/30 text-[#c9a84c] bg-[#c9a84c]/5" : "border-[#4ade80]/20 text-[#4ade80] bg-[#4ade80]/5")}>
-                                                {overdue ? `${Math.abs(diff)}${t.ui.detail.overdueLabel}` : tod ? t.ui.detail.todayLabel : `${t.ui.detail.inDaysLabel} ${diff}d`}
-                                              </span>
-                                            );
-                                          })()}
-                                        </div>
-                                        <input type="date" disabled={!canSaveFollowup} defaultValue={displayVal} key={displayVal}
-                                          onBlur={(e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-                                            if (!canSaveFollowup) return;
-                                            saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { followup_date: e.target.value || null } });
-                                          }}
-                                          className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-[12px] text-[#c8c0b0] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40 [color-scheme:dark]"
-                                        />
-                                        <p className="text-[10px] text-[#333]">
-                                          {followupVal ? t.ui.detail.followUpHint : `${difficultyFU ? difficultyFU.charAt(0) + difficultyFU.slice(1).toLowerCase() : "Medium"} friction — edit to override`}
-                                        </p>
-                                      </div>
+                                      {/* Follow-up reminder — driven by sequence if one exists */}
+                                      {(() => {
+                                        const CH_ICONS_FU: Record<string, string> = { email: "✉", call: "☎", dm: "◎", linkedin: "in" };
+                                        const CH_LABELS_FU: Record<string, string> = { email: "Email", call: "Call", dm: "DM", linkedin: "LinkedIn" };
+
+                                        // Next pending step from sequence
+                                        const nextStep = sequenceSteps
+                                          .filter(s => s.status === "pending")
+                                          .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime())[0] ?? null;
+
+                                        if (nextStep) {
+                                          const daysOff = Math.round((new Date(nextStep.scheduled_date).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / 86400000);
+                                          const overdue = daysOff < 0;
+                                          const tod = daysOff === 0;
+                                          const dateColor = overdue ? "#f87171" : tod ? "#c9a84c" : "#4ade80";
+                                          const dateLabel = overdue ? `${Math.abs(daysOff)}d overdue` : tod ? "Today" : daysOff === 1 ? "Tomorrow" : `In ${daysOff}d`;
+                                          const sentCount = sequenceSteps.filter(s => s.status === "sent" || s.status === "replied").length;
+                                          const totalCount = sequenceSteps.length;
+                                          return (
+                                            <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+                                              <div className="flex items-center justify-between">
+                                                <p className="text-[10px] uppercase tracking-widests text-[#555]">Next Touch</p>
+                                                <span className="text-[9px] px-2 py-0.5 rounded-full border border-[#252525] text-[#444]">{sentCount}/{totalCount} steps sent</span>
+                                              </div>
+                                              <div className="flex items-center gap-3">
+                                                <div className="flex-shrink-0 rounded-lg border px-3 py-2 text-center min-w-[64px]"
+                                                  style={{ borderColor: `${dateColor}30`, background: `${dateColor}08` }}>
+                                                  <p className="text-[12px] font-semibold" style={{ color: dateColor }}>{dateLabel}</p>
+                                                  <p className="text-[9px] mt-0.5" style={{ color: `${dateColor}70` }}>
+                                                    {new Date(nextStep.scheduled_date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                                                  </p>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                  <div className="flex items-center gap-1.5 mb-1">
+                                                    <span className="text-[11px] text-[#555]">{CH_ICONS_FU[nextStep.channel]}</span>
+                                                    <span className="text-[10px] text-[#444]">{CH_LABELS_FU[nextStep.channel]}</span>
+                                                    <span className="text-[10px] text-[#2a2a2a]">· Step {nextStep.step}</span>
+                                                  </div>
+                                                  <p className="text-[11px] text-[#666] truncate">{nextStep.objective}</p>
+                                                </div>
+                                              </div>
+                                              <div className="h-1 w-full bg-[#1a1a1a] rounded-full overflow-hidden">
+                                                <div className="h-full bg-[#c9a84c] rounded-full transition-all duration-500"
+                                                  style={{ width: `${totalCount > 0 ? (sentCount / totalCount) * 100 : 0}%` }} />
+                                              </div>
+                                            </div>
+                                          );
+                                        }
+
+                                        // No sequence — manual fallback
+                                        return (
+                                          <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                              <p className="text-[10px] uppercase tracking-widests text-[#555]">Manual Follow-up</p>
+                                              {followupVal && !closedFU && (() => {
+                                                const diff = Math.ceil((new Date(followupVal).getTime() - Date.now()) / 86400000);
+                                                const overdue = diff < 0;
+                                                const tod = diff === 0;
+                                                return (
+                                                  <span className={"text-[10px] px-2 py-0.5 rounded-full border " + (overdue ? "border-[#f87171]/30 text-[#f87171] bg-[#f87171]/5" : tod ? "border-[#c9a84c]/30 text-[#c9a84c] bg-[#c9a84c]/5" : "border-[#4ade80]/20 text-[#4ade80] bg-[#4ade80]/5")}>
+                                                    {overdue ? `${Math.abs(diff)}d overdue` : tod ? "Today" : `In ${diff}d`}
+                                                  </span>
+                                                );
+                                              })()}
+                                            </div>
+                                            <input type="date" disabled={!canSaveFollowup} defaultValue={followupVal || ""} key={followupVal || "no-date"}
+                                              onBlur={(e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+                                                if (!canSaveFollowup) return;
+                                                saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { followup_date: e.target.value || null } });
+                                              }}
+                                              className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-[12px] text-[#c8c0b0] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40 [color-scheme:dark]"
+                                            />
+                                            <p className="text-[10px] text-[#333]">Build a sequence below for smarter scheduling</p>
+                                          </div>
+                                        );
+                                      })()}
 
                                       {/* Outreach sequence */}
                                       <div>
