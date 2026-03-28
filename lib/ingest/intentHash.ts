@@ -8,6 +8,8 @@ export function intentHash(intent: ProviderSearchIntent): string {
     query: intent.query,
     country: intent.country,
     city: intent.city,
+    location: intent.location,
+    area: intent.area,
     locationText: intent.locationText,
     lat: intent.lat,
     lng: intent.lng,
@@ -16,6 +18,7 @@ export function intentHash(intent: ProviderSearchIntent): string {
     page: intent.page,
     cursor: intent.cursor,
     nicheHint: intent.nicheHint,
+    socialPresence: intent.socialPresence,
   };
 
   const stable = stableStringify(canonical);
@@ -51,4 +54,3 @@ function fnv1a(input: string): string {
   }
   return (h >>> 0).toString(16);
 }
-
