@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getAuthUser, createSupabaseServer } from "@/lib/supabaseServer";
 import { supabase } from "@/lib/supabaseClient";
 import { buildStrategyBrief } from "@/lib/outreach/strategyBrief";
-import { generateSequence } from "@/lib/sequences/generateSequence";
+import { generateSequence, type SequenceStep } from "../../../lib/sequences/generateSequence";
 import type { OutreachRequest } from "@/lib/outreach/types";
 
 // GET /api/sequences?leadId=X — fetch all steps for a lead
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
     startDate.setHours(0, 0, 0, 0);
 
     // Persist all steps
-    const rows = sequence.steps.map(step => {
+    const rows = sequence.steps.map((step: SequenceStep) => {
       const scheduledDate = new Date(startDate);
       scheduledDate.setDate(scheduledDate.getDate() + (step.day - 1));
 
