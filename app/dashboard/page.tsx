@@ -3359,77 +3359,22 @@ export default function Home() {
                                 })()}
 
                                 {detailTab === "followup" && (() => {
-
-                                  // Follow-up variables (same as tracking tab)
                                   const canSaveFollowup = Number.isFinite(runIdNum) && runIdNum > 0;
                                   const followupVal = selectedOutcome?.followup_date ?? "";
                                   const safeOutreachFU = (detailLead?.metadata?.outreach ?? null) as { difficulty?: string } | null;
                                   const difficultyFU = safeOutreachFU?.difficulty ?? null;
                                   const closedFU = !!(selectedOutcome?.closed);
-
-                                                                        {/* Follow-up reminder — auto-suggested from friction level */}
-                                      {(() => {
-                                        const frictionDays: Record<string, number> = { LOW: 3, MEDIUM: 5, HIGH: 7 };
-                                        const suggestedDays = difficultyFU ? (frictionDays[difficultyFU] ?? 5) : 5;
-                                        const suggestedDate = (() => {
-                                          const d = new Date();
-                                          d.setDate(d.getDate() + suggestedDays);
-                                          return d.toISOString().slice(0, 10);
-                                        })();
-                                        const displayVal = followupVal || suggestedDate;
-                                        return (
-                                          <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
-                                            <div className="flex items-center justify-between">
-                                              <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.followUpReminder}</p>
-                                              {!followupVal && (
-                                                <span className="text-[9px] px-2 py-0.5 rounded-full border border-[#252525] text-[#444]">
-                                                  auto · {suggestedDays}d
-                                                </span>
-                                              )}
-                                              {followupVal && !closedFU && (() => {
-                                                const diff = Math.ceil((new Date(followupVal).getTime() - Date.now()) / 86400000);
-                                                const overdue = diff < 0;
-                                                const today = diff === 0;
-                                                return (
-                                                  <span className={"text-[10px] px-2 py-0.5 rounded-full border " + (overdue ? "border-[#f87171]/30 text-[#f87171] bg-[#f87171]/5" : today ? "border-[#c9a84c]/30 text-[#c9a84c] bg-[#c9a84c]/5" : "border-[#4ade80]/20 text-[#4ade80] bg-[#4ade80]/5")}>
-                                                    {overdue ? `${Math.abs(diff)}${t.ui.detail.overdueLabel}` : today ? t.ui.detail.todayLabel : `${t.ui.detail.inDaysLabel} ${diff}d`}
-                                                  </span>
-                                                );
-                                              })()}
-                                            </div>
-                                            <input
-                                              type="date"
-                                              disabled={!canSaveFollowup}
-                                              defaultValue={displayVal}
-                                              key={displayVal}
-                                              onBlur={(e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-                                                if (!canSaveFollowup) return;
-                                                saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { followup_date: e.target.value || null } });
-                                              }}
-                                              className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-[12px] text-[#c8c0b0] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40 [color-scheme:dark]"
-                                            />
-                                            <p className="text-[10px] text-[#333]">
-                                              {followupVal
-                                                ? t.ui.detail.followUpHint
-                                                : `${difficultyFU ? difficultyFU.charAt(0) + difficultyFU.slice(1).toLowerCase() : "Medium"} friction — edit to override`}
-                                            </p>
-                                          </div>
-                                        );
-                                      })()}
-
-
-                                  {/* ── Sequence builder ──────────────────── */}
-                                  <div className="pt-2 border-t border-[#141414]">
-                                    <p className="text-[10px] uppercase tracking-widest text-[#333] mb-3">Outreach Sequence</p>
-                                  </div>
-
-                                                                    const CH_ICONS: Record<string, string> = { email: "✉", call: "☎", dm: "◎", linkedin: "in" };
+                                  const frictionDays: Record<string, number> = { LOW: 3, MEDIUM: 5, HIGH: 7 };
+                                  const suggestedDays = difficultyFU ? (frictionDays[difficultyFU] ?? 5) : 5;
+                                  const suggestedDate = (() => { const d = new Date(); d.setDate(d.getDate() + suggestedDays); return d.toISOString().slice(0, 10); })();
+                                  const displayVal = followupVal || suggestedDate;
+                                  const CH_ICONS: Record<string, string> = { email: "✉", call: "☎", dm: "◎", linkedin: "in" };
                                   const CH_LABELS: Record<string, string> = { email: "Email", call: "Call", dm: "DM", linkedin: "LinkedIn" };
                                   const ST_STYLES: Record<string, { color: string; label: string }> = {
-                                    pending:  { color: "#555",    label: "Pending" },
-                                    sent:     { color: "#3b82f6", label: "Sent" },
-                                    replied:  { color: "#4ade80", label: "Replied" },
-                                    skipped:  { color: "#333",    label: "Skipped" },
+                                    pending: { color: "#555", label: "Pending" },
+                                    sent:    { color: "#3b82f6", label: "Sent" },
+                                    replied: { color: "#4ade80", label: "Replied" },
+                                    skipped: { color: "#333", label: "Skipped" },
                                   };
                                   const CAD_LABELS: Record<string, string> = { aggressive: "Hot cadence", standard: "Standard cadence", nurture: "Nurture cadence" };
 
@@ -3470,9 +3415,7 @@ export default function Home() {
                                         const data = await res.json() as { steps?: typeof sequenceSteps };
                                         setSequenceSteps(data.steps ?? []);
                                       }
-                                    } finally {
-                                      setSequenceGenerating(false);
-                                    }
+                                    } finally { setSequenceGenerating(false); }
                                   }
 
                                   async function patchStep(stepId: number, status: string) {
@@ -3487,96 +3430,102 @@ export default function Home() {
                                   if (sequenceLoading) return <div className="py-8 text-center text-[#444] text-sm animate-pulse">Loading…</div>;
 
                                   return (
-                                    <div className="space-y-4">
-                                      <div className="flex items-center justify-between">
-                                        <div>
-                                          <p className="text-[11px] text-[#555]">
-                                            {sequenceSteps.length > 0 ? `${sequenceSteps.length}-step ${CAD_LABELS[sequenceSteps[0]?.cadence_type] ?? "cadence"}` : "No sequence yet"}
-                                          </p>
-                                          {sequenceSteps.length > 0 && (
-                                            <p className="text-[10px] text-[#333] mt-0.5">
-                                              {sequenceSteps.filter(s => s.status === "sent").length} sent · {sequenceSteps.filter(s => s.status === "pending").length} pending
-                                            </p>
+                                    <div className="space-y-4 pt-1">
+
+                                      {/* Follow-up reminder */}
+                                      <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.followUpReminder}</p>
+                                          {!followupVal && (
+                                            <span className="text-[9px] px-2 py-0.5 rounded-full border border-[#252525] text-[#444]">auto · {suggestedDays}d</span>
                                           )}
+                                          {followupVal && !closedFU && (() => {
+                                            const diff = Math.ceil((new Date(followupVal).getTime() - Date.now()) / 86400000);
+                                            const overdue = diff < 0;
+                                            const tod = diff === 0;
+                                            return (
+                                              <span className={"text-[10px] px-2 py-0.5 rounded-full border " + (overdue ? "border-[#f87171]/30 text-[#f87171] bg-[#f87171]/5" : tod ? "border-[#c9a84c]/30 text-[#c9a84c] bg-[#c9a84c]/5" : "border-[#4ade80]/20 text-[#4ade80] bg-[#4ade80]/5")}>
+                                                {overdue ? `${Math.abs(diff)}${t.ui.detail.overdueLabel}` : tod ? t.ui.detail.todayLabel : `${t.ui.detail.inDaysLabel} ${diff}d`}
+                                              </span>
+                                            );
+                                          })()}
                                         </div>
-                                        <button type="button" onClick={buildSequence} disabled={sequenceGenerating}
-                                          className="px-4 py-2 rounded-xl border border-[rgba(201,168,76,0.3)] text-[11px] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.06)] disabled:opacity-40 transition-all">
-                                          {sequenceGenerating ? "Generating…" : sequenceSteps.length > 0 ? "↻ Rebuild" : "⇉ Build Sequence"}
-                                        </button>
+                                        <input type="date" disabled={!canSaveFollowup} defaultValue={displayVal} key={displayVal}
+                                          onBlur={(e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+                                            if (!canSaveFollowup) return;
+                                            saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { followup_date: e.target.value || null } });
+                                          }}
+                                          className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-[12px] text-[#c8c0b0] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40 [color-scheme:dark]"
+                                        />
+                                        <p className="text-[10px] text-[#333]">
+                                          {followupVal ? t.ui.detail.followUpHint : `${difficultyFU ? difficultyFU.charAt(0) + difficultyFU.slice(1).toLowerCase() : "Medium"} friction — edit to override`}
+                                        </p>
                                       </div>
 
-                                      {sequenceGenerating ? (
-                                        <div className="rounded-xl border border-[#1a1a1a] bg-[#0a0a0a] p-8 text-center space-y-2">
-                                          <div className="w-6 h-6 border border-[#c9a84c] border-t-transparent rounded-full animate-spin mx-auto" />
-                                          <p className="text-[12px] text-[#555]">Generating sequence…</p>
-                                          <p className="text-[11px] text-[#333]">Analysing signals and crafting 5 steps</p>
+                                      {/* Outreach sequence */}
+                                      <div>
+                                        <div className="flex items-center gap-3 mb-3">
+                                          <p className="text-[10px] uppercase tracking-widest text-[#333]">Outreach Sequence</p>
+                                          <div className="flex-1 h-px bg-[#141414]" />
+                                          <button type="button" onClick={buildSequence} disabled={sequenceGenerating}
+                                            className="px-3 py-1.5 rounded-xl border border-[rgba(201,168,76,0.3)] text-[11px] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.06)] disabled:opacity-40 transition-all">
+                                            {sequenceGenerating ? "Generating…" : sequenceSteps.length > 0 ? "↻ Rebuild" : "⇉ Build Sequence"}
+                                          </button>
                                         </div>
-                                      ) : sequenceSteps.length === 0 ? (
-                                        <div className="rounded-xl border border-[#1a1a1a] bg-[#0a0a0a] p-6 text-center space-y-2">
-                                          <p className="text-[13px] text-[#2a2a2a]">⇉</p>
-                                          <p className="text-[12px] text-[#444]">No sequence for this lead yet</p>
-                                          <p className="text-[11px] text-[#2a2a2a] leading-relaxed max-w-[240px] mx-auto">
-                                            Build a 5-step cadence tailored to this lead&apos;s gap type and signals.
-                                          </p>
-                                        </div>
-                                      ) : (
-                                        <div className="space-y-1.5">
-                                          {sequenceSteps.map(step => {
-                                            const isExp = sequenceExpandedStep === step.id;
-                                            const st = ST_STYLES[step.status] ?? ST_STYLES.pending;
-                                            const daysOff = Math.round((new Date(step.scheduled_date).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / 86400000);
-                                            const dayStr = daysOff < 0 ? `${Math.abs(daysOff)}d overdue` : daysOff === 0 ? "Today" : daysOff === 1 ? "Tomorrow" : `Day ${step.day_offset}`;
-                                            const dayClr = daysOff < 0 ? "#f87171" : daysOff === 0 ? "#c9a84c" : "#555";
-                                            return (
-                                              <div key={step.id} className="rounded-xl border border-[#1a1a1a] overflow-hidden">
-                                                <div className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-[#111] transition-colors"
-                                                  onClick={() => setSequenceExpandedStep(isExp ? null : step.id)}>
-                                                  <span className="text-[10px] text-[#2a2a2a] w-3 text-center">{step.step}</span>
-                                                  <span className="text-[11px] w-20 font-medium" style={{ color: dayClr }}>{dayStr}</span>
-                                                  <span className="text-[11px] text-[#444] w-14">{CH_ICONS[step.channel]} {CH_LABELS[step.channel]}</span>
-                                                  <span className="flex-1 text-[11px] text-[#555] truncate">{step.objective}</span>
-                                                  <span className="text-[10px]" style={{ color: st.color }}>{st.label}</span>
-                                                  <span className="text-[10px] text-[#1a1a1a]">{isExp ? "▲" : "▼"}</span>
-                                                </div>
-                                                {isExp && (
-                                                  <div className="px-3 pb-3 pt-2 bg-[#0a0a0a] space-y-2 border-t border-[#0f0f0f]">
-                                                    {step.subject && (
-                                                      <div>
-                                                        <p className="text-[9px] uppercase tracking-widest text-[#2a2a2a] mb-1">Subject</p>
-                                                        <p className="text-[12px] text-[#777]">{step.subject}</p>
-                                                      </div>
-                                                    )}
-                                                    <div>
-                                                      <p className="text-[9px] uppercase tracking-widest text-[#2a2a2a] mb-1.5">Message</p>
-                                                      <p className="text-[12px] text-[#c8c0b0] leading-relaxed whitespace-pre-wrap">{step.message}</p>
-                                                    </div>
-                                                    <div>
-                                                      <p className="text-[9px] uppercase tracking-widest text-[#2a2a2a] mb-1">CTA</p>
-                                                      <p className="text-[11px] text-[#555]">{step.cta}</p>
-                                                    </div>
-                                                    <div className="flex gap-2 pt-0.5 flex-wrap">
-                                                      {step.status === "pending" && <>
-                                                        <button type="button" onClick={() => patchStep(step.id, "sent")}
-                                                          className="px-3 py-1.5 rounded-lg border border-[#3b82f6]/25 text-[10px] text-[#3b82f6] hover:bg-[#3b82f6]/08 transition-all">✓ Sent</button>
-                                                        <button type="button" onClick={() => patchStep(step.id, "skipped")}
-                                                          className="px-3 py-1.5 rounded-lg border border-[#252525] text-[10px] text-[#444] hover:border-[#333] transition-all">Skip</button>
-                                                      </>}
-                                                      {step.status === "sent" && (
-                                                        <button type="button" onClick={() => patchStep(step.id, "replied")}
-                                                          className="px-3 py-1.5 rounded-lg border border-[#4ade80]/25 text-[10px] text-[#4ade80] hover:bg-[#4ade80]/08 transition-all">✓ Got reply</button>
-                                                      )}
-                                                      {step.status === "replied" && <span className="text-[10px] text-[#4ade80]">🎉 Replied</span>}
-                                                    </div>
+
+                                        {sequenceGenerating ? (
+                                          <div className="rounded-xl border border-[#1a1a1a] bg-[#0a0a0a] p-6 text-center space-y-2">
+                                            <div className="w-5 h-5 border border-[#c9a84c] border-t-transparent rounded-full animate-spin mx-auto" />
+                                            <p className="text-[12px] text-[#555]">Generating sequence…</p>
+                                          </div>
+                                        ) : sequenceSteps.length === 0 ? (
+                                          <div className="rounded-xl border border-[#1a1a1a] bg-[#0a0a0a] p-5 text-center space-y-1.5">
+                                            <p className="text-[13px] text-[#2a2a2a]">⇉</p>
+                                            <p className="text-[12px] text-[#444]">No sequence yet</p>
+                                            <p className="text-[11px] text-[#2a2a2a] leading-relaxed">Build a 5-step cadence tailored to this lead&apos;s gap type and signals.</p>
+                                          </div>
+                                        ) : (
+                                          <div className="space-y-1.5">
+                                            {sequenceSteps.map(step => {
+                                              const isExp = sequenceExpandedStep === step.id;
+                                              const st = ST_STYLES[step.status] ?? ST_STYLES.pending;
+                                              const daysOff = Math.round((new Date(step.scheduled_date).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / 86400000);
+                                              const dayStr = daysOff < 0 ? `${Math.abs(daysOff)}d overdue` : daysOff === 0 ? "Today" : daysOff === 1 ? "Tomorrow" : `Day ${step.day_offset}`;
+                                              const dayClr = daysOff < 0 ? "#f87171" : daysOff === 0 ? "#c9a84c" : "#555";
+                                              return (
+                                                <div key={step.id} className="rounded-xl border border-[#1a1a1a] overflow-hidden">
+                                                  <div className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-[#111] transition-colors"
+                                                    onClick={() => setSequenceExpandedStep(isExp ? null : step.id)}>
+                                                    <span className="text-[10px] text-[#2a2a2a] w-3">{step.step}</span>
+                                                    <span className="text-[11px] w-20 font-medium" style={{ color: dayClr }}>{dayStr}</span>
+                                                    <span className="text-[11px] text-[#444] w-14">{CH_ICONS[step.channel]} {CH_LABELS[step.channel]}</span>
+                                                    <span className="flex-1 text-[11px] text-[#555] truncate">{step.objective}</span>
+                                                    <span className="text-[10px]" style={{ color: st.color }}>{st.label}</span>
+                                                    <span className="text-[10px] text-[#1a1a1a]">{isExp ? "▲" : "▼"}</span>
                                                   </div>
-                                                )}
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-                                      )}
-                                      {sequenceSteps.length > 0 && (
-                                        <a href="/followups" className="block text-center text-[11px] text-[#333] hover:text-[#c9a84c] transition-colors pt-1">View all sequences →</a>
-                                      )}
+                                                  {isExp && (
+                                                    <div className="px-3 pb-3 pt-2 bg-[#0a0a0a] space-y-2 border-t border-[#0f0f0f]">
+                                                      {step.subject && <div><p className="text-[9px] uppercase tracking-widest text-[#2a2a2a] mb-1">Subject</p><p className="text-[12px] text-[#777]">{step.subject}</p></div>}
+                                                      <div><p className="text-[9px] uppercase tracking-widest text-[#2a2a2a] mb-1.5">Message</p><p className="text-[12px] text-[#c8c0b0] leading-relaxed whitespace-pre-wrap">{step.message}</p></div>
+                                                      <div><p className="text-[9px] uppercase tracking-widest text-[#2a2a2a] mb-1">CTA</p><p className="text-[11px] text-[#555]">{step.cta}</p></div>
+                                                      <div className="flex gap-2 pt-0.5 flex-wrap">
+                                                        {step.status === "pending" && <>
+                                                          <button type="button" onClick={() => patchStep(step.id, "sent")} className="px-3 py-1.5 rounded-lg border border-[#3b82f6]/25 text-[10px] text-[#3b82f6] hover:bg-[#3b82f6]/08 transition-all">✓ Sent</button>
+                                                          <button type="button" onClick={() => patchStep(step.id, "skipped")} className="px-3 py-1.5 rounded-lg border border-[#252525] text-[10px] text-[#444] hover:border-[#333] transition-all">Skip</button>
+                                                        </>}
+                                                        {step.status === "sent" && <button type="button" onClick={() => patchStep(step.id, "replied")} className="px-3 py-1.5 rounded-lg border border-[#4ade80]/25 text-[10px] text-[#4ade80] hover:bg-[#4ade80]/08 transition-all">✓ Got reply</button>}
+                                                        {step.status === "replied" && <span className="text-[10px] text-[#4ade80]">🎉 Replied</span>}
+                                                      </div>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              );
+                                            })}
+                                            <a href="/followups" className="block text-center text-[11px] text-[#333] hover:text-[#c9a84c] transition-colors pt-1">View all sequences →</a>
+                                          </div>
+                                        )}
+                                      </div>
+
                                     </div>
                                   );
                                 })()}
