@@ -1,6 +1,6 @@
 "use client";
 
-import {
+import React, {
   Fragment,
   useEffect,
   useMemo,
@@ -40,7 +40,9 @@ type FitUI = {
   fitScore: number; // 0-100
   matchedNeeds: string[];
   missingNeeds: string[];
+  partialNeeds?: string[];
   reasons: string[];
+  tooltip?: string;
   geoMatch?: "exact" | "partial" | "none" | "unset";
 };
 
@@ -855,6 +857,81 @@ function GettingStartedPanel({
         </div>
       </div>
     </>
+  );
+}
+
+// ── ScoreTooltip ─────────────────────────────────────────────────────────────
+// Lightweight hover tooltip for score labels. Positions above the hovered element.
+function ScoreTooltip({
+  text,
+  children,
+}: {
+  text: string;
+  children: React.ReactNode | React.ReactNode[];
+}) {
+  const [rect, setRect] = useState<DOMRect | null>(null);
+
+  if (!text) return <>{children}</>;
+
+  return (
+    <span
+      style={{ position: "relative", display: "inline-block", width: "100%" }}
+      onMouseEnter={(e) =>
+        setRect((e.currentTarget as HTMLElement).getBoundingClientRect())
+      }
+      onMouseLeave={() => setRect(null)}
+    >
+      {children}
+      {rect &&
+        typeof window !== "undefined" &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              left: Math.min(
+                rect.left + rect.width / 2,
+                window.innerWidth - 160,
+              ),
+              top: rect.top - 12,
+              transform: "translate(-50%, -100%)",
+              zIndex: 999999,
+              background: "#1a1a1a",
+              border: "1px solid #333",
+              borderRadius: 8,
+              padding: "8px 12px",
+              maxWidth: 260,
+              pointerEvents: "none",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
+            }}
+          >
+            <p
+              style={{
+                fontSize: 11,
+                color: "#bbb",
+                lineHeight: 1.55,
+                margin: 0,
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {text}
+            </p>
+            <div
+              style={{
+                position: "absolute",
+                bottom: -4,
+                left: "50%",
+                transform: "translateX(-50%) rotate(45deg)",
+                width: 7,
+                height: 7,
+                background: "#1a1a1a",
+                borderRight: "1px solid #333",
+                borderBottom: "1px solid #333",
+              }}
+            />
+          </div>,
+          document.body,
+        )}
+    </span>
   );
 }
 
@@ -2927,7 +3004,11 @@ export default function Home() {
 
                             <td className="py-2 px-3">
                               <div className="text-xs font-medium mb-1">
-                                {lead.score.value ?? 0}
+                                <ScoreTooltip
+                                  text={lead.score.tooltips?.value ?? ""}
+                                >
+                                  <span>{lead.score.value ?? 0}</span>
+                                </ScoreTooltip>
                               </div>
                               <div className="w-full bg-[#1a1a1a] rounded-full h-1.5 overflow-hidden">
                                 <div
@@ -2988,7 +3069,15 @@ export default function Home() {
                                           : "text-[#f87171]")
                                     }
                                   >
-                                    {lead.fit.fitScore ?? 0}
+                                    <ScoreTooltip
+                                      text={
+                                        lead.fit?.tooltip ??
+                                        lead.score.tooltips?.fit ??
+                                        ""
+                                      }
+                                    >
+                                      <span>{lead.fit.fitScore ?? 0}</span>
+                                    </ScoreTooltip>
                                   </div>
                                   <div className="w-full bg-[#1a1a1a] rounded-full h-1.5 overflow-hidden">
                                     <div
@@ -3270,66 +3359,70 @@ export default function Home() {
                                 ? "#c9a84c"
                                 : "#f87171";
                         return (
-                          <div
+                          <ScoreTooltip
                             key={row.label}
-                            title={row.tooltip ?? ""}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 10,
-                              cursor: row.tooltip ? "help" : "default",
-                            }}
+                            text={row.tooltip ?? ""}
                           >
-                            <p
-                              style={{
-                                fontSize: 11,
-                                color: "#666",
-                                width: 110,
-                                flexShrink: 0,
-                              }}
-                            >
-                              {row.label}
-                            </p>
                             <div
                               style={{
-                                flex: 1,
-                                height: 4,
-                                background: "#141414",
-                                borderRadius: 4,
-                                overflow: "hidden",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                                cursor: row.tooltip ? "help" : "default",
+                                width: "100%",
                               }}
                             >
+                              <p
+                                style={{
+                                  fontSize: 11,
+                                  color: "#666",
+                                  width: 110,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {row.label}
+                              </p>
                               <div
                                 style={{
-                                  height: "100%",
-                                  width: `${row.value}%`,
-                                  background: c,
+                                  flex: 1,
+                                  height: 4,
+                                  background: "#141414",
                                   borderRadius: 4,
+                                  overflow: "hidden",
                                 }}
-                              />
+                              >
+                                <div
+                                  style={{
+                                    height: "100%",
+                                    width: `${row.value}%`,
+                                    background: c,
+                                    borderRadius: 4,
+                                  }}
+                                />
+                              </div>
+                              <p
+                                style={{
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  color: c,
+                                  width: 28,
+                                  textAlign: "right",
+                                }}
+                              >
+                                {row.value}
+                              </p>
+                              <p
+                                style={{
+                                  fontSize: 10,
+                                  color: "#333",
+                                  width: 28,
+                                  textAlign: "right",
+                                }}
+                              >
+                                {row.weight}
+                              </p>
                             </div>
-                            <p
-                              style={{
-                                fontSize: 12,
-                                fontWeight: 600,
-                                color: c,
-                                width: 28,
-                                textAlign: "right",
-                              }}
-                            >
-                              {row.value}
-                            </p>
-                            <p
-                              style={{
-                                fontSize: 10,
-                                color: "#333",
-                                width: 28,
-                                textAlign: "right",
-                              }}
-                            >
-                              {row.weight}
-                            </p>
-                          </div>
+                          </ScoreTooltip>
                         );
                       })}
                     </div>
@@ -4149,6 +4242,9 @@ export default function Home() {
                                       : opp >= 35
                                         ? "#c9a84c"
                                         : "#f87171",
+                                  tooltip:
+                                    detailLead.score.tooltips?.opportunity ??
+                                    "",
                                 },
                                 {
                                   short: "READY",
@@ -4160,6 +4256,8 @@ export default function Home() {
                                       : readiness >= 35
                                         ? "#c9a84c"
                                         : "#f87171",
+                                  tooltip:
+                                    detailLead.score.tooltips?.readiness ?? "",
                                 },
                                 {
                                   short: "RISK",
@@ -4171,6 +4269,8 @@ export default function Home() {
                                       : risk >= 35
                                         ? "#c9a84c"
                                         : "#4ade80",
+                                  tooltip:
+                                    detailLead.score.tooltips?.risk ?? "",
                                 },
                                 {
                                   short: "FIT",
@@ -4182,61 +4282,67 @@ export default function Home() {
                                       : (fit ?? 0) >= 40
                                         ? "#c9a84c"
                                         : "#f87171",
+                                  tooltip:
+                                    detailLead.fit?.tooltip ??
+                                    detailLead.score.tooltips?.fit ??
+                                    "",
                                 },
                               ] as {
                                 short: string;
                                 label: string;
                                 value: number;
                                 color: string;
+                                tooltip: string;
                               }[]
-                            ).map(({ short, label, value: v, color }) => (
-                              <div
-                                key={short}
-                                className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3 flex items-center gap-3"
-                              >
-                                <div className="relative flex-shrink-0 w-11 h-11">
-                                  <svg
-                                    viewBox="0 0 44 44"
-                                    className="w-full h-full -rotate-90"
-                                  >
-                                    <circle
-                                      cx="22"
-                                      cy="22"
-                                      r="18"
-                                      fill="none"
-                                      stroke="#1a1a1a"
-                                      strokeWidth="3.5"
-                                    />
-                                    <circle
-                                      cx="22"
-                                      cy="22"
-                                      r="18"
-                                      fill="none"
-                                      stroke={color}
-                                      strokeWidth="3.5"
-                                      strokeDasharray={`${(v / 100) * 113.1} 113.1`}
-                                      strokeLinecap="round"
-                                    />
-                                  </svg>
-                                  <div className="absolute inset-0 flex items-center justify-center">
-                                    <span
-                                      className="text-[11px] font-bold tabular-nums"
-                                      style={{ color }}
-                                    >
-                                      {v}
-                                    </span>
+                            ).map(
+                              ({ short, label, value: v, color, tooltip }) => (
+                                <ScoreTooltip key={short} text={tooltip}>
+                                  <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3 flex items-center gap-3 cursor-help">
+                                    <div className="relative flex-shrink-0 w-11 h-11">
+                                      <svg
+                                        viewBox="0 0 44 44"
+                                        className="w-full h-full -rotate-90"
+                                      >
+                                        <circle
+                                          cx="22"
+                                          cy="22"
+                                          r="18"
+                                          fill="none"
+                                          stroke="#1a1a1a"
+                                          strokeWidth="3.5"
+                                        />
+                                        <circle
+                                          cx="22"
+                                          cy="22"
+                                          r="18"
+                                          fill="none"
+                                          stroke={color}
+                                          strokeWidth="3.5"
+                                          strokeDasharray={`${(v / 100) * 113.1} 113.1`}
+                                          strokeLinecap="round"
+                                        />
+                                      </svg>
+                                      <div className="absolute inset-0 flex items-center justify-center">
+                                        <span
+                                          className="text-[11px] font-bold tabular-nums"
+                                          style={{ color }}
+                                        >
+                                          {v}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="text-[9px] uppercase tracking-widest text-[#444]">
+                                        {short}
+                                      </p>
+                                      <p className="text-[12px] text-[#888]">
+                                        {label}
+                                      </p>
+                                    </div>
                                   </div>
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="text-[9px] uppercase tracking-widest text-[#444]">
-                                    {short}
-                                  </p>
-                                  <p className="text-[12px] text-[#888]">
-                                    {label}
-                                  </p>
-                                </div>
-                              </div>
-                            ))}
+                                </ScoreTooltip>
+                              ),
+                            )}
                           </div>
 
                           {/* Gap + insight */}

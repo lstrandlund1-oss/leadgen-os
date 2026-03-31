@@ -13,7 +13,9 @@ export type FitUI = {
   fitScore: number;
   matchedNeeds: string[];
   missingNeeds: string[];
+  partialNeeds?: string[];
   reasons: string[];
+  tooltip?: string;
   geoMatch?: "exact" | "partial" | "none" | "unset";
 };
 
