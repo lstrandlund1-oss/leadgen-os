@@ -270,11 +270,9 @@ function riskTitleFromProfile(
   p: Lead["score"]["riskProfile"] | null | undefined,
   t: Translations,
 ): string {
-  if (p === "unstable_business")
-    return t.ui.table.riskProfile.unstable_business;
-  if (p === "mature_competitor")
-    return t.ui.table.riskProfile.mature_competitor;
-  return t.ui.table.riskProfile.none;
+  if (!p || p === "unknown") return t.ui.table.riskProfile.none ?? "";
+  const profileMap = t.ui.table.riskProfile as Record<string, string>;
+  return profileMap[p] ?? p.replace(/_/g, " ");
 }
 
 function riskMessage(language: Language, lead: Lead): string {
@@ -282,10 +280,10 @@ function riskMessage(language: Language, lead: Lead): string {
   const risk = lead.score.risk ?? 0;
 
   if (language === "sv") {
-    if (rp === "unstable_business") {
+    if (rp === "early_stage" || rp === "limited_data") {
       return "Låg mognad + låg proof. Ofta svårt att få momentum utan att fixa grunderna först.";
     }
-    if (rp === "mature_competitor") {
+    if (rp === "well_established" || rp === "local_authority") {
       return "Stark närvaro + starkt proof. Svårare att vinna — kräver tydlig differentiering och systemvinkel.";
     }
     if (risk >= 70)
@@ -295,10 +293,10 @@ function riskMessage(language: Language, lead: Lead): string {
     return "Låg risk. Relativt lätt att få respons om erbjudandet är skarpt.";
   }
 
-  if (rp === "unstable_business") {
+  if (rp === "early_stage" || rp === "limited_data") {
     return "Low maturity + weak proof. Usually hard to convert unless fundamentals are fixed first.";
   }
-  if (rp === "mature_competitor") {
+  if (rp === "well_established" || rp === "local_authority") {
     return "Strong presence + strong proof. Harder to displace — requires differentiation and a system angle.";
   }
   if (risk >= 70)
@@ -396,7 +394,7 @@ function getStructuredAngle(lead: LeadUI, language: Language): StructuredAngle {
     } else if (type === "mature_competitor") {
       title = "Differentiation + system leverage";
       why = `${name} is already strong — generic growth pitches won't land. Lead with system efficiency and competitive differentiation. They don't need more followers; they need better conversion mechanics and a sharper edge.`;
-    } else if (rp === "unstable_business") {
+    } else if (rp === "early_stage" || rp === "limited_data") {
       title = "Stabilise before scaling";
       why = `${name} shows instability signals (risk ${risk}/100). The pitch needs to build confidence first — frame your offer as a stabilising move that protects and compounds what they've built, rather than aggressive new growth.`;
     } else if (opportunity >= 70 && risk <= 45) {
@@ -432,7 +430,7 @@ function getStructuredAngle(lead: LeadUI, language: Language): StructuredAngle {
     } else if (type === "mature_competitor") {
       title = "Differentiering + systemhävarm";
       why = `${name} är redan starka — generiska pitchar landar inte. Fokusera på systemeffektivitet och differentiering. De behöver inte fler följare utan bättre konverteringsmekanik och en skarpare edge.`;
-    } else if (rp === "unstable_business") {
+    } else if (rp === "early_stage" || rp === "limited_data") {
       title = "Stabilisera innan skalning";
       why = `${name} visar instabilitetstecken (risk ${risk}/100). Bygg förtroende först — rama in erbjudandet som en stabiliserande åtgärd som skyddar och förstärker det de byggt.`;
     } else if (opportunity >= 70 && risk <= 45) {
@@ -1134,9 +1132,7 @@ export default function Home() {
         reviewCount: lead.metrics.reviewCount ?? 0,
         hasWebsite: !!lead.company.website,
         socialPresence: lead.metrics.socialPresence ?? "low",
-        isGoodFit: lead.classification.isGoodFit ?? false,
         classificationConfidence: lead.classification.confidence ?? null,
-        riskProfile: lead.score.riskProfile ?? "unknown",
         fitScore: lead.fit?.fitScore ?? 0,
         websiteReachable: derivedSignals.websiteReachable,
         hasContactPage: null,
@@ -2696,7 +2692,8 @@ export default function Home() {
                           ? t.ui.detail.whyMissingInfra
                           : insight?.type === "mature_competitor"
                             ? t.ui.detail.whyAlreadyEstablished
-                            : lead.score.riskProfile === "unstable_business"
+                            : lead.score.riskProfile === "early_stage" ||
+                                lead.score.riskProfile === "limited_data"
                               ? t.ui.detail.whyUnstableSignals
                               : (lead.score.value ?? 0) >= 80
                                 ? t.ui.detail.whyTopTier
@@ -2961,7 +2958,9 @@ export default function Home() {
                                         : insight?.type === "mature_competitor"
                                           ? t.ui.detail.whyAlreadyEstablished
                                           : lead.score.riskProfile ===
-                                              "unstable_business"
+                                                "early_stage" ||
+                                              lead.score.riskProfile ===
+                                                "limited_data"
                                             ? t.ui.detail.whyUnstableSignals
                                             : score >= 80
                                               ? t.ui.detail.whyTopTier
@@ -3846,7 +3845,10 @@ export default function Home() {
                     const fit = detailLead.fit?.fitScore ?? null;
                     const rp = detailLead.score.riskProfile ?? "unknown";
                     const hasRisk =
-                      rp === "unstable_business" || rp === "mature_competitor";
+                      rp === "early_stage" ||
+                      rp === "limited_data" ||
+                      rp === "well_established" ||
+                      rp === "local_authority";
 
                     // Score ring colour
                     const scoreColor =

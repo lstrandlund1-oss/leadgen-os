@@ -116,15 +116,15 @@ export function riskMessage(language: Language, lead: Lead): string {
   const risk = lead.score.risk ?? 0;
 
   if (language === "sv") {
-    if (rp === "unstable_business") return "Låg mognad + låg proof. Ofta svårt att få momentum utan att fixa grunderna först.";
-    if (rp === "mature_competitor") return "Stark närvaro + starkt proof. Svårare att vinna — kräver tydlig differentiering.";
+    if (rp === "early_stage" || rp === "limited_data") return "Låg mognad + låg proof. Ofta svårt att få momentum utan att fixa grunderna först.";
+    if (rp === "well_established" || rp === "local_authority") return "Stark närvaro + starkt proof. Svårare att vinna — kräver tydlig differentiering.";
     if (risk >= 70) return "Hög risk. Kräver tydlig vinkel och starkare erbjudande.";
     if (risk >= 45) return "Mellanrisk. Går att vinna med rätt angle och tydlig payoff.";
     return "Låg risk. Relativt lätt att få respons om erbjudandet är skarpt.";
   }
 
-  if (rp === "unstable_business") return "Low maturity + weak proof. Hard to convert unless fundamentals are fixed first.";
-  if (rp === "mature_competitor") return "Strong presence + strong proof. Harder to displace — requires differentiation.";
+  if (rp === "early_stage" || rp === "limited_data") return "Low maturity + weak proof. Hard to convert unless fundamentals are fixed first.";
+  if (rp === "well_established" || rp === "local_authority") return "Strong presence + strong proof. Harder to displace — requires differentiation.";
   if (risk >= 70) return "High risk. Needs a sharp angle and stronger offer.";
   if (risk >= 45) return "Medium risk. Winnable with the right angle and clear payoff.";
   return "Low risk. Easier to get a response if your offer is sharp.";
@@ -175,7 +175,7 @@ export function getOutreachAngle(lead: LeadUI, language: Language): string {
     else if (type === "visibility_gap") parts.push("Vinkel: Stabil grund men låg synlighet — tillväxt via synlighet + efterfråge-fångst.");
     else if (type === "foundation_gap") parts.push("Vinkel: Grundglapp — förtroende + lead capture måste sitta innan man skalar.");
     else if (type === "mature_competitor") parts.push("Vinkel: Ni är redan starka — differentiering + systemhävarm, inte 'fler följare'.");
-    else if (rp === "unstable_business") parts.push("Vinkel: Snabb stabilisering av grunden (förtroende + lead capture) innan tillväxt.");
+    else if (rp === "early_stage" || rp === "limited_data") parts.push("Vinkel: Snabb stabilisering av grunden (förtroende + lead capture) innan tillväxt.");
     else if (opportunity >= 70 && risk <= 45) parts.push("Vinkel: Tydlig uppsida med hanterbar risk — direkt tillväxtsystem.");
     else parts.push("Vinkel: Värde-först teardown + en konkret förändring som ökar bokningar/leads.");
     parts.push("Erbjudande: 10–15 min teardown + enkel plan ni kan implementera direkt.");
@@ -186,7 +186,7 @@ export function getOutreachAngle(lead: LeadUI, language: Language): string {
     else if (type === "visibility_gap") parts.push("Angle: Solid foundation but low visibility — growth through visibility + demand capture.");
     else if (type === "foundation_gap") parts.push("Angle: Foundation gap — trust + capture must be fixed before scaling.");
     else if (type === "mature_competitor") parts.push("Angle: You're already strong — differentiation + system leverage, not 'more followers'.");
-    else if (rp === "unstable_business") parts.push("Angle: Quick fundamentals upgrade (trust + capture) before scaling.");
+    else if (rp === "early_stage" || rp === "limited_data") parts.push("Angle: Quick fundamentals upgrade (trust + capture) before scaling.");
     else if (opportunity >= 70 && risk <= 45) parts.push("Angle: Clear upside with manageable risk — direct growth system.");
     else parts.push("Angle: Value-first teardown + one concrete change that improves bookings/leads.");
     parts.push("Offer: 10–15 min teardown + a simple plan you can implement immediately.");
@@ -201,7 +201,8 @@ export function riskTitleFromProfile(
   p: Lead["score"]["riskProfile"] | null | undefined,
   t: Translations,
 ): string {
-  if (p === "unstable_business") return t.ui.table.riskProfile.unstable_business;
-  if (p === "mature_competitor") return t.ui.table.riskProfile.mature_competitor;
-  return t.ui.table.riskProfile.none;
+  if (!p || p === "unknown") return t.ui.table.riskProfile.none ?? "";
+  // Map to i18n key — use the profile value directly since i18n now has all new keys
+  const profileMap = t.ui.table.riskProfile as Record<string, string>;
+  return profileMap[p] ?? p.replace(/_/g, " ");
 }
