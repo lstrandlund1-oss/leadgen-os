@@ -88,20 +88,19 @@ export function getNeedSignalScore(input: {
 }
 
 // Approachability: reflects profile/timing for pitching.
-// owner_operator = best: decision-maker reachable and motivated.
-// mature_competitor = worst: already locked in with vendors.
+// solo_run = best: decision-maker reachable and motivated.
+// limited_data = worst: not enough to pitch confidently.
 export function getApproachabilityScore(riskProfile: RiskProfile): number {
   switch (riskProfile) {
-    case "owner_operator":     return 72;
-    case "strong_local_brand": return 65;
-    case "franchise_or_chain": return 50;
-    case "high_regulation":    return 48;
-    case "seasonal":           return 45;
-    case "early_stage":        return 42;
-    case "unknown":            return 50;
-    case "mature_competitor":  return 28;
-    case "unstable_business":  return 18;
-    default:                   return 50;
+    case "solo_run":             return 72;
+    case "growing_business":     return 65;
+    case "independent_business": return 60;
+    case "local_authority":      return 55;
+    case "well_established":     return 40;
+    case "early_stage":          return 35;
+    case "limited_data":         return 20;
+    case "unknown":              return 50;
+    default:                     return 50;
   }
 }
 

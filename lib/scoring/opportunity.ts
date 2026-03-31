@@ -82,16 +82,15 @@ export function scoreOpportunity(input: OpportunityInput): OpportunityResult {
   // Is the timing and profile right to pitch?
   let approachScore = 0;
   switch (input.riskProfile) {
-    case "owner_operator":      approachScore = 9;  break;
-    case "strong_local_brand":  approachScore = 7;  break;
-    case "early_stage":         approachScore = 6;  break;
-    case "seasonal":            approachScore = 5;  break;
-    case "franchise_or_chain":  approachScore = 4;  break;
-    case "high_regulation":     approachScore = 4;  break;
-    case "unknown":             approachScore = 5;  break;
-    case "mature_competitor":   approachScore = 2;  break;
-    case "unstable_business":   approachScore = 1;  break;
-    default:                    approachScore = 5;  break;
+    case "solo_run":             approachScore = 9;  break;
+    case "growing_business":     approachScore = 8;  break;
+    case "independent_business": approachScore = 7;  break;
+    case "local_authority":      approachScore = 6;  break;
+    case "well_established":     approachScore = 4;  break;
+    case "early_stage":          approachScore = 3;  break;
+    case "limited_data":         approachScore = 2;  break;
+    case "unknown":              approachScore = 5;  break;
+    default:                     approachScore = 5;  break;
   }
   reasons.push(`Approachability: ${input.riskProfile} (+${approachScore})`);
 
@@ -107,10 +106,10 @@ export function scoreOpportunity(input: OpportunityInput): OpportunityResult {
   // ── 7. Hard caps for hopeless situations ─────────────────────────────────
   let opportunity = clamp(rawTotal - riskPenalty);
 
-  if (input.riskProfile === "unstable_business") {
+  if (input.riskProfile === "early_stage" || input.riskProfile === "limited_data") {
     opportunity = Math.min(opportunity, 25);
   }
-  if (input.riskProfile === "mature_competitor" && input.gap === "OPTIMIZATION") {
+  if ((input.riskProfile === "well_established" || input.riskProfile === "local_authority") && input.gap === "OPTIMIZATION") {
     opportunity = Math.min(opportunity, 30);
   }
 

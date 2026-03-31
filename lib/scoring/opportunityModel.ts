@@ -134,26 +134,19 @@ function socialWeight(sp: SocialPresence, c: Coefficients): number {
 
 function riskProfilePenalty(profile: RiskProfile, c: Coefficients): number {
   switch (profile) {
-    case "unstable_business":
-      return c.unstableBusinessPenalty;
-    case "mature_competitor":
-      return c.matureCompetitorPenalty;
-
-    // Neutral (for now)
     case "early_stage":
-    case "owner_operator":
-    case "franchise_or_chain":
-    case "seasonal":
-    case "high_regulation":
-    case "strong_local_brand":
+    case "limited_data":
+      return c.unstableBusinessPenalty;
+    case "well_established":
+    case "local_authority":
+      return c.matureCompetitorPenalty;
+    case "growing_business":
+    case "solo_run":
+    case "independent_business":
     case "unknown":
       return 0;
-
-    default: {
-      // If RiskProfile expands again and you forget to update, this protects you.
-      const _exhaustive: never = profile;
-      return _exhaustive;
-    }
+    default:
+      return 0;
   }
 }
 
@@ -197,10 +190,10 @@ export function scoreCloseProbability(
   if (input.gap === "CONVERSION" || input.gap === "VISIBILITY")
     reasons.push("Sellable gap");
   if (riskN >= 0.65) reasons.push("High risk");
-  if (input.riskProfile === "unstable_business")
-    reasons.push("Unstable business profile");
-  if (input.riskProfile === "mature_competitor")
-    reasons.push("Mature competitor profile");
+  if (input.riskProfile === "early_stage" || input.riskProfile === "limited_data")
+    reasons.push("Early stage or limited data profile");
+  if (input.riskProfile === "well_established" || input.riskProfile === "local_authority")
+    reasons.push("Well-established business profile");
   if (ratingN >= 0.8 && (input.reviewCount ?? 0) >= 25)
     reasons.push("Proof signals present");
   if (classConf >= 0.7) reasons.push("Confident classification");
