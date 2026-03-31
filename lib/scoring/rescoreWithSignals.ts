@@ -1,24 +1,26 @@
 // lib/scoring/rescoreWithSignals.ts
-// v2: passes enrichment signals into categoryScores and universalScore
+// Called by light enrichment route after website + social signals are available.
+// Uses the same single-pass computeUniversalScore with enrichment signals added.
+// The gap type is refined using deriveGap once we know hasBookingCta etc.
 
-import { buildCategoryScores } from "@/lib/scoring/categoryScores";
-import { classifyBusinessCondition } from "@/lib/scoring/businessCondition";
+import { classifyBusinessProfile } from "@/lib/scoring/businessCondition";
 import { computeUniversalScore } from "@/lib/scoring/universalScore";
 import type { ScoreResult, RiskProfile } from "@/lib/types";
 
 type SocialPresence = "low" | "medium" | "high";
+type GapType = "INFRASTRUCTURE" | "CONVERSION" | "VISIBILITY" | "OPTIMIZATION";
 
 export interface RescoreInput {
   rating: number | null;
   reviewCount: number | null;
   hasWebsite: boolean;
   socialPresence: SocialPresence;
-  isGoodFit: boolean;
   classificationConfidence: number | null;
-  riskProfile: RiskProfile;
   fitScore?: number;
+  fitTooltip?: string;
+  gapType?: GapType;
 
-  // Light enrichment results
+  // Light enrichment signals
   websiteReachable: boolean;
   hasContactPage: boolean | null;
   hasBookingCta: boolean | null;
@@ -26,74 +28,74 @@ export interface RescoreInput {
   isMobileFriendly: boolean | null;
   socialPlatformCount: number;
   ownerResponds: boolean | null;
+
+  // For classification refinement
+  categories?: string[];
+  businessName?: string;
+}
+
+function deriveGapFromSignals(input: RescoreInput): GapType {
+  // If caller already derived it, use that
+  if (input.gapType) return input.gapType;
+
+  const hasWebsite = input.hasWebsite;
+  const websiteReachable = input.websiteReachable;
+
+  if (!hasWebsite) return "INFRASTRUCTURE";
+  if (websiteReachable && input.hasBookingCta === false) return "CONVERSION";
+  if (input.socialPresence === "low") return "VISIBILITY";
+  return "OPTIMIZATION";
 }
 
 export function rescoreWithLightSignals(input: RescoreInput): ScoreResult {
   const rating = input.rating ?? 0;
   const reviews = input.reviewCount ?? 0;
-  const classificationConfidence01 =
-    input.classificationConfidence !== null
-      ? Math.max(0, Math.min(1, input.classificationConfidence / 100))
-      : null;
 
-  // Social presence from platform count + existing signal
+  // Refine social presence using platform count from enrichment
   const socialPresence: SocialPresence =
     input.socialPlatformCount >= 3 ? "high" :
-    input.socialPlatformCount >= 1 ? (input.socialPresence === "high" ? "high" : "medium") :
-    input.socialPresence;
+    input.socialPlatformCount >= 1
+      ? (input.socialPresence === "high" ? "high" : "medium")
+      : input.socialPresence;
 
-  // Build category scores with all enrichment signals
-  const breakdown = buildCategoryScores({
-    rating,
+  // Reclassify using enrichment signals — now we know ownerResponds
+  const businessProfile = classifyBusinessProfile({
     reviews,
+    rating,
+    hasWebsite: input.hasWebsite,
+    categories: input.categories ?? [],
+    businessName: input.businessName,
+    socialPresence,
+    socialPlatformCount: input.socialPlatformCount,
+    ownerResponds: input.ownerResponds ?? undefined,
+  });
+
+  const gapType = deriveGapFromSignals(input);
+
+  // Single-pass score with all enrichment signals
+  const scored = computeUniversalScore({
+    reviews,
+    rating,
     hasWebsite: input.hasWebsite,
     socialPresence,
-    classificationConfidence01,
+    riskProfile: businessProfile,
+    fitScore: input.fitScore ?? 50,
+    fitTooltip: input.fitTooltip,
+    gapType,
+    classificationConfidence: input.classificationConfidence,
+
+    // Enrichment signals
     hasBookingCta: input.hasBookingCta,
     hasClearOffer: input.hasClearOffer,
     isMobileFriendly: input.isMobileFriendly,
     websiteReachable: input.websiteReachable,
+    socialPlatformCount: input.socialPlatformCount,
+    ownerResponds: input.ownerResponds ?? undefined,
   });
-
-  const riskProfile = classifyBusinessCondition({
-    scores: breakdown,
-    isGoodFit: input.isGoodFit,
-    hasWebsite: input.hasWebsite,
-    socialPresence,
-    reviews,
-    rating,
-  });
-
-  const universal = computeUniversalScore({
-    scores: breakdown,
-    riskProfile,
-    isGoodFit: input.isGoodFit,
-    classificationConfidence: input.classificationConfidence,
-    fitScore: input.fitScore,
-    rating,
-    reviews,
-    hasWebsite: input.hasWebsite,
-  });
-
-  // Build reasons
-  const reasons: string[] = [];
-  if (breakdown.reputation >= 80) reasons.push("Strong reputation");
-  if (breakdown.digitalPresence <= 35) reasons.push("Weak digital presence");
-  if (breakdown.opportunityGap >= 50) reasons.push("Clear monetisable gap");
-  if (breakdown.stabilityRisk >= 60) reasons.push("Possible operational risk");
-  if (breakdown.evidenceConfidence < 40) reasons.push("Limited evidence signals");
-  if (input.websiteReachable && input.hasBookingCta === false) reasons.push("No booking CTA detected");
-  if (input.socialPlatformCount === 0) reasons.push("No social presence detected");
-  if (input.websiteReachable && input.hasClearOffer === false) reasons.push("Weak offer presentation");
 
   return {
-    value: universal.value,
-    opportunity: universal.opportunity,
-    readiness: universal.readiness,
-    risk: universal.risk,
-    riskProfile,
-    priority: universal.value,
-    breakdown,
-    reasons,
+    ...scored,
+    riskProfile: businessProfile,
+    priority: scored.value,
   };
 }

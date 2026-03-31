@@ -33,10 +33,7 @@ export type CapabilityKey = Capability; // if Capability is already an enum/unio
 
 export type CapabilityProfile = {
   id: string;
-  // 0 = not offered, 1–100 = depth/resource allocation for that capability.
-  // 100 = core specialisation. 50 = offered but not primary focus.
-  // This replaces the old boolean so fit scoring can reward specialists
-  // and penalise generalists who spread resources thin.
+  // 0 = not offered, 1-100 = capability depth (higher = stronger)
   capabilities: Record<CapabilityKey, number>;
 };
 
@@ -121,16 +118,49 @@ export type RawCompany = {
 
 // API/UI-ready lead object (provider-agnostic, deterministic, stable)
 // --- Score (canonical) ---
+// Business profile labels — plain English, shown in lead detail panel
 export type RiskProfile =
-  | "unstable_business"
-  | "mature_competitor"
-  | "early_stage"
-  | "owner_operator"
-  | "franchise_or_chain"
-  | "seasonal"
-  | "high_regulation"
-  | "strong_local_brand"
-  | "unknown";
+  | "limited_data"        // < 5 reviews, no website — not enough to classify
+  | "early_stage"         // < 15 reviews, rating < 4.0 — not yet proven
+  | "well_established"    // 100+ reviews, 4.2+★, website, medium/high social
+  | "local_authority"     // 50+ reviews, 4.5+★, website, low opportunity gap
+  | "growing_business"    // 20-99 reviews, 4.0+★, website, low/med social
+  | "solo_run"            // 8-60 reviews, 4.0+★, owner engaged (post-enrichment)
+  | "independent_business" // everything else — includes established-offline businesses
+  | "unknown";            // fallback, should be rare
+
+// Human-readable label for each profile
+export type BusinessProfileLabel =
+  | "Limited data"
+  | "Early stage"
+  | "Well-established"
+  | "Local authority"
+  | "Growing business"
+  | "Solo-run"
+  | "Independent business"
+  | "Unknown";
+
+export const BUSINESS_PROFILE_LABELS: Record<RiskProfile, BusinessProfileLabel> = {
+  limited_data:         "Limited data",
+  early_stage:          "Early stage",
+  well_established:     "Well-established",
+  local_authority:      "Local authority",
+  growing_business:     "Growing business",
+  solo_run:             "Solo-run",
+  independent_business: "Independent business",
+  unknown:              "Unknown",
+};
+
+export const BUSINESS_PROFILE_TOOLTIPS: Record<RiskProfile, string> = {
+  limited_data:         "We don't have enough signals to classify this business reliably. Very low review count and no website detected. Treat with caution until you know more.",
+  early_stage:          "This business shows signs of being newly established or not yet proven. Low review volume suggests limited or inconsistent revenue. Higher effort to convert, higher risk of non-payment.",
+  well_established:     "This business has strong proof signals — high review volume, good rating, and active digital presence. They're likely already working with service providers. You'll need a specific angle to displace what they have.",
+  local_authority:      "A trusted name in their local market with strong reputation and established presence. The opportunity gap is smaller — focus on a very specific improvement, not a full overhaul pitch.",
+  growing_business:     "Proven demand and actively operating, but hasn't fully built out their digital presence. Good timing — established enough to have budget but still has clear gaps you can fill.",
+  solo_run:             "Signals suggest this is owner-operated — the decision maker is likely the person running the business day to day. Easier to reach, faster decisions, but smaller budget ceiling.",
+  independent_business: "A standard independent business. May have strong offline presence without strong digital infrastructure — that's your opportunity, not a weakness.",
+  unknown:              "Classification unclear from available signals. Use the opportunity and risk scores to guide your approach.",
+};
 
 export type RiskFlag =
   | "LOW_PROOF"
@@ -166,6 +196,18 @@ export type ScoreResult = {
 
   // human explanation layer
   reasons: string[];
+
+  // tooltip text for each score — shown on hover in UI
+  tooltips?: {
+    value?: string;
+    opportunity?: string;
+    fit?: string;
+    risk?: string;
+    readiness?: string;
+  };
+
+  // evidence confidence — how much data backs this score
+  evidenceLevel?: "high" | "medium" | "low" | "insufficient";
 };
 
 export type OutreachVariantKey = "soft" | "consultative" | "direct" | "bold";
@@ -238,5 +280,8 @@ export type Lead = {
       bucket: OpportunityBucket;
       riskFlags?: RiskFlag[];
     };
+
+    // classification confidence indicator shown in list
+    dataLevel?: "strong" | "moderate" | "thin";
   };
 };

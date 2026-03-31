@@ -24,26 +24,17 @@ import {
 import { getAuthUser } from "@/lib/supabaseServer";
 import type { UserProfileV1, CapabilityProfile } from "@/lib/types";
 import {
-  deriveDifficulty,
   deriveGap,
   generateScript,
   inferSellerType,
+  deriveDifficulty,
 } from "@/lib/outreach/generateScript";
-// ✅ NEW: Fit layer imports (typed, deterministic, no TS union fights)
-import { deriveNeedsFromSignals, deriveNeedsForLead } from "@/lib/fit/needs";
+import { deriveNeedsFromSignals } from "@/lib/fit/needs";
 import { scoreFit, type FitResult } from "@/lib/fit/fitScore";
-import type {
-  RiskProfile,
-  ScoreResult,
-  ScoreCategoryBreakdown,
-} from "@/lib/types";
-import { scoreOpportunity } from "@/lib/scoring/opportunity";
-import { bucketOpportunity } from "@/lib/scoring/buckets";
-import { buildCategoryScores, getAbilityToPayScore, getApproachabilityScore } from "@/lib/scoring/categoryScores";
-import { classifyBusinessCondition } from "@/lib/scoring/businessCondition";
+import type { RiskProfile, ScoreResult, ScoreCategoryBreakdown } from "@/lib/types";
+import { classifyBusinessProfile, getDataLevel } from "@/lib/scoring/businessCondition";
 import { computeUniversalScore } from "@/lib/scoring/universalScore";
-
-function clamp100(n: number): number { return Math.max(0, Math.min(100, n)); }
+import { bucketOpportunity } from "@/lib/scoring/buckets";
 
 type RawRow = {
   id: number;
@@ -422,52 +413,6 @@ function toNum(v: unknown, fallback = 0): number {
   return typeof v === "number" && Number.isFinite(v) ? v : fallback;
 }
 
-function normalizeScore(score: unknown): ScoreResult {
-  const s =
-    score && typeof score === "object"
-      ? (score as Record<string, unknown>)
-      : {};
-
-  const rp = s["riskProfile"];
-  const riskProfile: RiskProfile =
-    rp === "unstable_business" ||
-    rp === "mature_competitor" ||
-    rp === "early_stage" ||
-    rp === "owner_operator" ||
-    rp === "franchise_or_chain" ||
-    rp === "seasonal" ||
-    rp === "high_regulation" ||
-    rp === "strong_local_brand" ||
-    rp === "unknown"
-      ? rp
-      : "unknown";
-
-  return {
-    value: toNum(s["value"] ?? s["score"], 0),
-    opportunity: toNum(s["opportunity"], 0),
-    readiness: toNum(s["readiness"], 0),
-    risk: toNum(s["risk"], 0),
-    riskProfile,
-    priority: toNum(s["value"] ?? s["score"], 0),
-
-    breakdown:
-      typeof s["breakdown"] === "object" && s["breakdown"] !== null
-        ? (s["breakdown"] as ScoreCategoryBreakdown)
-        : {
-            reputation: 0,
-            digitalPresence: 0,
-            businessStrength: 0,
-            opportunityGap: 0,
-            stabilityRisk: 0,
-            evidenceConfidence: 0,
-          },
-
-    reasons: Array.isArray(s["reasons"])
-      ? s["reasons"].filter((x): x is string => typeof x === "string")
-      : [],
-  };
-}
-
 export async function GET(
   _request: Request,
   { params }: { params: { id: string } | Promise<{ id: string }> },
@@ -570,11 +515,13 @@ export async function GET(
           runId: String(runId),
         }) as LeadWithSignals;
 
-        // ✅ recompute signals using current deterministic logic
+        // ── STEP 1: Signals ─────────────────────────────────────────────────
+        const hasWebsiteBool = !!(website && website.trim().length > 0);
+
         const { workTypes, resistances } = detectSignalsV2({
           rating,
           reviews,
-          hasWebsite: !!(website && website.trim().length > 0),
+          hasWebsite: hasWebsiteBool,
           socialPresence: computedPresence,
           categories: rawCompany.categories,
         });
@@ -582,38 +529,18 @@ export async function GET(
         const primaryWork = getPrimaryWorkTypeInsight(workTypes);
         const primaryRes = getPrimaryResistanceInsight(resistances);
 
-        // New structured fields (what UI should migrate to)
         lead.workTypeSignals = workTypes;
         lead.resistanceSignals = resistances;
         lead.primaryWorkTypeInsight = primaryWork;
         lead.primaryResistanceInsight = primaryRes;
-
-        // Legacy compatibility fields (keep UI stable while you migrate)
         lead.opportunitySignals = toLegacySignals(workTypes, resistances);
         lead.primaryInsight = toLegacyPrimaryInsightFromWorkType(primaryWork);
 
-        // ✅ Fit: derive needs from signals, then score vs user profile
-        // PRIMARY: derive from detected work/resistance signals
-        const { needs: signalNeeds, reasons: needReasons } = deriveNeedsFromSignals({
+        // ── STEP 2: Fit ──────────────────────────────────────────────────────
+        const { needs, reasons: needReasons } = deriveNeedsFromSignals({
           workTypes,
           resistances,
         });
-
-        // FALLBACK: when signal detection returns no needs (common at base-ingest stage
-        // before enrichment has run), fall back to industry + raw facts baseline.
-        // This prevents every lead from getting a flat fitScore=50 due to empty needs.
-        const primaryIndustry = classification.primaryIndustry ?? "other";
-        const hasWebsiteForFit = !!(website && website.trim().length > 0);
-        const needs =
-          signalNeeds.length > 0
-            ? signalNeeds
-            : deriveNeedsForLead({
-                primaryIndustry,
-                hasWebsite: hasWebsiteForFit,
-                socialPresence: computedPresence,
-                workTypes,
-                resistances,
-              }).needs;
 
         const fit = scoreFit(activeProfile, activeCapabilities, needs, {
           city: lead.company.city,
@@ -626,136 +553,84 @@ export async function GET(
           missingNeeds: fit.missingNeeds,
           partialNeeds: fit.partialNeeds ?? [],
           geoMatch: fit.geoMatch,
-
-          // merged reasoning layer (this is your real asset)
           reasons: [...fit.reasons, ...needReasons],
+          tooltip: fit.tooltip,
         };
 
-        // ── Re-run composite score with the real fitScore ──────────────────
-        // Without this, the composite value uses fitScore=50 (neutral default)
-        // which collapses all scores toward the same range.
-        const reBuildCs = buildCategoryScores({
-          rating,
-          reviews,
-          hasWebsite: hasWebsiteForFit,
-          socialPresence: computedPresence,
-          classificationConfidence01:
-            typeof classification.confidence === "number"
-              ? Math.max(0, Math.min(1, classification.confidence / 100))
-              : null,
-        });
-
-        const reRiskProfile = classifyBusinessCondition({
-          scores: reBuildCs,
-          isGoodFit: fit.fitScore >= 60,
-          hasWebsite: hasWebsiteForFit,
-          socialPresence: computedPresence,
-          reviews,
-          rating,
-        });
-
-        const reUniversal = computeUniversalScore({
-          scores: reBuildCs,
-          riskProfile: reRiskProfile,
-          isGoodFit: fit.fitScore >= 60,
-          classificationConfidence: classification.confidence ?? null,
-          fitScore: fit.fitScore,
-          rating,
-          reviews,
-          hasWebsite: hasWebsiteForFit,
-        });
-
-        lead.score = {
-          ...normalizeScore(lead.score),
-          value:       reUniversal.value,
-          readiness:   reUniversal.readiness,
-          risk:        reUniversal.risk,
-          riskProfile: reRiskProfile,
-          breakdown:   reBuildCs,
-        };
-
+        // ── STEP 3: Gap + outreach context ───────────────────────────────────
         const pitchContext = {
-          hasWebsite: Boolean(lead.company.website),
-          socialPresence: lead.metrics.socialPresence ?? "medium",
-          opportunity: lead.score.opportunity ?? 0,
-          risk: lead.score.risk ?? 0,
-          riskProfile: lead.score.riskProfile ?? null,
+          hasWebsite: hasWebsiteBool,
+          socialPresence: computedPresence,
+          opportunity: 50, // placeholder — real value comes from universalScore below
+          risk: 50,
+          riskProfile: null as RiskProfile | null,
           fitScore: fit.fitScore,
-          missingNeeds: lead.fit?.missingNeeds ?? [],
+          missingNeeds: fit.missingNeeds,
         };
 
         const sellerType = inferSellerType(activeProfile);
         const gap = deriveGap(pitchContext);
-        const difficulty = deriveDifficulty(
-          pitchContext.opportunity,
-          pitchContext.risk,
-        );
+        const difficulty = deriveDifficulty(50, 50); // refined below
 
-        const closeOpp = scoreOpportunity({
-          gap,
+        // ── STEP 4: Business classification ──────────────────────────────────
+        const businessProfile = classifyBusinessProfile({
+          reviews,
+          rating,
+          hasWebsite: hasWebsiteBool,
+          categories: rawCompany.categories,
+          businessName: lead.company.name,
+          socialPresence: computedPresence,
+        });
+
+        const dataLevel = getDataLevel(reviews, hasWebsiteBool);
+
+        // ── STEP 5: Single-pass composite score ──────────────────────────────
+        const scored = computeUniversalScore({
+          reviews,
+          rating,
+          hasWebsite: hasWebsiteBool,
+          socialPresence: computedPresence,
+          riskProfile: businessProfile,
           fitScore: fit.fitScore,
-
-          rating: lead.metrics.rating,
-          reviewCount: lead.metrics.reviewCount,
-          hasWebsite: pitchContext.hasWebsite,
-
-          socialPresence: pitchContext.socialPresence ?? null,
-
-          risk: lead.score.risk ?? 0,
-          riskProfile: lead.score.riskProfile ?? "unstable_business",
-
+          fitTooltip: fit.tooltip,
+          gapType: gap,
           classificationConfidence: lead.classification.confidence ?? null,
         });
 
-        // ── Recompute composite value using the final opportunity score ──────
-        // closeOpp.opportunity is the richest signal we have — it accounts for
-        // gap type, proof, risk, and fit. We use it to recompute the final value
-        // so the displayed score reflects the full picture, not just categoryScores.
-        const finalOppScale = (closeOpp.opportunity / 100) * 0.70 + 0.30;
-        const rawFitForFinal = clamp100(fit.fitScore ?? 50);
-        const fitForFinal = clamp100(Math.round(rawFitForFinal * finalOppScale));
-        const abilityToPayFinal = getAbilityToPayScore({
-          rating: lead.metrics.rating ?? 0,
-          reviews: lead.metrics.reviewCount ?? 0,
-          hasWebsite: pitchContext.hasWebsite,
-        });
-        const approachFinal = getApproachabilityScore(reRiskProfile);
-        let finalValue = clamp100(Math.round(
-          closeOpp.opportunity * 0.40 +
-          fitForFinal          * 0.28 +
-          abilityToPayFinal    * 0.18 +
-          approachFinal        * 0.14
-        ));
-        // Hard caps
-        if (reRiskProfile === "unstable_business") finalValue = Math.min(finalValue, 22);
-        if (reRiskProfile === "mature_competitor" && closeOpp.opportunity <= 15) finalValue = Math.min(finalValue, 32);
-
         lead.score = {
-          ...lead.score,
-          value:       finalValue,
-          priority:    finalValue,
-          opportunity: closeOpp.opportunity,
+          ...scored,
+          riskProfile: businessProfile,
         };
+
+        // ── STEP 6: Outreach script ───────────────────────────────────────────
+        const refinedDifficulty = deriveDifficulty(scored.opportunity, scored.risk);
 
         const outreach = generateScript({
           industry: niche ?? undefined,
           city: locationStr ?? undefined,
           sellerType,
           gap,
-          difficulty,
-          ctx: pitchContext,
+          difficulty: refinedDifficulty,
+          ctx: {
+            ...pitchContext,
+            opportunity: scored.opportunity,
+            risk: scored.risk,
+            riskProfile: businessProfile,
+          },
         });
 
         lead.metadata = {
           ...lead.metadata,
           outreach,
+          dataLevel,
           opportunityMeta: {
-            confidence: closeOpp.confidence,
-            reasons: closeOpp.reasons,
-            bucket: bucketOpportunity(closeOpp.opportunity),
+            confidence: scored.evidenceLevel === "high" ? 0.9
+              : scored.evidenceLevel === "medium" ? 0.7
+              : scored.evidenceLevel === "low" ? 0.5 : 0.3,
+            reasons: scored.reasons,
+            bucket: bucketOpportunity(scored.opportunity),
           },
         };
-        void pitchContext;
 
         return lead;
       })

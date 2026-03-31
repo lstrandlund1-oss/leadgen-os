@@ -1,7 +1,11 @@
 // lib/profile/profileTypes.ts
 // Defines all supported user profile types for Vantio Beta.
-// Each type has a display name, description, default capabilities,
-// default UserProfileV1 values, and a seller type mapping.
+// Capabilities are now numeric depths (0-100):
+//   0   = not offered
+//   1-39  = light / supporting capability
+//   40-69 = capable / reliable offering
+//   70-89 = strong / primary service
+//   90-100 = specialist / core differentiator
 
 import type { UserProfileV1, CapabilityProfile } from "@/lib/types";
 import type { Capability } from "@/lib/fit/needs";
@@ -19,7 +23,7 @@ export type ProfileTypeDefinition = {
   label: string;
   description: string;
   sellerType: SellerType;
-  defaultCapabilities: Record<Capability, number>; // 0=none, 1-100=depth
+  defaultCapabilities: Record<Capability, number>;
   defaultProfile: Omit<UserProfileV1, "id" | "notes">;
 };
 
@@ -34,13 +38,13 @@ export const PROFILE_TYPE_DEFINITIONS: Record<
       "You run paid ads, build funnels, and drive measurable ROI for clients. Best leads have traffic potential but no conversion system.",
     sellerType: "MARKETING",
     defaultCapabilities: {
-      ads: 90,
-      tracking: 80,
-      funnel: 80,
-      content: 20,
-      website: 20,
-      seo: 10,
-      crm: 30,
+      ads:      90, // core differentiator
+      tracking: 80, // strong — essential for performance work
+      funnel:   75, // strong — conversion is your domain
+      content:  25, // light — can do basics but not primary
+      website:  15, // light — landing pages only
+      seo:      20, // light — understands it, doesn't sell it
+      crm:      30, // light — basic follow-up knowledge
     },
     defaultProfile: {
       niche: "general",
@@ -59,13 +63,13 @@ export const PROFILE_TYPE_DEFINITIONS: Record<
       "You build websites, landing pages, and conversion infrastructure. Best leads have no website, outdated sites, or trust gap signals.",
     sellerType: "WEB_DEV",
     defaultCapabilities: {
-      ads: 0,
-      tracking: 60,
-      funnel: 70,
-      content: 20,
-      website: 95,
-      seo: 30,
-      crm: 10,
+      ads:      10, // not your domain
+      tracking: 65, // capable — you wire up analytics and pixels
+      funnel:   70, // strong — landing pages and conversion flows
+      content:  25, // light — copywriting adjacent
+      website:  95, // specialist — your core
+      seo:      45, // capable — on-page SEO is part of good web work
+      crm:      20, // light — basic integrations
     },
     defaultProfile: {
       niche: "general",
@@ -84,13 +88,13 @@ export const PROFILE_TYPE_DEFINITIONS: Record<
       "You create content, manage social media, and build organic audiences. Best leads have low social presence or underexposed quality.",
     sellerType: "CONTENT",
     defaultCapabilities: {
-      ads: 20,
-      tracking: 10,
-      funnel: 10,
-      content: 95,
-      website: 10,
-      seo: 30,
-      crm: 0,
+      ads:      20, // light — boosting posts, not full campaigns
+      tracking: 25, // light — basic analytics awareness
+      funnel:   15, // not primary
+      content:  90, // specialist — your core
+      website:  10, // not your domain
+      seo:      35, // light — content SEO awareness
+      crm:      15, // not your domain
     },
     defaultProfile: {
       niche: "general",
@@ -109,13 +113,13 @@ export const PROFILE_TYPE_DEFINITIONS: Record<
       "You improve search visibility, local SEO, and organic rankings. Best leads are local businesses with no search presence.",
     sellerType: "MARKETING",
     defaultCapabilities: {
-      ads: 10,
-      tracking: 70,
-      funnel: 20,
-      content: 60,
-      website: 30,
-      seo: 95,
-      crm: 10,
+      ads:      15, // not your domain
+      tracking: 70, // strong — analytics is core to SEO work
+      funnel:   25, // light — CRO adjacent
+      content:  60, // capable — content strategy for SEO
+      website:  35, // light — technical SEO touches
+      seo:      92, // specialist — your core
+      crm:      15, // not your domain
     },
     defaultProfile: {
       niche: "general",
@@ -131,16 +135,16 @@ export const PROFILE_TYPE_DEFINITIONS: Record<
     key: "full_service_agency",
     label: "Full-Service Agency",
     description:
-      "You offer a broad range of services and target businesses ready to scale. Configure your capability depths below to reflect where your team is strongest.",
+      "You offer a broad range of services and target businesses ready to scale. Best leads are higher-scoring businesses with budget and readiness.",
     sellerType: "MARKETING",
     defaultCapabilities: {
-      ads: 60,
-      tracking: 60,
-      funnel: 60,
-      content: 60,
-      website: 60,
-      seo: 60,
-      crm: 40,
+      ads:      80, // strong
+      tracking: 80, // strong
+      funnel:   75, // strong
+      content:  70, // strong
+      website:  65, // capable
+      seo:      70, // strong
+      crm:      55, // capable
     },
     defaultProfile: {
       niche: "general",

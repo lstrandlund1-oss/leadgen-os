@@ -85,7 +85,7 @@ export async function POST(request: Request) {
       acquisitionStyle?: UserProfileV1["acquisitionStyle"];
       budgetPreference?: UserProfileV1["budgetPreference"];
       targetLocation?: string;
-      capabilities?: Partial<Record<Capability, number>>; // 0-100 depth values
+      capabilities?: Partial<Record<Capability, number>>;
       onboardingCompleted?: boolean;
     } = body;
 
