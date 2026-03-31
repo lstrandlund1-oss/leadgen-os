@@ -14,9 +14,7 @@ export async function POST(request: Request) {
       rating,
       ownerResponseCount,
       socialPresence,
-      isGoodFit,
       classificationConfidence,
-      riskProfile,
       fitScore,
     }: {
       website?: string | null;
@@ -24,9 +22,7 @@ export async function POST(request: Request) {
       rating?: number | null;
       ownerResponseCount?: number | null;
       socialPresence?: "low" | "medium" | "high";
-      isGoodFit?: boolean;
       classificationConfidence?: number | null;
-      riskProfile?: string;
       fitScore?: number | null;
     } = body;
 
@@ -66,9 +62,7 @@ export async function POST(request: Request) {
       reviewCount: body.reviewCount ?? null,
       hasWebsite: !!(body.website && body.website.trim().length > 0),
       socialPresence: body.socialPresence ?? "low",
-      isGoodFit: body.isGoodFit ?? false,
       classificationConfidence: body.classificationConfidence ?? null,
-      riskProfile: body.riskProfile ?? "unknown",
       fitScore: typeof body.fitScore === "number" ? body.fitScore : undefined,
 
       websiteReachable: websiteResult.reachable,
