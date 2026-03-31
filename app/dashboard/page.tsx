@@ -3117,266 +3117,337 @@ export default function Home() {
         </section>
       </div>
 
-      {/* ── Score Explanation Modal ── */}
+      {/* ── Score Breakdown Modal ── */}
       {showScoreModal &&
         (() => {
           const modalLead = leads.find((l: LeadUI) => l.id === showScoreModal);
           if (!modalLead) return null;
-          const val = modalLead.score.value ?? 0;
-          const opp = modalLead.score.opportunity ?? 0;
-          const risk = modalLead.score.risk ?? 0;
-          const ready = modalLead.score.readiness ?? 0;
-          const fit = modalLead.fit?.fitScore ?? 0;
-          const color =
-            val >= 70 ? "#4ade80" : val >= 45 ? "#c9a84c" : "#f87171";
           const bd = modalLead.score.breakdown;
-          return (
+          const tooltips = modalLead.score.tooltips;
+          return createPortal(
             <>
               <div
-                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[70]"
                 onClick={() => setShowScoreModal(null)}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  background: "rgba(0,0,0,0.6)",
+                  zIndex: 99998,
+                }}
               />
-              <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-[#0a0a0a] border border-[#252525] rounded-2xl z-[80] shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
-                <div className="flex items-start justify-between p-6 border-b border-[#141414]">
+              <div
+                style={{
+                  position: "fixed",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  zIndex: 99999,
+                  width: "min(92vw, 480px)",
+                  maxHeight: "80vh",
+                  overflowY: "auto",
+                  borderRadius: 16,
+                  border: "1px solid #252525",
+                  background: "#0a0a0a",
+                  boxShadow: "0 40px 120px rgba(0,0,0,0.9)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "16px 20px",
+                    borderBottom: "1px solid #141414",
+                  }}
+                >
                   <div>
-                    <p className="text-[10px] uppercase tracking-widest text-[#8a6e30] mb-1">
-                      Score explanation
+                    <p
+                      style={{
+                        fontSize: 10,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
+                        color: "#8a6e30",
+                        marginBottom: 2,
+                      }}
+                    >
+                      Score breakdown
                     </p>
-                    <h2
-                      className="text-[17px] font-medium text-[#f5f0e8]"
-                      style={{ fontFamily: "var(--font-display), serif" }}
+                    <p
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 500,
+                        color: "#f5f0e8",
+                      }}
                     >
                       {modalLead.company.name}
-                    </h2>
+                    </p>
                   </div>
                   <button
                     onClick={() => setShowScoreModal(null)}
-                    className="text-[#444] hover:text-[#888] transition-colors text-xl leading-none mt-1"
+                    style={{
+                      color: "#444",
+                      fontSize: 20,
+                      lineHeight: 1,
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
                   >
                     ×
                   </button>
                 </div>
-                <div className="p-6 space-y-5">
-                  {/* Overall score */}
-                  <div className="flex items-center gap-4 rounded-xl border border-[#1a1a1a] bg-[#080808] p-4">
-                    <div className="relative w-16 h-16 flex-shrink-0">
-                      <svg
-                        viewBox="0 0 56 56"
-                        className="w-full h-full -rotate-90"
-                      >
-                        <circle
-                          cx="28"
-                          cy="28"
-                          r="24"
-                          fill="none"
-                          stroke="#1a1a1a"
-                          strokeWidth="5"
-                        />
-                        <circle
-                          cx="28"
-                          cy="28"
-                          r="24"
-                          fill="none"
-                          stroke={color}
-                          strokeWidth="5"
-                          strokeDasharray={`${(val / 100) * 150.8} 150.8`}
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span
-                          className="text-[15px] font-bold"
-                          style={{ color }}
-                        >
-                          {val}
-                        </span>
-                      </div>
-                    </div>
-                    <div>
-                      <p
-                        className="text-[14px] font-semibold"
-                        style={{ color }}
-                      >
-                        {val >= 70
-                          ? "Strong Lead"
-                          : val >= 45
-                            ? "Moderate Lead"
-                            : "Weak Lead"}
-                      </p>
-                      <p className="text-[12px] text-[#666] mt-1 leading-relaxed">
-                        {getScoreReason(modalLead, language)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Sub-scores */}
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      {
-                        label: "Opportunity",
-                        value: opp,
-                        color:
-                          opp >= 60
-                            ? "#4ade80"
-                            : opp >= 35
-                              ? "#c9a84c"
-                              : "#f87171",
-                        desc: "Untapped potential for your services",
-                      },
-                      {
-                        label: "Readiness",
-                        value: ready,
-                        color:
-                          ready >= 60
-                            ? "#4ade80"
-                            : ready >= 35
-                              ? "#c9a84c"
-                              : "#f87171",
-                        desc: "How prepared they are to buy",
-                      },
-                      {
-                        label: "Risk",
-                        value: risk,
-                        color:
-                          risk >= 60
-                            ? "#f87171"
-                            : risk >= 35
-                              ? "#c9a84c"
-                              : "#4ade80",
-                        desc: "Likelihood of a difficult sale",
-                      },
-                      {
-                        label: "Profile Fit",
-                        value: fit,
-                        color:
-                          fit >= 65
-                            ? "#4ade80"
-                            : fit >= 40
-                              ? "#c9a84c"
-                              : "#f87171",
-                        desc: "Match to your capabilities",
-                      },
-                    ].map((s) => (
-                      <div
-                        key={s.label}
-                        className="rounded-xl border border-[#1a1a1a] bg-[#080808] p-3 space-y-2"
-                      >
-                        <div className="flex items-center justify-between">
-                          <p className="text-[11px] text-[#666]">{s.label}</p>
-                          <p
-                            className="text-[14px] font-bold"
-                            style={{ color: s.color }}
-                          >
-                            {s.value}
-                          </p>
-                        </div>
-                        <div className="w-full h-1 bg-[#141414] rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${s.value}%`,
-                              backgroundColor: s.color,
-                            }}
-                          />
-                        </div>
-                        <p className="text-[10px] text-[#444]">{s.desc}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Category breakdown */}
-                  {bd && (
-                    <div className="space-y-2">
-                      <p className="text-[10px] uppercase tracking-widests text-[#444]">
-                        Category breakdown
-                      </p>
-                      {(
-                        [
-                          {
-                            key: "reputation",
-                            label: "Reputation",
-                            hint: "Reviews & ratings",
-                          },
-                          {
-                            key: "digitalPresence",
-                            label: "Digital presence",
-                            hint: "Website & social",
-                          },
-                          {
-                            key: "businessStrength",
-                            label: "Business strength",
-                            hint: "Stability signals",
-                          },
-                          {
-                            key: "opportunityGap",
-                            label: "Opportunity gap",
-                            hint: "Missing capabilities",
-                          },
-                          {
-                            key: "stabilityRisk",
-                            label: "Stability risk",
-                            hint: "Risk indicators",
-                          },
-                          {
-                            key: "evidenceConfidence",
-                            label: "Evidence confidence",
-                            hint: "Signal quality",
-                          },
-                        ] as const
-                      ).map(({ key, label, hint }) => {
-                        const v = bd[key as keyof typeof bd] ?? 0;
+                <div
+                  style={{
+                    padding: "20px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 20,
+                  }}
+                >
+                  {/* Score formula explanation */}
+                  <div
+                    style={{
+                      background: "#080808",
+                      border: "1px solid #1a1a1a",
+                      borderRadius: 12,
+                      padding: "14px 16px",
+                    }}
+                  >
+                    <p
+                      style={{
+                        fontSize: 10,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        color: "#444",
+                        marginBottom: 10,
+                      }}
+                    >
+                      How this score is built
+                    </p>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
+                      }}
+                    >
+                      {[
+                        {
+                          label: "Opportunity",
+                          value: modalLead.score.opportunity ?? 0,
+                          weight: "35%",
+                          tooltip: tooltips?.opportunity,
+                        },
+                        {
+                          label: "Fit",
+                          value: modalLead.fit?.fitScore ?? 0,
+                          weight: "30%",
+                          tooltip: tooltips?.fit,
+                        },
+                        {
+                          label: "Readiness",
+                          value: modalLead.score.readiness ?? 0,
+                          weight: "20%",
+                          tooltip: tooltips?.readiness,
+                        },
+                        {
+                          label: "Risk (inverted)",
+                          value: 100 - (modalLead.score.risk ?? 0),
+                          weight: "15%",
+                          tooltip: tooltips?.risk,
+                        },
+                      ].map((row) => {
                         const c =
-                          v >= 70 ? "#4ade80" : v >= 40 ? "#c9a84c" : "#f87171";
+                          row.label === "Risk (inverted)"
+                            ? row.value >= 70
+                              ? "#4ade80"
+                              : row.value >= 50
+                                ? "#c9a84c"
+                                : "#f87171"
+                            : row.value >= 60
+                              ? "#4ade80"
+                              : row.value >= 35
+                                ? "#c9a84c"
+                                : "#f87171";
                         return (
-                          <div key={key} className="flex items-center gap-3">
-                            <div className="w-28 flex-shrink-0">
-                              <p className="text-[11px] text-[#666] truncate">
-                                {label}
-                              </p>
-                              <p className="text-[9px] text-[#333]">{hint}</p>
-                            </div>
-                            <div className="flex-1 h-1.5 bg-[#141414] rounded-full overflow-hidden">
+                          <div
+                            key={row.label}
+                            title={row.tooltip ?? ""}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              cursor: row.tooltip ? "help" : "default",
+                            }}
+                          >
+                            <p
+                              style={{
+                                fontSize: 11,
+                                color: "#666",
+                                width: 110,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {row.label}
+                            </p>
+                            <div
+                              style={{
+                                flex: 1,
+                                height: 4,
+                                background: "#141414",
+                                borderRadius: 4,
+                                overflow: "hidden",
+                              }}
+                            >
                               <div
-                                className="h-full rounded-full transition-all"
-                                style={{ width: `${v}%`, backgroundColor: c }}
+                                style={{
+                                  height: "100%",
+                                  width: `${row.value}%`,
+                                  background: c,
+                                  borderRadius: 4,
+                                }}
                               />
                             </div>
                             <p
-                              className="text-[11px] font-bold w-8 text-right"
-                              style={{ color: c }}
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 600,
+                                color: c,
+                                width: 28,
+                                textAlign: "right",
+                              }}
                             >
-                              {v}
+                              {row.value}
+                            </p>
+                            <p
+                              style={{
+                                fontSize: 10,
+                                color: "#333",
+                                width: 28,
+                                textAlign: "right",
+                              }}
+                            >
+                              {row.weight}
                             </p>
                           </div>
                         );
                       })}
                     </div>
-                  )}
+                  </div>
 
-                  {/* Evidence reasons */}
-                  {modalLead.score.reasons?.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-[10px] uppercase tracking-widests text-[#444]">
-                        Evidence
+                  {/* Category breakdown — the detail layer */}
+                  {bd && (
+                    <div>
+                      <p
+                        style={{
+                          fontSize: 10,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          color: "#444",
+                          marginBottom: 10,
+                        }}
+                      >
+                        Signal breakdown
                       </p>
-                      <div className="space-y-1.5">
-                        {modalLead.score.reasons.map((r: string, i: number) => {
-                          const pos =
-                            /strong|high|good|great|active|present|above/i.test(
-                              r,
-                            );
-                          const neg = /no |missing|low|weak|below|lacks/i.test(
-                            r,
-                          );
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                        }}
+                      >
+                        {(
+                          [
+                            {
+                              key: "reputation",
+                              label: "Reputation",
+                              hint: "Review volume & rating quality",
+                            },
+                            {
+                              key: "digitalPresence",
+                              label: "Digital presence",
+                              hint: "Website & social footprint",
+                            },
+                            {
+                              key: "businessStrength",
+                              label: "Business strength",
+                              hint: "Overall stability signals",
+                            },
+                            {
+                              key: "opportunityGap",
+                              label: "Opportunity gap",
+                              hint: "Size of the gap you can sell into",
+                            },
+                            {
+                              key: "stabilityRisk",
+                              label: "Stability risk",
+                              hint: "How risky is this lead to pursue",
+                            },
+                            {
+                              key: "evidenceConfidence",
+                              label: "Evidence confidence",
+                              hint: "How reliable is this data",
+                            },
+                          ] as const
+                        ).map(({ key, label, hint }) => {
+                          const v = bd[key as keyof typeof bd] ?? 0;
+                          const c =
+                            key === "stabilityRisk"
+                              ? v >= 60
+                                ? "#f87171"
+                                : v >= 35
+                                  ? "#c9a84c"
+                                  : "#4ade80"
+                              : v >= 65
+                                ? "#4ade80"
+                                : v >= 35
+                                  ? "#c9a84c"
+                                  : "#f87171";
                           return (
-                            <div key={i} className="flex items-start gap-2.5">
-                              <span
-                                className={`text-[10px] mt-0.5 flex-shrink-0 ${pos ? "text-[#4ade80]" : neg ? "text-[#f87171]" : "text-[#555]"}`}
+                            <div
+                              key={key}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                              }}
+                            >
+                              <div style={{ width: 130, flexShrink: 0 }}>
+                                <p style={{ fontSize: 11, color: "#888" }}>
+                                  {label}
+                                </p>
+                                <p style={{ fontSize: 9, color: "#333" }}>
+                                  {hint}
+                                </p>
+                              </div>
+                              <div
+                                style={{
+                                  flex: 1,
+                                  height: 4,
+                                  background: "#141414",
+                                  borderRadius: 4,
+                                  overflow: "hidden",
+                                }}
                               >
-                                {pos ? "✓" : neg ? "✗" : "·"}
-                              </span>
-                              <p className="text-[12px] text-[#888] leading-snug">
-                                {r}
+                                <div
+                                  style={{
+                                    height: "100%",
+                                    width: `${v}%`,
+                                    background: c,
+                                    borderRadius: 4,
+                                  }}
+                                />
+                              </div>
+                              <p
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  color: c,
+                                  width: 28,
+                                  textAlign: "right",
+                                }}
+                              >
+                                {v}
                               </p>
                             </div>
                           );
@@ -3384,9 +3455,65 @@ export default function Home() {
                       </div>
                     </div>
                   )}
+
+                  {/* Evidence */}
+                  {modalLead.score.reasons?.length > 0 && (
+                    <div>
+                      <p
+                        style={{
+                          fontSize: 10,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          color: "#444",
+                          marginBottom: 8,
+                        }}
+                      >
+                        What we know
+                      </p>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 6,
+                        }}
+                      >
+                        {modalLead.score.reasons.map((r: string, i: number) => (
+                          <div
+                            key={i}
+                            style={{
+                              display: "flex",
+                              gap: 8,
+                              alignItems: "flex-start",
+                            }}
+                          >
+                            <span
+                              style={{
+                                color: "#555",
+                                fontSize: 10,
+                                marginTop: 2,
+                                flexShrink: 0,
+                              }}
+                            >
+                              ·
+                            </span>
+                            <p
+                              style={{
+                                fontSize: 12,
+                                color: "#777",
+                                lineHeight: 1.5,
+                              }}
+                            >
+                              {r}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            </>
+            </>,
+            document.body,
           );
         })()}
 
@@ -3993,7 +4120,7 @@ export default function Home() {
                               {getScoreReason(detailLead, language)}
                             </p>
                             <p className="text-[10px] text-[#333] mt-1.5 group-hover:text-[#555] transition-colors">
-                              Tap for full breakdown →
+                              Score breakdown →
                             </p>
                             {detailWebsiteUrl && (
                               <a
