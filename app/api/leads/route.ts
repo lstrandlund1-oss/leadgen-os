@@ -20,15 +20,15 @@ function getNum(obj: unknown, key: string): number | null {
 }
 
 function getRiskProfile(obj: unknown): RiskProfile {
-  if (!obj || typeof obj !== "object") return "unstable_business";
+  if (!obj || typeof obj !== "object") return "unknown";
   const rec = obj as Record<string, unknown>;
   const v = rec["riskProfile"];
 
-  if (v === "unstable_business" || v === "mature_competitor") {
+  if (v === "early_stage" || v === "well_established" || v === "independent_business" || v === "limited_data" || v === "growing_business" || v === "solo_run" || v === "local_authority" || v === "unknown") {
     return v;
   }
 
-  return "unstable_business";
+  return "unknown";
 }
 
 export async function POST(request: Request) {

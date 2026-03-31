@@ -106,8 +106,8 @@ export function mapToLead(args: {
     rating: typeof raw.rating === "number" ? raw.rating : null,
     reviews: typeof raw.review_count === "number" ? raw.review_count : null,
     classificationConfidence01,
-    isMatureCompetitor: scoring.riskProfile === "mature_competitor",
-    isDistressed: scoring.riskProfile === "unstable_business",
+    isMatureCompetitor: scoring.riskProfile === "well_established" || scoring.riskProfile === "local_authority",
+    isDistressed: scoring.riskProfile === "early_stage" || scoring.riskProfile === "limited_data",
   });
 
   return {

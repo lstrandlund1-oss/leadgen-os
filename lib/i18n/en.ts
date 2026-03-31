@@ -60,8 +60,14 @@ export const en: TranslationSchema = {
       },
       riskProfile: {
         none: "None",
-        mature_competitor: "Mature competitor",
-        unstable_business: "Unstable business",
+        well_established: "Well-established",
+        local_authority: "Local authority",
+        early_stage: "Early stage",
+        limited_data: "Limited data",
+        growing_business: "Growing business",
+        solo_run: "Solo-run",
+        independent_business: "Independent business",
+        unknown: "Unknown",
       },
     },
     detail: {

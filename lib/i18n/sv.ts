@@ -61,8 +61,14 @@ export const sv: TranslationSchema = {
       },
       riskProfile: {
         none: "Ingen",
-        mature_competitor: "Etablerad konkurrent",
-        unstable_business: "Instabil verksamhet",
+        well_established: "Välestablerat",
+        local_authority: "Lokal auktoritet",
+        early_stage: "Tidig fas",
+        limited_data: "Begränsad data",
+        growing_business: "Växande verksamhet",
+        solo_run: "Ensamföretagare",
+        independent_business: "Oberoende verksamhet",
+        unknown: "Okänt",
       },
     },
     detail: {

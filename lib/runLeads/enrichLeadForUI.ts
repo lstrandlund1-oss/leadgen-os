@@ -3,7 +3,7 @@
 
 import type { HydratedLeadSummary } from "./hydrateLead";
 import { computeUniversalScore } from "@/lib/scoring/universalScore";
-import { classifyBusinessCondition } from "@/lib/scoring/businessCondition";
+import { classifyBusinessProfile } from "@/lib/scoring/businessCondition";
 
 export interface UIEnrichmentResult {
   scoreOverride: {
@@ -46,24 +46,27 @@ export function enrichLeadForUI(
     rawSocialPresence ??
     (socialSignal?.value === "high" ? "high" : socialSignal?.value === "medium" ? "medium" : "low");
 
-  const riskProfile = classifyBusinessCondition({
-    scores: cs,
-    isGoodFit: fit.fitScore >= 60,
-    hasWebsite: hasWebsite ?? digital.hasWebsite,
-    socialPresence,
+  const riskProfile = classifyBusinessProfile({
     reviews: rawReviews ?? 0,
     rating: rawRating ?? 0,
+    hasWebsite: hasWebsite ?? digital.hasWebsite,
+    categories: [],
+    socialPresence,
   });
 
+  const gapType = !(hasWebsite ?? digital.hasWebsite) ? "INFRASTRUCTURE" as const
+    : socialPresence === "low" ? "VISIBILITY" as const
+    : "OPTIMIZATION" as const;
+
   const universal = computeUniversalScore({
-    scores: cs,
-    riskProfile,
-    isGoodFit: fit.fitScore >= 60,
-    classificationConfidence: null,
-    fitScore: fit.fitScore,
-    rating: rawRating ?? 0,
     reviews: rawReviews ?? 0,
+    rating: rawRating ?? 0,
     hasWebsite: hasWebsite ?? digital.hasWebsite,
+    socialPresence,
+    riskProfile,
+    fitScore: fit.fitScore,
+    gapType,
+    classificationConfidence: null,
   });
 
   return {

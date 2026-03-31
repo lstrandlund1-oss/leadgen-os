@@ -2,7 +2,7 @@ export type Language = "en" | "sv";
 
 export type SocialPresenceFilter = "any" | "low" | "medium" | "high";
 export type SortKey = "score" | "opportunity" | "risk" | "confidence" | "fit";
-export type RiskProfile = "mature_competitor" | "unstable_business" | null;
+export type RiskProfile = "well_established" | "local_authority" | "early_stage" | "limited_data" | "growing_business" | "solo_run" | "independent_business" | "unknown" | null;
 
 export type TranslationSchema = {
   ui: {
@@ -52,8 +52,14 @@ export type TranslationSchema = {
       };
       riskProfile: {
         none: string;
-        mature_competitor: string;
-        unstable_business: string;
+        well_established: string;
+        local_authority: string;
+        early_stage: string;
+        limited_data: string;
+        growing_business: string;
+        solo_run: string;
+        independent_business: string;
+        unknown: string;
       };
     };
     detail: {
