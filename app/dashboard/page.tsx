@@ -1,6 +1,16 @@
 "use client";
 
-import React, { Fragment, useEffect, useMemo, useState, FormEvent, ChangeEvent, MouseEvent, KeyboardEvent, FocusEvent } from "react";
+import React, {
+  Fragment,
+  useEffect,
+  useMemo,
+  useState,
+  FormEvent,
+  ChangeEvent,
+  MouseEvent,
+  KeyboardEvent,
+  FocusEvent,
+} from "react";
 import type { Lead, Language, SearchRecord } from "@/lib/types";
 import type { ProviderName } from "@/lib/providers/types";
 import { getEffectivePlan, canUseDeepEnrichment } from "@/lib/plan";
@@ -69,18 +79,21 @@ type LeadOutcomeUI = {
   followup_date: string | null;
   tonality: "soft" | "consultative" | "direct" | "bold" | null;
   angle_type: string | null;
-  lost_reason: "no_response" | "not_interested" | "has_provider" | "wrong_timing" | "price_too_high" | "chose_competitor" | "other" | null;
+  lost_reason:
+    | "no_response"
+    | "not_interested"
+    | "has_provider"
+    | "wrong_timing"
+    | "price_too_high"
+    | "chose_competitor"
+    | "other"
+    | null;
   score_at_outreach: number | null;
 };
 
 type OutcomeKey = "contacted" | "replied" | "booked_call" | "closed";
 
-const OUTCOME_STATUS_KEYS: readonly OutcomeKey[] = [
-  "contacted",
-  "replied",
-  "booked_call",
-  "closed",
-] as const;
+const OUTCOME_STATUS_KEYS: readonly OutcomeKey[] = ["contacted", "replied", "booked_call", "closed"] as const;
 
 function outcomeLabel(k: OutcomeKey, t: Translations): string {
   switch (k) {
@@ -95,10 +108,7 @@ function outcomeLabel(k: OutcomeKey, t: Translations): string {
   }
 }
 
-function buildOutcomePatch(
-  key: OutcomeKey,
-  value: boolean,
-): Partial<Record<OutcomeKey, boolean>> {
+function buildOutcomePatch(key: OutcomeKey, value: boolean): Partial<Record<OutcomeKey, boolean>> {
   const patch: Partial<Record<OutcomeKey, boolean>> = {};
   patch[key] = value;
   return patch;
@@ -125,10 +135,7 @@ function bandLabel(language: Language, n: number): string {
 // Insight selection + localization
 // ---------------------
 
-function localizeOpportunityMessage(
-  signal: OpportunitySignal | null | undefined,
-  language: Language,
-): string | null {
+function localizeOpportunityMessage(signal: OpportunitySignal | null | undefined, language: Language): string | null {
   if (!signal) return null;
 
   if (signal.type === "conversion_gap") {
@@ -156,23 +163,18 @@ function localizeOpportunityMessage(
   }
 
   const sv: Record<string, string> = {
-    conversion_gap:
-      "Starka recensioner men ingen webbplats — tydlig konverteringspotential.",
+    conversion_gap: "Starka recensioner men ingen webbplats — tydlig konverteringspotential.",
     trust_gap: "Ingen webbplats — konverteringsfriktion och tappat förtroende.",
-    untapped_attention:
-      "Hög efterfrågan men svag närvaro — tydlig content-lucka.",
+    untapped_attention: "Hög efterfrågan men svag närvaro — tydlig content-lucka.",
     underexposed_quality: "Hög kvalitet men låg synlighet — tillväxtmöjlighet.",
-    scaling_ready:
-      "Stabil grund men det skalar inte — redo för ett tillväxtsystem.",
+    scaling_ready: "Stabil grund men det skalar inte — redo för ett tillväxtsystem.",
   };
 
   const en: Record<string, string> = {
-    conversion_gap:
-      "Strong reputation but no website — high conversion upside.",
+    conversion_gap: "Strong reputation but no website — high conversion upside.",
     trust_gap: "No website — conversion + trust friction.",
     untapped_attention: "High demand but weak social presence — content gap.",
-    underexposed_quality:
-      "High quality service but low visibility — growth opportunity.",
+    underexposed_quality: "High quality service but low visibility — growth opportunity.",
     scaling_ready: "Stable base but not scaling — ready for a growth system.",
   };
 
@@ -180,9 +182,7 @@ function localizeOpportunityMessage(
   return dict[signal.type] ?? signal.message ?? null;
 }
 
-function deriveDeterministicOpportunityFallback(
-  lead: LeadUI,
-): OpportunitySignal | null {
+function deriveDeterministicOpportunityFallback(lead: LeadUI): OpportunitySignal | null {
   const rating = lead.metrics?.rating ?? 0;
   const reviews = lead.metrics?.reviewCount ?? 0;
   const hasWebsite = Boolean(lead.company?.website);
@@ -207,9 +207,7 @@ function deriveDeterministicOpportunityFallback(
   return null;
 }
 
-function normalizeLegacyOrNewOpportunityInsight(
-  lead: LeadUI,
-): OpportunitySignal | null {
+function normalizeLegacyOrNewOpportunityInsight(lead: LeadUI): OpportunitySignal | null {
   // Prefer new structured insight if present
   if (lead.primaryWorkTypeInsight?.message) {
     return {
@@ -226,21 +224,14 @@ function normalizeLegacyOrNewOpportunityInsight(
   const deterministic = deriveDeterministicOpportunityFallback(lead);
   if (deterministic) return deterministic;
 
-  const sigs = Array.isArray(lead.opportunitySignals)
-    ? lead.opportunitySignals
-    : [];
+  const sigs = Array.isArray(lead.opportunitySignals) ? lead.opportunitySignals : [];
   if (!sigs.length) return null;
 
   const priority = { high: 3, medium: 2, low: 1 } as const;
-  return sigs
-    .slice()
-    .sort((a, b) => priority[b.strength] - priority[a.strength])[0];
+  return sigs.slice().sort((a, b) => priority[b.strength] - priority[a.strength])[0];
 }
 
-function getLocalizedOpportunityInsight(
-  lead: LeadUI,
-  language: Language,
-): OpportunitySignal | null {
+function getLocalizedOpportunityInsight(lead: LeadUI, language: Language): OpportunitySignal | null {
   const base = normalizeLegacyOrNewOpportunityInsight(lead);
   if (!base) return null;
 
@@ -250,10 +241,7 @@ function getLocalizedOpportunityInsight(
   return { ...base, message: msg };
 }
 
-function riskTitleFromProfile(
-  p: Lead["score"]["riskProfile"] | null | undefined,
-  t: Translations,
-): string {
+function riskTitleFromProfile(p: Lead["score"]["riskProfile"] | null | undefined, t: Translations): string {
   if (!p || p === "unknown") return t.ui.table.riskProfile.none ?? "";
   const profileMap = t.ui.table.riskProfile as Record<string, string>;
   return profileMap[p] ?? p.replace(/_/g, " ");
@@ -270,10 +258,8 @@ function riskMessage(language: Language, lead: Lead): string {
     if (rp === "well_established" || rp === "local_authority") {
       return "Stark närvaro + starkt proof. Svårare att vinna — kräver tydlig differentiering och systemvinkel.";
     }
-    if (risk >= 70)
-      return "Hög risk. Kräver tydlig vinkel och starkare erbjudande för att vinna.";
-    if (risk >= 45)
-      return "Mellanrisk. Går att vinna med rätt angle och tydlig payoff.";
+    if (risk >= 70) return "Hög risk. Kräver tydlig vinkel och starkare erbjudande för att vinna.";
+    if (risk >= 45) return "Mellanrisk. Går att vinna med rätt angle och tydlig payoff.";
     return "Låg risk. Relativt lätt att få respons om erbjudandet är skarpt.";
   }
 
@@ -283,10 +269,8 @@ function riskMessage(language: Language, lead: Lead): string {
   if (rp === "well_established" || rp === "local_authority") {
     return "Strong presence + strong proof. Harder to displace — requires differentiation and a system angle.";
   }
-  if (risk >= 70)
-    return "High risk. Needs a sharp angle and stronger offer to win.";
-  if (risk >= 45)
-    return "Medium risk. Winnable with the right angle and clear payoff.";
+  if (risk >= 70) return "High risk. Needs a sharp angle and stronger offer to win.";
+  if (risk >= 45) return "Medium risk. Winnable with the right angle and clear payoff.";
   return "Low risk. Easier to get a response if your offer is sharp.";
 }
 
@@ -308,32 +292,24 @@ function getScoreReason(lead: Lead, language: Language): string {
   const rating = lead.metrics.rating;
 
   if (language === "en") {
-    reasons.push(
-      `Opportunity: ${opportunity}/100. Risk: ${risk}/100. Readiness: ${readiness}/100.`,
-    );
+    reasons.push(`Opportunity: ${opportunity}/100. Risk: ${risk}/100. Readiness: ${readiness}/100.`);
     reasons.push(`Classification: ${industry} (${confidence}/100).`);
 
     if (typeof rc === "number") reasons.push(`Reviews: ${rc}.`);
     if (typeof rating === "number") reasons.push(`Rating: ${rating}.`);
 
-    if (score >= 80)
-      reasons.push("Top-tier composite score for direct outreach.");
-    else if (score >= 60)
-      reasons.push("Good candidate for value-first outreach.");
-    else
-      reasons.push("Lower composite score — use for volume / testing hooks.");
+    if (score >= 80) reasons.push("Top-tier composite score for direct outreach.");
+    else if (score >= 60) reasons.push("Good candidate for value-first outreach.");
+    else reasons.push("Lower composite score — use for volume / testing hooks.");
   } else {
-    reasons.push(
-      `Opportunity: ${opportunity}/100. Risk: ${risk}/100. Readiness: ${readiness}/100.`,
-    );
+    reasons.push(`Opportunity: ${opportunity}/100. Risk: ${risk}/100. Readiness: ${readiness}/100.`);
     reasons.push(`Klassning: ${industry} (${confidence}/100).`);
 
     if (typeof rc === "number") reasons.push(`Recensioner: ${rc}.`);
     if (typeof rating === "number") reasons.push(`Betyg: ${rating}.`);
 
     if (score >= 80) reasons.push("Toppscore för direkt outreach.");
-    else if (score >= 60)
-      reasons.push("Bra kandidat för värde-först outreach.");
+    else if (score >= 60) reasons.push("Bra kandidat för värde-först outreach.");
     else reasons.push("Lägre score — använd för volym / testa hooks.");
   }
 
@@ -393,7 +369,9 @@ function getStructuredAngle(lead: LeadUI, language: Language): StructuredAngle {
       `Context: I'm reviewing ${industry} businesses in ${loc}.`,
       `Angle: ${title}.`,
       `Offer: 10–15 min teardown + a simple plan you can implement immediately.`,
-    ].filter(Boolean).join(" ");
+    ]
+      .filter(Boolean)
+      .join(" ");
     return { title, why, body };
   }
 
@@ -427,7 +405,9 @@ function getStructuredAngle(lead: LeadUI, language: Language): StructuredAngle {
       `Context: Jag går igenom ${industry} i ${loc}.`,
       `Vinkel: ${title}.`,
       `Erbjudande: 10–15 min teardown + enkel plan ni kan implementera direkt.`,
-    ].filter(Boolean).join(" ");
+    ]
+      .filter(Boolean)
+      .join(" ");
     return { title, why, body };
   }
 
@@ -495,10 +475,13 @@ async function runProviderSearchAndFetchLeads(args: {
     headers: { "Content-Type": "application/json" },
     signal: timeoutController.signal,
     body: JSON.stringify({
-      provider, query: primaryQuery, country: "Sweden",
+      provider,
+      query: primaryQuery,
+      country: "Sweden",
       location: locationText || undefined,
       ...(areaText ? { area: areaText } : {}),
-      socialPresence, limit: 20,
+      socialPresence,
+      limit: 20,
       ...(runIdArg != null ? { runId: runIdArg } : {}),
       ...(cursor != null ? { cursor } : {}),
       forceRefresh: args.forceRefresh ?? false,
@@ -523,8 +506,17 @@ async function runProviderSearchAndFetchLeads(args: {
     let pagesRemaining = 2;
     while (pagesRemaining > 0 && finalNextCursor && !finalExhausted) {
       const pageRes = await fetch("/api/providers/search", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, query: primaryQuery, country: "Sweden", location: locationText || undefined, socialPresence, limit: 20, cursor: finalNextCursor }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider,
+          query: primaryQuery,
+          country: "Sweden",
+          location: locationText || undefined,
+          socialPresence,
+          limit: 20,
+          cursor: finalNextCursor,
+        }),
       }).catch(() => null);
       if (!pageRes?.ok) break;
       const pageData = (await pageRes.json().catch(() => ({}))) as ProviderSearchResponse;
@@ -535,7 +527,7 @@ async function runProviderSearchAndFetchLeads(args: {
   }
 
   const leadsRes = await fetch(
-    `/api/providers/runs/${runId}/leads?${locationText ? `location=${encodeURIComponent(locationText)}&` : ""}${niche ? `niche=${encodeURIComponent(niche)}` : ""}`
+    `/api/providers/runs/${runId}/leads?${locationText ? `location=${encodeURIComponent(locationText)}&` : ""}${niche ? `niche=${encodeURIComponent(niche)}` : ""}`,
   ).catch(() => null);
   if (!leadsRes?.ok) return null;
 
@@ -546,33 +538,41 @@ async function runProviderSearchAndFetchLeads(args: {
   const zoneQueries: string[] = [];
   if (!cursor && primaryLeads.length < 15 && locationText) {
     const zones = getCityZones(locationText);
-    if (zones.length > 1) zoneQueries.push(...zones.filter(z => z.toLowerCase() !== locationText.toLowerCase()).slice(0, 3));
+    if (zones.length > 1)
+      zoneQueries.push(...zones.filter((z) => z.toLowerCase() !== locationText.toLowerCase()).slice(0, 3));
   }
 
   const allSecondary = [
-    ...expandedQueries.map(q => ({ query: q, location: locationText || undefined })),
-    ...zoneQueries.map(zone => ({ query: primaryQuery, location: zone })),
+    ...expandedQueries.map((q) => ({ query: q, location: locationText || undefined })),
+    ...zoneQueries.map((zone) => ({ query: primaryQuery, location: zone })),
   ];
 
   if (allSecondary.length > 0) {
-    const results = await Promise.allSettled(allSecondary.map(async ({ query: q, location: loc }) => {
-      const res = await fetch("/api/providers/search", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, query: q, country: "Sweden", location: loc, socialPresence, limit: 20 }),
-      }).catch(() => null);
-      if (!res?.ok) return [];
-      const data = (await res.json().catch(() => ({}))) as ProviderSearchResponse;
-      const secId = typeof data.runId === "number" ? data.runId : null;
-      if (!secId) return [];
-      const secRes = await fetch(`/api/providers/runs/${secId}/leads?${loc ? `location=${encodeURIComponent(loc)}&` : ""}niche=${encodeURIComponent(q)}`).catch(() => null);
-      if (!secRes?.ok) return [];
-      const secData = (await secRes.json().catch(() => ({}))) as RunLeadsResponse;
-      return Array.isArray(secData?.leads) ? (secData.leads as LeadUI[]) : [];
-    }));
+    const results = await Promise.allSettled(
+      allSecondary.map(async ({ query: q, location: loc }) => {
+        const res = await fetch("/api/providers/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider, query: q, country: "Sweden", location: loc, socialPresence, limit: 20 }),
+        }).catch(() => null);
+        if (!res?.ok) return [];
+        const data = (await res.json().catch(() => ({}))) as ProviderSearchResponse;
+        const secId = typeof data.runId === "number" ? data.runId : null;
+        if (!secId) return [];
+        const secRes = await fetch(
+          `/api/providers/runs/${secId}/leads?${loc ? `location=${encodeURIComponent(loc)}&` : ""}niche=${encodeURIComponent(q)}`,
+        ).catch(() => null);
+        if (!secRes?.ok) return [];
+        const secData = (await secRes.json().catch(() => ({}))) as RunLeadsResponse;
+        return Array.isArray(secData?.leads) ? (secData.leads as LeadUI[]) : [];
+      }),
+    );
     for (const r of results) if (r.status === "fulfilled") expandedLeads = expandedLeads.concat(r.value);
   }
 
-  const seenIds = new Set(primaryLeads.map((l: LeadUI) => (l as LeadUI & { sourceId?: string }).sourceId).filter(Boolean));
+  const seenIds = new Set(
+    primaryLeads.map((l: LeadUI) => (l as LeadUI & { sourceId?: string }).sourceId).filter(Boolean),
+  );
   const seenNames = new Set(primaryLeads.map((l: LeadUI) => l.company.name.toLowerCase()));
   const uniqueExpanded = expandedLeads.filter((l: LeadUI) => {
     const srcId = (l as LeadUI & { sourceId?: string }).sourceId;
@@ -582,8 +582,10 @@ async function runProviderSearchAndFetchLeads(args: {
   const allLeads = [...primaryLeads, ...uniqueExpanded];
 
   return {
-    runId, leads: allLeads,
-    nextCursor: finalNextCursor, exhausted: finalExhausted,
+    runId,
+    leads: allLeads,
+    nextCursor: finalNextCursor,
+    exhausted: finalExhausted,
     cached: (_cacheInfo?.cached as boolean) ?? false,
     ageDays: (_cacheInfo?.ageDays as number) ?? 0,
     cachedAt: (_cacheInfo?.cachedAt as string) ?? null,
@@ -602,57 +604,82 @@ function GettingStartedPanel({
 }) {
   const [open, setOpen] = useState(false);
   const steps = [
-    { done: checklistState.hasProfile,   label: "Set up your profile",   sub: "Tell us your business type and target market",            href: "/profile/settings" },
-    { done: checklistState.hasSearched,  label: "Run your first search",  sub: "Enter a niche + location and score your first leads",    href: null },
-    { done: checklistState.hasSelected,  label: "Open a lead",            sub: "Click any lead to see signals, gap analysis, and outreach script", href: null },
-    { done: checklistState.hasOutcome,   label: "Log an outcome",         sub: "Mark a lead as contacted, replied, or booked",           href: null },
+    {
+      done: checklistState.hasProfile,
+      label: "Set up your profile",
+      sub: "Tell us your business type and target market",
+      href: "/profile/settings",
+    },
+    {
+      done: checklistState.hasSearched,
+      label: "Run your first search",
+      sub: "Enter a niche + location and score your first leads",
+      href: null,
+    },
+    {
+      done: checklistState.hasSelected,
+      label: "Open a lead",
+      sub: "Click any lead to see signals, gap analysis, and outreach script",
+      href: null,
+    },
+    {
+      done: checklistState.hasOutcome,
+      label: "Log an outcome",
+      sub: "Mark a lead as contacted, replied, or booked",
+      href: null,
+    },
   ];
-  const doneCount = steps.filter(s => s.done).length;
+  const doneCount = steps.filter((s) => s.done).length;
 
   return (
     <>
       {/* Left-edge trigger tab — always visible, never in flow */}
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => setOpen((o) => !o)}
         title="Getting started checklist"
         style={{ zIndex: 8000 }}
-        className="fixed left-0 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1.5 px-1.5 py-3 rounded-r-xl border border-l-0 border-[rgba(201,168,76,0.3)] bg-[#0d0d0d] hover:bg-[#111] transition-all group"
-      >
+        className="fixed left-0 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1.5 px-1.5 py-3 rounded-r-xl border border-l-0 border-[rgba(201,168,76,0.3)] bg-[#0d0d0d] hover:bg-[#111] transition-all group">
         <span className="text-[#c9a84c] text-xs">◈</span>
         <span
           className="text-[#8a6e30] group-hover:text-[#c9a84c] transition-colors"
-          style={{ writingMode: "vertical-rl", textOrientation: "mixed", fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase" }}
-        >
+          style={{
+            writingMode: "vertical-rl",
+            textOrientation: "mixed",
+            fontSize: "9px",
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+          }}>
           Getting started
         </span>
         <span className="text-[9px] font-bold text-[#c9a84c]">{doneCount}/4</span>
       </button>
 
       {/* Backdrop */}
-      {open && (
-        <div
-          className="fixed inset-0 bg-black/40"
-          style={{ zIndex: 8001 }}
-          onClick={() => setOpen(false)}
-        />
-      )}
+      {open && <div className="fixed inset-0 bg-black/40" style={{ zIndex: 8001 }} onClick={() => setOpen(false)} />}
 
       {/* Slide-in panel from the left */}
       <div
         className="fixed top-0 left-0 h-full w-72 bg-[#0a0a0a] border-r border-[#1a1a1a] flex flex-col transition-transform duration-300 ease-out"
-        style={{ zIndex: 8002, transform: open ? "translateX(0)" : "translateX(-100%)" }}
-      >
+        style={{ zIndex: 8002, transform: open ? "translateX(0)" : "translateX(-100%)" }}>
         {/* Header */}
         <div className="flex items-start justify-between p-5 border-b border-[#141414]">
           <div>
             <p className="text-[10px] uppercase tracking-[0.2em] text-[#8a6e30] mb-1">Setup</p>
             <h2 className="text-[16px] font-light text-[#f5f0e8]" style={{ fontFamily: "var(--font-display), serif" }}>
-              Getting <span className="italic" style={{ color: "#c9a84c" }}>started</span>
+              Getting{" "}
+              <span className="italic" style={{ color: "#c9a84c" }}>
+                started
+              </span>
             </h2>
             <p className="text-[11px] text-[#444] mt-1">{doneCount} of 4 complete</p>
           </div>
-          <button type="button" onClick={() => setOpen(false)} className="text-[#333] hover:text-[#666] text-xl leading-none mt-1">×</button>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="text-[#333] hover:text-[#666] text-xl leading-none mt-1">
+            ×
+          </button>
         </div>
 
         {/* Progress bar */}
@@ -668,16 +695,30 @@ function GettingStartedPanel({
         {/* Steps */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {steps.map(({ done, label, sub, href }) => (
-            <div key={label} className={"rounded-xl border p-3.5 transition-all " + (done ? "border-[#141414] opacity-50" : "border-[#252525] bg-[#0d0d0d]")}>
+            <div
+              key={label}
+              className={
+                "rounded-xl border p-3.5 transition-all " +
+                (done ? "border-[#141414] opacity-50" : "border-[#252525] bg-[#0d0d0d]")
+              }>
               <div className="flex items-start gap-3">
-                <div className={"mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 " + (done ? "border-[#4ade80] bg-[#4ade80]/10" : "border-[#333]")}>
+                <div
+                  className={
+                    "mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 " +
+                    (done ? "border-[#4ade80] bg-[#4ade80]/10" : "border-[#333]")
+                  }>
                   {done && <span className="text-[9px] text-[#4ade80]">✓</span>}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={"text-[12px] font-medium " + (done ? "line-through text-[#444]" : "text-[#c8c0b0]")}>{label}</p>
+                  <p className={"text-[12px] font-medium " + (done ? "line-through text-[#444]" : "text-[#c8c0b0]")}>
+                    {label}
+                  </p>
                   <p className="text-[11px] text-[#444] mt-0.5 leading-snug">{sub}</p>
                   {!done && href && (
-                    <a href={href} className="text-[11px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors mt-1.5 inline-block" onClick={() => setOpen(false)}>
+                    <a
+                      href={href}
+                      className="text-[11px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors mt-1.5 inline-block"
+                      onClick={() => setOpen(false)}>
                       Go →
                     </a>
                   )}
@@ -689,7 +730,9 @@ function GettingStartedPanel({
 
         {/* Footer */}
         <div className="p-4 border-t border-[#141414]">
-          <button type="button" onClick={onDismiss}
+          <button
+            type="button"
+            onClick={onDismiss}
             className="w-full py-2.5 rounded-xl border border-[#252525] text-[12px] text-[#444] hover:border-[#333] hover:text-[#666] transition-all">
             Dismiss checklist
           </button>
@@ -709,43 +752,47 @@ function ScoreTooltip({ text, children }: { text: string; children: React.ReactN
   return (
     <span
       style={{ position: "relative", display: "inline-block", width: "100%" }}
-      onMouseEnter={e => setRect((e.currentTarget as HTMLElement).getBoundingClientRect())}
-      onMouseLeave={() => setRect(null)}
-    >
+      onMouseEnter={(e) => setRect((e.currentTarget as HTMLElement).getBoundingClientRect())}
+      onMouseLeave={() => setRect(null)}>
       {children}
-      {rect && typeof window !== "undefined" && createPortal(
-        <div style={{
-          position: "fixed",
-          left: Math.min(rect.left + rect.width / 2, window.innerWidth - 160),
-          top: rect.top - 12,
-          transform: "translate(-50%, -100%)",
-          zIndex: 999999,
-          background: "#1a1a1a",
-          border: "1px solid #333",
-          borderRadius: 8,
-          padding: "8px 12px",
-          maxWidth: 260,
-          pointerEvents: "none",
-          boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
-        }}>
-          <p style={{ fontSize: 11, color: "#bbb", lineHeight: 1.55, margin: 0, whiteSpace: "pre-wrap" }}>{text}</p>
-          <div style={{
-            position: "absolute",
-            bottom: -4,
-            left: "50%",
-            transform: "translateX(-50%) rotate(45deg)",
-            width: 7, height: 7,
-            background: "#1a1a1a",
-            borderRight: "1px solid #333",
-            borderBottom: "1px solid #333",
-          }} />
-        </div>,
-        document.body
-      )}
+      {rect &&
+        typeof window !== "undefined" &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              left: Math.min(rect.left + rect.width / 2, window.innerWidth - 160),
+              top: rect.top - 12,
+              transform: "translate(-50%, -100%)",
+              zIndex: 999999,
+              background: "#1a1a1a",
+              border: "1px solid #333",
+              borderRadius: 8,
+              padding: "8px 12px",
+              maxWidth: 260,
+              pointerEvents: "none",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
+            }}>
+            <p style={{ fontSize: 11, color: "#bbb", lineHeight: 1.55, margin: 0, whiteSpace: "pre-wrap" }}>{text}</p>
+            <div
+              style={{
+                position: "absolute",
+                bottom: -4,
+                left: "50%",
+                transform: "translateX(-50%) rotate(45deg)",
+                width: 7,
+                height: 7,
+                background: "#1a1a1a",
+                borderRight: "1px solid #333",
+                borderBottom: "1px solid #333",
+              }}
+            />
+          </div>,
+          document.body,
+        )}
     </span>
   );
 }
-
 
 export default function Home() {
   const { success: toastSuccess, error: toastError, info: toastInfo } = useToast();
@@ -763,7 +810,9 @@ export default function Home() {
       if (!raw) return "en";
       const p = JSON.parse(raw);
       return p.language === "en" || p.language === "sv" ? p.language : "en";
-    } catch { return "en"; }
+    } catch {
+      return "en";
+    }
   });
   const [userEmail, setUserEmail] = useState<string>("");
 
@@ -778,37 +827,51 @@ export default function Home() {
 
   const [niche, setNiche] = useState(() => {
     if (typeof window === "undefined") return "";
-    try { const p = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}"); return typeof p.niche === "string" ? p.niche : ""; } catch { return ""; }
+    try {
+      const p = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}");
+      return typeof p.niche === "string" ? p.niche : "";
+    } catch {
+      return "";
+    }
   });
   const [location, setLocation] = useState(() => {
     if (typeof window === "undefined") return "";
-    try { const p = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}"); return typeof p.location === "string" ? p.location : ""; } catch { return ""; }
+    try {
+      const p = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}");
+      return typeof p.location === "string" ? p.location : "";
+    } catch {
+      return "";
+    }
   });
   const [showNicheDropdown, setShowNicheDropdown] = useState(false);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [area, setArea] = useState(() => {
-    try { const p = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}"); return typeof p.area === "string" ? p.area : ""; } catch { return ""; }
+    try {
+      const p = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}");
+      return typeof p.area === "string" ? p.area : "";
+    } catch {
+      return "";
+    }
   });
   const [socialPresence, setSocialPresence] = useState<SocialPresenceFilter>(() => {
     if (typeof window === "undefined") return "any";
     try {
       const p = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}");
       const v = p.socialPresence;
-      return (v === "low" || v === "medium" || v === "high" || v === "") ? v : "any";
-    } catch { return "any"; }
+      return v === "low" || v === "medium" || v === "high" || v === "" ? v : "any";
+    } catch {
+      return "any";
+    }
   });
 
   const [leads, setLeads] = useState<LeadUI[]>([]);
-  const [sortBy, setSortBy] = useState<
-    "score" | "opportunity" | "risk" | "confidence" | "fit"
-  >("score");
+  const [sortBy, setSortBy] = useState<"score" | "opportunity" | "risk" | "confidence" | "fit">("score");
   const [minScore, setMinScore] = useState(0);
-  const [filterHasWebsite, setFilterHasWebsite] = useState<"any"|"yes"|"no">("any");
-  const [showScoreModal, setShowScoreModal] = useState<string | null>(null);
+  const [filterHasWebsite, setFilterHasWebsite] = useState<"any" | "yes" | "no">("any");
   const [compareMode, setCompareMode] = useState(false);
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
-  const [bulkAction, setBulkAction] = useState<"contacted"|"replied"|"booked"|null>(null);
+  const [bulkAction, setBulkAction] = useState<"contacted" | "replied" | "booked" | null>(null);
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -824,26 +887,35 @@ export default function Home() {
     try {
       const raw = JSON.parse(localStorage.getItem("vantio_saved_leads_v1") ?? "[]") as { id: string }[];
       return new Set(raw.map((l) => l.id));
-    } catch { return new Set(); }
+    } catch {
+      return new Set();
+    }
   });
 
   const [selectedLead, setSelectedLead] = useState<LeadUI | null>(null);
-  const [detailTab, setDetailTab] = useState<
-    "overview" | "signals" | "outreach" | "tracking" | "followup"
-  >("overview");
+  const [detailTab, setDetailTab] = useState<"overview" | "signals" | "outreach" | "tracking" | "followup">("overview");
   const userPlan = getEffectivePlan();
   const deepScanUnlocked = canUseDeepEnrichment(userPlan);
 
   const [enrichmentLoading, setEnrichmentLoading] = useState(false);
   const [isRescoring, setIsRescoring] = useState(false);
 
-
   const [stableOrder, setStableOrder] = useState<Map<string, number>>(new Map());
-  const [sequenceSteps, setSequenceSteps] = useState<Array<{
-    id: number; step: number; day_offset: number; scheduled_date: string;
-    channel: string; subject: string | null; message: string;
-    objective: string; cta: string; status: string; cadence_type: string;
-  }>>([]);
+  const [sequenceSteps, setSequenceSteps] = useState<
+    Array<{
+      id: number;
+      step: number;
+      day_offset: number;
+      scheduled_date: string;
+      channel: string;
+      subject: string | null;
+      message: string;
+      objective: string;
+      cta: string;
+      status: string;
+      cadence_type: string;
+    }>
+  >([]);
   const [sequenceLoading, setSequenceLoading] = useState(false);
   const [sequenceGenerating, setSequenceGenerating] = useState(false);
   const [sequenceExpandedStep, setSequenceExpandedStep] = useState<number | null>(null);
@@ -851,13 +923,23 @@ export default function Home() {
   const [enrichmentData, setEnrichmentData] = useState<{
     reachable: boolean;
     detectedPlatforms: string[];
-    signals: Record<string, { key: string; value: string | number | boolean | null; present: boolean; label: string; category: string; confidence?: number }>;
+    signals: Record<
+      string,
+      {
+        key: string;
+        value: string | number | boolean | null;
+        present: boolean;
+        label: string;
+        category: string;
+        confidence?: number;
+      }
+    >;
   } | null>(null);
   const [deepScanLoading, setDeepScanLoading] = useState(false);
   const [deepScanData, setDeepScanData] = useState<{
     deepScore: number;
     pageReachable: boolean;
-    scannedAt?: string;   // ISO string — set on restore from DB or on fresh scan
+    scannedAt?: string; // ISO string — set on restore from DB or on fresh scan
     isFromCache?: boolean;
     website: { scores: Record<string, number>; summary: string };
     market: { scores: Record<string, number>; competitorSummary: string; recommendation: string };
@@ -866,12 +948,9 @@ export default function Home() {
 
   // Variant for outcome tracking
   type OutreachVariant = "soft" | "consultative" | "direct" | "bold";
-  const [outreachVariant, setOutreachVariant] =
-    useState<OutreachVariant>("consultative");
+  const [outreachVariant, setOutreachVariant] = useState<OutreachVariant>("consultative");
 
-  const [outcomesByLeadId, setOutcomesByLeadId] = useState<
-    Record<string, LeadOutcomeUI>
-  >({});
+  const [outcomesByLeadId, setOutcomesByLeadId] = useState<Record<string, LeadOutcomeUI>>({});
   const [isSavingOutcome, setIsSavingOutcome] = useState(false);
 
   const [runId, setRunId] = useState<number | null>(null);
@@ -914,7 +993,7 @@ export default function Home() {
     }
   }
 
-    const outreach = selectedLead?.metadata?.outreach;
+  const outreach = selectedLead?.metadata?.outreach;
   const selectedVariant = outreachVariant; // or just use outreachVariant directly
   const outreachScript = outreach?.variants?.[selectedVariant] ?? "";
   const scriptText = outreachScript.trim();
@@ -923,13 +1002,17 @@ export default function Home() {
   function deriveDeepSignals(data: { pageReachable: boolean; website: { scores: Record<string, number> } }) {
     return {
       websiteReachable: data.pageReachable,
-      hasBookingCta:    data.pageReachable ? (data.website.scores.ctaStrength ?? 0) >= 50 : null,
-      hasClearOffer:    data.pageReachable ? (data.website.scores.ctaStrength ?? 0) >= 40 : null,
+      hasBookingCta: data.pageReachable ? (data.website.scores.ctaStrength ?? 0) >= 50 : null,
+      hasClearOffer: data.pageReachable ? (data.website.scores.ctaStrength ?? 0) >= 40 : null,
       isMobileFriendly: data.pageReachable ? (data.website.scores.pageSpeed ?? 0) >= 50 : null,
     };
   }
 
-  function applyDeepScanToLead(lead: LeadUI, deepData: typeof deepScanData, derivedSignals: ReturnType<typeof deriveDeepSignals>): LeadUI {
+  function applyDeepScanToLead(
+    lead: LeadUI,
+    deepData: typeof deepScanData,
+    derivedSignals: ReturnType<typeof deriveDeepSignals>,
+  ): LeadUI {
     if (!deepData) return lead;
     try {
       const newScore = rescoreWithLightSignals({
@@ -972,7 +1055,7 @@ export default function Home() {
       });
       if (!res.ok) {
         if (res.status === 429 || res.status === 403) {
-          const errData = await res.json().catch(() => ({})) as { error?: string };
+          const errData = (await res.json().catch(() => ({}))) as { error?: string };
           toastError(errData.error ?? "Deep scan limit reached.");
         }
         return;
@@ -995,7 +1078,7 @@ export default function Home() {
 
         // 2. Rescore lead in-memory so outreach tab + score reflect deep signals immediately
         const rescored = applyDeepScanToLead(lead, scanResult, derivedSignals);
-        setLeads((prev: LeadUI[]) => prev.map((l: LeadUI) => l.id === lead.id ? rescored : l));
+        setLeads((prev: LeadUI[]) => prev.map((l: LeadUI) => (l.id === lead.id ? rescored : l)));
         setSelectedLead(rescored);
 
         // 3. Persist to Supabase (fire-and-forget — don't block UX)
@@ -1008,7 +1091,9 @@ export default function Home() {
             scanResult,
             derivedSignals,
           }),
-        }).catch(() => { /* ignore persistence errors */ });
+        }).catch(() => {
+          /* ignore persistence errors */
+        });
       }
     } catch {
       // fail soft
@@ -1021,7 +1106,20 @@ export default function Home() {
     runId: number;
     leadId: string;
     patch: Partial<
-      Pick<LeadOutcomeUI, "contacted" | "replied" | "booked_call" | "closed" | "revenue" | "notes" | "followup_date" | "lost_reason" | "tonality" | "angle_type" | "score_at_outreach">
+      Pick<
+        LeadOutcomeUI,
+        | "contacted"
+        | "replied"
+        | "booked_call"
+        | "closed"
+        | "revenue"
+        | "notes"
+        | "followup_date"
+        | "lost_reason"
+        | "tonality"
+        | "angle_type"
+        | "score_at_outreach"
+      >
     >;
   }) {
     const { runId, leadId, patch } = args;
@@ -1062,7 +1160,12 @@ export default function Home() {
         notes: patch.notes,
         followupDate: patch.followup_date,
         tonality: patch.tonality !== undefined ? patch.tonality : outreachVariant,
-        angleType: patch.angle_type !== undefined ? patch.angle_type : (selectedLead ? getStructuredAngle(selectedLead as LeadUI, language).title : null),
+        angleType:
+          patch.angle_type !== undefined
+            ? patch.angle_type
+            : selectedLead
+              ? getStructuredAngle(selectedLead as LeadUI, language).title
+              : null,
         lostReason: patch.lost_reason,
         scoreAtOutreach: patch.score_at_outreach,
       };
@@ -1102,8 +1205,7 @@ export default function Home() {
 
       const q = query.trim().toLowerCase();
       if (q) {
-        const hay =
-          `${l.company.name} ${l.classification.primaryIndustry} ${leadLocation(l)}`.toLowerCase();
+        const hay = `${l.company.name} ${l.classification.primaryIndustry} ${leadLocation(l)}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
 
@@ -1139,7 +1241,9 @@ export default function Home() {
   const LEADS_PER_BATCH = 20;
   const [displayCount, setDisplayCount] = useState(LEADS_PER_BATCH);
   const sortedLeadsKey = sortedLeads.map((l: LeadUI) => l.id).join(",");
-  useEffect(() => { setDisplayCount(LEADS_PER_BATCH); }, [sortedLeadsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setDisplayCount(LEADS_PER_BATCH);
+  }, [sortedLeadsKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const visibleLeads = useMemo(() => sortedLeads.slice(0, displayCount), [sortedLeads, displayCount]);
   const hasMore = displayCount < sortedLeads.length;
 
@@ -1186,7 +1290,9 @@ export default function Home() {
       }
       localStorage.setItem("vantio_saved_leads_v1", JSON.stringify(updated));
       setSavedLeadIds(new Set(updated.map((l) => l.id)));
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   };
 
   const selectedOutcome = useMemo(() => {
@@ -1209,8 +1315,8 @@ export default function Home() {
   const enrichmentSignals = safeEnrichment?.signals ?? {};
   const detectedPlatforms: string[] = safeEnrichment?.signals
     ? (Object.values(safeEnrichment.signals) as Array<{ category?: string; present?: boolean; label?: string }>)
-        .filter(s => s.category === "social" && s.present === true)
-        .map(s => s.label ?? "")
+        .filter((s) => s.category === "social" && s.present === true)
+        .map((s) => s.label ?? "")
     : [];
   const isReachable = safeEnrichment?.reachable ?? false;
   const angleTitle = safeOutreach?.angleTitle ?? "";
@@ -1222,7 +1328,10 @@ export default function Home() {
 
   // Smooth rescoring transition — show "Analyzing…" for 1.5s on lead select
   useEffect(() => {
-    if (!selectedLead) { setIsRescoring(false); return; }
+    if (!selectedLead) {
+      setIsRescoring(false);
+      return;
+    }
     setIsRescoring(true);
     const t = setTimeout(() => setIsRescoring(false), 1500);
     return () => clearTimeout(t);
@@ -1232,8 +1341,9 @@ export default function Home() {
     if (!selectedLead?.metadata?.outreach) return;
 
     const dv = selectedLead.metadata.outreach.defaultVariant;
-    setOutreachVariant((["soft","consultative","direct","bold"].includes(dv ?? "") ? dv : "consultative") as OutreachVariant);
-
+    setOutreachVariant(
+      (["soft", "consultative", "direct", "bold"].includes(dv ?? "") ? dv : "consultative") as OutreachVariant,
+    );
   }, [selectedLead]);
 
   // Scroll to detail panel on mobile when a lead is selected
@@ -1257,11 +1367,35 @@ export default function Home() {
       try {
         const res = await fetch(`/api/deep-scan?sourceId=${encodeURIComponent(sourceId)}`);
         if (!res.ok) return;
-        const { data } = await res.json() as { data: {
-          scan_result: { deepScore: number; pageReachable: boolean; website: { scores: Record<string, number>; summary: string; signalCount: number }; market: { scores: Record<string, number>; competitorSummary: string; recommendation: string; signalCount: number }; brand: { scores: Record<string, number>; brandGrade: string; weakestArea: string; strengthArea: string; signalCount: number } };
-          derived_signals: { hasBookingCta: boolean | null; hasClearOffer: boolean | null; isMobileFriendly: boolean | null; websiteReachable: boolean };
-          scanned_at: string;
-        } | null };
+        const { data } = (await res.json()) as {
+          data: {
+            scan_result: {
+              deepScore: number;
+              pageReachable: boolean;
+              website: { scores: Record<string, number>; summary: string; signalCount: number };
+              market: {
+                scores: Record<string, number>;
+                competitorSummary: string;
+                recommendation: string;
+                signalCount: number;
+              };
+              brand: {
+                scores: Record<string, number>;
+                brandGrade: string;
+                weakestArea: string;
+                strengthArea: string;
+                signalCount: number;
+              };
+            };
+            derived_signals: {
+              hasBookingCta: boolean | null;
+              hasClearOffer: boolean | null;
+              isMobileFriendly: boolean | null;
+              websiteReachable: boolean;
+            };
+            scanned_at: string;
+          } | null;
+        };
         if (!data?.scan_result) return;
 
         // Restore display state
@@ -1270,25 +1404,30 @@ export default function Home() {
         // Rescore the lead with the persisted deep signals so outreach tab is accurate
         const rescored = applyDeepScanToLead(selectedLead, data.scan_result, data.derived_signals);
         if (rescored.score.value !== selectedLead.score.value) {
-          setLeads((prev: LeadUI[]) => prev.map((l: LeadUI) => l.id === selectedLead.id ? rescored : l));
+          setLeads((prev: LeadUI[]) => prev.map((l: LeadUI) => (l.id === selectedLead.id ? rescored : l)));
           setSelectedLead(rescored);
         }
       } catch {
         // fail soft — no deep scan cached
       }
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLead?.id]);
 
   useEffect(() => {
-    if (!selectedLead) { setSequenceSteps([]); return; }
+    if (!selectedLead) {
+      setSequenceSteps([]);
+      return;
+    }
     setSequenceLoading(true);
     fetch(`/api/sequences?leadId=${encodeURIComponent(selectedLead.id)}`)
-      .then(r => r.ok ? r.json() : { steps: [] })
-      .then((d: { steps?: unknown[] }) => { setSequenceSteps((d.steps ?? []) as typeof sequenceSteps); })
+      .then((r) => (r.ok ? r.json() : { steps: [] }))
+      .then((d: { steps?: unknown[] }) => {
+        setSequenceSteps((d.steps ?? []) as typeof sequenceSteps);
+      })
       .catch(() => setSequenceSteps([]))
       .finally(() => setSequenceLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLead?.id]);
 
   useEffect(() => {
@@ -1305,8 +1444,7 @@ export default function Home() {
     const rating = selectedLead.metrics.rating ?? null;
     const socialPresence = selectedLead.metrics.socialPresence ?? "low";
     const isGoodFit = selectedLead.classification.isGoodFit ?? false;
-    const classificationConfidence =
-      selectedLead.classification.confidence ?? null;
+    const classificationConfidence = selectedLead.classification.confidence ?? null;
     const riskProfile = selectedLead.score.riskProfile ?? "unknown";
 
     const run = async () => {
@@ -1337,9 +1475,7 @@ export default function Home() {
 
         if (data.updatedScore) {
           setLeads((prev: LeadUI[]) =>
-            prev.map((l: LeadUI) =>
-              l.id === leadId ? { ...l, score: data.updatedScore } : l,
-            ),
+            prev.map((l: LeadUI) => (l.id === leadId ? { ...l, score: data.updatedScore } : l)),
           );
           setSelectedLead((prev: LeadUI | null) =>
             prev?.id === leadId ? { ...prev, score: data.updatedScore } : prev,
@@ -1425,8 +1561,8 @@ export default function Home() {
         // Pre-fill from most recent search if fields are still empty
         if (searches.length > 0) {
           const latest = searches[0];
-          setNiche((prev: string) => prev === "" && latest.niche ? latest.niche : prev);
-          setLocation((prev: string) => prev === "" && latest.location ? latest.location : prev);
+          setNiche((prev: string) => (prev === "" && latest.niche ? latest.niche : prev));
+          setLocation((prev: string) => (prev === "" && latest.location ? latest.location : prev));
         }
       } catch (e) {
         console.error("Error loading recent searches:", e);
@@ -1441,7 +1577,12 @@ export default function Home() {
   // Pre-fill location from saved profile if field is still empty
   // Also check checklist completion
   const [checklistDismissed, setChecklistDismissed] = useState(false);
-  const [checklistState, setChecklistState] = useState({ hasProfile: false, hasSearched: false, hasSelected: false, hasOutcome: false });
+  const [checklistState, setChecklistState] = useState({
+    hasProfile: false,
+    hasSearched: false,
+    hasSelected: false,
+    hasOutcome: false,
+  });
   const [profileChecked, setProfileChecked] = useState(false); // true once profile API has responded
 
   useEffect(() => {
@@ -1452,14 +1593,21 @@ export default function Home() {
         if (geo && typeof geo === "string") {
           setLocation((prev: string) => (prev === "" ? geo : prev));
         }
-        const hasProfile = !!(data?.profile?.businessName);
+        const hasProfile = !!data?.profile?.businessName;
         // Store current user ID so checklist state can be user-scoped
         const supabaseForUid = createSupabaseBrowser();
-        supabaseForUid.auth.getUser().then(({ data: authData }) => {
-          if (authData.user?.id) {
-            try { localStorage.setItem("vantio_uid", authData.user.id); } catch { /* ignore */ }
-          }
-        }).catch(() => {});
+        supabaseForUid.auth
+          .getUser()
+          .then(({ data: authData }) => {
+            if (authData.user?.id) {
+              try {
+                localStorage.setItem("vantio_uid", authData.user.id);
+              } catch {
+                /* ignore */
+              }
+            }
+          })
+          .catch(() => {});
         setChecklistState((prev: typeof checklistState) => ({ ...prev, hasProfile }));
         setProfileChecked(true); // profile API has responded — safe to show banner
         // First-time user: no profile → always redirect to onboarding.
@@ -1477,7 +1625,7 @@ export default function Home() {
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
-          userId: (typeof window !== "undefined" ? (localStorage.getItem("vantio_uid") ?? "") : ""),
+          userId: typeof window !== "undefined" ? (localStorage.getItem("vantio_uid") ?? "") : "",
           language,
           niche,
           location,
@@ -1492,7 +1640,17 @@ export default function Home() {
     } catch (e) {
       console.error("Failed to save state to localStorage:", e);
     }
-  }, [language, niche, location, area, socialPresence, checklistDismissed, checklistState.hasSearched, checklistState.hasSelected, checklistState.hasOutcome]);
+  }, [
+    language,
+    niche,
+    location,
+    area,
+    socialPresence,
+    checklistDismissed,
+    checklistState.hasSearched,
+    checklistState.hasSelected,
+    checklistState.hasOutcome,
+  ]);
 
   // =====================
   // HANDLERS
@@ -1537,9 +1695,7 @@ export default function Home() {
     });
 
     const csvContent = [header, ...rows]
-      .map((row) =>
-        row.map((field: string | number) => `"${String(field).replace(/"/g, '""')}"`).join(","),
-      )
+      .map((row) => row.map((field: string | number) => `"${String(field).replace(/"/g, '""')}"`).join(","))
       .join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -1605,11 +1761,29 @@ export default function Home() {
   function exportCSV() {
     const rows: string[][] = [
       [
-        "Company", "Website", "City", "Country", "Industry", "Sub-niche",
-        "Score", "Fit", "Opportunity", "Readiness", "Risk", "Risk Profile",
-        "Social Presence", "Rating", "Reviews",
-        "Gap Type", "Seller Type",
-        "Contacted", "Replied", "Call Booked", "Closed", "Revenue", "Notes",
+        "Company",
+        "Website",
+        "City",
+        "Country",
+        "Industry",
+        "Sub-niche",
+        "Score",
+        "Fit",
+        "Opportunity",
+        "Readiness",
+        "Risk",
+        "Risk Profile",
+        "Social Presence",
+        "Rating",
+        "Reviews",
+        "Gap Type",
+        "Seller Type",
+        "Contacted",
+        "Replied",
+        "Call Booked",
+        "Closed",
+        "Revenue",
+        "Notes",
       ],
     ];
 
@@ -1643,9 +1817,7 @@ export default function Home() {
       ]);
     }
 
-    const csv = rows
-      .map((r) => r.map((cell) => `"${cell}"`).join(","))
-      .join("\n");
+    const csv = rows.map((r) => r.map((cell) => `"${cell}"`).join(",")).join("\n");
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -1657,19 +1829,28 @@ export default function Home() {
     toastSuccess(`Exported ${sortedLeads.length} lead${sortedLeads.length !== 1 ? "s" : ""} to CSV`);
   }
 
-
   return (
     <main className="min-h-screen bg-[#080808] text-[#f5f0e8] flex flex-col items-center px-4">
-
       {/* Premium nav bar */}
       <nav className="sticky top-0 z-50 w-full border-b border-[#252525] bg-[#080808]/90 backdrop-blur-md mb-0">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-[#c9a84c]">◈</span>
             <span className="text-lg font-light tracking-wide" style={{ fontFamily: "var(--font-display), serif" }}>
-              Van<span style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>tio</span>
+              Van
+              <span
+                style={{
+                  background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                }}>
+                tio
+              </span>
             </span>
-            <span className="ml-2 text-[10px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full border border-[rgba(201,168,76,0.3)] text-[#8a6e30]">Beta</span>
+            <span className="ml-2 text-[10px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full border border-[rgba(201,168,76,0.3)] text-[#8a6e30]">
+              Beta
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell />
@@ -1688,18 +1869,17 @@ export default function Home() {
 
         {/* Top nav */}
         <nav className="flex gap-1 border-b border-[#252525] pb-0">
-          <span className="text-[13px] px-4 py-2 font-medium border-b-2 border-[#c9a84c] text-[#c9a84c]">
-            🔍 Leads
-          </span>
+          <span className="text-[13px] px-4 py-2 font-medium border-b-2 border-[#c9a84c] text-[#c9a84c]">🔍 Leads</span>
         </nav>
 
         {/* Getting Started — fixed left-edge tab + slide-in panel, never conflicts with z-index */}
-        {!checklistDismissed && !(checklistState.hasProfile && checklistState.hasSearched && checklistState.hasSelected && checklistState.hasOutcome) && (
-          <GettingStartedPanel
-            checklistState={checklistState}
-            onDismiss={() => setChecklistDismissed(true)}
-          />
-        )}
+        {!checklistDismissed &&
+          !(
+            checklistState.hasProfile &&
+            checklistState.hasSearched &&
+            checklistState.hasSelected &&
+            checklistState.hasOutcome
+          ) && <GettingStartedPanel checklistState={checklistState} onDismiss={() => setChecklistDismissed(true)} />}
 
         {recentSearches.length > 0 && (
           <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 shadow-xl shadow-black/40 space-y-3 relative z-0">
@@ -1713,7 +1893,9 @@ export default function Home() {
                     <p className="text-[11px] text-[#666] mt-0.5 leading-snug">{t.ui.profileBanner.body}</p>
                   </div>
                 </div>
-                <a href="/profile/settings" className="flex-shrink-0 text-[11px] px-3 py-1.5 rounded-lg border border-[rgba(201,168,76,0.3)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-all whitespace-nowrap">
+                <a
+                  href="/profile/settings"
+                  className="flex-shrink-0 text-[11px] px-3 py-1.5 rounded-lg border border-[rgba(201,168,76,0.3)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-all whitespace-nowrap">
                   {t.ui.profileBanner.cta}
                 </a>
               </div>
@@ -1724,9 +1906,7 @@ export default function Home() {
                 <p className="text-[11px] text-[#555] mt-0.5">{t.ui.savedSearches.subtitle}</p>
               </div>
               <div className="flex items-center gap-2">
-                {isLoadingHistory && (
-                  <span className="text-[11px] text-[#555] animate-pulse">Updating…</span>
-                )}
+                {isLoadingHistory && <span className="text-[11px] text-[#555] animate-pulse">Updating…</span>}
                 {showSaveSearchInput ? (
                   <div className="flex items-center gap-1.5">
                     <input
@@ -1749,16 +1929,19 @@ export default function Home() {
                     />
                     <button
                       type="button"
-                      onClick={() => { setSaveSearchName(""); setShowSaveSearchInput(false); }}
-                      className="text-[11px] text-[#555] hover:text-[#888] px-1"
-                    >✕</button>
+                      onClick={() => {
+                        setSaveSearchName("");
+                        setShowSaveSearchInput(false);
+                      }}
+                      className="text-[11px] text-[#555] hover:text-[#888] px-1">
+                      ✕
+                    </button>
                   </div>
                 ) : (
                   <button
                     type="button"
                     onClick={() => setShowSaveSearchInput(true)}
-                    className="text-[10px] px-2.5 py-1 rounded-lg border border-[rgba(201,168,76,0.25)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.06)] transition-all tracking-wide"
-                  >
+                    className="text-[10px] px-2.5 py-1 rounded-lg border border-[rgba(201,168,76,0.25)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.06)] transition-all tracking-wide">
                     {t.ui.savedSearches.saveCurrent}
                   </button>
                 )}
@@ -1768,8 +1951,14 @@ export default function Home() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
               {recentSearches.map((s: SearchRecord) => {
                 const date = new Date(s.created_at);
-                const dateStr = date.toLocaleDateString(language === "sv" ? "sv-SE" : "en-GB", { day: "numeric", month: "short" });
-                const timeStr = date.toLocaleTimeString(language === "sv" ? "sv-SE" : "en-GB", { hour: "2-digit", minute: "2-digit" });
+                const dateStr = date.toLocaleDateString(language === "sv" ? "sv-SE" : "en-GB", {
+                  day: "numeric",
+                  month: "short",
+                });
+                const timeStr = date.toLocaleTimeString(language === "sv" ? "sv-SE" : "en-GB", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
                 return (
                   <button
                     key={s.id}
@@ -1778,25 +1967,22 @@ export default function Home() {
                       setNiche(s.niche || "");
                       setLocation(s.location || "");
                       setSocialPresence(
-                        (s.social_presence === "low" ||
-                        s.social_presence === "medium" ||
-                        s.social_presence === "high"
+                        (s.social_presence === "low" || s.social_presence === "medium" || s.social_presence === "high"
                           ? s.social_presence
                           : "") as SocialPresenceFilter,
                       );
                     }}
-                    className="text-left rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] hover:border-[rgba(201,168,76,0.3)] hover:bg-[#111] transition-all p-3 space-y-2 group"
-                  >
+                    className="text-left rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] hover:border-[rgba(201,168,76,0.3)] hover:bg-[#111] transition-all p-3 space-y-2 group">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0 overflow-hidden">
                         <p className="text-[13px] font-semibold text-[#f5f0e8] truncate group-hover:text-[#e8c97a] transition-colors">
                           {s.niche || "—"}
                         </p>
-                        <p className="text-[11px] text-[#555] truncate mt-0.5">
-                          {s.location || "Any location"}
-                        </p>
+                        <p className="text-[11px] text-[#555] truncate mt-0.5">{s.location || "Any location"}</p>
                       </div>
-                      <span className="flex-shrink-0 text-[#c9a84c] text-xs opacity-0 group-hover:opacity-100 transition-opacity">↺</span>
+                      <span className="flex-shrink-0 text-[#c9a84c] text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                        ↺
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       {s.social_presence && s.social_presence !== "" && (
@@ -1804,7 +1990,9 @@ export default function Home() {
                           {s.social_presence} social
                         </span>
                       )}
-                      <span className="text-[10px] text-[#333] ml-auto">{dateStr} · {timeStr}</span>
+                      <span className="text-[10px] text-[#333] ml-auto">
+                        {dateStr} · {timeStr}
+                      </span>
                     </div>
                   </button>
                 );
@@ -1825,7 +2013,9 @@ export default function Home() {
                   <p className="text-[11px] text-[#666] mt-0.5 leading-snug">{t.ui.profileBanner.body}</p>
                 </div>
               </div>
-              <a href="/profile/settings" className="flex-shrink-0 text-[11px] px-3 py-1.5 rounded-lg border border-[rgba(201,168,76,0.3)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-all whitespace-nowrap">
+              <a
+                href="/profile/settings"
+                className="flex-shrink-0 text-[11px] px-3 py-1.5 rounded-lg border border-[rgba(201,168,76,0.3)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-all whitespace-nowrap">
                 {t.ui.profileBanner.cta}
               </a>
             </div>
@@ -1835,7 +2025,9 @@ export default function Home() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1 relative">
                 <label className="block text-sm font-medium">{t.ui.filters.nicheLabel}</label>
-                <input type="text" value={niche}
+                <input
+                  type="text"
+                  value={niche}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setNiche(e.target.value)}
                   onFocus={() => setShowNicheDropdown(true)}
                   onBlur={() => setTimeout(() => setShowNicheDropdown(false), 150)}
@@ -1844,12 +2036,21 @@ export default function Home() {
                 />
                 {showNicheDropdown && recentSearches.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border border-[#252525] bg-[#111] shadow-xl overflow-hidden">
-                    <p className="text-[10px] uppercase tracking-widest text-[#444] px-3 pt-2.5 pb-1">Recent searches</p>
+                    <p className="text-[10px] uppercase tracking-widest text-[#444] px-3 pt-2.5 pb-1">
+                      Recent searches
+                    </p>
                     {recentSearches.slice(0, 5).map((s: SearchRecord, i: number) => (
-                      <button key={i} type="button"
-                        onMouseDown={() => { setNiche(s.niche || ""); setLocation(s.location || ""); setShowNicheDropdown(false); }}
+                      <button
+                        key={i}
+                        type="button"
+                        onMouseDown={() => {
+                          setNiche(s.niche || "");
+                          setLocation(s.location || "");
+                          setShowNicheDropdown(false);
+                        }}
                         className="w-full text-left px-3 py-2 text-[12px] text-[#888] hover:bg-[#1a1a1a] hover:text-[#c8c0b0] transition-colors flex items-center justify-between">
-                        <span>{s.niche || "—"}</span><span className="text-[#444]">{s.location || ""}</span>
+                        <span>{s.niche || "—"}</span>
+                        <span className="text-[#444]">{s.location || ""}</span>
                       </button>
                     ))}
                   </div>
@@ -1857,7 +2058,9 @@ export default function Home() {
               </div>
               <div className="space-y-1 relative">
                 <label className="block text-sm font-medium">City</label>
-                <input type="text" value={location}
+                <input
+                  type="text"
+                  value={location}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)}
                   onFocus={() => setShowLocationDropdown(true)}
                   onBlur={() => setTimeout(() => setShowLocationDropdown(false), 150)}
@@ -1866,12 +2069,21 @@ export default function Home() {
                 />
                 {showLocationDropdown && recentSearches.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border border-[#252525] bg-[#111] shadow-xl overflow-hidden">
-                    <p className="text-[10px] uppercase tracking-widest text-[#444] px-3 pt-2.5 pb-1">Recent searches</p>
+                    <p className="text-[10px] uppercase tracking-widest text-[#444] px-3 pt-2.5 pb-1">
+                      Recent searches
+                    </p>
                     {recentSearches.slice(0, 5).map((s: SearchRecord, i: number) => (
-                      <button key={i} type="button"
-                        onMouseDown={() => { setNiche(s.niche || ""); setLocation(s.location || ""); setShowLocationDropdown(false); }}
+                      <button
+                        key={i}
+                        type="button"
+                        onMouseDown={() => {
+                          setNiche(s.niche || "");
+                          setLocation(s.location || "");
+                          setShowLocationDropdown(false);
+                        }}
                         className="w-full text-left px-3 py-2 text-[12px] text-[#888] hover:bg-[#1a1a1a] hover:text-[#c8c0b0] transition-colors flex items-center justify-between">
-                        <span>{s.location || "—"}</span><span className="text-[#444]">{s.niche || ""}</span>
+                        <span>{s.location || "—"}</span>
+                        <span className="text-[#444]">{s.niche || ""}</span>
                       </button>
                     ))}
                   </div>
@@ -1880,14 +2092,20 @@ export default function Home() {
             </div>
             <div className="grid grid-cols-2 gap-4 items-end">
               <div className="space-y-1">
-                <label className="block text-sm font-medium">Area <span className="text-[#555] font-normal text-xs">(optional)</span></label>
-                <input type="text" value={area}
+                <label className="block text-sm font-medium">
+                  Area <span className="text-[#555] font-normal text-xs">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={area}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setArea(e.target.value)}
                   placeholder="e.g. Södermalm, Vasastan"
                   className="w-full rounded-lg bg-[#111111] border border-[#2a2a2a] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(201,168,76,0.5)]"
                 />
               </div>
-              <button type="submit" disabled={isLoading}
+              <button
+                type="submit"
+                disabled={isLoading}
                 className="w-full inline-flex items-center justify-center rounded-lg bg-[#c9a84c] text-[#080808] hover:bg-[#e8c97a] disabled:bg-[rgba(201,168,76,0.1)] disabled:text-[#666] px-6 py-2.5 text-sm font-semibold tracking-wide transition-all shadow-lg shadow-[rgba(201,168,76,0.15)]">
                 {isLoading ? t.ui.filters.generatingButton : t.ui.filters.generateButton}
               </button>
@@ -1900,10 +2118,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="space-y-1">
               <h2 className="text-xl font-semibold">{t.ui.results.title}</h2>
-              <p className="text-xs text-[#888]">
-
-              </p>
-
+              <p className="text-xs text-[#888]"></p>
 
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <label className="flex items-center gap-2 text-xs text-[#aaa]">
@@ -1923,29 +2138,13 @@ export default function Home() {
                   <select
                     value={sortBy}
                     onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                      setSortBy(
-                        e.target.value as
-                          | "score"
-                          | "opportunity"
-                          | "risk"
-                          | "confidence"
-                          | "fit",
-                      )
+                      setSortBy(e.target.value as "score" | "opportunity" | "risk" | "confidence" | "fit")
                     }
-                    className="rounded-md bg-[#111111] border border-[#2a2a2a] px-2 py-1"
-                  >
-                    <option value="score">
-                      {t.ui.results.sortOptions.score}
-                    </option>
-                    <option value="opportunity">
-                      {t.ui.results.sortOptions.opportunity}
-                    </option>
-                    <option value="risk">
-                      {t.ui.results.sortOptions.risk}
-                    </option>
-                    <option value="confidence">
-                      {t.ui.results.sortOptions.confidence}
-                    </option>
+                    className="rounded-md bg-[#111111] border border-[#2a2a2a] px-2 py-1">
+                    <option value="score">{t.ui.results.sortOptions.score}</option>
+                    <option value="opportunity">{t.ui.results.sortOptions.opportunity}</option>
+                    <option value="risk">{t.ui.results.sortOptions.risk}</option>
+                    <option value="confidence">{t.ui.results.sortOptions.confidence}</option>
                     <option value="fit">{t.ui.results.sortOptions.fit}</option>
                   </select>
                 </label>
@@ -1954,9 +2153,10 @@ export default function Home() {
                   Website
                   <select
                     value={filterHasWebsite}
-                    onChange={(e: ChangeEvent<HTMLSelectElement>) => setFilterHasWebsite(e.target.value as "any"|"yes"|"no")}
-                    className="rounded-md bg-[#111111] border border-[#2a2a2a] px-2 py-1"
-                  >
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                      setFilterHasWebsite(e.target.value as "any" | "yes" | "no")
+                    }
+                    className="rounded-md bg-[#111111] border border-[#2a2a2a] px-2 py-1">
                     <option value="any">Any</option>
                     <option value="yes">Has website</option>
                     <option value="no">No website</option>
@@ -1974,8 +2174,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={exportCSV}
-                    className="text-[11px] px-3 py-1.5 rounded-md border border-[rgba(201,168,76,0.3)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-colors flex items-center gap-1.5 whitespace-nowrap"
-                  >
+                    className="text-[11px] px-3 py-1.5 rounded-md border border-[rgba(201,168,76,0.3)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-colors flex items-center gap-1.5 whitespace-nowrap">
                     ↓ Export CSV
                   </button>
                 )}
@@ -1988,14 +2187,10 @@ export default function Home() {
                 type="button"
                 onClick={handleLoadMore}
                 disabled={isLoading}
-                className="text-xs border border-[#333] rounded-lg px-4 py-1.5 bg-[#111111]/60 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#1a1a1a] transition text-[#888] hover:text-[#c8c0b0]"
-              >
+                className="text-xs border border-[#333] rounded-lg px-4 py-1.5 bg-[#111111]/60 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#1a1a1a] transition text-[#888] hover:text-[#c8c0b0]">
                 {isLoading ? "Loading…" : `Load more`}
               </button>
             )}
-
-
-
           </div>
 
           {sortedLeads.length === 0 ? (
@@ -2037,7 +2232,8 @@ export default function Home() {
                   <span className="text-3xl text-[#333]">◇</span>
                   <p className="text-[14px] text-[#888] font-medium">All leads filtered out</p>
                   <p className="text-[12px] text-[#555] max-w-sm leading-relaxed">
-                    {leads.length} lead{leads.length !== 1 ? "s" : ""} found but none pass the current filters. Lower the minimum score or clear the search query.
+                    {leads.length} lead{leads.length !== 1 ? "s" : ""} found but none pass the current filters. Lower
+                    the minimum score or clear the search query.
                   </p>
                 </div>
               )}
@@ -2061,21 +2257,32 @@ export default function Home() {
                   <p className="text-[12px] text-[#c9a84c] font-medium">{bulkSelected.size} selected</p>
                   <div className="flex gap-2 ml-auto">
                     {bulkSelected.size >= 2 && bulkSelected.size <= 3 && (
-                      <button type="button"
-                        onClick={() => { setCompareIds([...bulkSelected]); setCompareMode(true); }}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCompareIds([...bulkSelected]);
+                          setCompareMode(true);
+                        }}
                         className="text-[11px] px-3 py-1.5 rounded-lg border border-[#818cf8]/30 text-[#818cf8] hover:bg-[rgba(129,140,248,0.08)] transition-all">
                         ⊡ Compare
                       </button>
                     )}
-                    {(["contacted","replied","booked"] as const).map(action => (
-                      <button key={action} type="button"
+                    {(["contacted", "replied", "booked"] as const).map((action) => (
+                      <button
+                        key={action}
+                        type="button"
                         onClick={async () => {
                           setBulkAction(action);
                           const activeRunId = sortedLeads.find((l: LeadUI) => bulkSelected.has(l.id))?.metadata?.runId;
-                          await Promise.all([...bulkSelected].map(id =>
-                            fetch("/api/outcomes", { method: "POST", headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ leadId: id, runId: activeRunId ?? 0, [action]: true }) })
-                          ));
+                          await Promise.all(
+                            [...bulkSelected].map((id) =>
+                              fetch("/api/outcomes", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ leadId: id, runId: activeRunId ?? 0, [action]: true }),
+                              }),
+                            ),
+                          );
                           setBulkSelected(new Set());
                           setBulkAction(null);
                           toastSuccess(`Marked ${bulkSelected.size} leads as ${action}`);
@@ -2084,7 +2291,9 @@ export default function Home() {
                         Mark {action}
                       </button>
                     ))}
-                    <button type="button" onClick={() => setBulkSelected(new Set())}
+                    <button
+                      type="button"
+                      onClick={() => setBulkSelected(new Set())}
                       className="text-[11px] px-3 py-1.5 rounded-lg border border-[#252525] text-[#555] hover:border-[#444] transition-all">
                       Clear
                     </button>
@@ -2099,23 +2308,45 @@ export default function Home() {
                 {visibleLeads.map((lead) => {
                   const isSelected = selectedLead?.id === lead.id;
                   const insight = getLocalizedOpportunityInsight(lead, language);
-                  const gapLabel = insight?.type === "conversion_gap" ? t.ui.detail.whyNoBookingFlow
-                    : insight?.type === "visibility_gap" ? t.ui.detail.whyLowDigital
-                    : insight?.type === "foundation_gap" ? t.ui.detail.whyMissingInfra
-                    : insight?.type === "mature_competitor" ? t.ui.detail.whyAlreadyEstablished
-                    : lead.score.riskProfile === "early_stage" || lead.score.riskProfile === "limited_data" ? t.ui.detail.whyUnstableSignals
-                    : (lead.score.value ?? 0) >= 80 ? t.ui.detail.whyTopTier
-                    : (lead.score.value ?? 0) >= 60 ? t.ui.detail.whyGoodValueFit
-                    : t.ui.detail.whyLowPriority;
-                  const scoreColor = (lead.score.value ?? 0) >= 80 ? "#4ade80" : (lead.score.value ?? 0) >= 60 ? "#c9a84c" : "#888";
-                  const fitColor = (lead.fit?.fitScore ?? 0) >= 65 ? "#4ade80" : (lead.fit?.fitScore ?? 0) >= 40 ? "#c9a84c" : "#f87171";
-                  const riskColor = (lead.score.risk ?? 0) >= 70 ? "#f87171" : (lead.score.risk ?? 0) >= 40 ? "#c9a84c" : "#4ade80";
+                  const gapLabel =
+                    insight?.type === "conversion_gap"
+                      ? t.ui.detail.whyNoBookingFlow
+                      : insight?.type === "visibility_gap"
+                        ? t.ui.detail.whyLowDigital
+                        : insight?.type === "foundation_gap"
+                          ? t.ui.detail.whyMissingInfra
+                          : insight?.type === "mature_competitor"
+                            ? t.ui.detail.whyAlreadyEstablished
+                            : lead.score.riskProfile === "early_stage" || lead.score.riskProfile === "limited_data"
+                              ? t.ui.detail.whyUnstableSignals
+                              : (lead.score.value ?? 0) >= 80
+                                ? t.ui.detail.whyTopTier
+                                : (lead.score.value ?? 0) >= 60
+                                  ? t.ui.detail.whyGoodValueFit
+                                  : t.ui.detail.whyLowPriority;
+                  const scoreColor =
+                    (lead.score.value ?? 0) >= 80 ? "#4ade80" : (lead.score.value ?? 0) >= 60 ? "#c9a84c" : "#888";
+                  const fitColor =
+                    (lead.fit?.fitScore ?? 0) >= 65
+                      ? "#4ade80"
+                      : (lead.fit?.fitScore ?? 0) >= 40
+                        ? "#c9a84c"
+                        : "#f87171";
+                  const riskColor =
+                    (lead.score.risk ?? 0) >= 70 ? "#f87171" : (lead.score.risk ?? 0) >= 40 ? "#c9a84c" : "#4ade80";
                   return (
                     <div
                       key={lead.id}
-                      onClick={() => { setSelectedLead(lead); setChecklistState((prev: typeof checklistState) => ({ ...prev, hasSelected: true })); }}
-                      className={"rounded-xl border cursor-pointer transition-colors p-3 " + (isSelected ? "border-[rgba(201,168,76,0.4)] bg-[#111]" : "border-[#1e1e1e] bg-[#0d0d0d] hover:border-[#2a2a2a] hover:bg-[#111]")}
-                    >
+                      onClick={() => {
+                        setSelectedLead(lead);
+                        setChecklistState((prev: typeof checklistState) => ({ ...prev, hasSelected: true }));
+                      }}
+                      className={
+                        "rounded-xl border cursor-pointer transition-colors p-3 " +
+                        (isSelected
+                          ? "border-[rgba(201,168,76,0.4)] bg-[#111]"
+                          : "border-[#1e1e1e] bg-[#0d0d0d] hover:border-[#2a2a2a] hover:bg-[#111]")
+                      }>
                       {/* Row 1: name + score badge */}
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="min-w-0">
@@ -2124,7 +2355,13 @@ export default function Home() {
                             {leadLocation(lead)} · {lead.classification.primaryIndustry.replaceAll("_", " ")}
                           </p>
                         </div>
-                        <span className="text-[12px] font-bold shrink-0 px-2 py-0.5 rounded-md" style={{ color: scoreColor, background: `${scoreColor}18`, border: `1px solid ${scoreColor}30` }}>
+                        <span
+                          className="text-[12px] font-bold shrink-0 px-2 py-0.5 rounded-md"
+                          style={{
+                            color: scoreColor,
+                            background: `${scoreColor}18`,
+                            border: `1px solid ${scoreColor}30`,
+                          }}>
                           {lead.score.value ?? 0}
                         </span>
                       </div>
@@ -2135,8 +2372,12 @@ export default function Home() {
                           { label: "Opportunity", value: lead.score.opportunity ?? 0, color: "#818cf8" },
                           { label: "Risk", value: lead.score.risk ?? 0, color: riskColor },
                         ].map((m) => (
-                          <div key={m.label} className="rounded-lg bg-[#111] border border-[#1a1a1a] px-2 py-1.5 text-center">
-                            <p className="text-[11px] font-bold" style={{ color: m.color }}>{m.value}</p>
+                          <div
+                            key={m.label}
+                            className="rounded-lg bg-[#111] border border-[#1a1a1a] px-2 py-1.5 text-center">
+                            <p className="text-[11px] font-bold" style={{ color: m.color }}>
+                              {m.value}
+                            </p>
                             <p className="text-[9px] text-[#444] uppercase tracking-wide">{m.label}</p>
                           </div>
                         ))}
@@ -2150,180 +2391,189 @@ export default function Home() {
 
               {/* DESKTOP TABLE — hidden on mobile except when a lead is selected */}
               <div className="block overflow-x-hidden">
-              <table className="w-full text-sm border-collapse">
-                <thead className="hidden sm:table-header-group">
-                  <tr className="bg-[#111111] border-b border-[#252525]">
-                    <th className="py-2 px-3 w-[32px]" />
-                    <th className="text-left py-2 px-3 w-[35%]">
-                      {t.ui.table.company}
-                    </th>
-                    <th className="text-left py-2 px-3 w-[10%]">Fit</th>
-                    <th className="text-left py-2 px-3 w-[13%]">{t.ui.table.opportunity}</th>
-                    <th className="text-left py-2 px-3 w-[10%]">{t.ui.table.risk}</th>
-                    <th className="text-left py-2 px-3">Lead Score</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleLeads.map((lead: LeadUI) => {
-                    const isSelected = selectedLead?.id === lead.id;
-                    const mainInsight = getLocalizedOpportunityInsight(
-                      lead,
-                      language,
-                    );
-                    const mainOpp = Number.isFinite(lead.score.opportunity)
-                      ? (lead.score.opportunity as number)
-                      : 0;
+                <table className="w-full text-sm border-collapse">
+                  <thead className="hidden sm:table-header-group">
+                    <tr className="bg-[#111111] border-b border-[#252525]">
+                      <th className="py-2 px-3 w-[32px]" />
+                      <th className="text-left py-2 px-3 w-[35%]">{t.ui.table.company}</th>
+                      <th className="text-left py-2 px-3 w-[10%]">Fit</th>
+                      <th className="text-left py-2 px-3 w-[13%]">{t.ui.table.opportunity}</th>
+                      <th className="text-left py-2 px-3 w-[10%]">{t.ui.table.risk}</th>
+                      <th className="text-left py-2 px-3">Lead Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleLeads.map((lead: LeadUI) => {
+                      const isSelected = selectedLead?.id === lead.id;
+                      const mainInsight = getLocalizedOpportunityInsight(lead, language);
+                      const mainOpp = Number.isFinite(lead.score.opportunity) ? (lead.score.opportunity as number) : 0;
 
-
-
-                    return (
-                      <Fragment key={lead.id}>
-                        <tr
-                          onClick={() => { setSelectedLead(lead); setChecklistState((prev: typeof checklistState) => ({ ...prev, hasSelected: true })); }}
-                          className={
-                            "border-b border-[#252525] hover:bg-[#111111]/70 cursor-pointer " +
-                            (isSelected ? "bg-[#111111]/90" : "") +
-                            " hidden sm:table-row"
-                          }
-                        >
-                          <td className="py-2 pl-3 pr-1 w-6">
-                            <button
-                              type="button"
-                              onClick={e => {
-                                e.stopPropagation();
-                                setBulkSelected(prev => {
-                                  const next = new Set(prev);
-                                  if (next.has(lead.id)) next.delete(lead.id);
-                                  else next.add(lead.id);
-                                  return next;
-                                });
-                              }}
-                              className="flex items-center justify-center w-4 h-4 focus:outline-none"
-                              title="Select lead"
-                            >
-                              {/* Diamond shape — rotated square */}
-                              <span
-                                className="block w-3 h-3 rotate-45 border transition-all duration-150"
-                                style={bulkSelected.has(lead.id) ? {
-                                  backgroundColor: "#c9a84c",
-                                  borderColor: "#c9a84c",
-                                  boxShadow: "0 0 6px rgba(201,168,76,0.4)"
-                                } : {
-                                  backgroundColor: "transparent",
-                                  borderColor: "#2a2a2a"
+                      return (
+                        <Fragment key={lead.id}>
+                          <tr
+                            onClick={() => {
+                              setSelectedLead(lead);
+                              setChecklistState((prev: typeof checklistState) => ({ ...prev, hasSelected: true }));
+                            }}
+                            className={
+                              "border-b border-[#252525] hover:bg-[#111111]/70 cursor-pointer " +
+                              (isSelected ? "bg-[#111111]/90" : "") +
+                              " hidden sm:table-row"
+                            }>
+                            <td className="py-2 pl-3 pr-1 w-6">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setBulkSelected((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(lead.id)) next.delete(lead.id);
+                                    else next.add(lead.id);
+                                    return next;
+                                  });
                                 }}
-                              />
-                            </button>
-                          </td>
-                          <td className="py-2 px-3">
-                            <div>
-                              <span className="font-medium text-[13px] truncate max-w-[140px] sm:max-w-none block">
-                                {lead.company.name}
-                              </span>
-                              <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                                <span className="text-[10px] text-[#555]">{leadLocation(lead)}</span>
-                                <span className="text-[10px] text-[#444]">·</span>
-                                <span className="text-[10px] text-[#555]">
-                                  {lead.classification.primaryIndustry.replaceAll("_", " ")}
+                                className="flex items-center justify-center w-4 h-4 focus:outline-none"
+                                title="Select lead">
+                                {/* Diamond shape — rotated square */}
+                                <span
+                                  className="block w-3 h-3 rotate-45 border transition-all duration-150"
+                                  style={
+                                    bulkSelected.has(lead.id)
+                                      ? {
+                                          backgroundColor: "#c9a84c",
+                                          borderColor: "#c9a84c",
+                                          boxShadow: "0 0 6px rgba(201,168,76,0.4)",
+                                        }
+                                      : {
+                                          backgroundColor: "transparent",
+                                          borderColor: "#2a2a2a",
+                                        }
+                                  }
+                                />
+                              </button>
+                            </td>
+                            <td className="py-2 px-3">
+                              <div>
+                                <span className="font-medium text-[13px] truncate max-w-[140px] sm:max-w-none block">
+                                  {lead.company.name}
                                 </span>
-                                {lead.company.website && (
-                                  <a href={lead.company.website} target="_blank" rel="noreferrer"
-                                    onClick={(e: MouseEvent) => e.stopPropagation()}
-                                    className="text-[10px] text-[#c9a84c] hover:underline">
-                                    Visit ↗
-                                  </a>
-                                )}
+                                <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                  <span className="text-[10px] text-[#555]">{leadLocation(lead)}</span>
+                                  <span className="text-[10px] text-[#444]">·</span>
+                                  <span className="text-[10px] text-[#555]">
+                                    {lead.classification.primaryIndustry.replaceAll("_", " ")}
+                                  </span>
+                                  {lead.company.website && (
+                                    <a
+                                      href={lead.company.website}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      onClick={(e: MouseEvent) => e.stopPropagation()}
+                                      className="text-[10px] text-[#c9a84c] hover:underline">
+                                      Visit ↗
+                                    </a>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          </td>
+                            </td>
 
-
-
-                          <td className="py-2 px-3 hidden sm:table-cell">
-                            <ScoreTooltip text={lead.fit?.tooltip ?? lead.score.tooltips?.fit ?? ""}>
-                              <div>
-                                {(() => {
-                                  const fitVal = lead.fit?.fitScore ?? 0;
-                                  const fitColor = fitVal >= 65 ? "#4ade80" : fitVal >= 40 ? "#c9a84c" : "#f87171";
-                                  return lead.fit ? (
-                                    <>
-                                      <span className="text-xs font-semibold" style={{ color: fitColor }}>{fitVal}</span>
-                                      <div className="w-full bg-[#1a1a1a] rounded-full h-1.5 overflow-hidden mt-1">
-                                        <div className="h-full rounded-full" style={{ width: `${fitVal}%`, backgroundColor: fitColor }} />
-                                      </div>
-                                    </>
-                                  ) : <span className="text-[#333] text-xs">—</span>;
-                                })()}
-                              </div>
-                            </ScoreTooltip>
-                          </td>
-
-                          <td className="py-2 px-3 hidden sm:table-cell">
-                            <span className="text-[#c8c0b0] font-semibold">
-                              {lead.score.opportunity ?? 0}
-                            </span>
-                            <p className="mt-1 text-[11px] leading-snug text-[#888]">
-                              {t.ui.detail.upside}
-                            </p>
-                          </td>
-
-                          <td className="py-2 px-3">
-                            <span
-                              className={
-                                (lead.score.risk ?? 0) >= 70
-                                  ? "text-rose-300 font-semibold"
-                                  : (lead.score.risk ?? 0) >= 45
-                                    ? "text-amber-300 font-semibold"
-                                    : "text-emerald-300 font-semibold"
-                              }
-                            >
-                              {lead.score.risk ?? 0}
-                            </span>
-                            <p className="mt-1 text-[11px] leading-snug text-[#888]">
-                              {lead.score.riskProfile
-                                ? lead.score.riskProfile.replaceAll("_", " ")
-                                : "—"}
-                            </p>
-                          </td>
-
-                          <td className="py-2 px-3 hidden md:table-cell">
-                            <ScoreTooltip text={lead.score.tooltips?.value ?? ""}>
-                              <div>
-                                {(() => {
-                                  const val = lead.score.value ?? 0;
-                                  const color = val >= 70 ? "#4ade80" : val >= 45 ? "#c9a84c" : "#f87171";
-                                  const label = val >= 70 ? "Strong lead" : val >= 45 ? "Good lead" : val >= 25 ? "Moderate lead" : "Weak lead";
-                                  return (
-                                    <>
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-sm font-bold" style={{ color }}>{val}</span>
-                                        <div className="flex-1 h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
-                                          <div className="h-full rounded-full" style={{ width: `${val}%`, backgroundColor: color }} />
+                            <td className="py-2 px-3 hidden sm:table-cell">
+                              <ScoreTooltip text={lead.fit?.tooltip ?? lead.score.tooltips?.fit ?? ""}>
+                                <div>
+                                  {(() => {
+                                    const fitVal = lead.fit?.fitScore ?? 0;
+                                    const fitColor = fitVal >= 65 ? "#4ade80" : fitVal >= 40 ? "#c9a84c" : "#f87171";
+                                    return lead.fit ? (
+                                      <>
+                                        <span className="text-xs font-semibold" style={{ color: fitColor }}>
+                                          {fitVal}
+                                        </span>
+                                        <div className="w-full bg-[#1a1a1a] rounded-full h-1.5 overflow-hidden mt-1">
+                                          <div
+                                            className="h-full rounded-full"
+                                            style={{ width: `${fitVal}%`, backgroundColor: fitColor }}
+                                          />
                                         </div>
-                                      </div>
-                                      <p className="text-[10px]" style={{ color }}>{label}</p>
-                                    </>
-                                  );
-                                })()}
-                              </div>
-                            </ScoreTooltip>
-                          </td>
+                                      </>
+                                    ) : (
+                                      <span className="text-[#333] text-xs">—</span>
+                                    );
+                                  })()}
+                                </div>
+                              </ScoreTooltip>
+                            </td>
 
+                            <td className="py-2 px-3 hidden sm:table-cell">
+                              <span className="text-[#c8c0b0] font-semibold">{lead.score.opportunity ?? 0}</span>
+                              <p className="mt-1 text-[11px] leading-snug text-[#888]">{t.ui.detail.upside}</p>
+                            </td>
 
+                            <td className="py-2 px-3">
+                              <span
+                                className={
+                                  (lead.score.risk ?? 0) >= 70
+                                    ? "text-rose-300 font-semibold"
+                                    : (lead.score.risk ?? 0) >= 45
+                                      ? "text-amber-300 font-semibold"
+                                      : "text-emerald-300 font-semibold"
+                                }>
+                                {lead.score.risk ?? 0}
+                              </span>
+                              <p className="mt-1 text-[11px] leading-snug text-[#888]">
+                                {lead.score.riskProfile ? lead.score.riskProfile.replaceAll("_", " ") : "—"}
+                              </p>
+                            </td>
 
-                        </tr>
-
-                      </Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
+                            <td className="py-2 px-3 hidden md:table-cell">
+                              <ScoreTooltip text={lead.score.tooltips?.value ?? ""}>
+                                <div>
+                                  {(() => {
+                                    const val = lead.score.value ?? 0;
+                                    const color = val >= 70 ? "#4ade80" : val >= 45 ? "#c9a84c" : "#f87171";
+                                    const label =
+                                      val >= 70
+                                        ? "Strong lead"
+                                        : val >= 45
+                                          ? "Good lead"
+                                          : val >= 25
+                                            ? "Moderate lead"
+                                            : "Weak lead";
+                                    return (
+                                      <>
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <span className="text-sm font-bold" style={{ color }}>
+                                            {val}
+                                          </span>
+                                          <div className="flex-1 h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
+                                            <div
+                                              className="h-full rounded-full"
+                                              style={{ width: `${val}%`, backgroundColor: color }}
+                                            />
+                                          </div>
+                                        </div>
+                                        <p className="text-[10px]" style={{ color }}>
+                                          {label}
+                                        </p>
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                              </ScoreTooltip>
+                            </td>
+                          </tr>
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
 
               {/* Load more + count */}
               <div className="flex flex-col items-center gap-3 pt-5 pb-2">
                 {hasMore && (
-                  <button type="button" onClick={() => setDisplayCount((n: number) => n + LEADS_PER_BATCH)}
+                  <button
+                    type="button"
+                    onClick={() => setDisplayCount((n: number) => n + LEADS_PER_BATCH)}
                     className="px-8 py-2.5 rounded-xl border border-[#252525] text-[13px] text-[#888] hover:border-[rgba(201,168,76,0.3)] hover:text-[#c9a84c] hover:bg-[rgba(201,168,76,0.04)] transition-all font-medium">
                     Load more ↓
                   </button>
@@ -2337,1391 +2587,1983 @@ export default function Home() {
         </section>
       </div>
 
-      {/* ── Score Breakdown Modal ── */}
-      {showScoreModal && (() => {
-        const modalLead = leads.find((l: LeadUI) => l.id === showScoreModal);
-        if (!modalLead) return null;
-        const bd = modalLead.score.breakdown;
-        const tooltips = modalLead.score.tooltips;
-        return createPortal(
-          <>
-            <div
-              onClick={() => setShowScoreModal(null)}
-              style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99998 }}
-            />
-            <div style={{
-              position: "fixed", top: "50%", left: "50%",
-              transform: "translate(-50%, -50%)",
-              zIndex: 99999,
-              width: "min(92vw, 480px)",
-              maxHeight: "80vh",
-              overflowY: "auto",
-              borderRadius: 16,
-              border: "1px solid #252525",
-              background: "#0a0a0a",
-              boxShadow: "0 40px 120px rgba(0,0,0,0.9)",
-            }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid #141414" }}>
-                <div>
-                  <p style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "#8a6e30", marginBottom: 2 }}>Score breakdown</p>
-                  <p style={{ fontSize: 15, fontWeight: 500, color: "#f5f0e8" }}>{modalLead.company.name}</p>
-                </div>
-                <button onClick={() => setShowScoreModal(null)} style={{ color: "#444", fontSize: 20, lineHeight: 1, background: "none", border: "none", cursor: "pointer" }}>×</button>
-              </div>
-              <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 20 }}>
-
-                {/* Score formula explanation */}
-                <div style={{ background: "#080808", border: "1px solid #1a1a1a", borderRadius: 12, padding: "14px 16px" }}>
-                  <p style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "#444", marginBottom: 10 }}>How this score is built</p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {[
-                      { label: "Opportunity", value: modalLead.score.opportunity ?? 0, weight: "35%", tooltip: tooltips?.opportunity },
-                      { label: "Fit", value: modalLead.fit?.fitScore ?? 0, weight: "30%", tooltip: tooltips?.fit },
-                      { label: "Readiness", value: modalLead.score.readiness ?? 0, weight: "20%", tooltip: tooltips?.readiness },
-                      { label: "Risk (inverted)", value: 100 - (modalLead.score.risk ?? 0), weight: "15%", tooltip: tooltips?.risk },
-                    ].map(row => {
-                      const c = row.label === "Risk (inverted)"
-                        ? (row.value >= 70 ? "#4ade80" : row.value >= 50 ? "#c9a84c" : "#f87171")
-                        : (row.value >= 60 ? "#4ade80" : row.value >= 35 ? "#c9a84c" : "#f87171");
-                      return (
-                        <ScoreTooltip key={row.label} text={row.tooltip ?? ""}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: row.tooltip ? "help" : "default", width: "100%" }}>
-                          <p style={{ fontSize: 11, color: "#666", width: 110, flexShrink: 0 }}>{row.label}</p>
-                          <div style={{ flex: 1, height: 4, background: "#141414", borderRadius: 4, overflow: "hidden" }}>
-                            <div style={{ height: "100%", width: `${row.value}%`, background: c, borderRadius: 4 }} />
-                          </div>
-                          <p style={{ fontSize: 12, fontWeight: 600, color: c, width: 28, textAlign: "right" }}>{row.value}</p>
-                            <p style={{ fontSize: 10, color: "#333", width: 28, textAlign: "right" }}>{row.weight}</p>
-                          </div>
-                        </ScoreTooltip>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Category breakdown — the detail layer */}
-                {bd && (
-                  <div>
-                    <p style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "#444", marginBottom: 10 }}>Signal breakdown</p>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {([
-                        { key: "reputation", label: "Reputation", hint: "Review volume & rating quality" },
-                        { key: "digitalPresence", label: "Digital presence", hint: "Website & social footprint" },
-                        { key: "businessStrength", label: "Business strength", hint: "Overall stability signals" },
-                        { key: "opportunityGap", label: "Opportunity gap", hint: "Size of the gap you can sell into" },
-                        { key: "stabilityRisk", label: "Stability risk", hint: "How risky is this lead to pursue" },
-                        { key: "evidenceConfidence", label: "Evidence confidence", hint: "How reliable is this data" },
-                      ] as const).map(({ key, label, hint }) => {
-                        const v = bd[key as keyof typeof bd] ?? 0;
-                        const c = key === "stabilityRisk"
-                          ? (v >= 60 ? "#f87171" : v >= 35 ? "#c9a84c" : "#4ade80")
-                          : (v >= 65 ? "#4ade80" : v >= 35 ? "#c9a84c" : "#f87171");
-                        return (
-                          <div key={key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <div style={{ width: 130, flexShrink: 0 }}>
-                              <p style={{ fontSize: 11, color: "#888" }}>{label}</p>
-                              <p style={{ fontSize: 9, color: "#333" }}>{hint}</p>
-                            </div>
-                            <div style={{ flex: 1, height: 4, background: "#141414", borderRadius: 4, overflow: "hidden" }}>
-                              <div style={{ height: "100%", width: `${v}%`, background: c, borderRadius: 4 }} />
-                            </div>
-                            <p style={{ fontSize: 11, fontWeight: 600, color: c, width: 28, textAlign: "right" }}>{v}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Evidence */}
-                {modalLead.score.reasons?.length > 0 && (
-                  <div>
-                    <p style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "#444", marginBottom: 8 }}>What we know</p>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {modalLead.score.reasons.map((r: string, i: number) => (
-                        <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                          <span style={{ color: "#555", fontSize: 10, marginTop: 2, flexShrink: 0 }}>·</span>
-                          <p style={{ fontSize: 12, color: "#777", lineHeight: 1.5 }}>{r}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </>,
-          document.body
-        );
-      })()}
-
-
       {/* ── Lead Comparison Modal ── */}
-      {compareMode && compareIds.length >= 2 && (() => {
-        const compareLeads = compareIds.map(id => leads.find((l: LeadUI) => l.id === id)).filter(Boolean) as LeadUI[];
-        if (compareLeads.length < 2) return null;
-        const metrics = [
-          { label: "Score",       key: (l: LeadUI) => l.score.value ?? 0,       color: (v: number) => v >= 70 ? "#4ade80" : v >= 45 ? "#c9a84c" : "#f87171" },
-          { label: "Opportunity", key: (l: LeadUI) => l.score.opportunity ?? 0,  color: (v: number) => v >= 60 ? "#4ade80" : v >= 35 ? "#c9a84c" : "#f87171" },
-          { label: "Risk",        key: (l: LeadUI) => l.score.risk ?? 0,         color: (v: number) => v >= 60 ? "#f87171" : v >= 35 ? "#c9a84c" : "#4ade80" },
-          { label: "Fit",         key: (l: LeadUI) => l.fit?.fitScore ?? 0,      color: (v: number) => v >= 65 ? "#4ade80" : v >= 40 ? "#c9a84c" : "#f87171" },
-          { label: "Readiness",   key: (l: LeadUI) => l.score.readiness ?? 0,    color: (v: number) => v >= 60 ? "#4ade80" : v >= 35 ? "#c9a84c" : "#f87171" },
-        ];
-        return (
-          <>
-            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[70]" onClick={() => setCompareMode(false)} />
-            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-[#0a0a0a] border border-[#252525] rounded-2xl z-[80] shadow-2xl max-h-[85vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-5 border-b border-[#141414]">
-                <div>
-                  <p className="text-[10px] uppercase tracking-widests text-[#8a6e30] mb-0.5">Comparison</p>
-                  <h2 className="text-[15px] font-medium text-[#f5f0e8]">Side-by-side comparison</h2>
+      {compareMode &&
+        compareIds.length >= 2 &&
+        (() => {
+          const compareLeads = compareIds
+            .map((id) => leads.find((l: LeadUI) => l.id === id))
+            .filter(Boolean) as LeadUI[];
+          if (compareLeads.length < 2) return null;
+          const metrics = [
+            {
+              label: "Score",
+              key: (l: LeadUI) => l.score.value ?? 0,
+              color: (v: number) => (v >= 70 ? "#4ade80" : v >= 45 ? "#c9a84c" : "#f87171"),
+            },
+            {
+              label: "Opportunity",
+              key: (l: LeadUI) => l.score.opportunity ?? 0,
+              color: (v: number) => (v >= 60 ? "#4ade80" : v >= 35 ? "#c9a84c" : "#f87171"),
+            },
+            {
+              label: "Risk",
+              key: (l: LeadUI) => l.score.risk ?? 0,
+              color: (v: number) => (v >= 60 ? "#f87171" : v >= 35 ? "#c9a84c" : "#4ade80"),
+            },
+            {
+              label: "Fit",
+              key: (l: LeadUI) => l.fit?.fitScore ?? 0,
+              color: (v: number) => (v >= 65 ? "#4ade80" : v >= 40 ? "#c9a84c" : "#f87171"),
+            },
+            {
+              label: "Readiness",
+              key: (l: LeadUI) => l.score.readiness ?? 0,
+              color: (v: number) => (v >= 60 ? "#4ade80" : v >= 35 ? "#c9a84c" : "#f87171"),
+            },
+          ];
+          return (
+            <>
+              <div
+                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[70]"
+                onClick={() => setCompareMode(false)}
+              />
+              <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-[#0a0a0a] border border-[#252525] rounded-2xl z-[80] shadow-2xl max-h-[85vh] overflow-y-auto">
+                <div className="flex items-center justify-between p-5 border-b border-[#141414]">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widests text-[#8a6e30] mb-0.5">Comparison</p>
+                    <h2 className="text-[15px] font-medium text-[#f5f0e8]">Side-by-side comparison</h2>
+                  </div>
+                  <button
+                    onClick={() => setCompareMode(false)}
+                    className="text-[#444] hover:text-[#888] transition-colors text-xl leading-none">
+                    ×
+                  </button>
                 </div>
-                <button onClick={() => setCompareMode(false)} className="text-[#444] hover:text-[#888] transition-colors text-xl leading-none">×</button>
-              </div>
-              <div className="p-5 space-y-4">
-                {/* Lead names header */}
-                <div className={"grid gap-3"} style={{ gridTemplateColumns: `140px repeat(${compareLeads.length}, 1fr)` }}>
-                  <div />
-                  {compareLeads.map(l => (
-                    <div key={l.id} className="rounded-xl border border-[#1a1a1a] bg-[#080808] p-3 text-center">
-                      <p className="text-[12px] font-semibold text-[#c8c0b0] truncate">{l.company.name}</p>
-                      <p className="text-[10px] text-[#444] mt-0.5 truncate">{l.classification.primaryIndustry.replace(/_/g, " ")}</p>
-                      {l.company.city && <p className="text-[10px] text-[#333]">{l.company.city}</p>}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Metrics */}
-                {metrics.map(m => {
-                  const vals = compareLeads.map(l => m.key(l));
-                  const maxVal = Math.max(...vals);
-                  return (
-                    <div key={m.label} className={"grid gap-3 items-center"} style={{ gridTemplateColumns: `140px repeat(${compareLeads.length}, 1fr)` }}>
-                      <p className="text-[11px] text-[#555]">{m.label}</p>
-                      {vals.map((v, i) => {
-                        const c = m.color(v);
-                        const isBest = v === maxVal && vals.filter(x => x === maxVal).length === 1;
-                        return (
-                          <div key={i} className={"rounded-xl border p-3 text-center " + (isBest ? "border-[rgba(201,168,76,0.3)] bg-[rgba(201,168,76,0.04)]" : "border-[#1a1a1a] bg-[#080808]")}>
-                            <p className="text-[16px] font-bold" style={{ color: c }}>{v}</p>
-                            <div className="w-full h-1 bg-[#1a1a1a] rounded-full overflow-hidden mt-1.5">
-                              <div className="h-full rounded-full" style={{ width: `${v}%`, backgroundColor: c }} />
-                            </div>
-                            {isBest && <p className="text-[9px] text-[#8a6e30] mt-1">Best</p>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-
-                {/* Gap type */}
-                <div className={"grid gap-3 items-start"} style={{ gridTemplateColumns: `140px repeat(${compareLeads.length}, 1fr)` }}>
-                  <p className="text-[11px] text-[#555]">Gap type</p>
-                  {compareLeads.map(l => {
-                    const gap = (l.metadata?.outreach as { gap?: string } | null)?.gap ?? null;
-                    return (
+                <div className="p-5 space-y-4">
+                  {/* Lead names header */}
+                  <div
+                    className={"grid gap-3"}
+                    style={{ gridTemplateColumns: `140px repeat(${compareLeads.length}, 1fr)` }}>
+                    <div />
+                    {compareLeads.map((l) => (
                       <div key={l.id} className="rounded-xl border border-[#1a1a1a] bg-[#080808] p-3 text-center">
-                        <p className="text-[11px] text-[#888]">{gap ? gap.replace(/_/g, " ") : "—"}</p>
+                        <p className="text-[12px] font-semibold text-[#c8c0b0] truncate">{l.company.name}</p>
+                        <p className="text-[10px] text-[#444] mt-0.5 truncate">
+                          {l.classification.primaryIndustry.replace(/_/g, " ")}
+                        </p>
+                        {l.company.city && <p className="text-[10px] text-[#333]">{l.company.city}</p>}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Metrics */}
+                  {metrics.map((m) => {
+                    const vals = compareLeads.map((l) => m.key(l));
+                    const maxVal = Math.max(...vals);
+                    return (
+                      <div
+                        key={m.label}
+                        className={"grid gap-3 items-center"}
+                        style={{ gridTemplateColumns: `140px repeat(${compareLeads.length}, 1fr)` }}>
+                        <p className="text-[11px] text-[#555]">{m.label}</p>
+                        {vals.map((v, i) => {
+                          const c = m.color(v);
+                          const isBest = v === maxVal && vals.filter((x) => x === maxVal).length === 1;
+                          return (
+                            <div
+                              key={i}
+                              className={
+                                "rounded-xl border p-3 text-center " +
+                                (isBest
+                                  ? "border-[rgba(201,168,76,0.3)] bg-[rgba(201,168,76,0.04)]"
+                                  : "border-[#1a1a1a] bg-[#080808]")
+                              }>
+                              <p className="text-[16px] font-bold" style={{ color: c }}>
+                                {v}
+                              </p>
+                              <div className="w-full h-1 bg-[#1a1a1a] rounded-full overflow-hidden mt-1.5">
+                                <div className="h-full rounded-full" style={{ width: `${v}%`, backgroundColor: c }} />
+                              </div>
+                              {isBest && <p className="text-[9px] text-[#8a6e30] mt-1">Best</p>}
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   })}
-                </div>
 
-                {/* Website */}
-                <div className={"grid gap-3 items-start"} style={{ gridTemplateColumns: `140px repeat(${compareLeads.length}, 1fr)` }}>
-                  <p className="text-[11px] text-[#555]">Website</p>
-                  {compareLeads.map(l => (
-                    <div key={l.id} className="rounded-xl border border-[#1a1a1a] bg-[#080808] p-3 text-center">
-                      {l.company.website
-                        ? <a href={l.company.website} target="_blank" rel="noreferrer" className="text-[11px] text-[#c9a84c] hover:underline" onClick={e => e.stopPropagation()}>Visit ↗</a>
-                        : <p className="text-[11px] text-[#333]">None</p>
-                      }
-                    </div>
-                  ))}
-                </div>
+                  {/* Gap type */}
+                  <div
+                    className={"grid gap-3 items-start"}
+                    style={{ gridTemplateColumns: `140px repeat(${compareLeads.length}, 1fr)` }}>
+                    <p className="text-[11px] text-[#555]">Gap type</p>
+                    {compareLeads.map((l) => {
+                      const gap = (l.metadata?.outreach as { gap?: string } | null)?.gap ?? null;
+                      return (
+                        <div key={l.id} className="rounded-xl border border-[#1a1a1a] bg-[#080808] p-3 text-center">
+                          <p className="text-[11px] text-[#888]">{gap ? gap.replace(/_/g, " ") : "—"}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
 
-                {/* Action buttons */}
-                <div className={"grid gap-3"} style={{ gridTemplateColumns: `140px repeat(${compareLeads.length}, 1fr)` }}>
-                  <p className="text-[11px] text-[#555]">Action</p>
-                  {compareLeads.map(l => (
-                    <button key={l.id} type="button"
-                      onClick={() => { setSelectedLead(l); setCompareMode(false); }}
-                      className="py-2 rounded-xl border border-[rgba(201,168,76,0.25)] text-[11px] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.06)] transition-all">
-                      Open lead →
-                    </button>
-                  ))}
+                  {/* Website */}
+                  <div
+                    className={"grid gap-3 items-start"}
+                    style={{ gridTemplateColumns: `140px repeat(${compareLeads.length}, 1fr)` }}>
+                    <p className="text-[11px] text-[#555]">Website</p>
+                    {compareLeads.map((l) => (
+                      <div key={l.id} className="rounded-xl border border-[#1a1a1a] bg-[#080808] p-3 text-center">
+                        {l.company.website ? (
+                          <a
+                            href={l.company.website}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[11px] text-[#c9a84c] hover:underline"
+                            onClick={(e) => e.stopPropagation()}>
+                            Visit ↗
+                          </a>
+                        ) : (
+                          <p className="text-[11px] text-[#333]">None</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Action buttons */}
+                  <div
+                    className={"grid gap-3"}
+                    style={{ gridTemplateColumns: `140px repeat(${compareLeads.length}, 1fr)` }}>
+                    <p className="text-[11px] text-[#555]">Action</p>
+                    {compareLeads.map((l) => (
+                      <button
+                        key={l.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedLead(l);
+                          setCompareMode(false);
+                        }}
+                        className="py-2 rounded-xl border border-[rgba(201,168,76,0.25)] text-[11px] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.06)] transition-all">
+                        Open lead →
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          </>
-        );
-      })()}
-
+            </>
+          );
+        })()}
 
       {/* ── LEAD DETAIL MODAL ── */}
-      {selectedLead && detailLead && typeof window !== "undefined" && createPortal(
-        <>
-          {/* Backdrop */}
-          <div
-            onClick={() => setSelectedLead(null)}
-            style={{
-              position: "fixed", inset: 0, zIndex: 88888,
-              background: "rgba(0,0,0,0.82)",
-              backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
-            }}
-          />
-          {/* Modal card */}
-          <div style={{
-            position: "fixed", top: "50%", left: "50%",
-            transform: "translate(-50%, -50%)",
-            zIndex: 88889,
-            width: "min(92vw, 760px)",
-            maxHeight: "88vh",
-            overflowY: "auto",
-            borderRadius: 16,
-            border: "1px solid rgba(201,168,76,0.2)",
-            background: "#0a0a0a",
-            boxShadow: "0 40px 120px rgba(0,0,0,0.9)",
-            scrollbarWidth: "thin",
-            scrollbarColor: "#2a2010 #0a0a0a",
-          }}>
-            {/* Sticky header */}
-            <div style={{
-              position: "sticky", top: 0, zIndex: 2,
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "14px 16px 12px",
-              borderBottom: "1px solid #1a1a1a",
-              background: "#0a0a0a",
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                <span style={{ fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", color: "#8a6e30", flexShrink: 0 }}>Lead</span>
-                <span style={{ fontSize: 15, fontWeight: 600, color: "#f5f0e8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{detailLead.company.name}</span>
-                {detailLead.company.city && <span style={{ fontSize: 11, color: "#555", flexShrink: 0 }}>{detailLead.company.city}</span>}
-                {detailLead.company.website && (
-                  <a href={detailLead.company.website} target="_blank" rel="noopener noreferrer"
-                    onClick={(e: MouseEvent) => e.stopPropagation()}
-                    style={{ fontSize: 11, color: "#8a6e30", textDecoration: "none", flexShrink: 0 }}>
-                    Visit ↗
-                  </a>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedLead(null)}
-                aria-label="Close lead panel"
+      {selectedLead &&
+        detailLead &&
+        typeof window !== "undefined" &&
+        createPortal(
+          <>
+            {/* Backdrop */}
+            <div
+              onClick={() => setSelectedLead(null)}
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 88888,
+                background: "rgba(0,0,0,0.82)",
+                backdropFilter: "blur(4px)",
+                WebkitBackdropFilter: "blur(4px)",
+              }}
+            />
+            {/* Modal card */}
+            <div
+              style={{
+                position: "fixed",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                zIndex: 88889,
+                width: "min(92vw, 760px)",
+                maxHeight: "88vh",
+                overflowY: "auto",
+                borderRadius: 16,
+                border: "1px solid rgba(201,168,76,0.2)",
+                background: "#0a0a0a",
+                boxShadow: "0 40px 120px rgba(0,0,0,0.9)",
+                scrollbarWidth: "thin",
+                scrollbarColor: "#2a2010 #0a0a0a",
+              }}>
+              {/* Sticky header */}
+              <div
                 style={{
-                  width: 32, height: 32, borderRadius: 8,
-                  border: "1px solid #252525", background: "transparent",
-                  cursor: "pointer", fontSize: 16, color: "#555",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  flexShrink: 0, marginLeft: 8,
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "#f87171"; e.currentTarget.style.color = "#f87171"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "#252525"; e.currentTarget.style.color = "#555"; }}
-              >
-                ✕
-              </button>
-            </div>
-            {/* Panel content */}
-            <div className="px-3 py-4 space-y-3 w-full overflow-x-hidden">
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 2,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "14px 16px 12px",
+                  borderBottom: "1px solid #1a1a1a",
+                  background: "#0a0a0a",
+                }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      letterSpacing: "0.15em",
+                      textTransform: "uppercase",
+                      color: "#8a6e30",
+                      flexShrink: 0,
+                    }}>
+                    Lead
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 600,
+                      color: "#f5f0e8",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}>
+                    {detailLead.company.name}
+                  </span>
+                  {detailLead.company.city && (
+                    <span style={{ fontSize: 11, color: "#555", flexShrink: 0 }}>{detailLead.company.city}</span>
+                  )}
+                  {detailLead.company.website && (
+                    <a
+                      href={detailLead.company.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e: MouseEvent) => e.stopPropagation()}
+                      style={{ fontSize: 11, color: "#8a6e30", textDecoration: "none", flexShrink: 0 }}>
+                      Visit ↗
+                    </a>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedLead(null)}
+                  aria-label="Close lead panel"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    border: "1px solid #252525",
+                    background: "transparent",
+                    cursor: "pointer",
+                    fontSize: 16,
+                    color: "#555",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    marginLeft: 8,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = "#f87171";
+                    e.currentTarget.style.color = "#f87171";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = "#252525";
+                    e.currentTarget.style.color = "#555";
+                  }}>
+                  ✕
+                </button>
+              </div>
+              {/* Panel content */}
+              <div className="px-3 py-4 space-y-3 w-full overflow-x-hidden">
+                <div className="flex gap-1 border-b border-[#252525] pb-0 overflow-x-auto scrollbar-none">
+                  {(
+                    [
+                      { key: "overview" as const, label: t.ui.detail.tabOverview },
+                      { key: "signals" as const, label: t.ui.detail.tabSignals },
+                      { key: "outreach" as const, label: t.ui.detail.tabOutreach },
+                      { key: "tracking" as const, label: t.ui.detail.tabTracking },
+                      { key: "followup" as const, label: "Follow-up" },
+                    ] as const
+                  ).map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={(e: MouseEvent) => {
+                        e.stopPropagation();
+                        setDetailTab(tab.key);
+                      }}
+                      className={
+                        "text-[11px] px-3 py-1.5 rounded-t-md font-medium transition-colors " +
+                        (detailTab === tab.key
+                          ? "bg-[#1a1a1a] text-[#c9a84c] border border-b-0 border-[rgba(201,168,76,0.3)]"
+                          : "text-[#666] hover:text-[#888]")
+                      }>
+                      {tab.label}
+                    </button>
+                  ))}
 
-                                <div className="flex gap-1 border-b border-[#252525] pb-0 overflow-x-auto scrollbar-none">
-                                  {([
-                                    { key: "overview" as const, label: t.ui.detail.tabOverview },
-                                    { key: "signals" as const, label: t.ui.detail.tabSignals },
-                                    { key: "outreach" as const, label: t.ui.detail.tabOutreach },
-                                    { key: "tracking" as const, label: t.ui.detail.tabTracking },
-                                    { key: "followup" as const, label: "Follow-up" },
-                                  ] as const).map((tab) => (
-                                    <button
-                                      key={tab.key}
-                                      type="button"
-                                      onClick={(e: MouseEvent) => {
-                                        e.stopPropagation();
-                                        setDetailTab(tab.key);
-                                      }}
-                                      className={
-                                        "text-[11px] px-3 py-1.5 rounded-t-md font-medium transition-colors " +
-                                        (detailTab === tab.key
-                                          ? "bg-[#1a1a1a] text-[#c9a84c] border border-b-0 border-[rgba(201,168,76,0.3)]"
-                                          : "text-[#666] hover:text-[#888]")
-                                      }
-                                    >
-                                      {tab.label}
-                                    </button>
-                                  ))}
+                  <div className="ml-auto flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(e: MouseEvent) => {
+                        e.stopPropagation();
+                        toggleSaveLead(detailLead);
+                      }}
+                      className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-md border transition-all"
+                      style={{
+                        borderColor: savedLeadIds.has(detailLead.id) ? "rgba(201,168,76,0.4)" : "#2a2a2a",
+                        background: savedLeadIds.has(detailLead.id) ? "rgba(201,168,76,0.08)" : "rgba(17,17,17,0.7)",
+                        color: savedLeadIds.has(detailLead.id) ? "#c9a84c" : "#666",
+                      }}>
+                      <span>{savedLeadIds.has(detailLead.id) ? "◈" : "◇"}</span>
+                      <span>{savedLeadIds.has(detailLead.id) ? "Saved" : "Save lead"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e: MouseEvent) => {
+                        e.stopPropagation();
+                        setSelectedLead(null);
+                      }}
+                      className="text-[11px] px-2 py-1 rounded-md border border-[#2a2a2a] bg-[#111111]/70 hover:bg-[#1a1a1a]">
+                      {t.ui.detail.clear}
+                    </button>
+                  </div>
+                </div>
 
-                                  <div className="ml-auto flex items-center gap-1.5">
-                                    <button
-                                      type="button"
-                                      onClick={(e: MouseEvent) => {
-                                        e.stopPropagation();
-                                        toggleSaveLead(detailLead);
-                                      }}
-                                      className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-md border transition-all"
-                                      style={{
-                                        borderColor: savedLeadIds.has(detailLead.id) ? "rgba(201,168,76,0.4)" : "#2a2a2a",
-                                        background: savedLeadIds.has(detailLead.id) ? "rgba(201,168,76,0.08)" : "rgba(17,17,17,0.7)",
-                                        color: savedLeadIds.has(detailLead.id) ? "#c9a84c" : "#666",
-                                      }}
-                                    >
-                                      <span>{savedLeadIds.has(detailLead.id) ? "◈" : "◇"}</span>
-                                      <span>{savedLeadIds.has(detailLead.id) ? "Saved" : "Save lead"}</span>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={(e: MouseEvent) => {
-                                        e.stopPropagation();
-                                        setSelectedLead(null);
-                                      }}
-                                      className="text-[11px] px-2 py-1 rounded-md border border-[#2a2a2a] bg-[#111111]/70 hover:bg-[#1a1a1a]"
-                                    >
-                                      {t.ui.detail.clear}
-                                    </button>
+                {detailTab === "overview" &&
+                  (() => {
+                    const opp = detailLead.score.opportunity ?? 0;
+                    const readiness = detailLead.score.readiness ?? 0;
+                    const risk = detailLead.score.risk ?? 0;
+                    const value = detailLead.score.value ?? 0;
+                    const fit = detailLead.fit?.fitScore ?? null;
+                    const rp = detailLead.score.riskProfile ?? "unknown";
+                    const hasRisk =
+                      rp === "early_stage" ||
+                      rp === "limited_data" ||
+                      rp === "well_established" ||
+                      rp === "local_authority";
+
+                    // Score ring colour
+                    const scoreColor = value >= 70 ? "#4ade80" : value >= 45 ? "#c9a84c" : "#f87171";
+                    const scoreLabel = value >= 70 ? "Strong Lead" : value >= 45 ? "Moderate Lead" : "Weak Lead";
+
+                    // Gap type from outreach metadata
+                    const gap = (detailLead.metadata?.outreach as { gap?: string } | null)?.gap ?? null;
+                    const gapLabels: Record<string, { label: string; desc: string; color: string }> = {
+                      VISIBILITY: {
+                        label: "Visibility Gap",
+                        desc: "Demand exists but this business isn't capturing it — weak channels or low presence.",
+                        color: "#818cf8",
+                      },
+                      CONVERSION: {
+                        label: "Conversion Gap",
+                        desc: "Traffic or interest exists but leaks before becoming bookings or enquiries.",
+                        color: "#fb923c",
+                      },
+                      INFRASTRUCTURE: {
+                        label: "Infrastructure Gap",
+                        desc: "No digital foundation — interest has nowhere to land and convert.",
+                        color: "#f87171",
+                      },
+                      OPTIMIZATION: {
+                        label: "Optimization Gap",
+                        desc: "Strong fundamentals — opportunity is in sharpening what already works.",
+                        color: "#34d399",
+                      },
+                    };
+                    const gapInfo = gap ? (gapLabels[gap] ?? null) : null;
+
+                    function ScoreBar({ value: v, color }: { value: number; color: string }) {
+                      return (
+                        <div className="h-1.5 w-full rounded-full bg-[#1a1a1a] overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-700"
+                            style={{ width: `${v}%`, backgroundColor: color }}
+                          />
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-3 pt-1">
+                        {/* Rescoring transition */}
+                        {isRescoring && (
+                          <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-6 flex flex-col items-center gap-3 text-center">
+                            <div className="w-5 h-5 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin" />
+                            <div>
+                              <p className="text-[12px] text-[#888]">Analyzing signals…</p>
+                              <p className="text-[10px] text-[#444] mt-0.5">Scoring this lead for your profile</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Score content — hidden while rescoring */}
+                        <div
+                          className={
+                            isRescoring ? "opacity-0 pointer-events-none" : "space-y-3 transition-opacity duration-500"
+                          }>
+                          {/* Hero score row */}
+                          <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-3 w-full">
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className="relative flex-shrink-0 w-12 h-12">
+                                <svg viewBox="0 0 56 56" className="w-full h-full -rotate-90">
+                                  <circle cx="28" cy="28" r="24" fill="none" stroke="#1a1a1a" strokeWidth="5" />
+                                  <circle
+                                    cx="28"
+                                    cy="28"
+                                    r="24"
+                                    fill="none"
+                                    stroke={scoreColor}
+                                    strokeWidth="5"
+                                    strokeDasharray={`${(value / 100) * 150.8} 150.8`}
+                                    strokeLinecap="round"
+                                  />
+                                </svg>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <span className="text-[13px] font-bold" style={{ color: scoreColor }}>
+                                    {value}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-[10px] uppercase tracking-widest text-[#555]">Score</p>
+                                <p className="font-semibold text-sm" style={{ color: scoreColor }}>
+                                  {scoreLabel}
+                                </p>
+                              </div>
+                            </div>
+                            <p className="text-[11px] text-[#666] leading-relaxed">
+                              {getScoreReason(detailLead, language)}
+                            </p>
+
+                            {detailWebsiteUrl && (
+                              <a
+                                href={detailWebsiteUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-block mt-1.5 text-[11px] text-[#c9a84c] hover:underline">
+                                Visit site ↗
+                              </a>
+                            )}
+                          </div>
+
+                          {/* 2×2 compact score circles */}
+                          <div className="grid grid-cols-2 gap-2">
+                            {(
+                              [
+                                {
+                                  short: "Opportunity",
+                                  label: "Opportunity",
+                                  value: opp,
+                                  color: opp >= 60 ? "#4ade80" : opp >= 35 ? "#c9a84c" : "#f87171",
+                                  tooltip: detailLead.score.tooltips?.opportunity ?? "",
+                                },
+                                {
+                                  short: "Readiness",
+                                  label: "Readiness",
+                                  value: readiness,
+                                  color: readiness >= 60 ? "#4ade80" : readiness >= 35 ? "#c9a84c" : "#f87171",
+                                  tooltip: detailLead.score.tooltips?.readiness ?? "",
+                                },
+                                {
+                                  short: "Risk",
+                                  label: "Risk",
+                                  value: risk,
+                                  color: risk >= 60 ? "#f87171" : risk >= 35 ? "#c9a84c" : "#4ade80",
+                                  tooltip: detailLead.score.tooltips?.risk ?? "",
+                                },
+                                {
+                                  short: "Fit",
+                                  label: "Fit",
+                                  value: fit ?? 0,
+                                  color: (fit ?? 0) >= 65 ? "#4ade80" : (fit ?? 0) >= 40 ? "#c9a84c" : "#f87171",
+                                  tooltip: detailLead.fit?.tooltip ?? detailLead.score.tooltips?.fit ?? "",
+                                },
+                              ] as { short: string; label: string; value: number; color: string; tooltip: string }[]
+                            ).map(({ short, label, value: v, color, tooltip }) => (
+                              <ScoreTooltip key={short} text={tooltip}>
+                                <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3 flex items-center gap-3 cursor-help">
+                                  <div className="relative flex-shrink-0 w-11 h-11">
+                                    <svg viewBox="0 0 44 44" className="w-full h-full -rotate-90">
+                                      <circle cx="22" cy="22" r="18" fill="none" stroke="#1a1a1a" strokeWidth="3.5" />
+                                      <circle
+                                        cx="22"
+                                        cy="22"
+                                        r="18"
+                                        fill="none"
+                                        stroke={color}
+                                        strokeWidth="3.5"
+                                        strokeDasharray={`${(v / 100) * 113.1} 113.1`}
+                                        strokeLinecap="round"
+                                      />
+                                    </svg>
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                      <span className="text-[11px] font-bold tabular-nums" style={{ color }}>
+                                        {v}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-[12px] text-[#888] font-medium">{label}</p>
                                   </div>
                                 </div>
+                              </ScoreTooltip>
+                            ))}
+                          </div>
 
-                                {detailTab === "overview" && (() => {
-                                  const opp = detailLead.score.opportunity ?? 0;
-                                  const readiness = detailLead.score.readiness ?? 0;
-                                  const risk = detailLead.score.risk ?? 0;
-                                  const value = detailLead.score.value ?? 0;
-                                  const fit = detailLead.fit?.fitScore ?? null;
-                                  const rp = detailLead.score.riskProfile ?? "unknown";
-                                  const hasRisk = rp === "early_stage" || rp === "limited_data" || rp === "well_established" || rp === "local_authority";
+                          {/* Gap + insight */}
+                          {(gapInfo || detailInsight?.message) && (
+                            <div className="space-y-2">
+                              {gapInfo && (
+                                <div
+                                  className="rounded-xl border p-3"
+                                  style={{ borderColor: `${gapInfo.color}30`, backgroundColor: `${gapInfo.color}06` }}>
+                                  <span
+                                    className="text-[10px] font-bold uppercase tracking-widest"
+                                    style={{ color: gapInfo.color }}>
+                                    ◆ {gapInfo.label}
+                                  </span>
+                                  <p className="text-[11px] text-[#666] mt-1 leading-snug break-words">
+                                    {gapInfo.desc}
+                                  </p>
+                                </div>
+                              )}
+                              {detailInsight?.message && (
+                                <div className="rounded-xl border border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.04)] p-3">
+                                  <p className="text-[13px] font-semibold text-[#e8c97a] break-words">
+                                    ⚡ {detailInsight.message}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
 
-                                  // Score ring colour
-                                  const scoreColor = value >= 70 ? "#4ade80" : value >= 45 ? "#c9a84c" : "#f87171";
-                                  const scoreLabel = value >= 70 ? "Strong Lead" : value >= 45 ? "Moderate Lead" : "Weak Lead";
-
-                                  // Gap type from outreach metadata
-                                  const gap = (detailLead.metadata?.outreach as { gap?: string } | null)?.gap ?? null;
-                                  const gapLabels: Record<string, { label: string; desc: string; color: string }> = {
-                                    VISIBILITY:    { label: "Visibility Gap",    desc: "Demand exists but this business isn't capturing it — weak channels or low presence.", color: "#818cf8" },
-                                    CONVERSION:    { label: "Conversion Gap",    desc: "Traffic or interest exists but leaks before becoming bookings or enquiries.",           color: "#fb923c" },
-                                    INFRASTRUCTURE:{ label: "Infrastructure Gap",desc: "No digital foundation — interest has nowhere to land and convert.",                    color: "#f87171" },
-                                    OPTIMIZATION:  { label: "Optimization Gap",  desc: "Strong fundamentals — opportunity is in sharpening what already works.",               color: "#34d399" },
-                                  };
-                                  const gapInfo = gap ? gapLabels[gap] ?? null : null;
-
-                                  function ScoreBar({ value: v, color }: { value: number; color: string }) {
-                                    return (
-                                      <div className="h-1.5 w-full rounded-full bg-[#1a1a1a] overflow-hidden">
-                                        <div
-                                          className="h-full rounded-full transition-all duration-700"
-                                          style={{ width: `${v}%`, backgroundColor: color }}
-                                        />
-                                      </div>
-                                    );
-                                  }
-
-                                  return (
-                                    <div className="space-y-3 pt-1">
-
-                                      {/* Rescoring transition */}
-                                      {isRescoring && (
-                                        <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-6 flex flex-col items-center gap-3 text-center">
-                                          <div className="w-5 h-5 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin" />
-                                          <div>
-                                            <p className="text-[12px] text-[#888]">Analyzing signals…</p>
-                                            <p className="text-[10px] text-[#444] mt-0.5">Scoring this lead for your profile</p>
-                                          </div>
-                                        </div>
-                                      )}
-
-                                      {/* Score content — hidden while rescoring */}
-                                      <div className={isRescoring ? "opacity-0 pointer-events-none" : "space-y-3 transition-opacity duration-500"}>
-
-                                      {/* Hero score row — click to open explanation modal */}
-                                      <button type="button" onClick={() => setShowScoreModal(detailLead.id)}
-                                        className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-3 w-full text-left hover:border-[rgba(201,168,76,0.3)] transition-colors group">
-                                        <div className="flex items-center gap-3 mb-2">
-                                          <div className="relative flex-shrink-0 w-12 h-12">
-                                            <svg viewBox="0 0 56 56" className="w-full h-full -rotate-90">
-                                              <circle cx="28" cy="28" r="24" fill="none" stroke="#1a1a1a" strokeWidth="5" />
-                                              <circle cx="28" cy="28" r="24" fill="none" stroke={scoreColor} strokeWidth="5"
-                                                strokeDasharray={`${(value / 100) * 150.8} 150.8`} strokeLinecap="round" />
-                                            </svg>
-                                            <div className="absolute inset-0 flex items-center justify-center">
-                                              <span className="text-[13px] font-bold" style={{ color: scoreColor }}>{value}</span>
-                                            </div>
-                                          </div>
-                                          <div className="min-w-0">
-                                            <p className="text-[10px] uppercase tracking-widest text-[#555]">Score</p>
-                                            <p className="font-semibold text-sm" style={{ color: scoreColor }}>{scoreLabel}</p>
-                                          </div>
-                                        </div>
-                                        <p className="text-[11px] text-[#666] leading-relaxed">
-                                          {getScoreReason(detailLead, language)}
-                                        </p>
-                                        <p className="text-[10px] text-[#333] mt-1.5 group-hover:text-[#555] transition-colors">Score breakdown →</p>
-                                        {detailWebsiteUrl && (
-                                          <a href={detailWebsiteUrl} target="_blank" rel="noreferrer"
-                                            onClick={e => e.stopPropagation()}
-                                            className="inline-block mt-1.5 text-[11px] text-[#c9a84c] hover:underline">
-                                            Visit site ↗
-                                          </a>
-                                        )}
-                                      </button>
-
-                                      {/* 2×2 compact score circles */}
-                                      <div className="grid grid-cols-2 gap-2">
-                                        {([
-                                          { short: "Opportunity", label: "Opportunity", value: opp,        color: opp >= 60 ? "#4ade80" : opp >= 35 ? "#c9a84c" : "#f87171",       tooltip: detailLead.score.tooltips?.opportunity ?? "" },
-                                          { short: "Readiness",   label: "Readiness",   value: readiness,  color: readiness >= 60 ? "#4ade80" : readiness >= 35 ? "#c9a84c" : "#f87171", tooltip: detailLead.score.tooltips?.readiness ?? "" },
-                                          { short: "Risk",        label: "Risk",        value: risk,       color: risk >= 60 ? "#f87171" : risk >= 35 ? "#c9a84c" : "#4ade80",       tooltip: detailLead.score.tooltips?.risk ?? "" },
-                                          { short: "Fit",         label: "Fit",         value: fit ?? 0,   color: (fit ?? 0) >= 65 ? "#4ade80" : (fit ?? 0) >= 40 ? "#c9a84c" : "#f87171", tooltip: detailLead.fit?.tooltip ?? detailLead.score.tooltips?.fit ?? "" },
-                                        ] as { short: string; label: string; value: number; color: string; tooltip: string }[]).map(({ short, label, value: v, color, tooltip }) => (
-                                          <ScoreTooltip key={short} text={tooltip}>
-                                            <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3 flex items-center gap-3 cursor-help">
-                                              <div className="relative flex-shrink-0 w-11 h-11">
-                                                <svg viewBox="0 0 44 44" className="w-full h-full -rotate-90">
-                                                  <circle cx="22" cy="22" r="18" fill="none" stroke="#1a1a1a" strokeWidth="3.5" />
-                                                  <circle cx="22" cy="22" r="18" fill="none" stroke={color} strokeWidth="3.5"
-                                                    strokeDasharray={`${(v / 100) * 113.1} 113.1`} strokeLinecap="round" />
-                                                </svg>
-                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                  <span className="text-[11px] font-bold tabular-nums" style={{ color }}>{v}</span>
-                                                </div>
-                                              </div>
-                                              <div className="min-w-0">
-                                                <p className="text-[12px] text-[#888] font-medium">{label}</p>
-                                              </div>
-                                            </div>
-                                          </ScoreTooltip>
-                                        ))}
-                                      </div>
-
-                                      {/* Gap + insight */}
-                                      {(gapInfo || detailInsight?.message) && (
-                                        <div className="space-y-2">
-                                          {gapInfo && (
-                                            <div className="rounded-xl border p-3" style={{ borderColor: `${gapInfo.color}30`, backgroundColor: `${gapInfo.color}06` }}>
-                                              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: gapInfo.color }}>◆ {gapInfo.label}</span>
-                                              <p className="text-[11px] text-[#666] mt-1 leading-snug break-words">{gapInfo.desc}</p>
-                                            </div>
-                                          )}
-                                          {detailInsight?.message && (
-                                            <div className="rounded-xl border border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.04)] p-3">
-                                              <p className="text-[13px] font-semibold text-[#e8c97a] break-words">⚡ {detailInsight.message}</p>
-                                            </div>
-                                          )}
-                                        </div>
-                                      )}
-
-                                      {/* Fit needs */}
-                                      {fit !== null && ((detailLead.fit?.matchedNeeds ?? []).length > 0 || (detailLead.fit?.missingNeeds ?? []).length > 0) && (
-                                        <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3 space-y-2">
-                                          {(detailLead.fit?.matchedNeeds ?? []).length > 0 && (
-                                            <div>
-                                              <p className="text-[9px] uppercase tracking-widest text-[#4ade80]/70 mb-1">✓ Can deliver</p>
-                                              <div className="flex flex-wrap gap-1">
-                                                {(detailLead.fit?.matchedNeeds ?? []).map((n: string) => (
-                                                  <span key={n} className="text-[10px] px-1.5 py-0.5 rounded bg-[#4ade80]/10 border border-[#4ade80]/20 text-[#4ade80]">{n}</span>
-                                                ))}
-                                              </div>
-                                            </div>
-                                          )}
-                                          {(detailLead.fit?.missingNeeds ?? []).length > 0 && (
-                                            <div>
-                                              <p className="text-[9px] uppercase tracking-widest text-[#f87171]/70 mb-1">✗ Can&apos;t cover</p>
-                                              <div className="flex flex-wrap gap-1">
-                                                {(detailLead.fit?.missingNeeds ?? []).map((n: string) => (
-                                                  <span key={n} className="text-[10px] px-1.5 py-0.5 rounded bg-[#f87171]/10 border border-[#f87171]/20 text-[#f87171]">{n}</span>
-                                                ))}
-                                              </div>
-                                            </div>
-                                          )}
-                                        </div>
-                                      )}
-
-                                      {/* Risk flag */}
-                                      {hasRisk && (
-                                        <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-3">
-                                          <p className="text-[13px] font-semibold text-rose-300">{riskTitleFromProfile(detailLead.score.riskProfile, t)}</p>
-                                          <p className="mt-0.5 text-[11px] text-rose-400/60 leading-relaxed break-words">{riskMessage(language, detailLead)}</p>
-                                        </div>
-                                      )}
-
-                                      {/* No website */}
-                                      {!detailWebsiteUrl && (
-                                        <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] px-3 py-2 flex items-center gap-2">
-                                          <span className="text-[#f87171] text-xs">✗</span>
-                                          <p className="text-[11px] text-[#555]">{t.ui.detail.noWebsite}</p>
-                                        </div>
-                                      )}
-                                      </div>{/* end score content wrapper */}
-                                    </div>
-                                  );
-                                })()}
-
-                                {detailTab === "signals" && (() => {
-                                  const bd = detailLead.score.breakdown;
-
-                                  type CatDef = { key: keyof typeof bd; label: string; hint: string; invert?: boolean };
-                                  const categories: CatDef[] = [
-                                    { key: "reputation",         label: "Reputation",        hint: "Reviews & rating quality." },
-                                    { key: "digitalPresence",    label: "Digital Pres.",      hint: "Website & social visibility." },
-                                    { key: "businessStrength",   label: "Biz Strength",       hint: "Maturity & ability to pay." },
-                                    { key: "opportunityGap",     label: "Opp. Gap",           hint: "Growth headroom available." },
-                                    { key: "stabilityRisk",      label: "Stability Risk",     hint: "Higher = riskier.", invert: true },
-                                    { key: "evidenceConfidence", label: "Evidence Conf.",     hint: "Signal data quality." },
-                                  ];
-
-                                  function barColor(v: number, invert = false) {
-                                    const high = invert ? "#f87171" : "#4ade80";
-                                    const mid  = "#c9a84c";
-                                    const low  = invert ? "#4ade80" : "#f87171";
-                                    return v >= 65 ? high : v >= 35 ? mid : low;
-                                  }
-
-                                  return (
-                                    <div className="space-y-3 pt-1">
-
-                                      {/* Category score bars */}
-                                      {bd && (
-                                        <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Breakdown</p>
-                                          {categories.map(({ key, label, hint, invert }) => {
-                                            const v = bd[key] ?? 0;
-                                            const color = barColor(v, invert);
-                                            return (
-                                              <div key={key} className="space-y-1">
-                                                <div className="flex items-center justify-between">
-                                                  <p className="text-[11px] text-[#888]">{label}</p>
-                                                  <p className="text-[12px] font-bold tabular-nums" style={{ color }}>{v}</p>
-                                                </div>
-                                                <div className="h-1.5 w-full rounded-full bg-[#1a1a1a] overflow-hidden">
-                                                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${v}%`, backgroundColor: color }} />
-                                                </div>
-                                                <p className="text-[10px] text-[#444] leading-snug hidden sm:block">{hint}</p>
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-                                      )}
-
-                                      {/* Score reasons */}
-                                      {detailLead.score.reasons?.length > 0 && (
-                                        <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-3 space-y-2">
-                                          <div className="flex items-center gap-2">
-                                            <p className="text-[9px] uppercase tracking-widest text-[#555]">Score evidence</p>
-                                            <div className="flex-1 h-[1px] bg-[#1a1a1a]" />
-                                          </div>
-                                          <div className="space-y-1.5">
-                                            {detailLead.score.reasons.map((reason: string, i: number) => {
-                                              const isPositive = /strong|high|good|great|excellent|active|present|above/i.test(reason);
-                                              const isNegative = /no |missing|low|weak|below|lacks|absent|poor/i.test(reason);
-                                              return (
-                                                <div key={i} className="flex items-start gap-2.5">
-                                                  <span className={`text-[10px] mt-0.5 flex-shrink-0 ${isPositive ? "text-[#4ade80]" : isNegative ? "text-[#f87171]" : "text-[#555]"}`}>
-                                                    {isPositive ? "✓" : isNegative ? "✗" : "·"}
-                                                  </span>
-                                                  <p className="text-[11px] text-[#888] leading-snug">{reason}</p>
-                                                </div>
-                                              );
-                                            })}
-                                          </div>
-                                        </div>
-                                      )}
-
-                                      {/* Website enrichment */}
-                                      {enrichmentLoading && (
-                                        <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] p-4 flex items-center gap-3">
-                                          <div className="w-3.5 h-3.5 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin shrink-0" />
-                                          <span className="text-[12px] text-[#555]">Scanning website signals…</span>
-                                        </div>
-                                      )}
-                                      {!safeEnrichment && !enrichmentLoading && detailLead.company.website && (
-                                        <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] p-4 space-y-1">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Web Signals</p>
-                                          <p className="text-[12px] text-[#444]">Scan failed — unreachable or blocked.</p>
-                                          <p className="text-[11px] text-[#333]">{detailLead.company.website}</p>
-                                        </div>
-                                      )}
-                                      {!safeEnrichment && !enrichmentLoading && !detailLead.company.website && (
-                                        <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] p-4">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#555] mb-1">Web Signals</p>
-                                          <p className="text-[12px] text-[#444]">No website — signals unavailable.</p>
-                                        </div>
-                                      )}
-
-                                      {safeEnrichment && !enrichmentLoading && (
-                                        <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                                          <div className="flex items-center justify-between">
-                                            <p className="text-[10px] uppercase tracking-widest text-[#555]">Web Signals</p>
-                                            <button type="button"
-                                              onClick={() => detailLead && runDeepScan(detailLead)}
-                                              disabled={enrichmentLoading}
-                                              className="text-[10px] px-2 py-1 rounded border border-[#252525] text-[#555] hover:border-[#444] hover:text-[#888] disabled:opacity-40 transition-colors">
-                                              ↻ Re-scan
-                                            </button>
-                                          </div>
-                                          <div className="grid grid-cols-2 gap-2">
-                                            {[
-                                              { key: "website_reachable",         label: "Reachable",        value: isReachable },
-                                              { key: "website_has_contact_page",  label: "Contact pg",       value: enrichmentSignals["website_has_contact_page"]?.value },
-                                              { key: "website_has_booking_cta",   label: "Booking CTA",      value: enrichmentSignals["website_has_booking_cta"]?.value },
-                                              { key: "website_has_clear_offer",   label: "Clear offer",      value: enrichmentSignals["website_has_clear_offer"]?.value },
-                                              { key: "website_mobile_friendly",   label: "Mobile ok",        value: enrichmentSignals["website_mobile_friendly"]?.value },
-                                            ].map(({ key, label, value: v }) => (
-                                              <div key={key} className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${v ? "border-[#4ade80]/20 bg-[#4ade80]/5" : "border-[#f87171]/15 bg-[#f87171]/5"}`}>
-                                                <span className={`text-xs ${v ? "text-[#4ade80]" : "text-[#f87171]"}`}>{v ? "✓" : "✗"}</span>
-                                                <span className="text-[11px] text-[#888]">{label}</span>
-                                              </div>
-                                            ))}
-                                          </div>
-                                          {detectedPlatforms.length > 0 && (
-                                            <div>
-                                              <p className="text-[10px] uppercase tracking-widest text-[#555] mb-1.5">Social</p>
-                                              <div className="flex flex-wrap gap-1.5">
-                                                {detectedPlatforms.map((p: string) => (
-                                                  <span key={p} className="text-[11px] px-2 py-0.5 rounded-md border border-[#252525] text-[#c8c0b0]">{p}</span>
-                                                ))}
-                                              </div>
-                                            </div>
-                                          )}
-                                        </div>
-                                      )}
-                                      
-                                    </div>
-                                  );
-                                })()}
-
-                                {detailTab === "signals" && deepScanData && (
-                                  <div className="space-y-3">
-                                    {/* Deep Score */}
-                                    <div className="rounded-xl border border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.04)] p-4">
-                                      <div className="flex items-center justify-between mb-3">
-                                        <div className="space-y-1">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#8a6e30]">Deep Scan</p>
-                                          {deepScanData.scannedAt && (
-                                            <div className="flex items-center gap-1.5">
-                                              {deepScanData.isFromCache && (
-                                                <span className="text-[9px] px-1.5 py-0.5 rounded border border-[#c9a84c]/20 bg-[#c9a84c]/08 text-[#8a6e30]">cached</span>
-                                              )}
-                                              <p className="text-[10px] text-[#444]">
-                                                Scanned {(() => {
-                                                  const diff = Date.now() - new Date(deepScanData.scannedAt).getTime();
-                                                  const mins = Math.floor(diff / 60000);
-                                                  const hours = Math.floor(diff / 3600000);
-                                                  const days = Math.floor(diff / 86400000);
-                                                  return days > 0 ? `${days}d ago` : hours > 0 ? `${hours}h ago` : mins > 0 ? `${mins}m ago` : "just now";
-                                                })()}
-                                              </p>
-                                            </div>
-                                          )}
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                          <span className="text-2xl font-bold text-[#c9a84c]">{deepScanData.deepScore}</span>
-                                          {deepScanData.isFromCache && (
-                                            <button
-                                              type="button"
-                                              onClick={() => detailLead && runDeepScan(detailLead)}
-                                              className="text-[10px] px-2 py-1 rounded border border-[#252525] text-[#555] hover:border-[#444] hover:text-[#888] transition-colors"
-                                            >↻ Rescan</button>
-                                          )}
-                                        </div>
-                                      </div>
-                                      {!deepScanData.pageReachable && (
-                                        <p className="text-[11px] text-[#555]">Unreachable — partial scores only.</p>
-                                      )}
-                                    </div>
-
-                                    {/* Website scores */}
-                                    <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                                      <div className="flex items-center justify-between">
-                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Website</p>
-                                        {deepScanData.website.summary && (
-                                          <p className="text-[10px] text-[#444] max-w-[60%] text-right truncate">{deepScanData.website.summary}</p>
-                                        )}
-                                      </div>
-                                      {Object.entries(deepScanData.website.scores).map(([key, val]) => {
-                                        const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (s: string) => s.toUpperCase());
-                                        const score = val as number;
-                                        const color = score >= 65 ? "#4ade80" : score >= 35 ? "#c9a84c" : "#f87171";
-                                        return (
-                                          <div key={key} className="space-y-1">
-                                            <div className="flex items-center justify-between">
-                                              <p className="text-[11px] text-[#888]">{label}</p>
-                                              <p className="text-[12px] font-bold tabular-nums" style={{ color }}>{val}</p>
-                                            </div>
-                                            <div className="h-1.5 w-full rounded-full bg-[#1a1a1a]">
-                                              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${val}%`, backgroundColor: color }} />
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-
-                                    {/* Market signals */}
-                                    <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                                      <p className="text-[10px] uppercase tracking-widest text-[#555]">Market</p>
-                                      {Object.entries(deepScanData.market.scores).map(([key, val]) => {
-                                        const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (s: string) => s.toUpperCase());
-                                        const score = val as number;
-                                        const color = score >= 65 ? "#4ade80" : score >= 35 ? "#c9a84c" : "#f87171";
-                                        return (
-                                          <div key={key} className="space-y-1">
-                                            <div className="flex items-center justify-between">
-                                              <p className="text-[11px] text-[#888]">{label}</p>
-                                              <p className="text-[12px] font-bold tabular-nums" style={{ color }}>{val}</p>
-                                            </div>
-                                            <div className="h-1.5 w-full rounded-full bg-[#1a1a1a]">
-                                              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${val}%`, backgroundColor: color }} />
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
-                                      {deepScanData.market.recommendation && (
-                                        <p className="text-[11px] text-[#666] border-t border-[#1a1a1a] pt-2">{deepScanData.market.recommendation}</p>
-                                      )}
-                                    </div>
-
-                                    {/* Brand grade */}
-                                    <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                                      <div className="flex items-center justify-between">
-                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Brand</p>
-                                        <span className="text-[13px] font-bold text-[#c9a84c]">Grade: {deepScanData.brand.brandGrade}</span>
-                                      </div>
-                                      {Object.entries(deepScanData.brand.scores).map(([key, val]) => {
-                                        const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (s: string) => s.toUpperCase());
-                                        const score = val as number;
-                                        const color = score >= 65 ? "#4ade80" : score >= 35 ? "#c9a84c" : "#f87171";
-                                        return (
-                                          <div key={key} className="space-y-1">
-                                            <div className="flex items-center justify-between">
-                                              <p className="text-[11px] text-[#888]">{label}</p>
-                                              <p className="text-[12px] font-bold tabular-nums" style={{ color }}>{val}</p>
-                                            </div>
-                                            <div className="h-1.5 w-full rounded-full bg-[#1a1a1a]">
-                                              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${val}%`, backgroundColor: color }} />
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
-                                      <div className="grid grid-cols-2 gap-2 border-t border-[#1a1a1a] pt-2">
-                                        <div className="rounded-lg border border-[#4ade80]/15 bg-[#4ade80]/5 px-2 py-1.5">
-                                          <p className="text-[9px] uppercase tracking-widest text-[#4ade80]/60 mb-0.5">Strength</p>
-                                          <p className="text-[11px] text-[#888]">{deepScanData.brand.strengthArea}</p>
-                                        </div>
-                                        <div className="rounded-lg border border-[#f87171]/15 bg-[#f87171]/5 px-2 py-1.5">
-                                          <p className="text-[9px] uppercase tracking-widest text-[#f87171]/60 mb-0.5">Weakest</p>
-                                          <p className="text-[11px] text-[#888]">{deepScanData.brand.weakestArea}</p>
-                                        </div>
-                                      </div>
+                          {/* Fit needs */}
+                          {fit !== null &&
+                            ((detailLead.fit?.matchedNeeds ?? []).length > 0 ||
+                              (detailLead.fit?.missingNeeds ?? []).length > 0) && (
+                              <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3 space-y-2">
+                                {(detailLead.fit?.matchedNeeds ?? []).length > 0 && (
+                                  <div>
+                                    <p className="text-[9px] uppercase tracking-widest text-[#4ade80]/70 mb-1">
+                                      ✓ Can deliver
+                                    </p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {(detailLead.fit?.matchedNeeds ?? []).map((n: string) => (
+                                        <span
+                                          key={n}
+                                          className="text-[10px] px-1.5 py-0.5 rounded bg-[#4ade80]/10 border border-[#4ade80]/20 text-[#4ade80]">
+                                          {n}
+                                        </span>
+                                      ))}
                                     </div>
                                   </div>
                                 )}
-
-                                {detailTab === "signals" && !deepScanData && !deepScanLoading && (
-                                  <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 flex items-center justify-between">
-                                    <div>
-                                      <p className="text-[12px] text-[#888] font-medium">Deep Scan</p>
-                                      <p className="text-[11px] text-[#444] mt-0.5 hidden sm:block">Website · market · brand</p>
+                                {(detailLead.fit?.missingNeeds ?? []).length > 0 && (
+                                  <div>
+                                    <p className="text-[9px] uppercase tracking-widest text-[#f87171]/70 mb-1">
+                                      ✗ Can&apos;t cover
+                                    </p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {(detailLead.fit?.missingNeeds ?? []).map((n: string) => (
+                                        <span
+                                          key={n}
+                                          className="text-[10px] px-1.5 py-0.5 rounded bg-[#f87171]/10 border border-[#f87171]/20 text-[#f87171]">
+                                          {n}
+                                        </span>
+                                      ))}
                                     </div>
-                                    {deepScanUnlocked ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => detailLead && runDeepScan(detailLead)}
-                                        className="text-[11px] px-3 py-1.5 rounded-lg border border-[rgba(201,168,76,0.3)] bg-[rgba(201,168,76,0.06)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.12)] transition-colors"
-                                      >
-                                        ◉ Run Scan
-                                      </button>
-                                    ) : (
-                                      <div className="relative group">
-                                        <button
-                                          type="button"
-                                          disabled
-                                          className="text-[11px] px-3 py-1.5 rounded-lg border border-[#2a2a2a] bg-[#111] text-[#444] cursor-not-allowed flex items-center gap-1.5"
-                                        >
-                                          <span>🔒</span>
-                                          <span>Deep Scan</span>
-                                        </button>
-                                        <div className="absolute bottom-full right-0 mb-2 w-56 rounded-xl border border-[#2a2a2a] bg-[#111] p-3 text-[11px] text-[#666] leading-relaxed opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50 shadow-xl">
-                                          <p className="text-[#c9a84c] font-medium mb-1">Operator & Agency feature</p>
-                                          <p>Deep Scan fetches the lead&apos;s website and analyses SEO structure, CTA strength, brand consistency, and market positioning — giving you a composite intelligence score before you reach out.</p>
-                                          <p className="mt-1 text-[#555]">Upgrade to unlock.</p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                          {/* Risk flag */}
+                          {hasRisk && (
+                            <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-3">
+                              <p className="text-[13px] font-semibold text-rose-300">
+                                {riskTitleFromProfile(detailLead.score.riskProfile, t)}
+                              </p>
+                              <p className="mt-0.5 text-[11px] text-rose-400/60 leading-relaxed break-words">
+                                {riskMessage(language, detailLead)}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* No website */}
+                          {!detailWebsiteUrl && (
+                            <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] px-3 py-2 flex items-center gap-2">
+                              <span className="text-[#f87171] text-xs">✗</span>
+                              <p className="text-[11px] text-[#555]">{t.ui.detail.noWebsite}</p>
+                            </div>
+                          )}
+
+                          {/* Signal breakdown bars — moved from Signals tab */}
+                          {(() => {
+                            const bd = detailLead.score.breakdown;
+                            if (!bd) return null;
+                            const bars = [
+                              {
+                                key: "reputation",
+                                label: "Reputation",
+                                hint: "Review volume & rating quality",
+                                invert: false,
+                              },
+                              {
+                                key: "digitalPresence",
+                                label: "Digital presence",
+                                hint: "Website & social footprint",
+                                invert: false,
+                              },
+                              {
+                                key: "businessStrength",
+                                label: "Business strength",
+                                hint: "Overall stability signals",
+                                invert: false,
+                              },
+                              {
+                                key: "opportunityGap",
+                                label: "Gap size",
+                                hint: "Size of gap you can sell into",
+                                invert: false,
+                              },
+                              {
+                                key: "stabilityRisk",
+                                label: "Stability risk",
+                                hint: "How risky is this lead",
+                                invert: true,
+                              },
+                              {
+                                key: "evidenceConfidence",
+                                label: "Evidence confidence",
+                                hint: "How reliable is this data",
+                                invert: false,
+                              },
+                            ] as const;
+                            return (
+                              <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3 space-y-3">
+                                <p className="text-[10px] uppercase tracking-widest text-[#444]">Signal breakdown</p>
+                                {bars.map(({ key, label, hint, invert }) => {
+                                  const v = (bd as Record<string, number>)[key] ?? 0;
+                                  const color = invert
+                                    ? v >= 65
+                                      ? "#f87171"
+                                      : v >= 35
+                                        ? "#c9a84c"
+                                        : "#4ade80"
+                                    : v >= 65
+                                      ? "#4ade80"
+                                      : v >= 35
+                                        ? "#c9a84c"
+                                        : "#f87171";
+                                  return (
+                                    <div key={key}>
+                                      <div className="flex items-center justify-between mb-1">
+                                        <div>
+                                          <p className="text-[11px] text-[#888]">{label}</p>
+                                          <p className="text-[9px] text-[#444]">{hint}</p>
+                                        </div>
+                                        <p className="text-[12px] font-bold tabular-nums" style={{ color }}>
+                                          {v}
+                                        </p>
+                                      </div>
+                                      <div className="h-1.5 w-full rounded-full bg-[#1a1a1a] overflow-hidden">
+                                        <div
+                                          className="h-full rounded-full"
+                                          style={{ width: `${v}%`, backgroundColor: color }}
+                                        />
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
+
+                          {/* Lead Snapshot button */}
+                          <button
+                            type="button"
+                            disabled
+                            className="w-full py-2 rounded-xl border border-[rgba(201,168,76,0.2)] text-[11px] text-[#8a6e30] bg-[rgba(201,168,76,0.04)] opacity-60 cursor-not-allowed flex items-center justify-center gap-2">
+                            <span>◈</span>
+                            <span>Lead Snapshot — coming soon</span>
+                          </button>
+                        </div>
+                        {/* end score content wrapper */}
+                      </div>
+                    );
+                  })()}
+
+                {detailTab === "signals" &&
+                  (() => {
+                    const bd = detailLead.score.breakdown;
+
+                    type CatDef = { key: keyof typeof bd; label: string; hint: string; invert?: boolean };
+                    const categories: CatDef[] = [
+                      { key: "reputation", label: "Reputation", hint: "Reviews & rating quality." },
+                      { key: "digitalPresence", label: "Digital Pres.", hint: "Website & social visibility." },
+                      { key: "businessStrength", label: "Biz Strength", hint: "Maturity & ability to pay." },
+                      { key: "opportunityGap", label: "Opp. Gap", hint: "Growth headroom available." },
+                      { key: "stabilityRisk", label: "Stability Risk", hint: "Higher = riskier.", invert: true },
+                      { key: "evidenceConfidence", label: "Evidence Conf.", hint: "Signal data quality." },
+                    ];
+
+                    function barColor(v: number, invert = false) {
+                      const high = invert ? "#f87171" : "#4ade80";
+                      const mid = "#c9a84c";
+                      const low = invert ? "#4ade80" : "#f87171";
+                      return v >= 65 ? high : v >= 35 ? mid : low;
+                    }
+
+                    return (
+                      <div className="space-y-3 pt-1">
+                        {/* Category score bars */}
+                        {bd && (
+                          <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+                            <p className="text-[10px] uppercase tracking-widest text-[#555]">Breakdown</p>
+                            {categories.map(({ key, label, hint, invert }) => {
+                              const v = bd[key] ?? 0;
+                              const color = barColor(v, invert);
+                              return (
+                                <div key={key} className="space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <p className="text-[11px] text-[#888]">{label}</p>
+                                    <p className="text-[12px] font-bold tabular-nums" style={{ color }}>
+                                      {v}
+                                    </p>
+                                  </div>
+                                  <div className="h-1.5 w-full rounded-full bg-[#1a1a1a] overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full transition-all duration-700"
+                                      style={{ width: `${v}%`, backgroundColor: color }}
+                                    />
+                                  </div>
+                                  <p className="text-[10px] text-[#444] leading-snug hidden sm:block">{hint}</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Score reasons */}
+                        {detailLead.score.reasons?.length > 0 && (
+                          <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-3 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <p className="text-[9px] uppercase tracking-widest text-[#555]">Score evidence</p>
+                              <div className="flex-1 h-[1px] bg-[#1a1a1a]" />
+                            </div>
+                            <div className="space-y-1.5">
+                              {detailLead.score.reasons.map((reason: string, i: number) => {
+                                const isPositive = /strong|high|good|great|excellent|active|present|above/i.test(
+                                  reason,
+                                );
+                                const isNegative = /no |missing|low|weak|below|lacks|absent|poor/i.test(reason);
+                                return (
+                                  <div key={i} className="flex items-start gap-2.5">
+                                    <span
+                                      className={`text-[10px] mt-0.5 flex-shrink-0 ${isPositive ? "text-[#4ade80]" : isNegative ? "text-[#f87171]" : "text-[#555]"}`}>
+                                      {isPositive ? "✓" : isNegative ? "✗" : "·"}
+                                    </span>
+                                    <p className="text-[11px] text-[#888] leading-snug">{reason}</p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Website enrichment */}
+                        {enrichmentLoading && (
+                          <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] p-4 flex items-center gap-3">
+                            <div className="w-3.5 h-3.5 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin shrink-0" />
+                            <span className="text-[12px] text-[#555]">Scanning website signals…</span>
+                          </div>
+                        )}
+                        {!safeEnrichment && !enrichmentLoading && detailLead.company.website && (
+                          <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] p-4 space-y-1">
+                            <p className="text-[10px] uppercase tracking-widest text-[#555]">Web Signals</p>
+                            <p className="text-[12px] text-[#444]">Scan failed — unreachable or blocked.</p>
+                            <p className="text-[11px] text-[#333]">{detailLead.company.website}</p>
+                          </div>
+                        )}
+                        {!safeEnrichment && !enrichmentLoading && !detailLead.company.website && (
+                          <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] p-4">
+                            <p className="text-[10px] uppercase tracking-widest text-[#555] mb-1">Web Signals</p>
+                            <p className="text-[12px] text-[#444]">No website — signals unavailable.</p>
+                          </div>
+                        )}
+
+                        {safeEnrichment && !enrichmentLoading && (
+                          <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[10px] uppercase tracking-widest text-[#555]">Web Signals</p>
+                              <button
+                                type="button"
+                                onClick={() => detailLead && runDeepScan(detailLead)}
+                                disabled={enrichmentLoading}
+                                className="text-[10px] px-2 py-1 rounded border border-[#252525] text-[#555] hover:border-[#444] hover:text-[#888] disabled:opacity-40 transition-colors">
+                                ↻ Re-scan
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              {[
+                                { key: "website_reachable", label: "Reachable", value: isReachable },
+                                {
+                                  key: "website_has_contact_page",
+                                  label: "Contact pg",
+                                  value: enrichmentSignals["website_has_contact_page"]?.value,
+                                },
+                                {
+                                  key: "website_has_booking_cta",
+                                  label: "Booking CTA",
+                                  value: enrichmentSignals["website_has_booking_cta"]?.value,
+                                },
+                                {
+                                  key: "website_has_clear_offer",
+                                  label: "Clear offer",
+                                  value: enrichmentSignals["website_has_clear_offer"]?.value,
+                                },
+                                {
+                                  key: "website_mobile_friendly",
+                                  label: "Mobile ok",
+                                  value: enrichmentSignals["website_mobile_friendly"]?.value,
+                                },
+                              ].map(({ key, label, value: v }) => (
+                                <div
+                                  key={key}
+                                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${v ? "border-[#4ade80]/20 bg-[#4ade80]/5" : "border-[#f87171]/15 bg-[#f87171]/5"}`}>
+                                  <span className={`text-xs ${v ? "text-[#4ade80]" : "text-[#f87171]"}`}>
+                                    {v ? "✓" : "✗"}
+                                  </span>
+                                  <span className="text-[11px] text-[#888]">{label}</span>
+                                </div>
+                              ))}
+                            </div>
+                            {detectedPlatforms.length > 0 && (
+                              <div>
+                                <p className="text-[10px] uppercase tracking-widest text-[#555] mb-1.5">Social</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {detectedPlatforms.map((p: string) => (
+                                    <span
+                                      key={p}
+                                      className="text-[11px] px-2 py-0.5 rounded-md border border-[#252525] text-[#c8c0b0]">
+                                      {p}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                {detailTab === "signals" && deepScanData && (
+                  <div className="space-y-3">
+                    {/* Deep Score */}
+                    <div className="rounded-xl border border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.04)] p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="space-y-1">
+                          <p className="text-[10px] uppercase tracking-widest text-[#8a6e30]">Deep Scan</p>
+                          {deepScanData.scannedAt && (
+                            <div className="flex items-center gap-1.5">
+                              {deepScanData.isFromCache && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded border border-[#c9a84c]/20 bg-[#c9a84c]/08 text-[#8a6e30]">
+                                  cached
+                                </span>
+                              )}
+                              <p className="text-[10px] text-[#444]">
+                                Scanned{" "}
+                                {(() => {
+                                  const diff = Date.now() - new Date(deepScanData.scannedAt).getTime();
+                                  const mins = Math.floor(diff / 60000);
+                                  const hours = Math.floor(diff / 3600000);
+                                  const days = Math.floor(diff / 86400000);
+                                  return days > 0
+                                    ? `${days}d ago`
+                                    : hours > 0
+                                      ? `${hours}h ago`
+                                      : mins > 0
+                                        ? `${mins}m ago`
+                                        : "just now";
+                                })()}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl font-bold text-[#c9a84c]">{deepScanData.deepScore}</span>
+                          {deepScanData.isFromCache && (
+                            <button
+                              type="button"
+                              onClick={() => detailLead && runDeepScan(detailLead)}
+                              className="text-[10px] px-2 py-1 rounded border border-[#252525] text-[#555] hover:border-[#444] hover:text-[#888] transition-colors">
+                              ↻ Rescan
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {!deepScanData.pageReachable && (
+                        <p className="text-[11px] text-[#555]">Unreachable — partial scores only.</p>
+                      )}
+                    </div>
+
+                    {/* Website scores */}
+                    <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Website</p>
+                        {deepScanData.website.summary && (
+                          <p className="text-[10px] text-[#444] max-w-[60%] text-right truncate">
+                            {deepScanData.website.summary}
+                          </p>
+                        )}
+                      </div>
+                      {Object.entries(deepScanData.website.scores).map(([key, val]) => {
+                        const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (s: string) => s.toUpperCase());
+                        const score = val as number;
+                        const color = score >= 65 ? "#4ade80" : score >= 35 ? "#c9a84c" : "#f87171";
+                        return (
+                          <div key={key} className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[11px] text-[#888]">{label}</p>
+                              <p className="text-[12px] font-bold tabular-nums" style={{ color }}>
+                                {val}
+                              </p>
+                            </div>
+                            <div className="h-1.5 w-full rounded-full bg-[#1a1a1a]">
+                              <div
+                                className="h-full rounded-full transition-all duration-700"
+                                style={{ width: `${val}%`, backgroundColor: color }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Market signals */}
+                    <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+                      <p className="text-[10px] uppercase tracking-widest text-[#555]">Market</p>
+                      {Object.entries(deepScanData.market.scores).map(([key, val]) => {
+                        const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (s: string) => s.toUpperCase());
+                        const score = val as number;
+                        const color = score >= 65 ? "#4ade80" : score >= 35 ? "#c9a84c" : "#f87171";
+                        return (
+                          <div key={key} className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[11px] text-[#888]">{label}</p>
+                              <p className="text-[12px] font-bold tabular-nums" style={{ color }}>
+                                {val}
+                              </p>
+                            </div>
+                            <div className="h-1.5 w-full rounded-full bg-[#1a1a1a]">
+                              <div
+                                className="h-full rounded-full transition-all duration-700"
+                                style={{ width: `${val}%`, backgroundColor: color }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {deepScanData.market.recommendation && (
+                        <p className="text-[11px] text-[#666] border-t border-[#1a1a1a] pt-2">
+                          {deepScanData.market.recommendation}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Brand grade */}
+                    <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Brand</p>
+                        <span className="text-[13px] font-bold text-[#c9a84c]">
+                          Grade: {deepScanData.brand.brandGrade}
+                        </span>
+                      </div>
+                      {Object.entries(deepScanData.brand.scores).map(([key, val]) => {
+                        const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (s: string) => s.toUpperCase());
+                        const score = val as number;
+                        const color = score >= 65 ? "#4ade80" : score >= 35 ? "#c9a84c" : "#f87171";
+                        return (
+                          <div key={key} className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[11px] text-[#888]">{label}</p>
+                              <p className="text-[12px] font-bold tabular-nums" style={{ color }}>
+                                {val}
+                              </p>
+                            </div>
+                            <div className="h-1.5 w-full rounded-full bg-[#1a1a1a]">
+                              <div
+                                className="h-full rounded-full transition-all duration-700"
+                                style={{ width: `${val}%`, backgroundColor: color }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div className="grid grid-cols-2 gap-2 border-t border-[#1a1a1a] pt-2">
+                        <div className="rounded-lg border border-[#4ade80]/15 bg-[#4ade80]/5 px-2 py-1.5">
+                          <p className="text-[9px] uppercase tracking-widest text-[#4ade80]/60 mb-0.5">Strength</p>
+                          <p className="text-[11px] text-[#888]">{deepScanData.brand.strengthArea}</p>
+                        </div>
+                        <div className="rounded-lg border border-[#f87171]/15 bg-[#f87171]/5 px-2 py-1.5">
+                          <p className="text-[9px] uppercase tracking-widest text-[#f87171]/60 mb-0.5">Weakest</p>
+                          <p className="text-[11px] text-[#888]">{deepScanData.brand.weakestArea}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {detailTab === "signals" && !deepScanData && !deepScanLoading && (
+                  <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-[12px] text-[#888] font-medium">Deep Scan</p>
+                      <p className="text-[11px] text-[#444] mt-0.5 hidden sm:block">Website · market · brand</p>
+                    </div>
+                    {deepScanUnlocked ? (
+                      <button
+                        type="button"
+                        onClick={() => detailLead && runDeepScan(detailLead)}
+                        className="text-[11px] px-3 py-1.5 rounded-lg border border-[rgba(201,168,76,0.3)] bg-[rgba(201,168,76,0.06)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.12)] transition-colors">
+                        ◉ Run Scan
+                      </button>
+                    ) : (
+                      <div className="relative group">
+                        <button
+                          type="button"
+                          disabled
+                          className="text-[11px] px-3 py-1.5 rounded-lg border border-[#2a2a2a] bg-[#111] text-[#444] cursor-not-allowed flex items-center gap-1.5">
+                          <span>🔒</span>
+                          <span>Deep Scan</span>
+                        </button>
+                        <div className="absolute bottom-full right-0 mb-2 w-56 rounded-xl border border-[#2a2a2a] bg-[#111] p-3 text-[11px] text-[#666] leading-relaxed opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50 shadow-xl">
+                          <p className="text-[#c9a84c] font-medium mb-1">Operator & Agency feature</p>
+                          <p>
+                            Deep Scan fetches the lead&apos;s website and analyses SEO structure, CTA strength, brand
+                            consistency, and market positioning — giving you a composite intelligence score before you
+                            reach out.
+                          </p>
+                          <p className="mt-1 text-[#555]">Upgrade to unlock.</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {detailTab === "signals" && deepScanLoading && (
+                  <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 flex items-center gap-3">
+                    <div className="w-3.5 h-3.5 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin shrink-0" />
+                    <span className="text-[12px] text-[#555]">
+                      Running deep scan — fetching website, market & brand signals…
+                    </span>
+                  </div>
+                )}
+
+                {detailTab === "outreach" &&
+                  (() => {
+                    const gap = (safeOutreach as { gap?: string } | null)?.gap ?? null;
+                    const difficulty = (safeOutreach as { difficulty?: string } | null)?.difficulty ?? null;
+                    const structured = getStructuredAngle(detailLead, language);
+                    const title = angleTitle || structured.title;
+                    const why = angleWhy || structured.why;
+
+                    const gapConfig: Record<
+                      string,
+                      { label: string; color: string; icon: string; intervention: string }
+                    > = {
+                      VISIBILITY: {
+                        label: "Visibility Gap",
+                        color: "#818cf8",
+                        icon: "◎",
+                        intervention: "Build high-intent capture channels — search, retargeting, demand-side content.",
+                      },
+                      CONVERSION: {
+                        label: "Conversion Gap",
+                        color: "#fb923c",
+                        icon: "⬡",
+                        intervention: "Fix the funnel — booking flow, tracking, and follow-up sequence.",
+                      },
+                      INFRASTRUCTURE: {
+                        label: "Infrastructure Gap",
+                        color: "#f87171",
+                        icon: "△",
+                        intervention: "Build the foundation — a conversion-focused page with clear offer and CTA.",
+                      },
+                      OPTIMIZATION: {
+                        label: "Optimization Gap",
+                        color: "#34d399",
+                        icon: "◆",
+                        intervention: "Sharpen what works — A/B test, optimise copy, tighten conversion paths.",
+                      },
+                    };
+                    const gc = gap ? (gapConfig[gap] ?? null) : null;
+
+                    const tones = [
+                      { key: "soft", label: "Soft", desc: "Friendly, low-pressure. Best for cold or high-risk leads." },
+                      {
+                        key: "consultative",
+                        label: "Consultative",
+                        desc: "Advisory tone. Lead with insight, not pitch.",
+                      },
+                      {
+                        key: "direct",
+                        label: "Direct",
+                        desc: "Assertive and confident. Best for warm or low-friction leads.",
+                      },
+                      {
+                        key: "bold",
+                        label: "Bold",
+                        desc: "Pattern-interrupt. Stands out but requires strong positioning.",
+                      },
+                    ];
+
+                    const difficultyConfig: Record<string, { label: string; color: string; desc: string }> = {
+                      LOW: {
+                        label: "Low friction",
+                        color: "#4ade80",
+                        desc: "Easy to engage — direct or bold tone recommended.",
+                      },
+                      MEDIUM: {
+                        label: "Medium friction",
+                        color: "#c9a84c",
+                        desc: "Approach carefully — consultative tone works well.",
+                      },
+                      HIGH: {
+                        label: "High friction",
+                        color: "#f87171",
+                        desc: "Hard to reach — soft or consultative tone only.",
+                      },
+                    };
+                    const dc = difficulty ? (difficultyConfig[difficulty] ?? null) : null;
+                    const channelPrimary = !detailLead.company.website ? "Direct visit or phone" : "Email";
+
+                    return (
+                      <div className="space-y-3 pt-1">
+                        {/* Angle */}
+                        {title && (
+                          <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4">
+                            <p className="text-[9px] uppercase tracking-widest text-[#555] mb-1.5">Angle</p>
+                            <p className="text-[13px] font-semibold text-[#e8c97a] mb-1">{title}</p>
+                            {why && <p className="text-[11px] text-[#666] leading-relaxed">{why}</p>}
+                          </div>
+                        )}
+
+                        {/* Gap */}
+                        {gc && (
+                          <div
+                            className="rounded-xl border p-4"
+                            style={{ borderColor: `${gc.color}30`, backgroundColor: `${gc.color}06` }}>
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span style={{ color: gc.color }}>{gc.icon}</span>
+                              <p
+                                className="text-[10px] font-bold uppercase tracking-widest"
+                                style={{ color: gc.color }}>
+                                {gc.label}
+                              </p>
+                            </div>
+                            <p className="text-[11px] text-[#888] leading-relaxed">{gc.intervention}</p>
+                          </div>
+                        )}
+
+                        {/* Friction + channel */}
+                        <div className="grid grid-cols-2 gap-2">
+                          {dc && (
+                            <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3">
+                              <p className="text-[9px] uppercase tracking-widest text-[#444] mb-1">Friction</p>
+                              <p className="text-[11px] font-semibold" style={{ color: dc.color }}>
+                                {dc.label}
+                              </p>
+                              <p className="text-[10px] text-[#555] mt-1 leading-snug">{dc.desc}</p>
+                            </div>
+                          )}
+                          <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3">
+                            <p className="text-[9px] uppercase tracking-widest text-[#444] mb-1">Channel</p>
+                            <p className="text-[11px] font-semibold text-[#c9a84c]">{channelPrimary}</p>
+                            <p className="text-[10px] text-[#555] mt-1 leading-snug">Best first point of contact</p>
+                          </div>
+                        </div>
+
+                        {/* Tone guide */}
+                        <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-4">
+                          <p className="text-[9px] uppercase tracking-widest text-[#444] mb-2.5">Tone guide</p>
+                          <div className="space-y-2">
+                            {tones.map((tone) => {
+                              const isRecommended = dc
+                                ? (difficulty === "HIGH" && (tone.key === "soft" || tone.key === "consultative")) ||
+                                  (difficulty === "MEDIUM" && tone.key === "consultative") ||
+                                  (difficulty === "LOW" && (tone.key === "direct" || tone.key === "bold"))
+                                : false;
+                              return (
+                                <div
+                                  key={tone.key}
+                                  className={
+                                    "flex items-start gap-2.5 rounded-lg p-2 " +
+                                    (isRecommended
+                                      ? "bg-[rgba(201,168,76,0.06)] border border-[rgba(201,168,76,0.15)]"
+                                      : "")
+                                  }>
+                                  <span
+                                    className={
+                                      "text-[10px] mt-0.5 " + (isRecommended ? "text-[#c9a84c]" : "text-[#333]")
+                                    }>
+                                    {isRecommended ? "★" : "○"}
+                                  </span>
+                                  <div>
+                                    <p
+                                      className={
+                                        "text-[11px] font-semibold " +
+                                        (isRecommended ? "text-[#c9a84c]" : "text-[#666]")
+                                      }>
+                                      {tone.label}
+                                    </p>
+                                    <p className="text-[10px] text-[#444] leading-snug">{tone.desc}</p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Open in Outreach CTA */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Store full lead snapshot in sessionStorage for outreach page
+                            const snapshot = {
+                              id: detailLead.id,
+                              company_name: detailLead.company.name,
+                              industry: detailLead.classification.primaryIndustry ?? null,
+                              city: detailLead.company.city ?? null,
+                              website: detailLead.company.website ?? null,
+                              rating: detailLead.metrics.rating ?? null,
+                              review_count: detailLead.metrics.reviewCount ?? null,
+                              social_presence: detailLead.metrics.socialPresence ?? null,
+                              opportunity: detailLead.score.opportunity,
+                              readiness: detailLead.score.readiness,
+                              risk: detailLead.score.risk,
+                              signals: enrichmentData?.signals ?? {},
+                              matched_needs: detailLead.fit?.matchedNeeds ?? [],
+                              missing_needs: detailLead.fit?.missingNeeds ?? [],
+                              fit_score: detailLead.fit?.fitScore ?? 0,
+                            };
+                            localStorage.setItem("vantio_outreach_lead", JSON.stringify(snapshot));
+                            window.location.href = "/outreach";
+                          }}
+                          className="flex items-center justify-between w-full px-4 py-3 rounded-xl border border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.04)] hover:bg-[rgba(201,168,76,0.08)] transition-all group">
+                          <div>
+                            <p className="text-[12px] font-semibold text-[#c9a84c]">Generate outreach message</p>
+                            <p className="text-[10px] text-[#555] mt-0.5">
+                              Signal-driven · 3-stage pipeline · Operator+
+                            </p>
+                          </div>
+                          <span className="text-[#8a6e30] group-hover:text-[#c9a84c] transition-colors text-sm">→</span>
+                        </button>
+                      </div>
+                    );
+                  })()}
+
+                {detailTab === "tracking" &&
+                  (() => {
+                    const canSave = Number.isFinite(runIdNum) && runIdNum > 0;
+
+                    // Pipeline stage — furthest reached
+                    const stage = closed ? 3 : bookedCall ? 2 : replied ? 1 : contacted ? 0 : -1;
+                    const stages = [
+                      { key: "contacted", label: "Contacted", icon: "✉" },
+                      { key: "replied", label: "Replied", icon: "↩" },
+                      { key: "booked_call", label: "Booked", icon: "📅" },
+                      { key: "closed", label: "Closed", icon: "✦" },
+                    ] as const;
+
+                    const lostReason = selectedOutcome?.lost_reason ?? null;
+                    const isLost = !!lostReason;
+
+                    const revenueVal = selectedOutcome?.revenue ?? null;
+                    const notesVal = selectedOutcome?.notes ?? "";
+                    const followupVal = selectedOutcome?.followup_date ?? "";
+                    // Derive difficulty for auto follow-up calculation
+                    const safeOutreachForTracking = (detailLead?.metadata?.outreach ?? null) as {
+                      difficulty?: string;
+                    } | null;
+                    const difficultyForTracking = safeOutreachForTracking?.difficulty ?? null;
+                    const tonalityVal = selectedOutcome?.tonality ?? null;
+                    const scoreSnap = selectedOutcome?.score_at_outreach ?? detailLead.score.value ?? null;
+
+                    // Show lost reason picker when contacted but never progressed past contacted, or explicitly stalled
+                    const showLostReason = (contacted && !closed) || isLost;
+
+                    const lostReasons: { key: LeadOutcomeUI["lost_reason"]; label: string }[] = [
+                      { key: "no_response", label: "No response" },
+                      { key: "not_interested", label: "Not interested" },
+                      { key: "has_provider", label: "Has provider" },
+                      { key: "wrong_timing", label: "Wrong timing" },
+                      { key: "price_too_high", label: "Price too high" },
+                      { key: "chose_competitor", label: "Chose competitor" },
+                      { key: "other", label: "Other" },
+                    ];
+
+                    return (
+                      <div className="space-y-3 pt-1">
+                        {/* Score snapshot */}
+                        {scoreSnap !== null && (
+                          <div className="rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] px-4 py-3 flex items-center justify-between">
+                            <p className="text-[10px] uppercase tracking-widest text-[#444]">Score at outreach</p>
+                            <span
+                              className={
+                                "text-sm font-medium " +
+                                (scoreSnap >= 70
+                                  ? "text-[#4ade80]"
+                                  : scoreSnap >= 50
+                                    ? "text-[#c9a84c]"
+                                    : "text-[#f87171]")
+                              }>
+                              {scoreSnap}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Pipeline funnel */}
+                        <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="text-[10px] uppercase tracking-widest text-[#555]">
+                              {t.ui.detail.outcomeTracking}
+                            </p>
+                            {isSavingOutcome && (
+                              <p className="text-[10px] text-[#555] animate-pulse">{t.ui.detail.saving}…</p>
+                            )}
+                          </div>
+                          <div className="flex items-stretch gap-1">
+                            {stages.map(({ key, label, icon }, i) => {
+                              const checked =
+                                key === "contacted"
+                                  ? contacted
+                                  : key === "replied"
+                                    ? replied
+                                    : key === "booked_call"
+                                      ? bookedCall
+                                      : closed;
+                              const isActive = i <= stage;
+                              const isCurrent = i === stage;
+                              return (
+                                <button
+                                  key={key}
+                                  type="button"
+                                  disabled={!canSave || isLost}
+                                  onClick={() => {
+                                    if (!canSave || isLost) return;
+                                    const isFirstContact = key === "contacted" && !contacted;
+                                    saveOutcome({
+                                      runId: runIdNum,
+                                      leadId: detailLead.id,
+                                      patch: {
+                                        ...buildOutcomePatch(key, !checked),
+                                        ...(isFirstContact
+                                          ? { score_at_outreach: detailLead.score.value ?? null }
+                                          : {}),
+                                      },
+                                    });
+                                  }}
+                                  className={
+                                    "flex-1 flex flex-col items-center gap-1.5 py-2.5 rounded-lg border transition-all " +
+                                    (isLost
+                                      ? "opacity-30 cursor-not-allowed border-[#1a1a1a] bg-[#0d0d0d]"
+                                      : isCurrent
+                                        ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)]"
+                                        : isActive
+                                          ? "border-[#4ade80]/30 bg-[#4ade80]/5"
+                                          : "border-[#1a1a1a] bg-[#111] hover:border-[#252525]") +
+                                    " disabled:cursor-not-allowed"
+                                  }>
+                                  <span
+                                    className={
+                                      "text-sm transition-colors " +
+                                      (isLost
+                                        ? "text-[#333]"
+                                        : isCurrent
+                                          ? "text-[#c9a84c]"
+                                          : isActive
+                                            ? "text-[#4ade80]"
+                                            : "text-[#333]")
+                                    }>
+                                    {isActive ? (i < stage ? "✓" : icon) : icon}
+                                  </span>
+                                  <span
+                                    className={
+                                      "text-[9px] tracking-wide " +
+                                      (isLost ? "text-[#333]" : isActive ? "text-[#888]" : "text-[#333]")
+                                    }>
+                                    {label}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                            {/* Lost button */}
+                            <button
+                              type="button"
+                              disabled={!canSave}
+                              onClick={() => {
+                                if (!canSave) return;
+                                if (isLost) {
+                                  // Un-mark as lost
+                                  saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { lost_reason: null } });
+                                } else {
+                                  // Mark as lost with default reason — user picks reason below
+                                  saveOutcome({
+                                    runId: runIdNum,
+                                    leadId: detailLead.id,
+                                    patch: { lost_reason: "no_response" },
+                                  });
+                                }
+                              }}
+                              className={
+                                "flex flex-col items-center gap-1.5 py-2.5 px-2.5 rounded-lg border transition-all disabled:cursor-not-allowed " +
+                                (isLost
+                                  ? "border-[#f87171]/50 bg-[#f87171]/10 text-[#f87171]"
+                                  : "border-[#1a1a1a] bg-[#111] text-[#555] hover:border-[#f87171]/30 hover:text-[#f87171]/70")
+                              }>
+                              <span className="text-sm">✗</span>
+                              <span className="text-[9px] tracking-wide">Lost</span>
+                            </button>
+                          </div>
+                          {isLost && (
+                            <p className="text-[11px] text-[#f87171]/70 mt-2 text-center">
+                              Marked as lost — select reason below
+                            </p>
+                          )}
+                          {!isLost && stage >= 0 && (
+                            <p className="text-[11px] text-[#555] mt-2 text-center">
+                              {stage === 3 ? t.ui.detail.dealClosed : `${stage + 1} ${t.ui.detail.stagesReached}`}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Lost reason — shown when contacted but stalled */}
+                        {showLostReason && (
+                          <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
+                            <p className="text-[10px] uppercase tracking-widest text-[#555]">Lost why</p>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {lostReasons.map(({ key, label }) => (
+                                <button
+                                  key={key}
+                                  type="button"
+                                  disabled={!canSave}
+                                  onClick={() =>
+                                    canSave &&
+                                    saveOutcome({
+                                      runId: runIdNum,
+                                      leadId: detailLead.id,
+                                      patch: { lost_reason: lostReason === key ? null : key },
+                                    })
+                                  }
+                                  className={
+                                    "px-3 py-2 rounded-lg border text-[11px] transition-all text-left " +
+                                    (lostReason === key
+                                      ? "border-[#f87171]/40 bg-[#f87171]/8 text-[#f87171]"
+                                      : "border-[#1a1a1a] bg-[#111] text-[#555] hover:border-[#252525] hover:text-[#888]") +
+                                    " disabled:cursor-not-allowed"
+                                  }>
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Tonality used */}
+                        <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
+                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Tone</p>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {(
+                              [
+                                { key: "soft", label: "Soft" },
+                                { key: "consultative", label: "Consultative" },
+                                { key: "direct", label: "Direct" },
+                                { key: "bold", label: "Bold" },
+                              ] as const
+                            ).map((tone) => (
+                              <button
+                                key={tone.key}
+                                type="button"
+                                disabled={!canSave}
+                                onClick={() =>
+                                  canSave &&
+                                  saveOutcome({
+                                    runId: runIdNum,
+                                    leadId: detailLead.id,
+                                    patch: { tonality: tonalityVal === tone.key ? null : tone.key },
+                                  })
+                                }
+                                className={
+                                  "py-2 rounded-lg border text-[11px] transition-all " +
+                                  (tonalityVal === tone.key
+                                    ? "border-[#c9a84c]/40 bg-[rgba(201,168,76,0.08)] text-[#c9a84c]"
+                                    : "border-[#1a1a1a] bg-[#111] text-[#555] hover:border-[#252525] hover:text-[#888]") +
+                                  " disabled:cursor-not-allowed"
+                                }>
+                                {tone.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Revenue input */}
+                        <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+                          <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.dealValue}</p>
+                          {(() => {
+                            const loc = (location ?? "").toLowerCase();
+                            const sym =
+                              loc.includes("sweden") ||
+                              loc.includes("sverige") ||
+                              loc.includes("stockholm") ||
+                              loc.includes("göteborg") ||
+                              loc.includes("malmö") ||
+                              loc.includes(", se") ||
+                              loc.endsWith(" se")
+                                ? "kr"
+                                : loc.includes("uk") || loc.includes("london") || loc.includes("england")
+                                  ? "£"
+                                  : loc.includes("euro") ||
+                                      loc.includes("germany") ||
+                                      loc.includes("france") ||
+                                      loc.includes("spain")
+                                    ? "€"
+                                    : "$";
+                            return (
+                              <>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[#555] text-sm">{sym}</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="0"
+                                    defaultValue={revenueVal ?? ""}
+                                    disabled={!canSave}
+                                    onBlur={(e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+                                      if (!canSave) return;
+                                      const v = parseFloat(e.target.value);
+                                      saveOutcome({
+                                        runId: runIdNum,
+                                        leadId: detailLead.id,
+                                        patch: { revenue: Number.isFinite(v) ? v : null },
+                                      });
+                                    }}
+                                    className="flex-1 bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-sm text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40"
+                                  />
+                                </div>
+                                {closed && revenueVal && (
+                                  <p className="text-[11px] text-[#4ade80]">
+                                    ✦ {sym}
+                                    {revenueVal.toLocaleString()} closed
+                                  </p>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
+
+                        {/* Notes */}
+                        <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
+                          <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.notes}</p>
+                          <textarea
+                            rows={3}
+                            placeholder="Objections, context, follow-up reminders…"
+                            defaultValue={notesVal ?? ""}
+                            disabled={!canSave}
+                            onBlur={(e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+                              if (!canSave) return;
+                              saveOutcome({
+                                runId: runIdNum,
+                                leadId: detailLead.id,
+                                patch: { notes: e.target.value.trim() || null },
+                              });
+                            }}
+                            className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-[12px] text-[#c8c0b0] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors resize-none disabled:opacity-40"
+                          />
+                          <p className="text-[10px] text-[#333]">{t.ui.detail.savesOnBlur}</p>
+                        </div>
+
+                        {/* Activity log — sent emails for this lead */}
+                        {(() => {
+                          const leadEmails = (() => {
+                            try {
+                              const key = `vantio_activity_${detailLead.id}`;
+                              return JSON.parse(localStorage.getItem(key) ?? "[]") as Array<{
+                                subject: string;
+                                to: string;
+                                sentAt: string;
+                                body: string;
+                              }>;
+                            } catch {
+                              return [];
+                            }
+                          })();
+                          if (leadEmails.length === 0) return null;
+                          return (
+                            <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+                              <p className="text-[10px] uppercase tracking-widests text-[#555]">Sent messages</p>
+                              <div className="space-y-2">
+                                {leadEmails.map((e, i) => (
+                                  <div
+                                    key={i}
+                                    className="rounded-lg border border-[#1a1a1a] bg-[#080808] px-3 py-2.5 space-y-1">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <p className="text-[12px] font-medium text-[#c8c0b0] truncate">{e.subject}</p>
+                                      <p className="text-[10px] text-[#333] flex-shrink-0">
+                                        {new Date(e.sentAt).toLocaleDateString()}
+                                      </p>
+                                    </div>
+                                    <p className="text-[10px] text-[#444]">To: {e.to}</p>
+                                    <p className="text-[11px] text-[#555] line-clamp-2 leading-relaxed">{e.body}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    );
+                  })()}
+
+                {detailTab === "followup" &&
+                  (() => {
+                    const canSaveFollowup = Number.isFinite(runIdNum) && runIdNum > 0;
+                    const followupVal = selectedOutcome?.followup_date ?? "";
+                    const closedFU = !!selectedOutcome?.closed;
+                    const CH_ICONS_FU: Record<string, string> = { email: "✉", call: "☎", dm: "◎", linkedin: "in" };
+                    const CH_LABELS_FU: Record<string, string> = {
+                      email: "Email",
+                      call: "Call",
+                      dm: "DM",
+                      linkedin: "LinkedIn",
+                    };
+                    const ST_STYLES_FU: Record<string, { color: string; label: string }> = {
+                      pending: { color: "#555", label: "Pending" },
+                      sent: { color: "#3b82f6", label: "Sent" },
+                      replied: { color: "#4ade80", label: "Replied" },
+                      skipped: { color: "#333", label: "Skipped" },
+                    };
+                    const CAD_LABELS_FU: Record<string, string> = {
+                      aggressive: "Hot cadence",
+                      standard: "Standard cadence",
+                      nurture: "Nurture cadence",
+                    };
+
+                    async function buildSeq() {
+                      if (!detailLead || sequenceGenerating) return;
+                      setSequenceGenerating(true);
+                      try {
+                        const res = await fetch("/api/sequences", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            leadId: detailLead.id,
+                            runId: Number(detailLead.metadata.runId),
+                            companyName: detailLead.company.name,
+                            outreachRequest: {
+                              company_name: detailLead.company.name,
+                              industry: detailLead.classification.primaryIndustry ?? null,
+                              city: detailLead.company.city ?? null,
+                              website: detailLead.company.website ?? null,
+                              rating: detailLead.metrics.rating ?? null,
+                              review_count: detailLead.metrics.reviewCount ?? null,
+                              social_presence: detailLead.metrics.socialPresence ?? null,
+                              opportunity: detailLead.score.opportunity ?? 0,
+                              readiness: detailLead.score.readiness ?? 0,
+                              risk: detailLead.score.risk ?? 0,
+                              signals: enrichmentSignals ?? {},
+                              matched_needs: detailLead.fit?.matchedNeeds ?? [],
+                              missing_needs: detailLead.fit?.missingNeeds ?? [],
+                              fit_score: detailLead.fit?.fitScore ?? 50,
+                              language: language,
+                            },
+                            opportunity: detailLead.score.opportunity ?? 0,
+                            fitScore: detailLead.fit?.fitScore ?? 50,
+                            riskProfile: detailLead.score.riskProfile ?? "unknown",
+                          }),
+                        });
+                        if (res.ok) {
+                          const data = (await res.json()) as { steps?: typeof sequenceSteps };
+                          setSequenceSteps(data.steps ?? []);
+                        }
+                      } finally {
+                        setSequenceGenerating(false);
+                      }
+                    }
+
+                    async function patchSeqStep(stepId: number, status: string) {
+                      const res = await fetch(`/api/sequences/${stepId}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ status }),
+                      });
+                      if (res.ok) setSequenceSteps((prev) => prev.map((s) => (s.id === stepId ? { ...s, status } : s)));
+                    }
+
+                    if (sequenceLoading)
+                      return <div className="py-8 text-center text-[#444] text-sm animate-pulse">Loading…</div>;
+
+                    // Next pending step from sequence
+                    const nextSeqStep =
+                      sequenceSteps
+                        .filter((s) => s.status === "pending")
+                        .sort(
+                          (a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime(),
+                        )[0] ?? null;
+
+                    return (
+                      <div className="space-y-4 pt-1">
+                        {/* Follow-up reminder — sequence driven */}
+                        {nextSeqStep ? (
+                          (() => {
+                            const daysOff = Math.round(
+                              (new Date(nextSeqStep.scheduled_date).setHours(0, 0, 0, 0) -
+                                new Date().setHours(0, 0, 0, 0)) /
+                                86400000,
+                            );
+                            const overdue = daysOff < 0;
+                            const tod = daysOff === 0;
+                            const dateColor = overdue ? "#f87171" : tod ? "#c9a84c" : "#4ade80";
+                            const dateLabel = overdue
+                              ? `${Math.abs(daysOff)}d overdue`
+                              : tod
+                                ? "Today"
+                                : daysOff === 1
+                                  ? "Tomorrow"
+                                  : `In ${daysOff}d`;
+                            const sentCount = sequenceSteps.filter(
+                              (s) => s.status === "sent" || s.status === "replied",
+                            ).length;
+                            const totalCount = sequenceSteps.length;
+                            return (
+                              <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[10px] uppercase tracking-widest text-[#555]">Next Touch</p>
+                                  <span className="text-[9px] px-2 py-0.5 rounded-full border border-[#252525] text-[#444]">
+                                    {sentCount}/{totalCount} steps sent
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className="flex-shrink-0 rounded-lg border px-3 py-2 text-center min-w-[64px]"
+                                    style={{ borderColor: `${dateColor}30`, background: `${dateColor}08` }}>
+                                    <p className="text-[12px] font-semibold" style={{ color: dateColor }}>
+                                      {dateLabel}
+                                    </p>
+                                    <p className="text-[9px] mt-0.5" style={{ color: `${dateColor}70` }}>
+                                      {new Date(nextSeqStep.scheduled_date).toLocaleDateString("en-GB", {
+                                        day: "numeric",
+                                        month: "short",
+                                      })}
+                                    </p>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                      <span className="text-[11px] text-[#555]">
+                                        {CH_ICONS_FU[nextSeqStep.channel]}
+                                      </span>
+                                      <span className="text-[10px] text-[#444]">
+                                        {CH_LABELS_FU[nextSeqStep.channel]}
+                                      </span>
+                                      <span className="text-[10px] text-[#2a2a2a]">· Step {nextSeqStep.step}</span>
+                                    </div>
+                                    <p className="text-[11px] text-[#666] truncate">{nextSeqStep.objective}</p>
+                                  </div>
+                                </div>
+                                <div className="h-1 w-full bg-[#1a1a1a] rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-[#c9a84c] rounded-full transition-all"
+                                    style={{ width: `${totalCount > 0 ? (sentCount / totalCount) * 100 : 0}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[10px] uppercase tracking-widest text-[#555]">Manual Follow-up</p>
+                              {followupVal &&
+                                !closedFU &&
+                                (() => {
+                                  const diff = Math.ceil((new Date(followupVal).getTime() - Date.now()) / 86400000);
+                                  const ov = diff < 0;
+                                  const td = diff === 0;
+                                  return (
+                                    <span
+                                      className={
+                                        "text-[10px] px-2 py-0.5 rounded-full border " +
+                                        (ov
+                                          ? "border-[#f87171]/30 text-[#f87171]"
+                                          : td
+                                            ? "border-[#c9a84c]/30 text-[#c9a84c]"
+                                            : "border-[#4ade80]/20 text-[#4ade80]")
+                                      }>
+                                      {ov ? `${Math.abs(diff)}d overdue` : td ? "Today" : `In ${diff}d`}
+                                    </span>
+                                  );
+                                })()}
+                            </div>
+                            <input
+                              type="date"
+                              disabled={!canSaveFollowup}
+                              defaultValue={followupVal || ""}
+                              key={followupVal || "no-date"}
+                              onBlur={(e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+                                if (!canSaveFollowup) return;
+                                saveOutcome({
+                                  runId: runIdNum,
+                                  leadId: detailLead.id,
+                                  patch: { followup_date: e.target.value || null },
+                                });
+                              }}
+                              className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-[12px] text-[#c8c0b0] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40 [color-scheme:dark]"
+                            />
+                            <p className="text-[10px] text-[#333]">Build a sequence below for smarter scheduling</p>
+                          </div>
+                        )}
+
+                        {/* Sequence builder */}
+                        <div>
+                          <div className="flex items-center gap-3 mb-3">
+                            <p className="text-[10px] uppercase tracking-widest text-[#333]">Outreach Sequence</p>
+                            <div className="flex-1 h-px bg-[#141414]" />
+                            <button
+                              type="button"
+                              onClick={buildSeq}
+                              disabled={sequenceGenerating}
+                              className="px-3 py-1.5 rounded-xl border border-[rgba(201,168,76,0.3)] text-[11px] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.06)] disabled:opacity-40 transition-all">
+                              {sequenceGenerating
+                                ? "Generating…"
+                                : sequenceSteps.length > 0
+                                  ? "↻ Rebuild"
+                                  : "⇉ Build Sequence"}
+                            </button>
+                          </div>
+                          {sequenceGenerating ? (
+                            <div className="rounded-xl border border-[#1a1a1a] bg-[#0a0a0a] p-6 text-center space-y-2">
+                              <div className="w-5 h-5 border border-[#c9a84c] border-t-transparent rounded-full animate-spin mx-auto" />
+                              <p className="text-[12px] text-[#555]">Generating sequence…</p>
+                            </div>
+                          ) : sequenceSteps.length === 0 ? (
+                            <div className="rounded-xl border border-[#1a1a1a] bg-[#0a0a0a] p-5 text-center space-y-1.5">
+                              <p className="text-[13px] text-[#2a2a2a]">⇉</p>
+                              <p className="text-[12px] text-[#444]">No sequence yet</p>
+                              <p className="text-[11px] text-[#2a2a2a] leading-relaxed">
+                                Build a 5-step cadence tailored to this lead&apos;s gap type and signals.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {sequenceSteps.map((step) => {
+                                const isExp = sequenceExpandedStep === step.id;
+                                const st = ST_STYLES_FU[step.status] ?? ST_STYLES_FU.pending;
+                                const daysOff = Math.round(
+                                  (new Date(step.scheduled_date).setHours(0, 0, 0, 0) -
+                                    new Date().setHours(0, 0, 0, 0)) /
+                                    86400000,
+                                );
+                                const dayStr =
+                                  daysOff < 0
+                                    ? `${Math.abs(daysOff)}d overdue`
+                                    : daysOff === 0
+                                      ? "Today"
+                                      : daysOff === 1
+                                        ? "Tomorrow"
+                                        : `Day ${step.day_offset}`;
+                                const dayClr = daysOff < 0 ? "#f87171" : daysOff === 0 ? "#c9a84c" : "#555";
+                                return (
+                                  <div key={step.id} className="rounded-xl border border-[#1a1a1a] overflow-hidden">
+                                    <div
+                                      className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-[#111] transition-colors"
+                                      onClick={() => setSequenceExpandedStep(isExp ? null : step.id)}>
+                                      <span className="text-[10px] text-[#2a2a2a] w-3">{step.step}</span>
+                                      <span className="text-[11px] w-20 font-medium" style={{ color: dayClr }}>
+                                        {dayStr}
+                                      </span>
+                                      <span className="text-[11px] text-[#444] w-14">
+                                        {CH_ICONS_FU[step.channel]} {CH_LABELS_FU[step.channel]}
+                                      </span>
+                                      <span className="flex-1 text-[11px] text-[#555] truncate">{step.objective}</span>
+                                      <span className="text-[10px]" style={{ color: st.color }}>
+                                        {st.label}
+                                      </span>
+                                      <span className="text-[10px] text-[#1a1a1a]">{isExp ? "▲" : "▼"}</span>
+                                    </div>
+                                    {isExp && (
+                                      <div className="px-3 pb-3 pt-2 bg-[#0a0a0a] space-y-2 border-t border-[#0f0f0f]">
+                                        {step.subject && (
+                                          <div>
+                                            <p className="text-[9px] uppercase tracking-widest text-[#2a2a2a] mb-1">
+                                              Subject
+                                            </p>
+                                            <p className="text-[12px] text-[#777]">{step.subject}</p>
+                                          </div>
+                                        )}
+                                        <div>
+                                          <p className="text-[9px] uppercase tracking-widest text-[#2a2a2a] mb-1.5">
+                                            Message
+                                          </p>
+                                          <p className="text-[12px] text-[#c8c0b0] leading-relaxed whitespace-pre-wrap">
+                                            {step.message}
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <p className="text-[9px] uppercase tracking-widest text-[#2a2a2a] mb-1">
+                                            CTA
+                                          </p>
+                                          <p className="text-[11px] text-[#555]">{step.cta}</p>
+                                        </div>
+                                        <div className="flex gap-2 pt-0.5 flex-wrap">
+                                          {step.status === "pending" && (
+                                            <>
+                                              <button
+                                                type="button"
+                                                onClick={() => patchSeqStep(step.id, "sent")}
+                                                className="px-3 py-1.5 rounded-lg border border-[#3b82f6]/25 text-[10px] text-[#3b82f6] hover:bg-[#3b82f6]/08 transition-all">
+                                                ✓ Sent
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => patchSeqStep(step.id, "skipped")}
+                                                className="px-3 py-1.5 rounded-lg border border-[#252525] text-[10px] text-[#444] hover:border-[#333] transition-all">
+                                                Skip
+                                              </button>
+                                            </>
+                                          )}
+                                          {step.status === "sent" && (
+                                            <button
+                                              type="button"
+                                              onClick={() => patchSeqStep(step.id, "replied")}
+                                              className="px-3 py-1.5 rounded-lg border border-[#4ade80]/25 text-[10px] text-[#4ade80] hover:bg-[#4ade80]/08 transition-all">
+                                              ✓ Got reply
+                                            </button>
+                                          )}
+                                          {step.status === "replied" && (
+                                            <span className="text-[10px] text-[#4ade80]">🎉 Replied</span>
+                                          )}
                                         </div>
                                       </div>
                                     )}
                                   </div>
-                                )}
-
-                                {detailTab === "signals" && deepScanLoading && (
-                                  <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 flex items-center gap-3">
-                                    <div className="w-3.5 h-3.5 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin shrink-0" />
-                                    <span className="text-[12px] text-[#555]">Running deep scan — fetching website, market & brand signals…</span>
-                                  </div>
-                                )}
-
-                                {detailTab === "outreach" && (() => {
-                                  const gap = (safeOutreach as { gap?: string } | null)?.gap ?? null;
-                                  const difficulty = (safeOutreach as { difficulty?: string } | null)?.difficulty ?? null;
-                                  const structured = getStructuredAngle(detailLead, language);
-                                  const title = angleTitle || structured.title;
-                                  const why = angleWhy || structured.why;
-
-                                  const gapConfig: Record<string, { label: string; color: string; icon: string; intervention: string }> = {
-                                    VISIBILITY:     { label: "Visibility Gap",     color: "#818cf8", icon: "◎", intervention: "Build high-intent capture channels — search, retargeting, demand-side content." },
-                                    CONVERSION:     { label: "Conversion Gap",     color: "#fb923c", icon: "⬡", intervention: "Fix the funnel — booking flow, tracking, and follow-up sequence." },
-                                    INFRASTRUCTURE: { label: "Infrastructure Gap", color: "#f87171", icon: "△", intervention: "Build the foundation — a conversion-focused page with clear offer and CTA." },
-                                    OPTIMIZATION:   { label: "Optimization Gap",   color: "#34d399", icon: "◆", intervention: "Sharpen what works — A/B test, optimise copy, tighten conversion paths." },
-                                  };
-                                  const gc = gap ? gapConfig[gap] ?? null : null;
-
-                                  const tones = [
-                                    { key: "soft",         label: "Soft",         desc: "Friendly, low-pressure. Best for cold or high-risk leads." },
-                                    { key: "consultative", label: "Consultative", desc: "Advisory tone. Lead with insight, not pitch." },
-                                    { key: "direct",       label: "Direct",       desc: "Assertive and confident. Best for warm or low-friction leads." },
-                                    { key: "bold",         label: "Bold",         desc: "Pattern-interrupt. Stands out but requires strong positioning." },
-                                  ];
-
-                                  const difficultyConfig: Record<string, { label: string; color: string; desc: string }> = {
-                                    LOW:    { label: "Low friction",    color: "#4ade80", desc: "Easy to engage — direct or bold tone recommended." },
-                                    MEDIUM: { label: "Medium friction", color: "#c9a84c", desc: "Approach carefully — consultative tone works well." },
-                                    HIGH:   { label: "High friction",   color: "#f87171", desc: "Hard to reach — soft or consultative tone only." },
-                                  };
-                                  const dc = difficulty ? difficultyConfig[difficulty] ?? null : null;
-                                  const channelPrimary = !detailLead.company.website ? "Direct visit or phone" : "Email";
-
-                                  return (
-                                    <div className="space-y-3 pt-1">
-
-                                      {/* Angle */}
-                                      {title && (
-                                        <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4">
-                                          <p className="text-[9px] uppercase tracking-widest text-[#555] mb-1.5">Angle</p>
-                                          <p className="text-[13px] font-semibold text-[#e8c97a] mb-1">{title}</p>
-                                          {why && <p className="text-[11px] text-[#666] leading-relaxed">{why}</p>}
-                                        </div>
-                                      )}
-
-                                      {/* Gap */}
-                                      {gc && (
-                                        <div className="rounded-xl border p-4" style={{ borderColor: `${gc.color}30`, backgroundColor: `${gc.color}06` }}>
-                                          <div className="flex items-center gap-2 mb-1.5">
-                                            <span style={{ color: gc.color }}>{gc.icon}</span>
-                                            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: gc.color }}>{gc.label}</p>
-                                          </div>
-                                          <p className="text-[11px] text-[#888] leading-relaxed">{gc.intervention}</p>
-                                        </div>
-                                      )}
-
-                                      {/* Friction + channel */}
-                                      <div className="grid grid-cols-2 gap-2">
-                                        {dc && (
-                                          <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3">
-                                            <p className="text-[9px] uppercase tracking-widest text-[#444] mb-1">Friction</p>
-                                            <p className="text-[11px] font-semibold" style={{ color: dc.color }}>{dc.label}</p>
-                                            <p className="text-[10px] text-[#555] mt-1 leading-snug">{dc.desc}</p>
-                                          </div>
-                                        )}
-                                        <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3">
-                                          <p className="text-[9px] uppercase tracking-widest text-[#444] mb-1">Channel</p>
-                                          <p className="text-[11px] font-semibold text-[#c9a84c]">{channelPrimary}</p>
-                                          <p className="text-[10px] text-[#555] mt-1 leading-snug">Best first point of contact</p>
-                                        </div>
-                                      </div>
-
-                                      {/* Tone guide */}
-                                      <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-4">
-                                        <p className="text-[9px] uppercase tracking-widest text-[#444] mb-2.5">Tone guide</p>
-                                        <div className="space-y-2">
-                                          {tones.map((tone) => {
-                                            const isRecommended = dc
-                                              ? (difficulty === "HIGH" && (tone.key === "soft" || tone.key === "consultative"))
-                                                || (difficulty === "MEDIUM" && tone.key === "consultative")
-                                                || (difficulty === "LOW" && (tone.key === "direct" || tone.key === "bold"))
-                                              : false;
-                                            return (
-                                              <div key={tone.key} className={"flex items-start gap-2.5 rounded-lg p-2 " + (isRecommended ? "bg-[rgba(201,168,76,0.06)] border border-[rgba(201,168,76,0.15)]" : "")}>
-                                                <span className={"text-[10px] mt-0.5 " + (isRecommended ? "text-[#c9a84c]" : "text-[#333]")}>{isRecommended ? "★" : "○"}</span>
-                                                <div>
-                                                  <p className={"text-[11px] font-semibold " + (isRecommended ? "text-[#c9a84c]" : "text-[#666]")}>{tone.label}</p>
-                                                  <p className="text-[10px] text-[#444] leading-snug">{tone.desc}</p>
-                                                </div>
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-                                      </div>
-
-                                      {/* Open in Outreach CTA */}
-                                      <button type="button"
-                                        onClick={() => {
-                                          // Store full lead snapshot in sessionStorage for outreach page
-                                          const snapshot = {
-                                            id: detailLead.id,
-                                            company_name: detailLead.company.name,
-                                            industry: detailLead.classification.primaryIndustry ?? null,
-                                            city: detailLead.company.city ?? null,
-                                            website: detailLead.company.website ?? null,
-                                            rating: detailLead.metrics.rating ?? null,
-                                            review_count: detailLead.metrics.reviewCount ?? null,
-                                            social_presence: detailLead.metrics.socialPresence ?? null,
-                                            opportunity: detailLead.score.opportunity,
-                                            readiness: detailLead.score.readiness,
-                                            risk: detailLead.score.risk,
-                                            signals: enrichmentData?.signals ?? {},
-                                            matched_needs: detailLead.fit?.matchedNeeds ?? [],
-                                            missing_needs: detailLead.fit?.missingNeeds ?? [],
-                                            fit_score: detailLead.fit?.fitScore ?? 0,
-                                          };
-                                          localStorage.setItem("vantio_outreach_lead", JSON.stringify(snapshot));
-                                          window.location.href = "/outreach";
-                                        }}
-                                        className="flex items-center justify-between w-full px-4 py-3 rounded-xl border border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.04)] hover:bg-[rgba(201,168,76,0.08)] transition-all group">
-                                        <div>
-                                          <p className="text-[12px] font-semibold text-[#c9a84c]">Generate outreach message</p>
-                                          <p className="text-[10px] text-[#555] mt-0.5">Signal-driven · 3-stage pipeline · Operator+</p>
-                                        </div>
-                                        <span className="text-[#8a6e30] group-hover:text-[#c9a84c] transition-colors text-sm">→</span>
-                                      </button>
-
-                                    </div>
-                                  );
-                                })()}
-
-                                {detailTab === "tracking" && (() => {
-                                  const canSave = Number.isFinite(runIdNum) && runIdNum > 0;
-
-                                  // Pipeline stage — furthest reached
-                                  const stage = closed ? 3 : bookedCall ? 2 : replied ? 1 : contacted ? 0 : -1;
-                                  const stages = [
-                                    { key: "contacted",  label: "Contacted",  icon: "✉" },
-                                    { key: "replied",    label: "Replied",    icon: "↩" },
-                                    { key: "booked_call",label: "Booked",     icon: "📅" },
-                                    { key: "closed",     label: "Closed",     icon: "✦" },
-                                  ] as const;
-
-                                  const lostReason  = selectedOutcome?.lost_reason ?? null;
-                                  const isLost = !!lostReason;
-
-                                  const revenueVal  = selectedOutcome?.revenue ?? null;
-                                  const notesVal    = selectedOutcome?.notes ?? "";
-                                  const followupVal = selectedOutcome?.followup_date ?? "";
-                                  // Derive difficulty for auto follow-up calculation
-                                  const safeOutreachForTracking = (detailLead?.metadata?.outreach ?? null) as { difficulty?: string } | null;
-                                  const difficultyForTracking = safeOutreachForTracking?.difficulty ?? null;
-                                  const tonalityVal = selectedOutcome?.tonality ?? null;
-                                  const scoreSnap   = selectedOutcome?.score_at_outreach ?? detailLead.score.value ?? null;
-
-                                  // Show lost reason picker when contacted but never progressed past contacted, or explicitly stalled
-                                  const showLostReason = (contacted && !closed) || isLost;
-
-                                  const lostReasons: { key: LeadOutcomeUI["lost_reason"]; label: string }[] = [
-                                    { key: "no_response",      label: "No response" },
-                                    { key: "not_interested",   label: "Not interested" },
-                                    { key: "has_provider",     label: "Has provider" },
-                                    { key: "wrong_timing",     label: "Wrong timing" },
-                                    { key: "price_too_high",   label: "Price too high" },
-                                    { key: "chose_competitor", label: "Chose competitor" },
-                                    { key: "other",            label: "Other" },
-                                  ];
-
-                                  return (
-                                    <div className="space-y-3 pt-1">
-
-                                      {/* Score snapshot */}
-                                      {scoreSnap !== null && (
-                                        <div className="rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] px-4 py-3 flex items-center justify-between">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#444]">Score at outreach</p>
-                                          <span className={
-                                            "text-sm font-medium " +
-                                            (scoreSnap >= 70 ? "text-[#4ade80]" : scoreSnap >= 50 ? "text-[#c9a84c]" : "text-[#f87171]")
-                                          }>{scoreSnap}</span>
-                                        </div>
-                                      )}
-
-                                      {/* Pipeline funnel */}
-                                      <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4">
-                                        <div className="flex items-center justify-between mb-3">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.outcomeTracking}</p>
-                                          {isSavingOutcome && <p className="text-[10px] text-[#555] animate-pulse">{t.ui.detail.saving}…</p>}
-                                        </div>
-                                        <div className="flex items-stretch gap-1">
-                                          {stages.map(({ key, label, icon }, i) => {
-                                            const checked = key === "contacted" ? contacted : key === "replied" ? replied : key === "booked_call" ? bookedCall : closed;
-                                            const isActive = i <= stage;
-                                            const isCurrent = i === stage;
-                                            return (
-                                              <button key={key} type="button"
-                                                disabled={!canSave || isLost}
-                                                onClick={() => {
-                                                  if (!canSave || isLost) return;
-                                                  const isFirstContact = key === "contacted" && !contacted;
-                                                  saveOutcome({
-                                                    runId: runIdNum,
-                                                    leadId: detailLead.id,
-                                                    patch: {
-                                                      ...buildOutcomePatch(key, !checked),
-                                                      ...(isFirstContact ? { score_at_outreach: detailLead.score.value ?? null } : {}),
-                                                    },
-                                                  });
-                                                }}
-                                                className={"flex-1 flex flex-col items-center gap-1.5 py-2.5 rounded-lg border transition-all " + (isLost ? "opacity-30 cursor-not-allowed border-[#1a1a1a] bg-[#0d0d0d]" : isCurrent ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)]" : isActive ? "border-[#4ade80]/30 bg-[#4ade80]/5" : "border-[#1a1a1a] bg-[#111] hover:border-[#252525]") + " disabled:cursor-not-allowed"}>
-                                                <span className={"text-sm transition-colors " + (isLost ? "text-[#333]" : isCurrent ? "text-[#c9a84c]" : isActive ? "text-[#4ade80]" : "text-[#333]")}>{isActive ? (i < stage ? "✓" : icon) : icon}</span>
-                                                <span className={"text-[9px] tracking-wide " + (isLost ? "text-[#333]" : isActive ? "text-[#888]" : "text-[#333]")}>{label}</span>
-                                              </button>
-                                            );
-                                          })}
-                                          {/* Lost button */}
-                                          <button
-                                            type="button"
-                                            disabled={!canSave}
-                                            onClick={() => {
-                                              if (!canSave) return;
-                                              if (isLost) {
-                                                // Un-mark as lost
-                                                saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { lost_reason: null } });
-                                              } else {
-                                                // Mark as lost with default reason — user picks reason below
-                                                saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { lost_reason: "no_response" } });
-                                              }
-                                            }}
-                                            className={"flex flex-col items-center gap-1.5 py-2.5 px-2.5 rounded-lg border transition-all disabled:cursor-not-allowed " + (isLost ? "border-[#f87171]/50 bg-[#f87171]/10 text-[#f87171]" : "border-[#1a1a1a] bg-[#111] text-[#555] hover:border-[#f87171]/30 hover:text-[#f87171]/70")}
-                                          >
-                                            <span className="text-sm">✗</span>
-                                            <span className="text-[9px] tracking-wide">Lost</span>
-                                          </button>
-                                        </div>
-                                        {isLost && (
-                                          <p className="text-[11px] text-[#f87171]/70 mt-2 text-center">Marked as lost — select reason below</p>
-                                        )}
-                                        {!isLost && stage >= 0 && (
-                                          <p className="text-[11px] text-[#555] mt-2 text-center">
-                                            {stage === 3 ? t.ui.detail.dealClosed : `${stage + 1} ${t.ui.detail.stagesReached}`}
-                                          </p>
-                                        )}
-                                      </div>
-
-                                      {/* Lost reason — shown when contacted but stalled */}
-                                      {showLostReason && (
-                                        <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Lost why</p>
-                                          <div className="grid grid-cols-2 gap-1.5">
-                                            {lostReasons.map(({ key, label }) => (
-                                              <button
-                                                key={key}
-                                                type="button"
-                                                disabled={!canSave}
-                                                onClick={() => canSave && saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { lost_reason: lostReason === key ? null : key } })}
-                                                className={"px-3 py-2 rounded-lg border text-[11px] transition-all text-left " + (lostReason === key ? "border-[#f87171]/40 bg-[#f87171]/8 text-[#f87171]" : "border-[#1a1a1a] bg-[#111] text-[#555] hover:border-[#252525] hover:text-[#888]") + " disabled:cursor-not-allowed"}
-                                              >
-                                                {label}
-                                              </button>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )}
-
-                                      {/* Tonality used */}
-                                      <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
-                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Tone</p>
-                                        <div className="grid grid-cols-2 gap-1.5">
-                                          {([
-                                            { key: "soft",         label: "Soft" },
-                                            { key: "consultative", label: "Consultative" },
-                                            { key: "direct",       label: "Direct" },
-                                            { key: "bold",         label: "Bold" },
-                                          ] as const).map((tone) => (
-                                            <button
-                                              key={tone.key}
-                                              type="button"
-                                              disabled={!canSave}
-                                              onClick={() => canSave && saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { tonality: tonalityVal === tone.key ? null : tone.key } })}
-                                              className={"py-2 rounded-lg border text-[11px] transition-all " + (tonalityVal === tone.key ? "border-[#c9a84c]/40 bg-[rgba(201,168,76,0.08)] text-[#c9a84c]" : "border-[#1a1a1a] bg-[#111] text-[#555] hover:border-[#252525] hover:text-[#888]") + " disabled:cursor-not-allowed"}
-                                            >
-                                              {tone.label}
-                                            </button>
-                                          ))}
-                                        </div>
-                                      </div>
-
-                                      {/* Revenue input */}
-                                      <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.dealValue}</p>
-                                        {(() => {
-                                          const loc = (location ?? "").toLowerCase();
-                                          const sym = loc.includes("sweden") || loc.includes("sverige") || loc.includes("stockholm") || loc.includes("göteborg") || loc.includes("malmö") || loc.includes(", se") || loc.endsWith(" se") ? "kr" : loc.includes("uk") || loc.includes("london") || loc.includes("england") ? "£" : loc.includes("euro") || loc.includes("germany") || loc.includes("france") || loc.includes("spain") ? "€" : "$";
-                                          return (
-                                            <>
-                                              <div className="flex items-center gap-2">
-                                                <span className="text-[#555] text-sm">{sym}</span>
-                                                <input
-                                                  type="number"
-                                                  min="0"
-                                                  placeholder="0"
-                                                  defaultValue={revenueVal ?? ""}
-                                                  disabled={!canSave}
-                                                  onBlur={(e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-                                                    if (!canSave) return;
-                                                    const v = parseFloat(e.target.value);
-                                                    saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { revenue: Number.isFinite(v) ? v : null } });
-                                                  }}
-                                                  className="flex-1 bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-sm text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40"
-                                                />
-                                              </div>
-                                              {closed && revenueVal && (
-                                                <p className="text-[11px] text-[#4ade80]">✦ {sym}{revenueVal.toLocaleString()} closed</p>
-                                              )}
-                                            </>
-                                          );
-                                        })()}
-                                      </div>
-
-                                      {/* Notes */}
-                                      <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
-                                        <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.notes}</p>
-                                        <textarea
-                                          rows={3}
-                                          placeholder="Objections, context, follow-up reminders…"
-                                          defaultValue={notesVal ?? ""}
-                                          disabled={!canSave}
-                                          onBlur={(e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-                                            if (!canSave) return;
-                                            saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { notes: e.target.value.trim() || null } });
-                                          }}
-                                          className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-[12px] text-[#c8c0b0] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors resize-none disabled:opacity-40"
-                                        />
-                                        <p className="text-[10px] text-[#333]">{t.ui.detail.savesOnBlur}</p>
-                                      </div>
-
-                                      {/* Activity log — sent emails for this lead */}
-                                      {(() => {
-                                        const leadEmails = (() => {
-                                          try {
-                                            const key = `vantio_activity_${detailLead.id}`;
-                                            return JSON.parse(localStorage.getItem(key) ?? "[]") as Array<{ subject: string; to: string; sentAt: string; body: string }>;
-                                          } catch { return []; }
-                                        })();
-                                        if (leadEmails.length === 0) return null;
-                                        return (
-                                          <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                                            <p className="text-[10px] uppercase tracking-widests text-[#555]">Sent messages</p>
-                                            <div className="space-y-2">
-                                              {leadEmails.map((e, i) => (
-                                                <div key={i} className="rounded-lg border border-[#1a1a1a] bg-[#080808] px-3 py-2.5 space-y-1">
-                                                  <div className="flex items-center justify-between gap-2">
-                                                    <p className="text-[12px] font-medium text-[#c8c0b0] truncate">{e.subject}</p>
-                                                    <p className="text-[10px] text-[#333] flex-shrink-0">{new Date(e.sentAt).toLocaleDateString()}</p>
-                                                  </div>
-                                                  <p className="text-[10px] text-[#444]">To: {e.to}</p>
-                                                  <p className="text-[11px] text-[#555] line-clamp-2 leading-relaxed">{e.body}</p>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        );
-                                      })()}
-
-                                    </div>
-                                  );
-                                })()}
-
-                                {detailTab === "followup" && (() => {
-                                  const canSaveFollowup = Number.isFinite(runIdNum) && runIdNum > 0;
-                                  const followupVal = selectedOutcome?.followup_date ?? "";
-                                  const closedFU = !!(selectedOutcome?.closed);
-                                  const CH_ICONS_FU: Record<string, string> = { email: "✉", call: "☎", dm: "◎", linkedin: "in" };
-                                  const CH_LABELS_FU: Record<string, string> = { email: "Email", call: "Call", dm: "DM", linkedin: "LinkedIn" };
-                                  const ST_STYLES_FU: Record<string, { color: string; label: string }> = {
-                                    pending: { color: "#555", label: "Pending" },
-                                    sent:    { color: "#3b82f6", label: "Sent" },
-                                    replied: { color: "#4ade80", label: "Replied" },
-                                    skipped: { color: "#333", label: "Skipped" },
-                                  };
-                                  const CAD_LABELS_FU: Record<string, string> = { aggressive: "Hot cadence", standard: "Standard cadence", nurture: "Nurture cadence" };
-
-                                  async function buildSeq() {
-                                    if (!detailLead || sequenceGenerating) return;
-                                    setSequenceGenerating(true);
-                                    try {
-                                      const res = await fetch("/api/sequences", {
-                                        method: "POST", headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({
-                                          leadId: detailLead.id,
-                                          runId: Number(detailLead.metadata.runId),
-                                          companyName: detailLead.company.name,
-                                          outreachRequest: {
-                                            company_name: detailLead.company.name,
-                                            industry: detailLead.classification.primaryIndustry ?? null,
-                                            city: detailLead.company.city ?? null,
-                                            website: detailLead.company.website ?? null,
-                                            rating: detailLead.metrics.rating ?? null,
-                                            review_count: detailLead.metrics.reviewCount ?? null,
-                                            social_presence: detailLead.metrics.socialPresence ?? null,
-                                            opportunity: detailLead.score.opportunity ?? 0,
-                                            readiness: detailLead.score.readiness ?? 0,
-                                            risk: detailLead.score.risk ?? 0,
-                                            signals: enrichmentSignals ?? {},
-                                            matched_needs: detailLead.fit?.matchedNeeds ?? [],
-                                            missing_needs: detailLead.fit?.missingNeeds ?? [],
-                                            fit_score: detailLead.fit?.fitScore ?? 50,
-                                            language: language,
-                                          },
-                                          opportunity: detailLead.score.opportunity ?? 0,
-                                          fitScore: detailLead.fit?.fitScore ?? 50,
-                                          riskProfile: detailLead.score.riskProfile ?? "unknown",
-                                        }),
-                                      });
-                                      if (res.ok) {
-                                        const data = await res.json() as { steps?: typeof sequenceSteps };
-                                        setSequenceSteps(data.steps ?? []);
-                                      }
-                                    } finally { setSequenceGenerating(false); }
-                                  }
-
-                                  async function patchSeqStep(stepId: number, status: string) {
-                                    const res = await fetch(`/api/sequences/${stepId}`, {
-                                      method: "PATCH", headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ status }),
-                                    });
-                                    if (res.ok) setSequenceSteps(prev => prev.map(s => s.id === stepId ? { ...s, status } : s));
-                                  }
-
-                                  if (sequenceLoading) return <div className="py-8 text-center text-[#444] text-sm animate-pulse">Loading…</div>;
-
-                                  // Next pending step from sequence
-                                  const nextSeqStep = sequenceSteps
-                                    .filter(s => s.status === "pending")
-                                    .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime())[0] ?? null;
-
-                                  return (
-                                    <div className="space-y-4 pt-1">
-                                      {/* Follow-up reminder — sequence driven */}
-                                      {nextSeqStep ? (() => {
-                                        const daysOff = Math.round((new Date(nextSeqStep.scheduled_date).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / 86400000);
-                                        const overdue = daysOff < 0;
-                                        const tod = daysOff === 0;
-                                        const dateColor = overdue ? "#f87171" : tod ? "#c9a84c" : "#4ade80";
-                                        const dateLabel = overdue ? `${Math.abs(daysOff)}d overdue` : tod ? "Today" : daysOff === 1 ? "Tomorrow" : `In ${daysOff}d`;
-                                        const sentCount = sequenceSteps.filter(s => s.status === "sent" || s.status === "replied").length;
-                                        const totalCount = sequenceSteps.length;
-                                        return (
-                                          <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                                            <div className="flex items-center justify-between">
-                                              <p className="text-[10px] uppercase tracking-widest text-[#555]">Next Touch</p>
-                                              <span className="text-[9px] px-2 py-0.5 rounded-full border border-[#252525] text-[#444]">{sentCount}/{totalCount} steps sent</span>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                              <div className="flex-shrink-0 rounded-lg border px-3 py-2 text-center min-w-[64px]"
-                                                style={{ borderColor: `${dateColor}30`, background: `${dateColor}08` }}>
-                                                <p className="text-[12px] font-semibold" style={{ color: dateColor }}>{dateLabel}</p>
-                                                <p className="text-[9px] mt-0.5" style={{ color: `${dateColor}70` }}>
-                                                  {new Date(nextSeqStep.scheduled_date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                                                </p>
-                                              </div>
-                                              <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-1.5 mb-1">
-                                                  <span className="text-[11px] text-[#555]">{CH_ICONS_FU[nextSeqStep.channel]}</span>
-                                                  <span className="text-[10px] text-[#444]">{CH_LABELS_FU[nextSeqStep.channel]}</span>
-                                                  <span className="text-[10px] text-[#2a2a2a]">· Step {nextSeqStep.step}</span>
-                                                </div>
-                                                <p className="text-[11px] text-[#666] truncate">{nextSeqStep.objective}</p>
-                                              </div>
-                                            </div>
-                                            <div className="h-1 w-full bg-[#1a1a1a] rounded-full overflow-hidden">
-                                              <div className="h-full bg-[#c9a84c] rounded-full transition-all"
-                                                style={{ width: `${totalCount > 0 ? (sentCount / totalCount) * 100 : 0}%` }} />
-                                            </div>
-                                          </div>
-                                        );
-                                      })() : (
-                                        <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
-                                          <div className="flex items-center justify-between">
-                                            <p className="text-[10px] uppercase tracking-widest text-[#555]">Manual Follow-up</p>
-                                            {followupVal && !closedFU && (() => {
-                                              const diff = Math.ceil((new Date(followupVal).getTime() - Date.now()) / 86400000);
-                                              const ov = diff < 0; const td = diff === 0;
-                                              return <span className={"text-[10px] px-2 py-0.5 rounded-full border " + (ov ? "border-[#f87171]/30 text-[#f87171]" : td ? "border-[#c9a84c]/30 text-[#c9a84c]" : "border-[#4ade80]/20 text-[#4ade80]")}>
-                                                {ov ? `${Math.abs(diff)}d overdue` : td ? "Today" : `In ${diff}d`}
-                                              </span>;
-                                            })()}
-                                          </div>
-                                          <input type="date" disabled={!canSaveFollowup} defaultValue={followupVal || ""} key={followupVal || "no-date"}
-                                            onBlur={(e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-                                              if (!canSaveFollowup) return;
-                                              saveOutcome({ runId: runIdNum, leadId: detailLead.id, patch: { followup_date: e.target.value || null } });
-                                            }}
-                                            className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-[12px] text-[#c8c0b0] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40 [color-scheme:dark]"
-                                          />
-                                          <p className="text-[10px] text-[#333]">Build a sequence below for smarter scheduling</p>
-                                        </div>
-                                      )}
-
-                                      {/* Sequence builder */}
-                                      <div>
-                                        <div className="flex items-center gap-3 mb-3">
-                                          <p className="text-[10px] uppercase tracking-widest text-[#333]">Outreach Sequence</p>
-                                          <div className="flex-1 h-px bg-[#141414]" />
-                                          <button type="button" onClick={buildSeq} disabled={sequenceGenerating}
-                                            className="px-3 py-1.5 rounded-xl border border-[rgba(201,168,76,0.3)] text-[11px] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.06)] disabled:opacity-40 transition-all">
-                                            {sequenceGenerating ? "Generating…" : sequenceSteps.length > 0 ? "↻ Rebuild" : "⇉ Build Sequence"}
-                                          </button>
-                                        </div>
-                                        {sequenceGenerating ? (
-                                          <div className="rounded-xl border border-[#1a1a1a] bg-[#0a0a0a] p-6 text-center space-y-2">
-                                            <div className="w-5 h-5 border border-[#c9a84c] border-t-transparent rounded-full animate-spin mx-auto" />
-                                            <p className="text-[12px] text-[#555]">Generating sequence…</p>
-                                          </div>
-                                        ) : sequenceSteps.length === 0 ? (
-                                          <div className="rounded-xl border border-[#1a1a1a] bg-[#0a0a0a] p-5 text-center space-y-1.5">
-                                            <p className="text-[13px] text-[#2a2a2a]">⇉</p>
-                                            <p className="text-[12px] text-[#444]">No sequence yet</p>
-                                            <p className="text-[11px] text-[#2a2a2a] leading-relaxed">Build a 5-step cadence tailored to this lead&apos;s gap type and signals.</p>
-                                          </div>
-                                        ) : (
-                                          <div className="space-y-1.5">
-                                            {sequenceSteps.map(step => {
-                                              const isExp = sequenceExpandedStep === step.id;
-                                              const st = ST_STYLES_FU[step.status] ?? ST_STYLES_FU.pending;
-                                              const daysOff = Math.round((new Date(step.scheduled_date).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / 86400000);
-                                              const dayStr = daysOff < 0 ? `${Math.abs(daysOff)}d overdue` : daysOff === 0 ? "Today" : daysOff === 1 ? "Tomorrow" : `Day ${step.day_offset}`;
-                                              const dayClr = daysOff < 0 ? "#f87171" : daysOff === 0 ? "#c9a84c" : "#555";
-                                              return (
-                                                <div key={step.id} className="rounded-xl border border-[#1a1a1a] overflow-hidden">
-                                                  <div className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-[#111] transition-colors"
-                                                    onClick={() => setSequenceExpandedStep(isExp ? null : step.id)}>
-                                                    <span className="text-[10px] text-[#2a2a2a] w-3">{step.step}</span>
-                                                    <span className="text-[11px] w-20 font-medium" style={{ color: dayClr }}>{dayStr}</span>
-                                                    <span className="text-[11px] text-[#444] w-14">{CH_ICONS_FU[step.channel]} {CH_LABELS_FU[step.channel]}</span>
-                                                    <span className="flex-1 text-[11px] text-[#555] truncate">{step.objective}</span>
-                                                    <span className="text-[10px]" style={{ color: st.color }}>{st.label}</span>
-                                                    <span className="text-[10px] text-[#1a1a1a]">{isExp ? "▲" : "▼"}</span>
-                                                  </div>
-                                                  {isExp && (
-                                                    <div className="px-3 pb-3 pt-2 bg-[#0a0a0a] space-y-2 border-t border-[#0f0f0f]">
-                                                      {step.subject && <div><p className="text-[9px] uppercase tracking-widest text-[#2a2a2a] mb-1">Subject</p><p className="text-[12px] text-[#777]">{step.subject}</p></div>}
-                                                      <div><p className="text-[9px] uppercase tracking-widest text-[#2a2a2a] mb-1.5">Message</p><p className="text-[12px] text-[#c8c0b0] leading-relaxed whitespace-pre-wrap">{step.message}</p></div>
-                                                      <div><p className="text-[9px] uppercase tracking-widest text-[#2a2a2a] mb-1">CTA</p><p className="text-[11px] text-[#555]">{step.cta}</p></div>
-                                                      <div className="flex gap-2 pt-0.5 flex-wrap">
-                                                        {step.status === "pending" && <>
-                                                          <button type="button" onClick={() => patchSeqStep(step.id, "sent")} className="px-3 py-1.5 rounded-lg border border-[#3b82f6]/25 text-[10px] text-[#3b82f6] hover:bg-[#3b82f6]/08 transition-all">✓ Sent</button>
-                                                          <button type="button" onClick={() => patchSeqStep(step.id, "skipped")} className="px-3 py-1.5 rounded-lg border border-[#252525] text-[10px] text-[#444] hover:border-[#333] transition-all">Skip</button>
-                                                        </>}
-                                                        {step.status === "sent" && <button type="button" onClick={() => patchSeqStep(step.id, "replied")} className="px-3 py-1.5 rounded-lg border border-[#4ade80]/25 text-[10px] text-[#4ade80] hover:bg-[#4ade80]/08 transition-all">✓ Got reply</button>}
-                                                        {step.status === "replied" && <span className="text-[10px] text-[#4ade80]">🎉 Replied</span>}
-                                                      </div>
-                                                    </div>
-                                                  )}
-                                                </div>
-                                              );
-                                            })}
-                                            <a href="/followups" className="block text-center text-[11px] text-[#333] hover:text-[#c9a84c] transition-colors pt-1">View all sequences →</a>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })()}
-
+                                );
+                              })}
+                              <a
+                                href="/followups"
+                                className="block text-center text-[11px] text-[#333] hover:text-[#c9a84c] transition-colors pt-1">
+                                View all sequences →
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+              </div>
             </div>
-          </div>
-        </>,
-        document.body
-      )}
+          </>,
+          document.body,
+        )}
     </main>
   );
 }
