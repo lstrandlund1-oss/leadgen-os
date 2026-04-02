@@ -743,11 +743,32 @@ function GettingStartedPanel({
 }
 
 // ── ScoreTooltip ─────────────────────────────────────────────────────────────
-// Lightweight hover tooltip for score labels. Positions above the hovered element.
+// Lightweight hover tooltip. Supports **bold** markers for section labels.
+// Use "**Label** explanation text" format in tooltip strings.
 function ScoreTooltip({ text, children }: { text: string; children: React.ReactNode | React.ReactNode[] }) {
   const [rect, setRect] = useState<DOMRect | null>(null);
 
   if (!text) return <>{children}</>;
+
+  // Parse text into segments — split on newlines, bold-wrap **...** markers
+  function renderText(raw: string) {
+    return raw.split("\n").map((line, i) => {
+      const parts = line.split(/\*\*([^*]+)\*\*/g);
+      return (
+        <p key={i} style={{ margin: i === 0 ? 0 : "6px 0 0", fontSize: 11, color: "#bbb", lineHeight: 1.55 }}>
+          {parts.map((part, j) =>
+            j % 2 === 1 ? (
+              <span key={j} style={{ color: "#e8c97a", fontWeight: 600 }}>
+                {part}
+              </span>
+            ) : (
+              part
+            ),
+          )}
+        </p>
+      );
+    });
+  }
 
   return (
     <span
@@ -768,12 +789,12 @@ function ScoreTooltip({ text, children }: { text: string; children: React.ReactN
               background: "#1a1a1a",
               border: "1px solid #333",
               borderRadius: 8,
-              padding: "8px 12px",
-              maxWidth: 260,
+              padding: "10px 14px",
+              maxWidth: 280,
               pointerEvents: "none",
               boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
             }}>
-            <p style={{ fontSize: 11, color: "#bbb", lineHeight: 1.55, margin: 0, whiteSpace: "pre-wrap" }}>{text}</p>
+            {renderText(text)}
             <div
               style={{
                 position: "absolute",

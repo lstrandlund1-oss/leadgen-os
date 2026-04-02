@@ -346,42 +346,52 @@ export function computeUniversalScore(input: UniversalScoreInput): UniversalScor
   else if (dataPoints >= 2) evidenceLevel = "low";
   else evidenceLevel = "insufficient";
 
-  // Build a verdict-style explanation — what's driving this score and what's holding it back
-  const strengthLines: string[] = [];
-  const holdbackLines: string[] = [];
+  // Verdict tooltip — each scoring input explained on its own line with a bold label
+  // Uses **label** syntax which ScoreTooltip renders as highlighted text
+  const oppLine =
+    opportunity >= 60
+      ? `**Opportunity (${opportunity})** Clear, specific gap — easy conversation starter.`
+      : opportunity >= 40
+        ? `**Opportunity (${opportunity})** Real gap exists but will need a targeted pitch angle.`
+        : opportunity >= 25
+          ? `**Opportunity (${opportunity})** Modest gap — they may already be mostly covered.`
+          : `**Opportunity (${opportunity})** Limited gap — this business is likely already well-served.`;
 
-  // What's working for this lead
-  if (opportunity >= 60) strengthLines.push("clear, monetisable gap");
-  else if (opportunity >= 35) strengthLines.push("a real but moderate opportunity gap");
-  if (fitClamped >= 65) strengthLines.push("strong fit with your service profile");
-  else if (fitClamped >= 40) strengthLines.push("reasonable fit with your profile");
-  if (readiness >= 65) strengthLines.push("a business that looks ready to act");
-  if (risk <= 30) strengthLines.push("low friction to close");
+  const fitLine =
+    fitClamped >= 65
+      ? `**Fit (${fitClamped})** Your capabilities directly match what this business needs.`
+      : fitClamped >= 45
+        ? `**Fit (${fitClamped})** You cover the main needs but have gaps in some areas.`
+        : fitClamped >= 25
+          ? `**Fit (${fitClamped})** Partial match — you can help but aren't the ideal provider.`
+          : `**Fit (${fitClamped})** Your service profile doesn't align well with this business's needs.`;
 
-  // What's holding it back
-  if (opportunity < 30) holdbackLines.push("limited opportunity gap — they may already be well-served");
-  else if (opportunity < 45) holdbackLines.push("moderate opportunity that needs a sharp pitch angle");
-  if (fitClamped < 40) holdbackLines.push("your profile doesn't strongly match what this business needs");
-  else if (fitClamped < 55) holdbackLines.push("your fit is partial — you cover some but not all their needs");
-  if (readiness < 40) holdbackLines.push("business doesn't appear ready to invest yet");
-  else if (readiness < 55) holdbackLines.push("moderate readiness — they may need convincing to act now");
-  if (risk >= 60) holdbackLines.push("high risk — likely hard to close");
-  else if (risk >= 40) holdbackLines.push("moderate risk — needs the right angle");
+  const readinessLine =
+    readiness >= 70
+      ? `**Readiness (${readiness})** Established business with stable revenue — likely has budget and motivation to act.`
+      : readiness >= 50
+        ? `**Readiness (${readiness})** Reasonably mature business — may need a nudge to prioritise this now.`
+        : readiness >= 30
+          ? `**Readiness (${readiness})** Still growing — budget capacity and urgency are uncertain.`
+          : `**Readiness (${readiness})** Too early-stage or unstable to reliably convert right now.`;
 
-  const verdictParts: string[] = [];
-  if (strengthLines.length > 0) {
-    verdictParts.push(`What works for this lead: ${strengthLines.join(", ")}.`);
-  }
-  if (holdbackLines.length > 0) {
-    verdictParts.push(`What's holding the score back: ${holdbackLines.join(", ")}.`);
-  }
-  if (verdictParts.length === 0) {
-    verdictParts.push("Mixed signals — review the individual scores to understand this lead better.");
-  }
-  if (evidenceLevel === "insufficient") verdictParts.push("⚠ Limited data — this score is an estimate.");
-  else if (evidenceLevel === "low") verdictParts.push("Some signal data is thin — treat with some caution.");
+  const riskLine =
+    risk <= 25
+      ? `**Risk (${risk})** Low friction — reachable, stable, and likely open to new services.`
+      : risk <= 45
+        ? `**Risk (${risk})** Moderate friction — winnable with the right angle and timing.`
+        : risk <= 65
+          ? `**Risk (${risk})** High friction — may already have vendors or be hard to reach.`
+          : `**Risk (${risk})** Very high friction — unlikely to convert without a very specific edge.`;
 
-  const valueTooltip = verdictParts.join(" ");
+  const evidenceLine =
+    evidenceLevel === "insufficient"
+      ? "⚠ Limited signal data — treat this score as an early estimate."
+      : evidenceLevel === "low"
+        ? "Some signals are thin — score will improve after enrichment."
+        : "";
+
+  const valueTooltip = [oppLine, fitLine, readinessLine, riskLine, evidenceLine].filter(Boolean).join("\n");
 
   // ── BREAKDOWN (for signals tab bars) ─────────────────────────────────────
   const reputation = clamp(
