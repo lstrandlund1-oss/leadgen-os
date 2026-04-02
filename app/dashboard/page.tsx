@@ -1051,7 +1051,51 @@ export default function Home() {
         socialPlatformCount: 0,
         ownerResponds: null,
       });
-      return { ...lead, score: newScore };
+
+      // Deep scan tooltip merge: same rule as light enrichment.
+      // Score changed → fresh tooltip. Score same → keep original + append context.
+      const deepAddendumParts: string[] = [];
+      if (derivedSignals.hasBookingCta === false) deepAddendumParts.push("no booking CTA confirmed by deep scan");
+      if (derivedSignals.isMobileFriendly === false) deepAddendumParts.push("site is not mobile-friendly");
+      if (derivedSignals.hasClearOffer === false) deepAddendumParts.push("no clear service offer on site");
+      const deepAddendum =
+        deepAddendumParts.length > 0
+          ? `
+Deep scan: ${deepAddendumParts.join(", ")}.`
+          : "";
+
+      const mergeDeepTooltips = (
+        existingScore: LeadUI["score"],
+        freshScore: LeadUI["score"],
+      ): LeadUI["score"]["tooltips"] => {
+        const existing = existingScore.tooltips;
+        const fresh = freshScore.tooltips;
+        if (!existing || !fresh) return fresh;
+        const resolve = (
+          key: keyof NonNullable<LeadUI["score"]["tooltips"]>,
+          oldVal: number,
+          newVal: number,
+        ): string => {
+          if (oldVal !== newVal) return fresh[key] ?? "";
+          const base = existing[key] ?? "";
+          return deepAddendum ? `${base}${deepAddendum}` : base;
+        };
+        return {
+          value: resolve("value", existingScore.value ?? 0, freshScore.value ?? 0),
+          opportunity: resolve("opportunity", existingScore.opportunity ?? 0, freshScore.opportunity ?? 0),
+          fit: resolve("fit", existingScore.value ?? 0, freshScore.value ?? 0),
+          risk: resolve("risk", existingScore.risk ?? 0, freshScore.risk ?? 0),
+          readiness: resolve("readiness", existingScore.readiness ?? 0, freshScore.readiness ?? 0),
+        };
+      };
+
+      return {
+        ...lead,
+        score: {
+          ...newScore,
+          tooltips: mergeDeepTooltips(lead.score, newScore),
+        },
+      };
     } catch {
       return lead;
     }
@@ -1497,45 +1541,54 @@ export default function Home() {
         if (data.updatedScore) {
           // Append enrichment context to existing tooltips rather than replacing them.
           // This preserves the original explanation and adds what light enrichment learned.
-          const mergeTooltips = (
-            existing: LeadUI["score"]["tooltips"],
-            fresh: LeadUI["score"]["tooltips"],
-            enrichmentSignals: {
-              hasBookingCta?: boolean | null;
-              hasClearOffer?: boolean | null;
-              socialPlatformCount?: number;
-            },
-          ): LeadUI["score"]["tooltips"] => {
-            if (!existing || !fresh) return fresh;
-            const addendumParts: string[] = [];
-            if (enrichmentSignals.hasBookingCta === false) addendumParts.push("no booking CTA found on their website");
-            if (enrichmentSignals.hasClearOffer === false)
-              addendumParts.push("their service offer isn't clearly presented");
-            if (enrichmentSignals.socialPlatformCount === 0)
-              addendumParts.push("no social platforms linked from their site");
-            else if ((enrichmentSignals.socialPlatformCount ?? 0) >= 2)
-              addendumParts.push(`${enrichmentSignals.socialPlatformCount} social platforms detected on their site`);
-            const addendum =
-              addendumParts.length > 0
-                ? `
-Light enrichment: ${addendumParts.join(", ")}.`
-                : "";
-            const append = (base?: string, updated?: string) =>
-              base && addendum ? `${base}${addendum}` : (updated ?? base ?? "");
-            return {
-              value: append(existing.value, fresh.value),
-              opportunity: append(existing.opportunity, fresh.opportunity),
-              fit: append(existing.fit, fresh.fit),
-              risk: append(existing.risk, fresh.risk),
-              readiness: append(existing.readiness, fresh.readiness),
-            };
-          };
-
           const signals = data.signals?.byKey ?? {};
           const enrichmentSignals = {
             hasBookingCta: (signals["website_has_booking_cta"]?.value as boolean | null) ?? null,
             hasClearOffer: (signals["website_has_clear_offer"]?.value as boolean | null) ?? null,
             socialPlatformCount: (signals["social_platform_count"]?.value as number) ?? 0,
+          };
+
+          // Build enrichment addendum for dimensions whose score didn't change
+          const addendumParts: string[] = [];
+          if (enrichmentSignals.hasBookingCta === false) addendumParts.push("no booking CTA found on their website");
+          if (enrichmentSignals.hasClearOffer === false) addendumParts.push("their offer isn't clearly presented");
+          if (enrichmentSignals.socialPlatformCount === 0)
+            addendumParts.push("no social platforms linked from their site");
+          else if (enrichmentSignals.socialPlatformCount >= 2)
+            addendumParts.push(`${enrichmentSignals.socialPlatformCount} social platforms detected`);
+          const addendum =
+            addendumParts.length > 0
+              ? `
+Light enrichment: ${addendumParts.join(", ")}.`
+              : "";
+
+          // Tooltip merge: if score changed → fresh tooltip (matches new score).
+          // If score stayed the same → keep original and append enrichment context.
+          const mergeTooltips = (
+            existingScore: LeadUI["score"],
+            freshScore: LeadUI["score"],
+          ): LeadUI["score"]["tooltips"] => {
+            const existing = existingScore.tooltips;
+            const fresh = freshScore.tooltips;
+            if (!existing || !fresh) return fresh;
+
+            const resolve = (
+              key: keyof NonNullable<LeadUI["score"]["tooltips"]>,
+              oldVal: number,
+              newVal: number,
+            ): string => {
+              if (oldVal !== newVal) return fresh[key] ?? ""; // score changed → use fresh tooltip
+              const base = existing[key] ?? "";
+              return addendum ? `${base}${addendum}` : base; // same score → append context
+            };
+
+            return {
+              value: resolve("value", existingScore.value ?? 0, freshScore.value ?? 0),
+              opportunity: resolve("opportunity", existingScore.opportunity ?? 0, freshScore.opportunity ?? 0),
+              fit: resolve("fit", existingScore.value ?? 0, freshScore.value ?? 0),
+              risk: resolve("risk", existingScore.risk ?? 0, freshScore.risk ?? 0),
+              readiness: resolve("readiness", existingScore.readiness ?? 0, freshScore.readiness ?? 0),
+            };
           };
 
           setLeads((prev: LeadUI[]) =>
@@ -1545,7 +1598,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                 ...l,
                 score: {
                   ...data.updatedScore,
-                  tooltips: mergeTooltips(l.score.tooltips, data.updatedScore.tooltips, enrichmentSignals),
+                  tooltips: mergeTooltips(l.score, data.updatedScore),
                 },
               };
             }),
@@ -1556,7 +1609,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
               ...prev,
               score: {
                 ...data.updatedScore,
-                tooltips: mergeTooltips(prev.score.tooltips, data.updatedScore.tooltips, enrichmentSignals),
+                tooltips: mergeTooltips(prev.score, data.updatedScore),
               },
             };
           });
