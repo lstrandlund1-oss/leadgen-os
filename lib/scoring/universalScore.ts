@@ -346,52 +346,60 @@ export function computeUniversalScore(input: UniversalScoreInput): UniversalScor
   else if (dataPoints >= 2) evidenceLevel = "low";
   else evidenceLevel = "insufficient";
 
-  // Verdict tooltip — each scoring input explained on its own line with a bold label
-  // Uses **label** syntax which ScoreTooltip renders as highlighted text
-  const oppLine =
+  // One flowing sentence verdict — all four factors woven in naturally, no labels or numbers visible
+  const oppPhrase =
     opportunity >= 60
-      ? `**Opportunity (${opportunity})** Clear, specific gap — easy conversation starter.`
+      ? "there's a clear and specific gap you can pitch into"
       : opportunity >= 40
-        ? `**Opportunity (${opportunity})** Real gap exists but will need a targeted pitch angle.`
+        ? "there's a real gap but it'll need a focused angle"
         : opportunity >= 25
-          ? `**Opportunity (${opportunity})** Modest gap — they may already be mostly covered.`
-          : `**Opportunity (${opportunity})** Limited gap — this business is likely already well-served.`;
+          ? "the gap is modest — they're reasonably well-served already"
+          : "there's limited room to sell into — they may already have what they need";
 
-  const fitLine =
+  const fitPhrase =
     fitClamped >= 65
-      ? `**Fit (${fitClamped})** Your capabilities directly match what this business needs.`
+      ? "your capabilities are a strong match for what they need"
       : fitClamped >= 45
-        ? `**Fit (${fitClamped})** You cover the main needs but have gaps in some areas.`
+        ? "you cover most of what they need but not everything"
         : fitClamped >= 25
-          ? `**Fit (${fitClamped})** Partial match — you can help but aren't the ideal provider.`
-          : `**Fit (${fitClamped})** Your service profile doesn't align well with this business's needs.`;
+          ? "your service covers some of their needs but there are notable gaps"
+          : "your profile doesn't align well with what this business actually needs";
 
-  const readinessLine =
+  const readinessPhrase =
     readiness >= 70
-      ? `**Readiness (${readiness})** Established business with stable revenue — likely has budget and motivation to act.`
+      ? "the business looks stable and likely has budget to act on this"
       : readiness >= 50
-        ? `**Readiness (${readiness})** Reasonably mature business — may need a nudge to prioritise this now.`
+        ? "they're reasonably established but may need convincing to prioritise this now"
         : readiness >= 30
-          ? `**Readiness (${readiness})** Still growing — budget capacity and urgency are uncertain.`
-          : `**Readiness (${readiness})** Too early-stage or unstable to reliably convert right now.`;
+          ? "budget and urgency are uncertain — they're still in a growth phase"
+          : "they're not in a position to invest yet";
 
-  const riskLine =
+  const riskPhrase =
     risk <= 25
-      ? `**Risk (${risk})** Low friction — reachable, stable, and likely open to new services.`
+      ? "there's low friction standing between you and a response"
       : risk <= 45
-        ? `**Risk (${risk})** Moderate friction — winnable with the right angle and timing.`
+        ? "there's some friction but it's winnable with the right approach"
         : risk <= 65
-          ? `**Risk (${risk})** High friction — may already have vendors or be hard to reach.`
-          : `**Risk (${risk})** Very high friction — unlikely to convert without a very specific edge.`;
+          ? "this will be a harder sell — expect resistance or competition"
+          : "this lead carries high friction and is unlikely to convert easily";
 
-  const evidenceLine =
+  const sentenceStart =
+    value >= 70
+      ? "This is a strong lead worth prioritising"
+      : value >= 50
+        ? "This lead is worth pursuing"
+        : value >= 35
+          ? "This lead has potential but isn't a priority"
+          : "This lead is a low priority right now";
+
+  const evidenceSuffix =
     evidenceLevel === "insufficient"
-      ? "⚠ Limited signal data — treat this score as an early estimate."
+      ? " Note: limited data available — treat as an early estimate."
       : evidenceLevel === "low"
-        ? "Some signals are thin — score will improve after enrichment."
+        ? " Score will sharpen after enrichment runs."
         : "";
 
-  const valueTooltip = [oppLine, fitLine, readinessLine, riskLine, evidenceLine].filter(Boolean).join("\n");
+  const valueTooltip = `${sentenceStart} — ${oppPhrase}, ${fitPhrase}, ${readinessPhrase}, and ${riskPhrase}.${evidenceSuffix}`;
 
   // ── BREAKDOWN (for signals tab bars) ─────────────────────────────────────
   const reputation = clamp(
