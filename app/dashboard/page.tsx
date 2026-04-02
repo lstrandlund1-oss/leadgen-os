@@ -2127,7 +2127,7 @@ export default function Home() {
     <main className="min-h-screen bg-[#080808] text-[#f5f0e8] flex flex-col items-center px-4">
       {/* Premium nav bar */}
       <nav className="sticky top-0 z-50 w-full border-b border-[#252525] bg-[#080808]/90 backdrop-blur-md mb-0">
-        <div className="max-w-4xl mx-auto px-0 py-4 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-[#c9a84c]">◈</span>
             <span
@@ -2158,7 +2158,7 @@ export default function Home() {
         </div>
       </nav>
 
-      <div className="w-full max-w-4xl space-y-8 py-8">
+      <div className="w-full max-w-7xl space-y-8 py-8">
         <header className="space-y-1">
           <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30]">
             {t.ui.header.subtitle}
@@ -2586,18 +2586,6 @@ export default function Home() {
                 {isLoading ? "Loading…" : `Load more`}
               </button>
             )}
-            {exhausted && leads.length > 0 && (
-              <span className="text-[11px] text-[#333]">All leads loaded</span>
-            )}
-
-            <button
-              type="button"
-              onClick={downloadCsv}
-              disabled={sortedLeads.length === 0}
-              className="text-xs border border-[#333] rounded-lg px-3 py-1 bg-[#111111]/60 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#1a1a1a] transition"
-            >
-              {t.ui.results.download}
-            </button>
           </div>
 
           {sortedLeads.length === 0 ? (
@@ -2846,7 +2834,7 @@ export default function Home() {
                             color: fitColor,
                           },
                           {
-                            label: "Opp",
+                            label: "Opportunity",
                             value: lead.score.opportunity ?? 0,
                             color: "#818cf8",
                           },
@@ -2886,21 +2874,18 @@ export default function Home() {
                 <table className="w-full text-sm border-collapse">
                   <thead className="hidden sm:table-header-group">
                     <tr className="bg-[#111111] border-b border-[#252525]">
-                      <th className="text-left py-2 px-3 w-[30%]">
+                      <th className="text-left py-2 px-3 w-[28%]">
                         {t.ui.table.company}
                       </th>
-                      <th className="text-left py-2 px-3 w-[10%]">
-                        {t.ui.table.score}
-                      </th>
-                      <th className="text-left py-2 px-3 w-[8%]">Fit</th>
+                      <th className="text-left py-2 px-3 w-[9%]">Fit</th>
                       <th className="text-left py-2 px-3 w-[12%]">
                         {t.ui.table.opportunity}
                       </th>
                       <th className="text-left py-2 px-3 w-[8%]">
                         {t.ui.table.risk}
                       </th>
-                      <th className="text-left py-2 px-3">
-                        {t.ui.table.insight}
+                      <th className="text-left py-2 px-3 w-[14%]">
+                        Lead Score
                       </th>
                     </tr>
                   </thead>
@@ -3002,60 +2987,6 @@ export default function Home() {
                               </div>
                             </td>
 
-                            <td className="py-2 px-3">
-                              <div className="text-xs font-medium mb-1">
-                                <ScoreTooltip
-                                  text={lead.score.tooltips?.value ?? ""}
-                                >
-                                  <span>{lead.score.value ?? 0}</span>
-                                </ScoreTooltip>
-                              </div>
-                              <div className="w-full bg-[#1a1a1a] rounded-full h-1.5 overflow-hidden">
-                                <div
-                                  className={
-                                    "h-1.5 rounded-full " +
-                                    ((lead.score.value ?? 0) >= 80
-                                      ? "bg-emerald-400"
-                                      : (lead.score.value ?? 0) >= 60
-                                        ? "bg-amber-400"
-                                        : "bg-[#555]")
-                                  }
-                                  style={{ width: `${lead.score.value ?? 0}%` }}
-                                />
-                              </div>
-                              {(() => {
-                                const insight = getLocalizedOpportunityInsight(
-                                  lead,
-                                  language,
-                                );
-                                const score = lead.score.value ?? 0;
-                                const whyLabel =
-                                  insight?.type === "conversion_gap"
-                                    ? t.ui.detail.whyNoBookingFlow
-                                    : insight?.type === "visibility_gap"
-                                      ? t.ui.detail.whyLowDigital
-                                      : insight?.type === "foundation_gap"
-                                        ? t.ui.detail.whyMissingInfra
-                                        : insight?.type === "mature_competitor"
-                                          ? t.ui.detail.whyAlreadyEstablished
-                                          : lead.score.riskProfile ===
-                                                "early_stage" ||
-                                              lead.score.riskProfile ===
-                                                "limited_data"
-                                            ? t.ui.detail.whyUnstableSignals
-                                            : score >= 80
-                                              ? t.ui.detail.whyTopTier
-                                              : score >= 60
-                                                ? t.ui.detail.whyGoodValueFit
-                                                : t.ui.detail.whyLowPriority;
-                                return (
-                                  <p className="text-[10px] text-[#555] mt-1 leading-tight truncate max-w-[120px]">
-                                    {whyLabel}
-                                  </p>
-                                );
-                              })()}
-                            </td>
-
                             <td className="py-2 px-3 hidden sm:table-cell">
                               {lead.fit ? (
                                 <>
@@ -3150,30 +3081,56 @@ export default function Home() {
                             </td>
 
                             <td className="py-2 px-3 hidden md:table-cell">
-                              <div className="text-[11px] leading-snug">
-                                <div className="text-[#c9a84c] font-semibold flex items-center gap-2">
-                                  <span>⚡</span>
-                                  <span>
-                                    {t.ui.table.opportunity}{" "}
-                                    <span className="text-[#c8c0b0] font-semibold">
-                                      {mainOpp}/100
-                                    </span>{" "}
-                                    <span className="text-[#888]">
-                                      ({bandLabel(language, mainOpp)})
-                                    </span>
-                                  </span>
+                              <ScoreTooltip
+                                text={lead.score.tooltips?.value ?? ""}
+                              >
+                                <div>
+                                  {(() => {
+                                    const val = lead.score.value ?? 0;
+                                    const color =
+                                      val >= 70
+                                        ? "#4ade80"
+                                        : val >= 45
+                                          ? "#c9a84c"
+                                          : "#f87171";
+                                    const label =
+                                      val >= 70
+                                        ? "Strong lead"
+                                        : val >= 45
+                                          ? "Good lead"
+                                          : val >= 25
+                                            ? "Moderate lead"
+                                            : "Weak lead";
+                                    return (
+                                      <>
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <span
+                                            className="text-sm font-bold"
+                                            style={{ color }}
+                                          >
+                                            {val}
+                                          </span>
+                                          <div className="flex-1 h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
+                                            <div
+                                              className="h-full rounded-full"
+                                              style={{
+                                                width: `${val}%`,
+                                                backgroundColor: color,
+                                              }}
+                                            />
+                                          </div>
+                                        </div>
+                                        <p
+                                          className="text-[10px]"
+                                          style={{ color }}
+                                        >
+                                          {label}
+                                        </p>
+                                      </>
+                                    );
+                                  })()}
                                 </div>
-
-                                {mainInsight?.message ? (
-                                  <div className="text-[#c8c0b0]">
-                                    {mainInsight.message}
-                                  </div>
-                                ) : (
-                                  <div className="text-[#f5f0e8]0 text-[11px]">
-                                    —
-                                  </div>
-                                )}
-                              </div>
+                              </ScoreTooltip>
                             </td>
                           </tr>
                         </Fragment>
@@ -4233,7 +4190,7 @@ export default function Home() {
                             {(
                               [
                                 {
-                                  short: "OPP",
+                                  short: "Opportunity",
                                   label: "Opportunity",
                                   value: opp,
                                   color:
@@ -4247,7 +4204,7 @@ export default function Home() {
                                     "",
                                 },
                                 {
-                                  short: "READY",
+                                  short: "Readiness",
                                   label: "Readiness",
                                   value: readiness,
                                   color:
@@ -4260,7 +4217,7 @@ export default function Home() {
                                     detailLead.score.tooltips?.readiness ?? "",
                                 },
                                 {
-                                  short: "RISK",
+                                  short: "Risk",
                                   label: "Risk",
                                   value: risk,
                                   color:
@@ -4273,7 +4230,7 @@ export default function Home() {
                                     detailLead.score.tooltips?.risk ?? "",
                                 },
                                 {
-                                  short: "FIT",
+                                  short: "Fit",
                                   label: "Fit",
                                   value: fit ?? 0,
                                   color:
@@ -4332,10 +4289,7 @@ export default function Home() {
                                       </div>
                                     </div>
                                     <div className="min-w-0">
-                                      <p className="text-[9px] uppercase tracking-widest text-[#444]">
-                                        {short}
-                                      </p>
-                                      <p className="text-[12px] text-[#888]">
+                                      <p className="text-[12px] text-[#888] font-medium">
                                         {label}
                                       </p>
                                     </div>
