@@ -346,20 +346,42 @@ export function computeUniversalScore(input: UniversalScoreInput): UniversalScor
   else if (dataPoints >= 2) evidenceLevel = "low";
   else evidenceLevel = "insufficient";
 
-  const valueTooltip = [
-    `Lead Score ${value} —`,
-    `Opportunity (${opportunity}) drives 35% of the score.`,
-    `Fit (${fitClamped}) drives 30% — how well your capabilities match this lead's needs.`,
-    `Readiness (${readiness}) drives 20% — how prepared they are to buy.`,
-    `Risk (${risk}) drives 15% — lower risk improves the score.`,
-    evidenceLevel === "insufficient"
-      ? "⚠ Low confidence — limited signal data available."
-      : evidenceLevel === "low"
-        ? "Some signal data is thin — treat with caution."
-        : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  // Build a verdict-style explanation — what's driving this score and what's holding it back
+  const strengthLines: string[] = [];
+  const holdbackLines: string[] = [];
+
+  // What's working for this lead
+  if (opportunity >= 60) strengthLines.push("clear, monetisable gap");
+  else if (opportunity >= 35) strengthLines.push("a real but moderate opportunity gap");
+  if (fitClamped >= 65) strengthLines.push("strong fit with your service profile");
+  else if (fitClamped >= 40) strengthLines.push("reasonable fit with your profile");
+  if (readiness >= 65) strengthLines.push("a business that looks ready to act");
+  if (risk <= 30) strengthLines.push("low friction to close");
+
+  // What's holding it back
+  if (opportunity < 30) holdbackLines.push("limited opportunity gap — they may already be well-served");
+  else if (opportunity < 45) holdbackLines.push("moderate opportunity that needs a sharp pitch angle");
+  if (fitClamped < 40) holdbackLines.push("your profile doesn't strongly match what this business needs");
+  else if (fitClamped < 55) holdbackLines.push("your fit is partial — you cover some but not all their needs");
+  if (readiness < 40) holdbackLines.push("business doesn't appear ready to invest yet");
+  else if (readiness < 55) holdbackLines.push("moderate readiness — they may need convincing to act now");
+  if (risk >= 60) holdbackLines.push("high risk — likely hard to close");
+  else if (risk >= 40) holdbackLines.push("moderate risk — needs the right angle");
+
+  const verdictParts: string[] = [];
+  if (strengthLines.length > 0) {
+    verdictParts.push(`What works for this lead: ${strengthLines.join(", ")}.`);
+  }
+  if (holdbackLines.length > 0) {
+    verdictParts.push(`What's holding the score back: ${holdbackLines.join(", ")}.`);
+  }
+  if (verdictParts.length === 0) {
+    verdictParts.push("Mixed signals — review the individual scores to understand this lead better.");
+  }
+  if (evidenceLevel === "insufficient") verdictParts.push("⚠ Limited data — this score is an estimate.");
+  else if (evidenceLevel === "low") verdictParts.push("Some signal data is thin — treat with some caution.");
+
+  const valueTooltip = verdictParts.join(" ");
 
   // ── BREAKDOWN (for signals tab bars) ─────────────────────────────────────
   const reputation = clamp(
