@@ -2531,7 +2531,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                       <th className="text-left py-2 px-3 w-[35%]">{t.ui.table.company}</th>
                       <th className="text-left py-2 px-3 w-[10%]">Fit</th>
                       <th className="text-left py-2 px-3 w-[13%]">{t.ui.table.opportunity}</th>
-                      <th className="text-left py-2 px-3 w-[10%]">{t.ui.table.risk}</th>
+                      <th className="text-left py-2 px-3 w-[10%]">Difficulty</th>
                       <th className="text-left py-2 px-3">Lead Score</th>
                     </tr>
                   </thead>
@@ -3172,7 +3172,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                               </div>
                             </div>
                             <p className="text-[11px] text-[#666] leading-relaxed">
-                              {getScoreReason(detailLead, language)}
+                              {detailLead.score.tooltips?.value ?? getScoreReason(detailLead, language)}
                             </p>
 
                             {detailWebsiteUrl && (
@@ -3206,8 +3206,8 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                   tooltip: detailLead.score.tooltips?.readiness ?? "",
                                 },
                                 {
-                                  short: "Risk",
-                                  label: "Risk",
+                                  short: "Difficulty",
+                                  label: "Difficulty",
                                   value: risk,
                                   color: risk >= 60 ? "#f87171" : risk >= 35 ? "#c9a84c" : "#4ade80",
                                   tooltip: detailLead.score.tooltips?.risk ?? "",
@@ -3369,8 +3369,8 @@ Light enrichment: ${addendumParts.join(", ")}.`
                               },
                               {
                                 key: "stabilityRisk",
-                                label: "Stability risk",
-                                hint: "How risky is this lead",
+                                label: "Difficulty",
+                                hint: "How hard this lead will be to close",
                                 invert: true,
                               },
                               {
@@ -3444,7 +3444,12 @@ Light enrichment: ${addendumParts.join(", ")}.`
                       { key: "digitalPresence", label: "Digital Pres.", hint: "Website & social visibility." },
                       { key: "businessStrength", label: "Biz Strength", hint: "Maturity & ability to pay." },
                       { key: "opportunityGap", label: "Opp. Gap", hint: "Growth headroom available." },
-                      { key: "stabilityRisk", label: "Stability Risk", hint: "Higher = riskier.", invert: true },
+                      {
+                        key: "stabilityRisk",
+                        label: "Difficulty",
+                        hint: "How hard to close — higher = harder.",
+                        invert: true,
+                      },
                       { key: "evidenceConfidence", label: "Evidence Conf.", hint: "Signal data quality." },
                     ];
 

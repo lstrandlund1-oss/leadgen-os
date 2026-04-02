@@ -240,15 +240,19 @@ export function computeUniversalScore(input: UniversalScoreInput): UniversalScor
   const risk = clamp(round(riskBase));
 
   const riskProfileExplanation: Partial<Record<string, string>> = {
-    solo_run: "Owner-operated business — decision maker is reachable and motivated. Low friction to close.",
-    growing_business: "Growing business with proven demand and some budget. Approachable with the right angle.",
-    independent_business: "Independent business with moderate signals. Reachable but may already have some vendors.",
+    solo_run:
+      "Owner-operated — the decision maker is likely the person running the business. Easy to reach, fast to close.",
+    growing_business:
+      "Growing business with real customers and some budget. Good approach difficulty — right angle and it's very winnable.",
+    independent_business:
+      "Independent business with moderate signals. Reachable but may already have some service providers.",
     local_authority:
-      "Established local name — they're probably already being pitched by others. Needs a sharp, specific angle.",
+      "Well-known locally — already being pitched by others. Difficulty is higher without a sharp, specific angle.",
     well_established:
-      "Well-established business likely working with existing vendors. Harder to displace without a clear differentiator.",
-    early_stage: "Early stage business — uncertain budget and stability. Higher risk of wasted effort.",
-    limited_data: "Very limited data available. Hard to assess how easy or hard this will be to close.",
+      "Established business likely already working with vendors. Difficulty is high — you need a clear differentiator to displace what they have.",
+    early_stage:
+      "Early stage — budget and stability are uncertain. Higher difficulty and higher risk of wasted effort.",
+    limited_data: "Very limited data. Difficulty is hard to assess — approach with lower expectations.",
   };
   const riskFactors: string[] = [];
   if (reviews < 8) riskFactors.push("Very few reviews — uncertain budget capacity.");
@@ -376,12 +380,12 @@ export function computeUniversalScore(input: UniversalScoreInput): UniversalScor
 
   const riskPhrase =
     risk <= 25
-      ? "there's low friction standing between you and a response"
+      ? "closing difficulty is low — they're reachable and likely open"
       : risk <= 45
-        ? "there's some friction but it's winnable with the right approach"
+        ? "closing difficulty is moderate — winnable with the right approach"
         : risk <= 65
-          ? "this will be a harder sell — expect resistance or competition"
-          : "this lead carries high friction and is unlikely to convert easily";
+          ? "closing difficulty is high — expect resistance or existing competition"
+          : "closing difficulty is very high — unlikely to convert without a very specific edge";
 
   const sentenceStart =
     value >= 70
