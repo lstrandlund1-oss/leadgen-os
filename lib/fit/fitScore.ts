@@ -15,17 +15,20 @@ import type { WeightedNeed, Capability } from "@/lib/fit/needs";
 import type { UserProfileV1, CapabilityProfile } from "@/lib/types";
 
 export type FitResult = {
-  fitScore: number;           // 0-100
+  fitScore: number; // 0-100
   matchedNeeds: Capability[]; // needs the user can cover (depth > 0)
   missingNeeds: Capability[]; // needs the user cannot cover (depth === 0)
   partialNeeds: Capability[]; // needs covered but at low depth (< 40)
   reasons: string[];
-  tooltip: string;            // plain English for hover display
+  tooltip: string; // plain English for hover display
   geoMatch?: "exact" | "partial" | "none" | "unset";
 };
 
 function normLoc(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim();
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .trim();
 }
 
 function scoreGeo(
@@ -40,13 +43,25 @@ function scoreGeo(
   const parts = target.split(/[\s,]+/).filter(Boolean);
   const haystack = normLoc(`${city ?? ""} ${country ?? ""}`);
 
-  if (parts.every(p => haystack.includes(p))) {
-    return { modifier: 12, match: "exact", reason: `Geography match — lead is in your target area (${targetLocation}).` };
+  if (parts.every((p) => haystack.includes(p))) {
+    return {
+      modifier: 12,
+      match: "exact",
+      reason: `Geography match — lead is in your target area (${targetLocation}).`,
+    };
   }
-  if (parts.some(p => haystack.includes(p))) {
-    return { modifier: 5, match: "partial", reason: `Geography partial match — lead overlaps with your target area (${targetLocation}).` };
+  if (parts.some((p) => haystack.includes(p))) {
+    return {
+      modifier: 5,
+      match: "partial",
+      reason: `Geography partial match — lead overlaps with your target area (${targetLocation}).`,
+    };
   }
-  return { modifier: -8, match: "none", reason: `Geography mismatch — lead is outside your target area (${targetLocation}).` };
+  return {
+    modifier: -8,
+    match: "none",
+    reason: `Geography mismatch — lead is outside your target area (${targetLocation}).`,
+  };
 }
 
 export function scoreFit(
@@ -104,18 +119,14 @@ export function scoreFit(
   }
 
   // Base fit: contribution as % of max possible
-  let baseFit = totalWeight > 0
-    ? Math.round((totalContribution / totalWeight) * 100)
-    : 50;
+  let baseFit = totalWeight > 0 ? Math.round((totalContribution / totalWeight) * 100) : 50;
 
   // Hard penalty for missing high-weight needs
   // If the primary need (weight 5) is missing, this is a significant mismatch
-  const criticalMissing = needs.filter(n =>
-    n.weight >= 4 && (capabilityProfile.capabilities[n.key] ?? 0) === 0
-  );
+  const criticalMissing = needs.filter((n) => n.weight >= 4 && (capabilityProfile.capabilities[n.key] ?? 0) === 0);
   if (criticalMissing.length > 0) {
     baseFit = Math.min(baseFit, 45);
-    reasons.push(`Missing critical need: ${criticalMissing.map(n => n.key).join(", ")} (high weight)`);
+    reasons.push(`Missing critical need: ${criticalMissing.map((n) => n.key).join(", ")} (high weight)`);
   }
 
   // Acquisition style modifier
@@ -126,18 +137,58 @@ export function scoreFit(
   // Geo modifier
   const finalFit = Math.max(0, Math.min(100, baseFit + styleModifier + geo.modifier));
 
-  // Build tooltip
-  const matchedStr = matched.length > 0 ? `Covers: ${matched.join(", ")}.` : "";
-  const partialStr = partial.length > 0 ? `Partial: ${partial.join(", ")} (low depth).` : "";
-  const missingStr = missing.length > 0 ? `Can't cover: ${missing.join(", ")}.` : "";
-  const geoStr = geo.reason || "";
-  const tooltip = [
-    `Fit ${finalFit} —`,
-    matchedStr,
-    partialStr,
-    missingStr,
-    geoStr,
-  ].filter(Boolean).join(" ");
+  // Build plain-English fit tooltip
+  const capabilityLabels: Record<string, string> = {
+    ads: "paid advertising",
+    tracking: "analytics & tracking",
+    funnel: "conversion funnels",
+    content: "content & social media",
+    website: "website development",
+    seo: "SEO",
+    crm: "CRM & follow-up",
+  };
+
+  const toLabel = (key: string) => capabilityLabels[key] ?? key;
+
+  const fitLines: string[] = [];
+
+  if (matched.length > 0 && missing.length === 0 && partial.length === 0) {
+    fitLines.push(
+      `Your capabilities are a strong match for what this business needs. You cover ${matched.map(toLabel).join(", ")}.`,
+    );
+  } else if (matched.length > 0 || partial.length > 0) {
+    const strongCovers = matched.map(toLabel);
+    const weakCovers = partial.map(toLabel);
+    if (strongCovers.length > 0) {
+      fitLines.push(`You directly cover ${strongCovers.join(", ")} — the needs this business has in those areas.`);
+    }
+    if (weakCovers.length > 0) {
+      fitLines.push(
+        `You have some capability in ${weakCovers.join(", ")} but it's not your primary strength — you can help but won't be the strongest option.`,
+      );
+    }
+  }
+
+  if (missing.length > 0) {
+    const missingLabels = missing.map(toLabel);
+    if (missing.length === 1) {
+      fitLines.push(
+        `This business also needs ${missingLabels[0]}, which is outside your current offering — that's the main gap limiting your fit.`,
+      );
+    } else {
+      fitLines.push(
+        `This business also needs ${missingLabels.slice(0, -1).join(", ")} and ${missingLabels[missingLabels.length - 1]}, which you don't currently offer. This limits how well you can serve their full needs.`,
+      );
+    }
+  }
+
+  if (geo.reason) fitLines.push(geo.reason);
+
+  if (fitLines.length === 0) {
+    fitLines.push("No clear needs detected for this business yet — fit will update as more signals become available.");
+  }
+
+  const tooltip = fitLines.join(" ");
 
   if (matched.length) reasons.push(`Covers: ${matched.join(", ")}.`);
   if (geo.reason) reasons.push(geo.reason);
