@@ -1495,12 +1495,71 @@ export default function Home() {
         });
 
         if (data.updatedScore) {
+          // Append enrichment context to existing tooltips rather than replacing them.
+          // This preserves the original explanation and adds what light enrichment learned.
+          const mergeTooltips = (
+            existing: LeadUI["score"]["tooltips"],
+            fresh: LeadUI["score"]["tooltips"],
+            enrichmentSignals: {
+              hasBookingCta?: boolean | null;
+              hasClearOffer?: boolean | null;
+              socialPlatformCount?: number;
+            },
+          ): LeadUI["score"]["tooltips"] => {
+            if (!existing || !fresh) return fresh;
+            const addendumParts: string[] = [];
+            if (enrichmentSignals.hasBookingCta === false) addendumParts.push("no booking CTA found on their website");
+            if (enrichmentSignals.hasClearOffer === false)
+              addendumParts.push("their service offer isn't clearly presented");
+            if (enrichmentSignals.socialPlatformCount === 0)
+              addendumParts.push("no social platforms linked from their site");
+            else if ((enrichmentSignals.socialPlatformCount ?? 0) >= 2)
+              addendumParts.push(`${enrichmentSignals.socialPlatformCount} social platforms detected on their site`);
+            const addendum =
+              addendumParts.length > 0
+                ? `
+Light enrichment: ${addendumParts.join(", ")}.`
+                : "";
+            const append = (base?: string, updated?: string) =>
+              base && addendum ? `${base}${addendum}` : (updated ?? base ?? "");
+            return {
+              value: append(existing.value, fresh.value),
+              opportunity: append(existing.opportunity, fresh.opportunity),
+              fit: append(existing.fit, fresh.fit),
+              risk: append(existing.risk, fresh.risk),
+              readiness: append(existing.readiness, fresh.readiness),
+            };
+          };
+
+          const signals = data.signals?.byKey ?? {};
+          const enrichmentSignals = {
+            hasBookingCta: (signals["website_has_booking_cta"]?.value as boolean | null) ?? null,
+            hasClearOffer: (signals["website_has_clear_offer"]?.value as boolean | null) ?? null,
+            socialPlatformCount: (signals["social_platform_count"]?.value as number) ?? 0,
+          };
+
           setLeads((prev: LeadUI[]) =>
-            prev.map((l: LeadUI) => (l.id === leadId ? { ...l, score: data.updatedScore } : l)),
+            prev.map((l: LeadUI) => {
+              if (l.id !== leadId) return l;
+              return {
+                ...l,
+                score: {
+                  ...data.updatedScore,
+                  tooltips: mergeTooltips(l.score.tooltips, data.updatedScore.tooltips, enrichmentSignals),
+                },
+              };
+            }),
           );
-          setSelectedLead((prev: LeadUI | null) =>
-            prev?.id === leadId ? { ...prev, score: data.updatedScore } : prev,
-          );
+          setSelectedLead((prev: LeadUI | null) => {
+            if (prev?.id !== leadId) return prev;
+            return {
+              ...prev,
+              score: {
+                ...data.updatedScore,
+                tooltips: mergeTooltips(prev.score.tooltips, data.updatedScore.tooltips, enrichmentSignals),
+              },
+            };
+          });
         }
       } catch {
         // fail soft
@@ -2525,24 +2584,32 @@ export default function Home() {
                             </td>
 
                             <td className="py-2 px-3 hidden sm:table-cell">
-                              <span className="text-[#c8c0b0] font-semibold">{lead.score.opportunity ?? 0}</span>
-                              <p className="mt-1 text-[11px] leading-snug text-[#888]">{t.ui.detail.upside}</p>
+                              <ScoreTooltip text={lead.score.tooltips?.opportunity ?? ""}>
+                                <div>
+                                  <span className="text-[#c8c0b0] font-semibold">{lead.score.opportunity ?? 0}</span>
+                                  <p className="mt-1 text-[11px] leading-snug text-[#888]">{t.ui.detail.upside}</p>
+                                </div>
+                              </ScoreTooltip>
                             </td>
 
                             <td className="py-2 px-3">
-                              <span
-                                className={
-                                  (lead.score.risk ?? 0) >= 70
-                                    ? "text-rose-300 font-semibold"
-                                    : (lead.score.risk ?? 0) >= 45
-                                      ? "text-amber-300 font-semibold"
-                                      : "text-emerald-300 font-semibold"
-                                }>
-                                {lead.score.risk ?? 0}
-                              </span>
-                              <p className="mt-1 text-[11px] leading-snug text-[#888]">
-                                {lead.score.riskProfile ? lead.score.riskProfile.replaceAll("_", " ") : "—"}
-                              </p>
+                              <ScoreTooltip text={lead.score.tooltips?.risk ?? ""}>
+                                <div>
+                                  <span
+                                    className={
+                                      (lead.score.risk ?? 0) >= 70
+                                        ? "text-rose-300 font-semibold"
+                                        : (lead.score.risk ?? 0) >= 45
+                                          ? "text-amber-300 font-semibold"
+                                          : "text-emerald-300 font-semibold"
+                                    }>
+                                    {lead.score.risk ?? 0}
+                                  </span>
+                                  <p className="mt-1 text-[11px] leading-snug text-[#888]">
+                                    {lead.score.riskProfile ? lead.score.riskProfile.replaceAll("_", " ") : "—"}
+                                  </p>
+                                </div>
+                              </ScoreTooltip>
                             </td>
 
                             <td className="py-2 px-3 hidden md:table-cell">
