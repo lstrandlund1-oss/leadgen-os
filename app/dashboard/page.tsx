@@ -1258,12 +1258,17 @@ Deep scan: ${deepAddendumParts.join(", ")}.`
 
   const LEADS_PER_BATCH = 20;
   const [displayCount, setDisplayCount] = useState(LEADS_PER_BATCH);
-  const sortedLeadsKey = sortedLeads.map((l: LeadUI) => l.id).join(",");
+  // Only reset displayCount when the user runs a new search (niche+location changes),
+  // NOT when background expansion silently adds more leads to the existing list.
+  const searchKey = `${niche}::${location}`;
   useEffect(() => {
     setDisplayCount(LEADS_PER_BATCH);
-  }, [sortedLeadsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const visibleLeads = useMemo(() => sortedLeads.slice(0, displayCount), [sortedLeads, displayCount]);
-  const hasMore = displayCount < sortedLeads.length;
+  // Show more locally if available, otherwise need API fetch
+  const hasMoreLocal = displayCount < sortedLeads.length;
+  const hasMoreRemote = !exhausted && nextCursor !== null && runId !== null;
+  const hasMore = hasMoreLocal || hasMoreRemote;
 
   const activeRunId = useMemo(() => {
     const v = Number(sortedLeads?.[0]?.metadata?.runId ?? 0);
@@ -2362,17 +2367,6 @@ Light enrichment: ${addendumParts.join(", ")}.`
                 )}
               </div>
             </div>
-
-            {/* Load more */}
-            {!exhausted && nextCursor !== null && runId !== null && (
-              <button
-                type="button"
-                onClick={handleLoadMore}
-                disabled={isLoading}
-                className="text-xs border border-[#333] rounded-lg px-4 py-1.5 bg-[#111111]/60 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#1a1a1a] transition text-[#888] hover:text-[#c8c0b0]">
-                {isLoading ? "Loading…" : `Load more`}
-              </button>
-            )}
           </div>
 
           {sortedLeads.length === 0 ? (
@@ -2758,18 +2752,27 @@ Light enrichment: ${addendumParts.join(", ")}.`
                 </table>
               </div>
 
-              {/* Load more + count */}
+              {/* Load more — single unified button */}
               <div className="flex flex-col items-center gap-3 pt-5 pb-2">
                 {hasMore && (
                   <button
                     type="button"
-                    onClick={() => setDisplayCount((n: number) => n + LEADS_PER_BATCH)}
-                    className="px-8 py-2.5 rounded-xl border border-[#252525] text-[13px] text-[#888] hover:border-[rgba(201,168,76,0.3)] hover:text-[#c9a84c] hover:bg-[rgba(201,168,76,0.04)] transition-all font-medium">
-                    Load more ↓
+                    disabled={isLoading}
+                    onClick={() => {
+                      if (hasMoreLocal) {
+                        // More leads already fetched — just reveal them
+                        setDisplayCount((n: number) => n + LEADS_PER_BATCH);
+                      } else if (hasMoreRemote) {
+                        // All local leads shown — fetch next page from API
+                        handleLoadMore();
+                      }
+                    }}
+                    className="px-8 py-2.5 rounded-xl border border-[#252525] text-[13px] text-[#888] hover:border-[rgba(201,168,76,0.3)] hover:text-[#c9a84c] hover:bg-[rgba(201,168,76,0.04)] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium">
+                    {isLoading ? "Loading…" : "Load more ↓"}
                   </button>
                 )}
                 <p className="text-[11px] text-[#333]">
-                  {visibleLeads.length} of {sortedLeads.length} lead{sortedLeads.length !== 1 ? "s" : ""} loaded
+                  {visibleLeads.length} of {sortedLeads.length} lead{sortedLeads.length !== 1 ? "s" : ""} shown
                 </p>
               </div>
             </>
