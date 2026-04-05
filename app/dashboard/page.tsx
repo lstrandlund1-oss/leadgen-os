@@ -22,6 +22,8 @@ import type { TranslationSchema as Translations } from "@/lib/i18n/types";
 import type { SocialPresenceFilter } from "@/lib/providers/types";
 import { useToast } from "../components/ToastProvider";
 import { getSearchQueries, getSearchVariants } from "@/lib/niche/synonyms";
+import { dedupeLeads } from "@/lib/search/dedupeLeads";
+import type { SearchPlan } from "@/lib/search/anthropicPlanner";
 import { createPortal } from "react-dom";
 import { rescoreWithLightSignals } from "@/lib/scoring/rescoreWithSignals";
 
@@ -862,7 +864,7 @@ export default function Home() {
   const [selectedLead, setSelectedLead] = useState<LeadUI | null>(null);
   const [detailTab, setDetailTab] = useState<"overview" | "signals" | "outreach" | "tracking" | "followup">("overview");
   const userPlan = getEffectivePlan();
-  const deepScanUnlocked = canUseDeepEnrichment(userPlan);
+  const deepEnrichmentUnlocked = canUseDeepEnrichment(userPlan);
 
   const [enrichmentLoading, setEnrichmentLoading] = useState(false);
   const [isRescoring, setIsRescoring] = useState(false);
@@ -902,8 +904,8 @@ export default function Home() {
       }
     >;
   } | null>(null);
-  const [deepScanLoading, setDeepScanLoading] = useState(false);
-  const [deepScanData, setDeepScanData] = useState<{
+  const [deepEnrichmentLoading, setDeepScanLoading] = useState(false);
+  const [deepEnrichmentData, setDeepScanData] = useState<{
     deepScore: number;
     pageReachable: boolean;
     scannedAt?: string; // ISO string — set on restore from DB or on fresh scan
@@ -964,7 +966,7 @@ export default function Home() {
   const outreachScript = outreach?.variants?.[selectedVariant] ?? "";
   const scriptText = outreachScript.trim();
 
-  // Derive hasBookingCta / hasClearOffer / isMobileFriendly from deep scan result
+  // Derive hasBookingCta / hasClearOffer / isMobileFriendly from deep enrichment result
   function deriveDeepSignals(data: { pageReachable: boolean; website: { scores: Record<string, number> } }) {
     return {
       websiteReachable: data.pageReachable,
@@ -976,7 +978,7 @@ export default function Home() {
 
   function applyDeepScanToLead(
     lead: LeadUI,
-    deepData: typeof deepScanData,
+    deepData: typeof deepEnrichmentData,
     derivedSignals: ReturnType<typeof deriveDeepSignals>,
   ): LeadUI {
     if (!deepData) return lead;
@@ -1004,7 +1006,8 @@ export default function Home() {
       if (!leadHasWebsite) {
         deepAddendumParts.push("no website — full web analysis unavailable");
       } else {
-        if (derivedSignals.hasBookingCta === false) deepAddendumParts.push("no booking CTA confirmed by deep scan");
+        if (derivedSignals.hasBookingCta === false)
+          deepAddendumParts.push("no booking CTA confirmed by deep enrichment");
         if (derivedSignals.isMobileFriendly === false) deepAddendumParts.push("site is not mobile-friendly");
         if (derivedSignals.hasClearOffer === false) deepAddendumParts.push("no clear service offer on site");
       }
@@ -1052,7 +1055,7 @@ Deep scan: ${deepAddendumParts.join(", ")}.`
   }
 
   async function runDeepScan(lead: LeadUI): Promise<void> {
-    if (deepScanLoading) return;
+    if (deepEnrichmentLoading) return;
     setDeepScanLoading(true);
     setDeepScanData(null);
     try {
@@ -1097,7 +1100,7 @@ Deep scan: ${deepAddendumParts.join(", ")}.`
         setSelectedLead(rescored);
 
         // 3. Persist to Supabase (fire-and-forget — don't block UX)
-        fetch("/api/deep-scan", {
+        fetch("/api/deep-enrichment", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1372,7 +1375,7 @@ Deep scan: ${deepAddendumParts.join(", ")}.`
     }, 100);
   }, [selectedLead]);
 
-  // Restore persisted deep scan when a lead is selected
+  // Restore persisted deep enrichment when a lead is selected
   useEffect(() => {
     if (!selectedLead) return;
     const sourceId = selectedLead.sourceId;
@@ -1380,7 +1383,7 @@ Deep scan: ${deepAddendumParts.join(", ")}.`
 
     (async () => {
       try {
-        const res = await fetch(`/api/deep-scan?sourceId=${encodeURIComponent(sourceId)}`);
+        const res = await fetch(`/api/deep-enrichment?sourceId=${encodeURIComponent(sourceId)}`);
         if (!res.ok) return;
         const { data } = (await res.json()) as {
           data: {
@@ -1423,7 +1426,7 @@ Deep scan: ${deepAddendumParts.join(", ")}.`
           setSelectedLead(rescored);
         }
       } catch {
-        // fail soft — no deep scan cached
+        // fail soft — no deep enrichment cached
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1827,54 +1830,83 @@ Light enrichment: ${addendumParts.join(", ")}.`
           toastInfo("No leads found — try a different niche or location");
         }
 
-        // Background expansion — fire variant queries after primary results are shown.
-        // Results merge in silently as they arrive, no loading state shown to user.
+        // AI-powered background expansion.
+        // 1. Call /api/search/plan to get Claude-generated query variants for this niche+city
+        // 2. Fire all variant queries in parallel (background — no loading state)
+        // 3. Merge results in using robust deduplication
         const ctx = providerLeads._expansionContext;
         if (ctx) {
-          const {
-            provider: p,
-            primaryQuery,
-            expandedQueries,
-            locationText,
-            socialPresence: sp,
-            seenIds,
-            seenNames,
-          } = ctx;
-          const variantQueries = getSearchVariants(primaryQuery, locationText);
-          const synonymQueries = expandedQueries.map((q: string) => ({ query: q, location: locationText }));
-          const allSecondary = [...variantQueries, ...synonymQueries];
+          const { provider: p, locationText, socialPresence: sp, seenIds, seenNames } = ctx;
 
-          // Fire all variants in background — no await, no loading state
-          Promise.allSettled(
-            allSecondary.map(async ({ query: q, location: loc }) => {
-              const res = await fetch("/api/providers/search", {
+          // Kick off AI plan fetch + variant execution in background
+          (async () => {
+            try {
+              // Step 1: Get AI search plan
+              const planRes = await fetch("/api/search/plan", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                // forceRefresh ensures we get fresh results, not a cached run with fewer results
                 body: JSON.stringify({
-                  provider: p,
-                  query: q,
+                  niche,
+                  city: locationText,
                   country: "Sweden",
-                  location: loc,
-                  socialPresence: sp,
-                  limit: 20,
-                  forceRefresh: true,
+                  language: language === "sv" ? "sv" : "en",
                 }),
               }).catch(() => null);
-              if (!res?.ok) return [];
-              const data = (await res.json().catch(() => ({}))) as ProviderSearchResponse;
-              const secId = typeof data.runId === "number" ? data.runId : null;
-              if (!secId) return [];
-              const secRes = await fetch(
-                `/api/providers/runs/${secId}/leads?${loc ? `location=${encodeURIComponent(loc)}&` : ""}niche=${encodeURIComponent(q)}`,
-              ).catch(() => null);
-              if (!secRes?.ok) return [];
-              const secData = (await secRes.json().catch(() => ({}))) as RunLeadsResponse;
-              return Array.isArray(secData?.leads) ? (secData.leads as LeadUI[]) : [];
-            }),
-          )
-            .then((results) => {
-              const newLeads: LeadUI[] = [];
+
+              // Build query list — fall back to simple variants if plan fails
+              let expandQueries: Array<{ query: string; location: string }> = [];
+
+              if (planRes?.ok) {
+                const planData = (await planRes.json()) as { plan?: SearchPlan; ok?: boolean };
+                const plan = planData.plan;
+                if (plan) {
+                  // Use AI variants, skip the primary (already shown)
+                  const allVariants = [
+                    ...plan.queryVariants.slice(1),
+                    ...plan.languageVariants,
+                    ...plan.districtVariants,
+                    ...plan.municipalityVariants,
+                  ];
+                  expandQueries = allVariants.map((q) => ({ query: q, location: locationText }));
+                }
+              }
+
+              // Fallback if AI plan unavailable
+              if (expandQueries.length === 0) {
+                expandQueries = getSearchVariants(niche, locationText);
+              }
+
+              // Step 2: Fire all variants in parallel with forceRefresh
+              const results = await Promise.allSettled(
+                expandQueries.map(async ({ query: q, location: loc }) => {
+                  const res = await fetch("/api/providers/search", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      provider: p,
+                      query: q,
+                      country: "Sweden",
+                      location: loc,
+                      socialPresence: sp,
+                      limit: 20,
+                      forceRefresh: true,
+                    }),
+                  }).catch(() => null);
+                  if (!res?.ok) return [];
+                  const data = (await res.json().catch(() => ({}))) as ProviderSearchResponse;
+                  const secId = typeof data.runId === "number" ? data.runId : null;
+                  if (!secId) return [];
+                  const secRes = await fetch(
+                    `/api/providers/runs/${secId}/leads?${loc ? `location=${encodeURIComponent(loc)}&` : ""}niche=${encodeURIComponent(q)}`,
+                  ).catch(() => null);
+                  if (!secRes?.ok) return [];
+                  const secData = (await secRes.json().catch(() => ({}))) as RunLeadsResponse;
+                  return Array.isArray(secData?.leads) ? (secData.leads as LeadUI[]) : [];
+                }),
+              );
+
+              // Step 3: Collect + dedup against what's already shown
+              const incoming: LeadUI[] = [];
               for (const r of results) {
                 if (r.status !== "fulfilled") continue;
                 for (const l of r.value) {
@@ -1884,25 +1916,21 @@ Light enrichment: ${addendumParts.join(", ")}.`
                   if (seenNames.has(name)) continue;
                   if (id) seenIds.add(id);
                   seenNames.add(name);
-                  newLeads.push(l);
+                  incoming.push(l);
                 }
               }
-              if (newLeads.length > 0) {
+
+              if (incoming.length > 0) {
                 setLeads((prev: LeadUI[]) => {
-                  // Dedup against whatever is already in state (user may have loaded more)
-                  const existingIds = new Set(prev.map((l) => l.sourceId).filter(Boolean));
-                  const existingNames = new Set(prev.map((l) => l.company.name.toLowerCase().trim()));
-                  const truly_new = newLeads.filter((l) => {
-                    if (l.sourceId && existingIds.has(l.sourceId)) return false;
-                    return !existingNames.has(l.company.name.toLowerCase().trim());
-                  });
-                  return truly_new.length > 0 ? [...prev, ...truly_new] : prev;
+                  // Final dedup against current state (robust — uses website domain too)
+                  const merged = dedupeLeads([...prev, ...incoming]);
+                  return merged.length > prev.length ? merged : prev;
                 });
               }
-            })
-            .catch(() => {
-              /* silent — background expansion failure doesn't affect UX */
-            });
+            } catch {
+              // Silent — background expansion never breaks the UI
+            }
+          })();
         }
 
         return;
@@ -3568,7 +3596,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                 onClick={() => detailLead && runDeepScan(detailLead)}
                                 disabled={enrichmentLoading}
                                 className="text-[10px] px-2 py-1 rounded border border-[#252525] text-[#555] hover:border-[#444] hover:text-[#888] disabled:opacity-40 transition-colors">
-                                ↻ Re-scan
+                                ↻ Re-enrich
                               </button>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
@@ -3625,16 +3653,16 @@ Light enrichment: ${addendumParts.join(", ")}.`
                     );
                   })()}
 
-                {detailTab === "signals" && deepScanData && (
+                {detailTab === "signals" && deepEnrichmentData && (
                   <div className="space-y-3">
                     {/* Deep Score */}
                     <div className="rounded-xl border border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.04)] p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div className="space-y-1">
-                          <p className="text-[10px] uppercase tracking-widest text-[#8a6e30]">Deep Scan</p>
-                          {deepScanData.scannedAt && (
+                          <p className="text-[10px] uppercase tracking-widest text-[#8a6e30]">Deep Enrichment</p>
+                          {deepEnrichmentData.scannedAt && (
                             <div className="flex items-center gap-1.5">
-                              {deepScanData.isFromCache && (
+                              {deepEnrichmentData.isFromCache && (
                                 <span className="text-[9px] px-1.5 py-0.5 rounded border border-[#c9a84c]/20 bg-[#c9a84c]/08 text-[#8a6e30]">
                                   cached
                                 </span>
@@ -3642,7 +3670,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                               <p className="text-[10px] text-[#444]">
                                 Scanned{" "}
                                 {(() => {
-                                  const diff = Date.now() - new Date(deepScanData.scannedAt).getTime();
+                                  const diff = Date.now() - new Date(deepEnrichmentData.scannedAt).getTime();
                                   const mins = Math.floor(diff / 60000);
                                   const hours = Math.floor(diff / 3600000);
                                   const days = Math.floor(diff / 86400000);
@@ -3659,18 +3687,18 @@ Light enrichment: ${addendumParts.join(", ")}.`
                           )}
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-2xl font-bold text-[#c9a84c]">{deepScanData.deepScore}</span>
-                          {deepScanData.isFromCache && (
+                          <span className="text-2xl font-bold text-[#c9a84c]">{deepEnrichmentData.deepScore}</span>
+                          {deepEnrichmentData.isFromCache && (
                             <button
                               type="button"
                               onClick={() => detailLead && runDeepScan(detailLead)}
                               className="text-[10px] px-2 py-1 rounded border border-[#252525] text-[#555] hover:border-[#444] hover:text-[#888] transition-colors">
-                              ↻ Rescan
+                              ↻ Re-enrich
                             </button>
                           )}
                         </div>
                       </div>
-                      {!deepScanData.pageReachable && (
+                      {!deepEnrichmentData.pageReachable && (
                         <p className="text-[11px] text-[#555]">Unreachable — partial scores only.</p>
                       )}
                     </div>
@@ -3679,13 +3707,13 @@ Light enrichment: ${addendumParts.join(", ")}.`
                     <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <p className="text-[10px] uppercase tracking-widest text-[#555]">Website</p>
-                        {deepScanData.website.summary && (
+                        {deepEnrichmentData.website.summary && (
                           <p className="text-[10px] text-[#444] max-w-[60%] text-right truncate">
-                            {deepScanData.website.summary}
+                            {deepEnrichmentData.website.summary}
                           </p>
                         )}
                       </div>
-                      {Object.entries(deepScanData.website.scores).map(([key, val]) => {
+                      {Object.entries(deepEnrichmentData.website.scores).map(([key, val]) => {
                         const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (s: string) => s.toUpperCase());
                         const score = val as number;
                         const color = score >= 65 ? "#4ade80" : score >= 35 ? "#c9a84c" : "#f87171";
@@ -3711,7 +3739,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                     {/* Market signals */}
                     <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
                       <p className="text-[10px] uppercase tracking-widest text-[#555]">Market</p>
-                      {Object.entries(deepScanData.market.scores).map(([key, val]) => {
+                      {Object.entries(deepEnrichmentData.market.scores).map(([key, val]) => {
                         const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (s: string) => s.toUpperCase());
                         const score = val as number;
                         const color = score >= 65 ? "#4ade80" : score >= 35 ? "#c9a84c" : "#f87171";
@@ -3732,9 +3760,9 @@ Light enrichment: ${addendumParts.join(", ")}.`
                           </div>
                         );
                       })}
-                      {deepScanData.market.recommendation && (
+                      {deepEnrichmentData.market.recommendation && (
                         <p className="text-[11px] text-[#666] border-t border-[#1a1a1a] pt-2">
-                          {deepScanData.market.recommendation}
+                          {deepEnrichmentData.market.recommendation}
                         </p>
                       )}
                     </div>
@@ -3744,10 +3772,10 @@ Light enrichment: ${addendumParts.join(", ")}.`
                       <div className="flex items-center justify-between">
                         <p className="text-[10px] uppercase tracking-widest text-[#555]">Brand</p>
                         <span className="text-[13px] font-bold text-[#c9a84c]">
-                          Grade: {deepScanData.brand.brandGrade}
+                          Grade: {deepEnrichmentData.brand.brandGrade}
                         </span>
                       </div>
-                      {Object.entries(deepScanData.brand.scores).map(([key, val]) => {
+                      {Object.entries(deepEnrichmentData.brand.scores).map(([key, val]) => {
                         const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (s: string) => s.toUpperCase());
                         const score = val as number;
                         const color = score >= 65 ? "#4ade80" : score >= 35 ? "#c9a84c" : "#f87171";
@@ -3771,24 +3799,24 @@ Light enrichment: ${addendumParts.join(", ")}.`
                       <div className="grid grid-cols-2 gap-2 border-t border-[#1a1a1a] pt-2">
                         <div className="rounded-lg border border-[#4ade80]/15 bg-[#4ade80]/5 px-2 py-1.5">
                           <p className="text-[9px] uppercase tracking-widest text-[#4ade80]/60 mb-0.5">Strength</p>
-                          <p className="text-[11px] text-[#888]">{deepScanData.brand.strengthArea}</p>
+                          <p className="text-[11px] text-[#888]">{deepEnrichmentData.brand.strengthArea}</p>
                         </div>
                         <div className="rounded-lg border border-[#f87171]/15 bg-[#f87171]/5 px-2 py-1.5">
                           <p className="text-[9px] uppercase tracking-widest text-[#f87171]/60 mb-0.5">Weakest</p>
-                          <p className="text-[11px] text-[#888]">{deepScanData.brand.weakestArea}</p>
+                          <p className="text-[11px] text-[#888]">{deepEnrichmentData.brand.weakestArea}</p>
                         </div>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {detailTab === "signals" && !deepScanData && !deepScanLoading && (
+                {detailTab === "signals" && !deepEnrichmentData && !deepEnrichmentLoading && (
                   <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 flex items-center justify-between">
                     <div>
-                      <p className="text-[12px] text-[#888] font-medium">Deep Scan</p>
+                      <p className="text-[12px] text-[#888] font-medium">Deep Enrichment</p>
                       <p className="text-[11px] text-[#444] mt-0.5 hidden sm:block">Website · market · brand</p>
                     </div>
-                    {deepScanUnlocked ? (
+                    {deepEnrichmentUnlocked ? (
                       <button
                         type="button"
                         onClick={() => detailLead && runDeepScan(detailLead)}
@@ -3802,14 +3830,14 @@ Light enrichment: ${addendumParts.join(", ")}.`
                           disabled
                           className="text-[11px] px-3 py-1.5 rounded-lg border border-[#2a2a2a] bg-[#111] text-[#444] cursor-not-allowed flex items-center gap-1.5">
                           <span>🔒</span>
-                          <span>Deep Scan</span>
+                          <span>Deep Enrichment</span>
                         </button>
                         <div className="absolute bottom-full right-0 mb-2 w-56 rounded-xl border border-[#2a2a2a] bg-[#111] p-3 text-[11px] text-[#666] leading-relaxed opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50 shadow-xl">
                           <p className="text-[#c9a84c] font-medium mb-1">Operator & Agency feature</p>
                           <p>
-                            Deep Scan fetches the lead&apos;s website and analyses SEO structure, CTA strength, brand
-                            consistency, and market positioning — giving you a composite intelligence score before you
-                            reach out.
+                            Deep Enrichment fetches the lead&apos;s website and analyses SEO structure, CTA strength,
+                            brand consistency, and market positioning — giving you a composite intelligence score before
+                            you reach out.
                           </p>
                           <p className="mt-1 text-[#555]">Upgrade to unlock.</p>
                         </div>
@@ -3818,11 +3846,11 @@ Light enrichment: ${addendumParts.join(", ")}.`
                   </div>
                 )}
 
-                {detailTab === "signals" && deepScanLoading && (
+                {detailTab === "signals" && deepEnrichmentLoading && (
                   <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 flex items-center gap-3">
                     <div className="w-3.5 h-3.5 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin shrink-0" />
                     <span className="text-[12px] text-[#555]">
-                      Running deep scan — fetching website, market & brand signals…
+                      Running deep enrichment — fetching website, market & brand signals…
                     </span>
                   </div>
                 )}
