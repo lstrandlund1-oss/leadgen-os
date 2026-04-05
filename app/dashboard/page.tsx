@@ -505,32 +505,10 @@ async function runProviderSearchAndFetchLeads(args: {
   const _cacheInfo = (searchData.summary as Record<string, unknown> | null) ?? null;
   if (!runId) return null;
 
-  let finalNextCursor = searchData.nextCursor ?? null;
-  let finalExhausted = searchData.exhausted ?? false;
+  const finalNextCursor = searchData.nextCursor ?? null;
+  const finalExhausted = searchData.exhausted ?? false;
 
-  if (!cursor && finalNextCursor && !finalExhausted) {
-    let pagesRemaining = 2;
-    while (pagesRemaining > 0 && finalNextCursor && !finalExhausted) {
-      const pageRes = await fetch("/api/providers/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider,
-          query: primaryQuery,
-          country: "Sweden",
-          location: locationText || undefined,
-          socialPresence,
-          limit: 20,
-          cursor: finalNextCursor,
-        }),
-      }).catch(() => null);
-      if (!pageRes?.ok) break;
-      const pageData = (await pageRes.json().catch(() => ({}))) as ProviderSearchResponse;
-      finalNextCursor = pageData.nextCursor ?? null;
-      finalExhausted = pageData.exhausted ?? finalNextCursor === null;
-      pagesRemaining--;
-    }
-  }
+  // Pagination via cursor is handled by "Load more" — variant expansion handles volume
 
   const leadsRes = await fetch(
     `/api/providers/runs/${runId}/leads?${locationText ? `location=${encodeURIComponent(locationText)}&` : ""}${niche ? `niche=${encodeURIComponent(niche)}` : ""}`,
@@ -1872,6 +1850,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
               const res = await fetch("/api/providers/search", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                // forceRefresh ensures we get fresh results, not a cached run with fewer results
                 body: JSON.stringify({
                   provider: p,
                   query: q,
@@ -1879,6 +1858,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                   location: loc,
                   socialPresence: sp,
                   limit: 20,
+                  forceRefresh: true,
                 }),
               }).catch(() => null);
               if (!res?.ok) return [];
