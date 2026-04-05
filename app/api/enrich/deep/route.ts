@@ -26,8 +26,9 @@ function parseWebsiteSignals(html: string, url: string, loadTimeMs: number, page
   const metaDesc = html.match(/<meta[^>]+name=["']description["'][^>]*content=["']([^"']{1,300})["']/i);
   const internalLinks = (html.match(/href=["'][^"'#][^"']*["']/gi) ?? []).filter((h) => !h.includes("http"));
   const images = html.match(/<img[\s>]/gi) ?? [];
-  const imagesWithAlt = (html.match(/<img[^>]+alt=["'][^"']+["']/gi) ?? []);
-  const ctaButtons = (html.match(/<(button|a)[^>]*>(book|call|get|start|contact|schedule|free|quote)[^<]{0,40}<\/(button|a)>/gi) ?? []);
+  const imagesWithAlt = html.match(/<img[^>]+alt=["'][^"']+["']/gi) ?? [];
+  const ctaButtons =
+    html.match(/<(button|a)[^>]*>(book|call|get|start|contact|schedule|free|quote)[^<]{0,40}<\/(button|a)>/gi) ?? [];
 
   const primaryCtaMatch = ctaButtons[0]?.match(/>([^<]+)</i);
   const primaryCtaText = primaryCtaMatch?.[1]?.trim() ?? null;
@@ -44,10 +45,12 @@ function parseWebsiteSignals(html: string, url: string, loadTimeMs: number, page
     primaryCtaText,
     hasPhoneNumber: /(\+[\d\s\-()]{7,}|0[\d\s\-()]{8,})/.test(html),
     hasContactForm: lower.includes("contact") && (lower.includes("<form") || lower.includes("input type")),
-    hasOnlineBooking: ["book", "booking", "schedule", "appointment", "calendly", "acuity", "mindbody"].some((k) => lower.includes(k)),
+    hasOnlineBooking: ["book", "booking", "schedule", "appointment", "calendly", "acuity", "mindbody"].some((k) =>
+      lower.includes(k),
+    ),
     pageSizeKb: Math.round(pageSizeBytes / 1024),
     loadTimeMs,
-    hasLazyLoading: lower.includes("loading=\"lazy\"") || lower.includes("lazyload"),
+    hasLazyLoading: lower.includes('loading="lazy"') || lower.includes("lazyload"),
     hasCssMinified: !lower.includes("  .") && lower.includes("<link") && lower.includes(".css"),
     hasJsMinified: (html.match(/\.min\.js/i) ?? []).length > 0,
     hasSSL: url.startsWith("https://"),
@@ -61,7 +64,11 @@ function parseWebsiteSignals(html: string, url: string, loadTimeMs: number, page
 
 function parseBrandSignals(html: string, input: Partial<DeepBrandInput> = {}): DeepBrandInput {
   const lower = html.toLowerCase();
-  const wordCount = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().split(" ").length;
+  const wordCount = html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ").length;
 
   return {
     wordCountHomepage: wordCount,
@@ -77,17 +84,21 @@ function parseBrandSignals(html: string, input: Partial<DeepBrandInput> = {}): D
     hasVideoContent: lower.includes("<video") || lower.includes("youtube.com/embed") || lower.includes("vimeo.com"),
     hasUserGeneratedContent: lower.includes("ugc") || lower.includes("tagged us") || lower.includes("#"),
     averageEngagementRate: null,
-    hasLogoInHeader: lower.includes("<header") && (lower.includes("logo") || lower.includes("<img") ),
-    colorSchemeConsistent: true, // assume true — deep CSS analysis not done here
-    fontsConsistent: html.includes("font-family") || html.includes("googleapis.com/css"),
-    hasCustomDomain: !/(wordpress\.com|wix\.com|weebly\.com|squarespace\.com|webflow\.io)/.test(lower),
-    usesGenericEmailProvider: /(gmail\.com|yahoo\.com|hotmail\.com|outlook\.com)/.test(lower),
+    // All website signals require actual HTML — never true when page is empty/unreachable
+    hasLogoInHeader: html.length > 0 && lower.includes("<header") && (lower.includes("logo") || lower.includes("<img")),
+    colorSchemeConsistent: html.length > 0 && (lower.includes("background-color") || lower.includes("background:")),
+    fontsConsistent: html.length > 0 && (html.includes("font-family") || html.includes("googleapis.com/css")),
+    hasCustomDomain:
+      html.length > 0 && !/(wordpress\.com|wix\.com|weebly\.com|squarespace\.com|webflow\.io)/.test(lower),
+    usesGenericEmailProvider: html.length > 0 && /(gmail\.com|yahoo\.com|hotmail\.com|outlook\.com)/.test(lower),
   };
 }
 
 // ── Fetch helper ──────────────────────────────────────────────────────────────
 
-async function fetchPage(url: string): Promise<{ html: string; loadTimeMs: number; sizeBytes: number; error?: string } | null> {
+async function fetchPage(
+  url: string,
+): Promise<{ html: string; loadTimeMs: number; sizeBytes: number; error?: string } | null> {
   let normalized = url.trim();
   if (!/^https?:\/\//i.test(normalized)) normalized = "https://" + normalized;
 
@@ -140,7 +151,8 @@ export async function POST(request: Request) {
     // Enforce monthly quota for Operator (limit !== null means finite)
     if (limit !== null && supabase && userId) {
       const monthStart = new Date();
-      monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
 
       const { count } = await supabase
         .from("deep_scan_usage")
@@ -151,16 +163,19 @@ export async function POST(request: Request) {
       if ((count ?? 0) >= limit) {
         return NextResponse.json(
           { error: `Monthly deep scan limit reached (${limit}/month). Upgrade to Agency for unlimited scans.` },
-          { status: 429 }
+          { status: 429 },
         );
       }
 
       // Log this scan (fire-and-forget — don't block on it)
-      supabase.from("deep_scan_usage").insert({ user_id: userId }).then(() => {});
+      supabase
+        .from("deep_scan_usage")
+        .insert({ user_id: userId })
+        .then(() => {});
     }
     // ─────────────────────────────────────────────────────────────────────────
 
-    const body = await request.json() as {
+    const body = (await request.json()) as {
       website?: string | null;
       nearbyCompetitorCount?: number;
       nearbyWithWebsite?: number;
@@ -199,13 +214,29 @@ export async function POST(request: Request) {
     const websiteInput: DeepWebsiteInput = pageReachable
       ? parseWebsiteSignals(html, website ?? "", loadTimeMs, pageSizeBytes)
       : {
-          hasH1: false, h1Count: 0, hasMetaDescription: false, metaDescriptionLength: null,
-          internalLinkCount: 0, imageCount: 0, imagesWithAlt: 0, ctaButtonCount: 0,
-          primaryCtaText: null, hasPhoneNumber: false, hasContactForm: false, hasOnlineBooking: false,
-          pageSizeKb: null, loadTimeMs: null, hasLazyLoading: false, hasCssMinified: false,
-          hasJsMinified: false, hasSSL: (website ?? "").startsWith("https://"),
-          hasCookieBanner: false, hasPrivacyPolicy: false, hasReviewWidget: false,
-          hasSocialProof: false, hasViewportMeta: false,
+          hasH1: false,
+          h1Count: 0,
+          hasMetaDescription: false,
+          metaDescriptionLength: null,
+          internalLinkCount: 0,
+          imageCount: 0,
+          imagesWithAlt: 0,
+          ctaButtonCount: 0,
+          primaryCtaText: null,
+          hasPhoneNumber: false,
+          hasContactForm: false,
+          hasOnlineBooking: false,
+          pageSizeKb: null,
+          loadTimeMs: null,
+          hasLazyLoading: false,
+          hasCssMinified: false,
+          hasJsMinified: false,
+          hasSSL: (website ?? "").startsWith("https://"),
+          hasCookieBanner: false,
+          hasPrivacyPolicy: false,
+          hasReviewWidget: false,
+          hasSocialProof: false,
+          hasViewportMeta: false,
         };
 
     const websiteResult = extractDeepWebsiteSignals(websiteInput);
@@ -259,19 +290,16 @@ export async function POST(request: Request) {
       // Composite deep score (simple weighted average for now)
       deepScore: Math.round(
         websiteResult.scores.seoStructure * 0.15 +
-        websiteResult.scores.ctaStrength * 0.25 +
-        websiteResult.scores.pageSpeed * 0.10 +
-        websiteResult.scores.trustLayer * 0.10 +
-        marketResult.scores.opportunityWindow * 0.20 +
-        brandResult.scores.brandConsistency * 0.10 +
-        brandResult.scores.contentQuality * 0.10,
+          websiteResult.scores.ctaStrength * 0.25 +
+          websiteResult.scores.pageSpeed * 0.1 +
+          websiteResult.scores.trustLayer * 0.1 +
+          marketResult.scores.opportunityWindow * 0.2 +
+          brandResult.scores.brandConsistency * 0.1 +
+          brandResult.scores.contentQuality * 0.1,
       ),
     });
   } catch (err) {
     console.error("/api/enrich/deep POST error:", err);
-    return NextResponse.json(
-      { success: false, error: "Internal error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ success: false, error: "Internal error" }, { status: 500 });
   }
 }

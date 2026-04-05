@@ -3590,68 +3590,125 @@ Light enrichment: ${addendumParts.join(", ")}.`
                           </div>
                         )}
 
-                        {safeEnrichment && !enrichmentLoading && (
-                          <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                            <div className="flex items-center justify-between">
-                              <p className="text-[10px] uppercase tracking-widest text-[#555]">Web Signals</p>
-                              <button
-                                type="button"
-                                onClick={() => detailLead && runDeepScan(detailLead)}
-                                disabled={enrichmentLoading}
-                                className="text-[10px] px-2 py-1 rounded border border-[#252525] text-[#555] hover:border-[#444] hover:text-[#888] disabled:opacity-40 transition-colors">
-                                ↻ Re-enrich
-                              </button>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              {[
-                                { key: "website_reachable", label: "Reachable", value: isReachable },
-                                {
-                                  key: "website_has_contact_page",
-                                  label: "Contact pg",
-                                  value: enrichmentSignals["website_has_contact_page"]?.value,
-                                },
-                                {
-                                  key: "website_has_booking_cta",
-                                  label: "Booking CTA",
-                                  value: enrichmentSignals["website_has_booking_cta"]?.value,
-                                },
-                                {
-                                  key: "website_has_clear_offer",
-                                  label: "Clear offer",
-                                  value: enrichmentSignals["website_has_clear_offer"]?.value,
-                                },
-                                {
-                                  key: "website_mobile_friendly",
-                                  label: "Mobile ok",
-                                  value: enrichmentSignals["website_mobile_friendly"]?.value,
-                                },
-                              ].map(({ key, label, value: v }) => (
-                                <div
-                                  key={key}
-                                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${v ? "border-[#4ade80]/20 bg-[#4ade80]/5" : "border-[#f87171]/15 bg-[#f87171]/5"}`}>
-                                  <span className={`text-xs ${v ? "text-[#4ade80]" : "text-[#f87171]"}`}>
-                                    {v ? "✓" : "✗"}
-                                  </span>
-                                  <span className="text-[11px] text-[#888]">{label}</span>
-                                </div>
-                              ))}
-                            </div>
-                            {detectedPlatforms.length > 0 && (
-                              <div>
-                                <p className="text-[10px] uppercase tracking-widest text-[#555] mb-1.5">Social</p>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {detectedPlatforms.map((p: string) => (
+                        {safeEnrichment &&
+                          !enrichmentLoading &&
+                          (() => {
+                            const noWebsite = !detailLead?.company.website;
+                            return (
+                              <div
+                                className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3"
+                                style={{ opacity: noWebsite ? 0.45 : 1, position: "relative" }}>
+                                {noWebsite && (
+                                  <div
+                                    style={{
+                                      position: "absolute",
+                                      inset: 0,
+                                      zIndex: 2,
+                                      borderRadius: 12,
+                                      pointerEvents: "none",
+                                      overflow: "hidden",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                    }}>
+                                    <svg
+                                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+                                      preserveAspectRatio="none">
+                                      <line
+                                        x1="0"
+                                        y1="0"
+                                        x2="100%"
+                                        y2="100%"
+                                        stroke="#f87171"
+                                        strokeWidth="1.5"
+                                        strokeOpacity="0.35"
+                                      />
+                                      <line
+                                        x1="100%"
+                                        y1="0"
+                                        x2="0"
+                                        y2="100%"
+                                        stroke="#f87171"
+                                        strokeWidth="1.5"
+                                        strokeOpacity="0.35"
+                                      />
+                                    </svg>
                                     <span
-                                      key={p}
-                                      className="text-[11px] px-2 py-0.5 rounded-md border border-[#252525] text-[#c8c0b0]">
-                                      {p}
+                                      style={{
+                                        fontSize: 10,
+                                        color: "#f87171",
+                                        background: "#0d0d0d",
+                                        padding: "2px 8px",
+                                        borderRadius: 4,
+                                        border: "1px solid rgba(248,113,113,0.2)",
+                                        zIndex: 3,
+                                        position: "relative",
+                                      }}>
+                                      No website
                                     </span>
+                                  </div>
+                                )}
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[10px] uppercase tracking-widest text-[#555]">Web Signals</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => detailLead && runDeepScan(detailLead)}
+                                    disabled={enrichmentLoading}
+                                    className="text-[10px] px-2 py-1 rounded border border-[#252525] text-[#555] hover:border-[#444] hover:text-[#888] disabled:opacity-40 transition-colors">
+                                    ↻ Re-enrich
+                                  </button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {[
+                                    { key: "website_reachable", label: "Reachable", value: isReachable },
+                                    {
+                                      key: "website_has_contact_page",
+                                      label: "Contact pg",
+                                      value: enrichmentSignals["website_has_contact_page"]?.value,
+                                    },
+                                    {
+                                      key: "website_has_booking_cta",
+                                      label: "Booking CTA",
+                                      value: enrichmentSignals["website_has_booking_cta"]?.value,
+                                    },
+                                    {
+                                      key: "website_has_clear_offer",
+                                      label: "Clear offer",
+                                      value: enrichmentSignals["website_has_clear_offer"]?.value,
+                                    },
+                                    {
+                                      key: "website_mobile_friendly",
+                                      label: "Mobile ok",
+                                      value: enrichmentSignals["website_mobile_friendly"]?.value,
+                                    },
+                                  ].map(({ key, label, value: v }) => (
+                                    <div
+                                      key={key}
+                                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${v ? "border-[#4ade80]/20 bg-[#4ade80]/5" : "border-[#f87171]/15 bg-[#f87171]/5"}`}>
+                                      <span className={`text-xs ${v ? "text-[#4ade80]" : "text-[#f87171]"}`}>
+                                        {v ? "✓" : "✗"}
+                                      </span>
+                                      <span className="text-[11px] text-[#888]">{label}</span>
+                                    </div>
                                   ))}
                                 </div>
+                                {detectedPlatforms.length > 0 && (
+                                  <div>
+                                    <p className="text-[10px] uppercase tracking-widest text-[#555] mb-1.5">Social</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {detectedPlatforms.map((p: string) => (
+                                        <span
+                                          key={p}
+                                          className="text-[11px] px-2 py-0.5 rounded-md border border-[#252525] text-[#c8c0b0]">
+                                          {p}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                        )}
+                            );
+                          })()}
                       </div>
                     );
                   })()}
@@ -3707,37 +3764,94 @@ Light enrichment: ${addendumParts.join(", ")}.`
                     </div>
 
                     {/* Website scores */}
-                    <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Website</p>
-                        {deepEnrichmentData.website.summary && (
-                          <p className="text-[10px] text-[#444] max-w-[60%] text-right truncate">
-                            {deepEnrichmentData.website.summary}
-                          </p>
-                        )}
-                      </div>
-                      {Object.entries(deepEnrichmentData.website.scores).map(([key, val]) => {
-                        const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (s: string) => s.toUpperCase());
-                        const score = val as number;
-                        const color = score >= 65 ? "#4ade80" : score >= 35 ? "#c9a84c" : "#f87171";
-                        return (
-                          <div key={key} className="space-y-1">
-                            <div className="flex items-center justify-between">
-                              <p className="text-[11px] text-[#888]">{label}</p>
-                              <p className="text-[12px] font-bold tabular-nums" style={{ color }}>
-                                {val}
+                    {(() => {
+                      const noWebsite = !detailLead?.company.website;
+                      return (
+                        <div
+                          className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3"
+                          style={{ opacity: noWebsite ? 0.4 : 1, position: "relative" }}>
+                          {noWebsite && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                inset: 0,
+                                zIndex: 2,
+                                borderRadius: 12,
+                                pointerEvents: "none",
+                                overflow: "hidden",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}>
+                              <svg
+                                style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+                                preserveAspectRatio="none">
+                                <line
+                                  x1="0"
+                                  y1="0"
+                                  x2="100%"
+                                  y2="100%"
+                                  stroke="#f87171"
+                                  strokeWidth="1.5"
+                                  strokeOpacity="0.35"
+                                />
+                                <line
+                                  x1="100%"
+                                  y1="0"
+                                  x2="0"
+                                  y2="100%"
+                                  stroke="#f87171"
+                                  strokeWidth="1.5"
+                                  strokeOpacity="0.35"
+                                />
+                              </svg>
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  color: "#f87171",
+                                  background: "#0d0d0d",
+                                  padding: "2px 8px",
+                                  borderRadius: 4,
+                                  border: "1px solid rgba(248,113,113,0.2)",
+                                  zIndex: 3,
+                                  position: "relative",
+                                }}>
+                                No website
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between">
+                            <p className="text-[10px] uppercase tracking-widest text-[#555]">Website</p>
+                            {!noWebsite && deepEnrichmentData.website.summary && (
+                              <p className="text-[10px] text-[#444] max-w-[60%] text-right truncate">
+                                {deepEnrichmentData.website.summary}
                               </p>
-                            </div>
-                            <div className="h-1.5 w-full rounded-full bg-[#1a1a1a]">
-                              <div
-                                className="h-full rounded-full transition-all duration-700"
-                                style={{ width: `${val}%`, backgroundColor: color }}
-                              />
-                            </div>
+                            )}
                           </div>
-                        );
-                      })}
-                    </div>
+                          {Object.entries(deepEnrichmentData.website.scores).map(([key, val]) => {
+                            const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (s: string) => s.toUpperCase());
+                            const displayVal = noWebsite ? 0 : (val as number);
+                            const color = displayVal >= 65 ? "#4ade80" : displayVal >= 35 ? "#c9a84c" : "#f87171";
+                            return (
+                              <div key={key} className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[11px] text-[#888]">{label}</p>
+                                  <p className="text-[12px] font-bold tabular-nums" style={{ color }}>
+                                    {displayVal}
+                                  </p>
+                                </div>
+                                <div className="h-1.5 w-full rounded-full bg-[#1a1a1a]">
+                                  <div
+                                    className="h-full rounded-full transition-all duration-700"
+                                    style={{ width: `${displayVal}%`, backgroundColor: color }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
 
                     {/* Market signals */}
                     <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">

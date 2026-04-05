@@ -417,12 +417,16 @@ export function computeUniversalScore(input: UniversalScoreInput): UniversalScor
     round((hasWebsite ? 55 : 0) + (socialPresence === "high" ? 45 : socialPresence === "medium" ? 25 : 5)),
   );
 
+  // Evidence confidence — how much real signal data backs this score.
+  // Does NOT include classificationConfidence — that reflects category certainty,
+  // not how much we actually know about the business itself.
+  // A business with 1 review, no website, no social = genuinely low evidence.
   const evidenceConfidence = clamp(
     round(
-      (reviews >= 100 ? 45 : reviews >= 50 ? 35 : reviews >= 20 ? 25 : reviews >= 10 ? 15 : 8) +
-        (rating > 0 ? 15 : 0) +
-        (hasWebsite ? 10 : 0) +
-        (classificationConfidence !== null ? Math.round(classificationConfidence * 0.3) : 0),
+      (reviews >= 200 ? 50 : reviews >= 100 ? 42 : reviews >= 50 ? 32 : reviews >= 20 ? 22 : reviews >= 8 ? 12 : 4) +
+        (rating > 0 && reviews >= 3 ? 12 : 0) + // rating only meaningful with real review volume
+        (hasWebsite ? 18 : 0) +
+        (socialPresence === "high" ? 16 : socialPresence === "medium" ? 8 : 0),
     ),
   );
 
