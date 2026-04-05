@@ -4,11 +4,7 @@ import { getAuthUser, createSupabaseServer } from "@/lib/supabaseServer";
 import { supabase } from "@/lib/supabaseClient";
 import type { UserProfileV1, CapabilityProfile } from "@/lib/types";
 import type { Capability } from "@/lib/fit/needs";
-import {
-  buildUserProfile,
-  buildCapabilityProfile,
-  isValidProfileTypeKey,
-} from "@/lib/profile/profileTypes";
+import { buildUserProfile, buildCapabilityProfile, isValidProfileTypeKey } from "@/lib/profile/profileTypes";
 
 const FALLBACK_ID = "user_v1";
 

@@ -64,9 +64,7 @@ export function scoreLead({ raw, classification: c }: ScoreLeadInput): ScoreResu
   });
 
   // Derive gap type from available signals
-  const gapType = !hasWebsite ? "INFRASTRUCTURE"
-    : socialPresence === "low" ? "VISIBILITY"
-    : "OPTIMIZATION";
+  const gapType = !hasWebsite ? "INFRASTRUCTURE" : socialPresence === "low" ? "VISIBILITY" : "OPTIMIZATION";
 
   // Single-pass score
   const scored = computeUniversalScore({

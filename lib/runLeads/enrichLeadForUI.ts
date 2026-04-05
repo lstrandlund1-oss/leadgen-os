@@ -41,7 +41,7 @@ export function enrichLeadForUI(
   const cs = business.categoryScores;
 
   // Derive socialPresence from the signal value stored during extraction
-  const socialSignal = digital.signals.find(s => s.key === "social_presence");
+  const socialSignal = digital.signals.find((s) => s.key === "social_presence");
   const socialPresence: "low" | "medium" | "high" =
     rawSocialPresence ??
     (socialSignal?.value === "high" ? "high" : socialSignal?.value === "medium" ? "medium" : "low");
@@ -54,9 +54,11 @@ export function enrichLeadForUI(
     socialPresence,
   });
 
-  const gapType = !(hasWebsite ?? digital.hasWebsite) ? "INFRASTRUCTURE" as const
-    : socialPresence === "low" ? "VISIBILITY" as const
-    : "OPTIMIZATION" as const;
+  const gapType = !(hasWebsite ?? digital.hasWebsite)
+    ? ("INFRASTRUCTURE" as const)
+    : socialPresence === "low"
+      ? ("VISIBILITY" as const)
+      : ("OPTIMIZATION" as const);
 
   const universal = computeUniversalScore({
     reviews: rawReviews ?? 0,

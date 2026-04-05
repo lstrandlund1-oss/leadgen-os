@@ -29,20 +29,14 @@ function inferSocialPresence(args: {
   if (fromNormalized) return fromNormalized;
 
   // 2) raw extras (you already support this in scoring.ts)
-  const fromRaw = normalizeSocialPresence(
-    (raw as unknown as { socialPresence?: unknown }).socialPresence,
-  );
+  const fromRaw = normalizeSocialPresence((raw as unknown as { socialPresence?: unknown }).socialPresence);
   if (fromRaw) return fromRaw;
 
   // 3) rawPayload best-effort (provider-dependent; keep tolerant)
   const rp = raw.rawPayload;
   if (rp && typeof rp === "object") {
     const rec = rp as Record<string, unknown>;
-    const v =
-      rec.socialPresence ??
-      rec.social_presence ??
-      rec.instagramPresence ??
-      rec.instagram_presence;
+    const v = rec.socialPresence ?? rec.social_presence ?? rec.instagramPresence ?? rec.instagram_presence;
     const fromPayload = normalizeSocialPresence(v);
     if (fromPayload) return fromPayload;
   }
@@ -90,18 +84,13 @@ export function mapToLead(args: {
     normalized: normalized as unknown as Record<string, unknown>,
   });
 
-  const socialPresence: "low" | "medium" | "high" =
-    inferredSocialPresence ?? "low";
+  const socialPresence: "low" | "medium" | "high" = inferredSocialPresence ?? "low";
 
   const classificationConfidence01 =
-    typeof classification.confidence === "number"
-      ? Math.max(0, Math.min(1, classification.confidence / 100))
-      : null;
+    typeof classification.confidence === "number" ? Math.max(0, Math.min(1, classification.confidence / 100)) : null;
 
   const riskFlags = computeRiskFlags({
-    hasWebsite: Boolean(
-      (normalized.website ?? raw.website ?? "").toString().trim().length > 0,
-    ),
+    hasWebsite: Boolean((normalized.website ?? raw.website ?? "").toString().trim().length > 0),
     socialPresence,
     rating: typeof raw.rating === "number" ? raw.rating : null,
     reviews: typeof raw.review_count === "number" ? raw.review_count : null,

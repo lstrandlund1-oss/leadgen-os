@@ -13,32 +13,44 @@ import type { RiskProfile } from "@/lib/types";
 export type ClassifyInput = {
   // Always available from Google Places
   reviews: number;
-  rating: number;           // 0 if no rating
+  rating: number; // 0 if no rating
   hasWebsite: boolean;
-  categories: string[];     // Google Places types array
+  categories: string[]; // Google Places types array
   businessName?: string;
 
   // Available after light enrichment (optional)
-  ownerResponds?: boolean;  // inferred from rating+reviews if not directly known
+  ownerResponds?: boolean; // inferred from rating+reviews if not directly known
   socialPlatformCount?: number;
   socialPresence?: "low" | "medium" | "high";
 
   // Available after scoring pass (optional)
-  opportunityGap?: number;  // 0-100, used for local_authority detection
+  opportunityGap?: number; // 0-100, used for local_authority detection
 };
 
 // Chain/franchise name patterns — conservative list, only clear cases
 const CHAIN_NAME_PATTERNS = [
-  /mcdonald/i, /burger king/i, /subway/i, /starbucks/i, /ikea/i,
-  /h&m/i, /zara/i, /systembolaget/i, /ica\s/i, /coop\s/i, /lidl/i,
-  /pressbyrån/i, /7-eleven/i, /circle k/i, /shell\s/i,
+  /mcdonald/i,
+  /burger king/i,
+  /subway/i,
+  /starbucks/i,
+  /ikea/i,
+  /h&m/i,
+  /zara/i,
+  /systembolaget/i,
+  /ica\s/i,
+  /coop\s/i,
+  /lidl/i,
+  /pressbyrån/i,
+  /7-eleven/i,
+  /circle k/i,
+  /shell\s/i,
 ];
 
 function isLikelyChain(name: string, categories: string[]): boolean {
-  if (CHAIN_NAME_PATTERNS.some(p => p.test(name))) return true;
+  if (CHAIN_NAME_PATTERNS.some((p) => p.test(name))) return true;
   // Google categories that indicate chains
   const chainCategories = ["department_store", "supermarket", "grocery_store", "convenience_store"];
-  return categories.some(c => chainCategories.includes(c.toLowerCase()));
+  return categories.some((c) => chainCategories.includes(c.toLowerCase()));
 }
 
 export function classifyBusinessProfile(input: ClassifyInput): RiskProfile {
@@ -80,12 +92,7 @@ export function classifyBusinessProfile(input: ClassifyInput): RiskProfile {
   // ── Priority 5: Local authority ───────────────────────────────────────────
   // Highly rated with strong reputation, but smaller opportunity gap
   // (they're well-served — need a targeted angle, not a full pitch)
-  if (
-    reviews >= 50 &&
-    rating >= 4.5 &&
-    hasWebsite &&
-    opportunityGap <= 25
-  ) {
+  if (reviews >= 50 && rating >= 4.5 && hasWebsite && opportunityGap <= 25) {
     return "local_authority";
   }
 
@@ -104,12 +111,7 @@ export function classifyBusinessProfile(input: ClassifyInput): RiskProfile {
 
   // ── Priority 7: Solo-run (post-enrichment only) ───────────────────────────
   // Owner-operated signals — only reliable after enrichment
-  if (
-    input.ownerResponds === true &&
-    reviews >= 8 &&
-    reviews <= 60 &&
-    rating >= 4.0
-  ) {
+  if (input.ownerResponds === true && reviews >= 8 && reviews <= 60 && rating >= 4.0) {
     return "solo_run";
   }
 
@@ -120,10 +122,7 @@ export function classifyBusinessProfile(input: ClassifyInput): RiskProfile {
 }
 
 // Returns the data confidence level for the list indicator
-export function getDataLevel(
-  reviews: number,
-  hasWebsite: boolean,
-): "strong" | "moderate" | "thin" {
+export function getDataLevel(reviews: number, hasWebsite: boolean): "strong" | "moderate" | "thin" {
   if (reviews >= 50 && hasWebsite) return "strong";
   if (reviews >= 8 || hasWebsite) return "moderate";
   return "thin";

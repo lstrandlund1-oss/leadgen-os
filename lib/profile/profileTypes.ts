@@ -27,10 +27,7 @@ export type ProfileTypeDefinition = {
   defaultProfile: Omit<UserProfileV1, "id" | "notes">;
 };
 
-export const PROFILE_TYPE_DEFINITIONS: Record<
-  ProfileTypeKey,
-  ProfileTypeDefinition
-> = {
+export const PROFILE_TYPE_DEFINITIONS: Record<ProfileTypeKey, ProfileTypeDefinition> = {
   performance_marketer: {
     key: "performance_marketer",
     label: "Performance Marketer",
@@ -38,13 +35,13 @@ export const PROFILE_TYPE_DEFINITIONS: Record<
       "You run paid ads, build funnels, and drive measurable ROI for clients. Best leads have traffic potential but no conversion system.",
     sellerType: "MARKETING",
     defaultCapabilities: {
-      ads:      90, // core differentiator
+      ads: 90, // core differentiator
       tracking: 80, // strong — essential for performance work
-      funnel:   75, // strong — conversion is your domain
-      content:  25, // light — can do basics but not primary
-      website:  15, // light — landing pages only
-      seo:      20, // light — understands it, doesn't sell it
-      crm:      30, // light — basic follow-up knowledge
+      funnel: 75, // strong — conversion is your domain
+      content: 25, // light — can do basics but not primary
+      website: 15, // light — landing pages only
+      seo: 20, // light — understands it, doesn't sell it
+      crm: 30, // light — basic follow-up knowledge
     },
     defaultProfile: {
       niche: "general",
@@ -63,13 +60,13 @@ export const PROFILE_TYPE_DEFINITIONS: Record<
       "You build websites, landing pages, and conversion infrastructure. Best leads have no website, outdated sites, or trust gap signals.",
     sellerType: "WEB_DEV",
     defaultCapabilities: {
-      ads:      10, // not your domain
+      ads: 10, // not your domain
       tracking: 65, // capable — you wire up analytics and pixels
-      funnel:   70, // strong — landing pages and conversion flows
-      content:  25, // light — copywriting adjacent
-      website:  95, // specialist — your core
-      seo:      45, // capable — on-page SEO is part of good web work
-      crm:      20, // light — basic integrations
+      funnel: 70, // strong — landing pages and conversion flows
+      content: 25, // light — copywriting adjacent
+      website: 95, // specialist — your core
+      seo: 45, // capable — on-page SEO is part of good web work
+      crm: 20, // light — basic integrations
     },
     defaultProfile: {
       niche: "general",
@@ -88,13 +85,13 @@ export const PROFILE_TYPE_DEFINITIONS: Record<
       "You create content, manage social media, and build organic audiences. Best leads have low social presence or underexposed quality.",
     sellerType: "CONTENT",
     defaultCapabilities: {
-      ads:      20, // light — boosting posts, not full campaigns
+      ads: 20, // light — boosting posts, not full campaigns
       tracking: 25, // light — basic analytics awareness
-      funnel:   15, // not primary
-      content:  90, // specialist — your core
-      website:  10, // not your domain
-      seo:      35, // light — content SEO awareness
-      crm:      15, // not your domain
+      funnel: 15, // not primary
+      content: 90, // specialist — your core
+      website: 10, // not your domain
+      seo: 35, // light — content SEO awareness
+      crm: 15, // not your domain
     },
     defaultProfile: {
       niche: "general",
@@ -113,13 +110,13 @@ export const PROFILE_TYPE_DEFINITIONS: Record<
       "You improve search visibility, local SEO, and organic rankings. Best leads are local businesses with no search presence.",
     sellerType: "MARKETING",
     defaultCapabilities: {
-      ads:      15, // not your domain
+      ads: 15, // not your domain
       tracking: 70, // strong — analytics is core to SEO work
-      funnel:   25, // light — CRO adjacent
-      content:  60, // capable — content strategy for SEO
-      website:  35, // light — technical SEO touches
-      seo:      92, // specialist — your core
-      crm:      15, // not your domain
+      funnel: 25, // light — CRO adjacent
+      content: 60, // capable — content strategy for SEO
+      website: 35, // light — technical SEO touches
+      seo: 92, // specialist — your core
+      crm: 15, // not your domain
     },
     defaultProfile: {
       niche: "general",
@@ -138,13 +135,13 @@ export const PROFILE_TYPE_DEFINITIONS: Record<
       "You offer a broad range of services and target businesses ready to scale. Best leads are higher-scoring businesses with budget and readiness.",
     sellerType: "MARKETING",
     defaultCapabilities: {
-      ads:      80, // strong
+      ads: 80, // strong
       tracking: 80, // strong
-      funnel:   75, // strong
-      content:  70, // strong
-      website:  65, // capable
-      seo:      70, // strong
-      crm:      55, // capable
+      funnel: 75, // strong
+      content: 70, // strong
+      website: 65, // capable
+      seo: 70, // strong
+      crm: 55, // capable
     },
     defaultProfile: {
       niche: "general",
@@ -157,13 +154,9 @@ export const PROFILE_TYPE_DEFINITIONS: Record<
   },
 };
 
-export const PROFILE_TYPE_KEYS = Object.keys(
-  PROFILE_TYPE_DEFINITIONS,
-) as ProfileTypeKey[];
+export const PROFILE_TYPE_KEYS = Object.keys(PROFILE_TYPE_DEFINITIONS) as ProfileTypeKey[];
 
-export function getProfileTypeDefinition(
-  key: ProfileTypeKey,
-): ProfileTypeDefinition {
+export function getProfileTypeDefinition(key: ProfileTypeKey): ProfileTypeDefinition {
   return PROFILE_TYPE_DEFINITIONS[key];
 }
 

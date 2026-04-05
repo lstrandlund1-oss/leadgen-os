@@ -38,23 +38,16 @@ export async function POST(request: Request) {
 
     // 3) Social signals (extracted from the HTML we already fetched)
     const socialResult = extractLightSocialSignals(
-      websiteResult.reachable
-        ? await fetchHtmlForSocial(website ?? null)
-        : null,
+      websiteResult.reachable ? await fetchHtmlForSocial(website ?? null) : null,
     );
 
     // 4) Merge all signals into a unified SignalSet
-    const allSignals = [
-      ...websiteResult.signals,
-      ...googleResult.signals,
-      ...socialResult.signals,
-    ];
+    const allSignals = [...websiteResult.signals, ...googleResult.signals, ...socialResult.signals];
 
     const signalSet = mergeSignals(allSignals);
 
     // 5) Rescore using enriched signals
-    const { rescoreWithLightSignals } =
-      await import("@/lib/scoring/rescoreWithSignals");
+    const { rescoreWithLightSignals } = await import("@/lib/scoring/rescoreWithSignals");
 
     const websiteSignals = signalSet.byKey;
     const updatedScore = rescoreWithLightSignals({
@@ -66,18 +59,12 @@ export async function POST(request: Request) {
       fitScore: typeof body.fitScore === "number" ? body.fitScore : undefined,
 
       websiteReachable: websiteResult.reachable,
-      hasContactPage:
-        (websiteSignals["website_has_contact_page"]?.value as boolean) ?? null,
-      hasBookingCta:
-        (websiteSignals["website_has_booking_cta"]?.value as boolean) ?? null,
-      hasClearOffer:
-        (websiteSignals["website_has_clear_offer"]?.value as boolean) ?? null,
-      isMobileFriendly:
-        (websiteSignals["website_mobile_friendly"]?.value as boolean) ?? null,
+      hasContactPage: (websiteSignals["website_has_contact_page"]?.value as boolean) ?? null,
+      hasBookingCta: (websiteSignals["website_has_booking_cta"]?.value as boolean) ?? null,
+      hasClearOffer: (websiteSignals["website_has_clear_offer"]?.value as boolean) ?? null,
+      isMobileFriendly: (websiteSignals["website_mobile_friendly"]?.value as boolean) ?? null,
       socialPlatformCount: socialResult.detectedPlatforms.length,
-      ownerResponds:
-        (googleResult.signals.find((s) => s.key === "owner_response_presence")
-          ?.value as boolean) ?? null,
+      ownerResponds: (googleResult.signals.find((s) => s.key === "owner_response_presence")?.value as boolean) ?? null,
     });
 
     return NextResponse.json({
@@ -91,10 +78,7 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("/api/enrich/light POST error:", err);
-    return NextResponse.json(
-      { success: false, error: "Internal error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ success: false, error: "Internal error" }, { status: 500 });
   }
 }
 
@@ -114,8 +98,7 @@ async function fetchHtmlForSocial(url: string | null): Promise<string | null> {
     const res = await fetch(normalized, {
       signal: controller.signal,
       headers: {
-        "User-Agent":
-          "Mozilla/5.0 (compatible; LeadGenOS/1.0; +https://leadgenos.com)",
+        "User-Agent": "Mozilla/5.0 (compatible; LeadGenOS/1.0; +https://leadgenos.com)",
         Accept: "text/html",
       },
     });

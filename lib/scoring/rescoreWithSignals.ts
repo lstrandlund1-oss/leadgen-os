@@ -53,10 +53,13 @@ export function rescoreWithLightSignals(input: RescoreInput): ScoreResult {
 
   // Refine social presence using platform count from enrichment
   const socialPresence: SocialPresence =
-    input.socialPlatformCount >= 3 ? "high" :
-    input.socialPlatformCount >= 1
-      ? (input.socialPresence === "high" ? "high" : "medium")
-      : input.socialPresence;
+    input.socialPlatformCount >= 3
+      ? "high"
+      : input.socialPlatformCount >= 1
+        ? input.socialPresence === "high"
+          ? "high"
+          : "medium"
+        : input.socialPresence;
 
   // Reclassify using enrichment signals — now we know ownerResponds
   const businessProfile = classifyBusinessProfile({
