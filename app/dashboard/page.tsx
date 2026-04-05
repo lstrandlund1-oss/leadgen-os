@@ -1036,11 +1036,23 @@ export default function Home() {
   ): LeadUI {
     if (!deepData) return lead;
     try {
+      // Derive actual social presence from deep scan brand scores
+      // If social engagement and posting frequency are both 0, presence is genuinely low
+      const brandScores = deepData?.brand?.scores ?? {};
+      const deepSocialEngagement = (brandScores.socialEngagement as number) ?? 0;
+      const deepPostingFreq = (brandScores.postingFrequency as number) ?? 0;
+      const deepSocialPresence: "low" | "medium" | "high" =
+        deepSocialEngagement >= 60 && deepPostingFreq >= 50
+          ? "high"
+          : deepSocialEngagement >= 30 || deepPostingFreq >= 25
+            ? "medium"
+            : "low";
+
       const newScore = rescoreWithLightSignals({
         rating: lead.metrics.rating ?? 0,
         reviewCount: lead.metrics.reviewCount ?? 0,
         hasWebsite: !!lead.company.website,
-        socialPresence: lead.metrics.socialPresence ?? "low",
+        socialPresence: deepSocialPresence,
         classificationConfidence: lead.classification.confidence ?? null,
         fitScore: lead.fit?.fitScore ?? 0,
         websiteReachable: derivedSignals.websiteReachable,
@@ -1048,7 +1060,7 @@ export default function Home() {
         hasBookingCta: derivedSignals.hasBookingCta,
         hasClearOffer: derivedSignals.hasClearOffer,
         isMobileFriendly: derivedSignals.isMobileFriendly,
-        socialPlatformCount: 0,
+        socialPlatformCount: deepSocialEngagement > 0 ? 1 : 0,
         ownerResponds: null,
       });
 

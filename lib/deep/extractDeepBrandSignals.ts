@@ -10,37 +10,37 @@ import type { Signal } from "@/lib/signals/signalTypes";
 
 export interface DeepBrandInput {
   // Content quality signals (from page analysis)
-  wordCountHomepage: number | null;         // thin < 200, good 300-800, verbose > 1200
+  wordCountHomepage: number | null; // thin < 200, good 300-800, verbose > 1200
   hasAboutPage: boolean;
   hasTeamPage: boolean;
   hasCaseStudies: boolean;
   hasPortfolio: boolean;
   hasBlogOrNews: boolean;
-  blogPostCount: number;                    // 0 = no content engine
-  lastBlogPostDaysAgo: number | null;       // null = unknown
+  blogPostCount: number; // 0 = no content engine
+  lastBlogPostDaysAgo: number | null; // null = unknown
 
   // Social content quality
   primaryPlatform: "instagram" | "facebook" | "tiktok" | "linkedin" | "none";
-  postFrequencyPerWeek: number | null;      // null = unknown / not detectable
+  postFrequencyPerWeek: number | null; // null = unknown / not detectable
   hasVideoContent: boolean;
-  hasUserGeneratedContent: boolean;         // reposts, customer tags
-  averageEngagementRate: number | null;     // 0-1 ratio, null = unknown
+  hasUserGeneratedContent: boolean; // reposts, customer tags
+  averageEngagementRate: number | null; // 0-1 ratio, null = unknown
 
   // Brand consistency signals
   hasLogoInHeader: boolean;
-  colorSchemeConsistent: boolean;           // detected from CSS or visual analysis
+  colorSchemeConsistent: boolean; // detected from CSS or visual analysis
   fontsConsistent: boolean;
-  hasCustomDomain: boolean;                 // not a free subdomain
-  usesGenericEmailProvider: boolean;        // gmail/yahoo vs custom domain
+  hasCustomDomain: boolean; // not a free subdomain
+  usesGenericEmailProvider: boolean; // gmail/yahoo vs custom domain
 }
 
 export interface DeepBrandResult {
   signals: Signal[];
   scores: {
-    contentQuality: number;       // 0-100
-    socialEngagement: number;     // 0-100
-    brandConsistency: number;     // 0-100
-    postingFrequency: number;     // 0-100
+    contentQuality: number; // 0-100
+    socialEngagement: number; // 0-100
+    brandConsistency: number; // 0-100
+    postingFrequency: number; // 0-100
   };
   brandGrade: "A" | "B" | "C" | "D" | "F";
   weakestArea: string;
@@ -80,13 +80,27 @@ export function extractDeepBrandSignals(input: DeepBrandInput): DeepBrandResult 
   if (input.primaryPlatform === "instagram" || input.primaryPlatform === "tiktok") social += 10; // visual = higher eng
   const socialEngagement = clamp(social);
 
-  // Brand consistency
+  // Brand consistency — only meaningful if there's active presence to be consistent about.
+  // A logo and custom domain mean nothing if there's zero social activity or content.
   let brand = 0;
   if (input.hasLogoInHeader) brand += 20;
   if (input.colorSchemeConsistent) brand += 20;
   if (input.fontsConsistent) brand += 15;
   if (input.hasCustomDomain) brand += 25;
   if (!input.usesGenericEmailProvider) brand += 20;
+
+  // Presence penalty — if there's no active content or social presence,
+  // brand consistency is largely irrelevant. Cap it accordingly.
+  const hasActivePresence =
+    (input.postFrequencyPerWeek ?? 0) > 0 ||
+    input.hasBlogOrNews ||
+    input.hasVideoContent ||
+    input.primaryPlatform !== "none";
+
+  if (!hasActivePresence) {
+    // Business has static branding but no active presence — cap at 30
+    brand = Math.min(brand, 30);
+  }
   const brandConsistency = clamp(brand);
 
   // Posting frequency
@@ -100,13 +114,9 @@ export function extractDeepBrandSignals(input: DeepBrandInput): DeepBrandResult 
   const postingFrequency = clamp(freq);
 
   // Brand grade (composite)
-  const composite = (contentQuality * 0.35 + socialEngagement * 0.25 + brandConsistency * 0.25 + postingFrequency * 0.15);
+  const composite = contentQuality * 0.35 + socialEngagement * 0.25 + brandConsistency * 0.25 + postingFrequency * 0.15;
   const brandGrade: "A" | "B" | "C" | "D" | "F" =
-    composite >= 75 ? "A"
-    : composite >= 60 ? "B"
-    : composite >= 45 ? "C"
-    : composite >= 30 ? "D"
-    : "F";
+    composite >= 75 ? "A" : composite >= 60 ? "B" : composite >= 45 ? "C" : composite >= 30 ? "D" : "F";
 
   // Weakest and strongest areas
   const areas: [string, number][] = [
@@ -127,9 +137,11 @@ export function extractDeepBrandSignals(input: DeepBrandInput): DeepBrandResult 
       depth: "deep",
       present: contentQuality >= 50,
       description:
-        contentQuality >= 70 ? "Rich content presence: about page, case studies, blog active."
-        : contentQuality >= 45 ? "Moderate content. Key pages present but depth is thin."
-        : "Thin content. Homepage is sparse, no case studies or active blog.",
+        contentQuality >= 70
+          ? "Rich content presence: about page, case studies, blog active."
+          : contentQuality >= 45
+            ? "Moderate content. Key pages present but depth is thin."
+            : "Thin content. Homepage is sparse, no case studies or active blog.",
     }),
     buildSignal({
       key: "posting_frequency_score",
@@ -138,11 +150,19 @@ export function extractDeepBrandSignals(input: DeepBrandInput): DeepBrandResult 
       depth: "deep",
       present: postingFrequency >= 40,
       description:
-        postingFrequency >= 70 ? `Active posting cadence (~${input.postFrequencyPerWeek ?? "?"}/week). Content engine is running.`
-        : postingFrequency >= 35 ? "Inconsistent posting. Presence exists but not maintained."
-        : "Dormant or absent social content. Major visibility gap.",
+        postingFrequency >= 70
+          ? `Active posting cadence (~${input.postFrequencyPerWeek ?? "?"}/week). Content engine is running.`
+          : postingFrequency >= 35
+            ? "Inconsistent posting. Presence exists but not maintained."
+            : "Dormant or absent social content. Major visibility gap.",
     }),
   ];
 
-  return { signals, scores: { contentQuality, socialEngagement, brandConsistency, postingFrequency }, brandGrade, weakestArea, strengthArea };
+  return {
+    signals,
+    scores: { contentQuality, socialEngagement, brandConsistency, postingFrequency },
+    brandGrade,
+    weakestArea,
+    strengthArea,
+  };
 }
