@@ -448,6 +448,15 @@ async function runProviderSearchAndFetchLeads(args: {
   cached: boolean;
   ageDays: number;
   cachedAt: string | null;
+  _expansionContext: {
+    provider: ProviderName;
+    primaryQuery: string;
+    expandedQueries: string[];
+    locationText: string;
+    socialPresence: SocialPresenceFilter;
+    seenIds: Set<string>;
+    seenNames: Set<string>;
+  } | null;
 } | null> {
   const niche = args.niche.trim();
   if (!niche) return null;
@@ -531,58 +540,31 @@ async function runProviderSearchAndFetchLeads(args: {
   const leadsData = (await leadsRes.json().catch(() => ({}))) as RunLeadsResponse;
   const primaryLeads: LeadUI[] = Array.isArray(leadsData?.leads) ? (leadsData.leads as LeadUI[]) : [];
 
-  let expandedLeads: LeadUI[] = [];
-
-  // Universal variant expansion — always fires when a location is set, no hardcoded city list.
-  // Each variant query phrase causes Google to return a different slice of its index,
-  // significantly increasing unique result count for any city worldwide.
-  // Synonym expansion (e.g. mäklare → real estate) also runs in parallel.
-  if (!cursor && locationText) {
-    const variantQueries = getSearchVariants(primaryQuery, locationText);
-    const synonymQueries = expandedQueries.map((q) => ({ query: q, location: locationText }));
-    const allSecondary = [...variantQueries, ...synonymQueries];
-
-    const results = await Promise.allSettled(
-      allSecondary.map(async ({ query: q, location: loc }) => {
-        const res = await fetch("/api/providers/search", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ provider, query: q, country: "Sweden", location: loc, socialPresence, limit: 20 }),
-        }).catch(() => null);
-        if (!res?.ok) return [];
-        const data = (await res.json().catch(() => ({}))) as ProviderSearchResponse;
-        const secId = typeof data.runId === "number" ? data.runId : null;
-        if (!secId) return [];
-        const secRes = await fetch(
-          `/api/providers/runs/${secId}/leads?${loc ? `location=${encodeURIComponent(loc)}&` : ""}niche=${encodeURIComponent(q)}`,
-        ).catch(() => null);
-        if (!secRes?.ok) return [];
-        const secData = (await secRes.json().catch(() => ({}))) as RunLeadsResponse;
-        return Array.isArray(secData?.leads) ? (secData.leads as LeadUI[]) : [];
-      }),
-    );
-    for (const r of results) if (r.status === "fulfilled") expandedLeads = expandedLeads.concat(r.value);
-  }
-
-  const seenIds = new Set(
-    primaryLeads.map((l: LeadUI) => (l as LeadUI & { sourceId?: string }).sourceId).filter(Boolean),
-  );
-  const seenNames = new Set(primaryLeads.map((l: LeadUI) => l.company.name.toLowerCase()));
-  const uniqueExpanded = expandedLeads.filter((l: LeadUI) => {
-    const srcId = (l as LeadUI & { sourceId?: string }).sourceId;
-    if (srcId && seenIds.has(srcId)) return false;
-    return !seenNames.has(l.company.name.toLowerCase());
-  });
-  const allLeads = [...primaryLeads, ...uniqueExpanded];
+  // Deduplicate primary results only — expanded variants load in background
+  const seenIds = new Set<string>(primaryLeads.map((l) => l.sourceId).filter(Boolean) as string[]);
+  const seenNames = new Set<string>(primaryLeads.map((l) => l.company.name.toLowerCase().trim()));
 
   return {
     runId,
-    leads: allLeads,
+    leads: primaryLeads,
     nextCursor: finalNextCursor,
     exhausted: finalExhausted,
     cached: (_cacheInfo?.cached as boolean) ?? false,
     ageDays: (_cacheInfo?.ageDays as number) ?? 0,
     cachedAt: (_cacheInfo?.cachedAt as string) ?? null,
+    // Pass expansion params so caller can fire background fetch
+    _expansionContext:
+      !cursor && locationText
+        ? {
+            provider,
+            primaryQuery,
+            expandedQueries,
+            locationText,
+            socialPresence,
+            seenIds,
+            seenNames,
+          }
+        : null,
   };
 }
 
@@ -1866,6 +1848,83 @@ Light enrichment: ${addendumParts.join(", ")}.`
         } else {
           toastInfo("No leads found — try a different niche or location");
         }
+
+        // Background expansion — fire variant queries after primary results are shown.
+        // Results merge in silently as they arrive, no loading state shown to user.
+        const ctx = providerLeads._expansionContext;
+        if (ctx) {
+          const {
+            provider: p,
+            primaryQuery,
+            expandedQueries,
+            locationText,
+            socialPresence: sp,
+            seenIds,
+            seenNames,
+          } = ctx;
+          const variantQueries = getSearchVariants(primaryQuery, locationText);
+          const synonymQueries = expandedQueries.map((q: string) => ({ query: q, location: locationText }));
+          const allSecondary = [...variantQueries, ...synonymQueries];
+
+          // Fire all variants in background — no await, no loading state
+          Promise.allSettled(
+            allSecondary.map(async ({ query: q, location: loc }) => {
+              const res = await fetch("/api/providers/search", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  provider: p,
+                  query: q,
+                  country: "Sweden",
+                  location: loc,
+                  socialPresence: sp,
+                  limit: 20,
+                }),
+              }).catch(() => null);
+              if (!res?.ok) return [];
+              const data = (await res.json().catch(() => ({}))) as ProviderSearchResponse;
+              const secId = typeof data.runId === "number" ? data.runId : null;
+              if (!secId) return [];
+              const secRes = await fetch(
+                `/api/providers/runs/${secId}/leads?${loc ? `location=${encodeURIComponent(loc)}&` : ""}niche=${encodeURIComponent(q)}`,
+              ).catch(() => null);
+              if (!secRes?.ok) return [];
+              const secData = (await secRes.json().catch(() => ({}))) as RunLeadsResponse;
+              return Array.isArray(secData?.leads) ? (secData.leads as LeadUI[]) : [];
+            }),
+          )
+            .then((results) => {
+              const newLeads: LeadUI[] = [];
+              for (const r of results) {
+                if (r.status !== "fulfilled") continue;
+                for (const l of r.value) {
+                  const id = l.sourceId;
+                  const name = l.company.name.toLowerCase().trim();
+                  if (id && seenIds.has(id)) continue;
+                  if (seenNames.has(name)) continue;
+                  if (id) seenIds.add(id);
+                  seenNames.add(name);
+                  newLeads.push(l);
+                }
+              }
+              if (newLeads.length > 0) {
+                setLeads((prev: LeadUI[]) => {
+                  // Dedup against whatever is already in state (user may have loaded more)
+                  const existingIds = new Set(prev.map((l) => l.sourceId).filter(Boolean));
+                  const existingNames = new Set(prev.map((l) => l.company.name.toLowerCase().trim()));
+                  const truly_new = newLeads.filter((l) => {
+                    if (l.sourceId && existingIds.has(l.sourceId)) return false;
+                    return !existingNames.has(l.company.name.toLowerCase().trim());
+                  });
+                  return truly_new.length > 0 ? [...prev, ...truly_new] : prev;
+                });
+              }
+            })
+            .catch(() => {
+              /* silent — background expansion failure doesn't affect UX */
+            });
+        }
+
         return;
       }
     } catch (error) {
