@@ -2669,19 +2669,26 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                 <div>
                                   {(() => {
                                     const fitVal = lead.fit?.fitScore ?? 0;
-                                    const fitColor = fitVal >= 65 ? "#4ade80" : fitVal >= 40 ? "#c9a84c" : "#f87171";
+                                    const fitLabel =
+                                      fitVal >= 75
+                                        ? "Ideal match"
+                                        : fitVal >= 50
+                                          ? "Strong match"
+                                          : fitVal >= 25
+                                            ? "Partial match"
+                                            : "Weak match";
+                                    const fitColor =
+                                      fitVal >= 75
+                                        ? "#4ade80"
+                                        : fitVal >= 50
+                                          ? "#86efac"
+                                          : fitVal >= 25
+                                            ? "#c9a84c"
+                                            : "#f87171";
                                     return lead.fit ? (
-                                      <>
-                                        <span className="text-xs font-semibold" style={{ color: fitColor }}>
-                                          {fitVal}
-                                        </span>
-                                        <div className="w-full bg-[#1a1a1a] rounded-full h-1.5 overflow-hidden mt-1">
-                                          <div
-                                            className="h-full rounded-full"
-                                            style={{ width: `${fitVal}%`, backgroundColor: fitColor }}
-                                          />
-                                        </div>
-                                      </>
+                                      <span className="text-[11px] font-medium" style={{ color: fitColor }}>
+                                        {fitLabel}
+                                      </span>
                                     ) : (
                                       <span className="text-[#333] text-xs">—</span>
                                     );
