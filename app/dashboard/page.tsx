@@ -1054,10 +1054,15 @@ export default function Home() {
 
       // Deep scan tooltip merge: same rule as light enrichment.
       // Score changed → fresh tooltip. Score same → keep original + append context.
+      const leadHasWebsite = !!lead.company.website;
       const deepAddendumParts: string[] = [];
-      if (derivedSignals.hasBookingCta === false) deepAddendumParts.push("no booking CTA confirmed by deep scan");
-      if (derivedSignals.isMobileFriendly === false) deepAddendumParts.push("site is not mobile-friendly");
-      if (derivedSignals.hasClearOffer === false) deepAddendumParts.push("no clear service offer on site");
+      if (!leadHasWebsite) {
+        deepAddendumParts.push("no website — full web analysis unavailable");
+      } else {
+        if (derivedSignals.hasBookingCta === false) deepAddendumParts.push("no booking CTA confirmed by deep scan");
+        if (derivedSignals.isMobileFriendly === false) deepAddendumParts.push("site is not mobile-friendly");
+        if (derivedSignals.hasClearOffer === false) deepAddendumParts.push("no clear service offer on site");
+      }
       const deepAddendum =
         deepAddendumParts.length > 0
           ? `
@@ -1549,9 +1554,16 @@ Deep scan: ${deepAddendumParts.join(", ")}.`
           };
 
           // Build enrichment addendum for dimensions whose score didn't change
+          const enrichedLead = leads.find((l: LeadUI) => l.id === leadId);
+          const hasWebsite = !!enrichedLead?.company.website;
           const addendumParts: string[] = [];
-          if (enrichmentSignals.hasBookingCta === false) addendumParts.push("no booking CTA found on their website");
-          if (enrichmentSignals.hasClearOffer === false) addendumParts.push("their offer isn't clearly presented");
+          if (!hasWebsite) {
+            addendumParts.push("no website found — any web-based signals are unavailable");
+          } else {
+            if (enrichmentSignals.hasBookingCta === false) addendumParts.push("no booking CTA found on their website");
+            if (enrichmentSignals.hasClearOffer === false)
+              addendumParts.push("their offer isn't clearly presented on their site");
+          }
           if (enrichmentSignals.socialPlatformCount === 0)
             addendumParts.push("no social platforms linked from their site");
           else if (enrichmentSignals.socialPlatformCount >= 2)
