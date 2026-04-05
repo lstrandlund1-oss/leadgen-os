@@ -914,6 +914,17 @@ export default function Home() {
   });
 
   const [selectedLead, setSelectedLead] = useState<LeadUI | null>(null);
+
+  // Lock body scroll when lead panel is open
+  useEffect(() => {
+    if (selectedLead) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [selectedLead]);
   const [detailTab, setDetailTab] = useState<"overview" | "signals" | "outreach" | "tracking" | "followup">("overview");
   const userPlan = getEffectivePlan();
   const deepScanUnlocked = canUseDeepEnrichment(userPlan);
