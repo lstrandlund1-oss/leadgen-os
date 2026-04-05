@@ -3465,16 +3465,16 @@ Light enrichment: ${addendumParts.join(", ")}.`
                     type CatDef = { key: keyof typeof bd; label: string; hint: string; invert?: boolean };
                     const categories: CatDef[] = [
                       { key: "reputation", label: "Reputation", hint: "Reviews & rating quality." },
-                      { key: "digitalPresence", label: "Digital Pres.", hint: "Website & social visibility." },
-                      { key: "businessStrength", label: "Biz Strength", hint: "Maturity & ability to pay." },
-                      { key: "opportunityGap", label: "Opp. Gap", hint: "Growth headroom available." },
+                      { key: "digitalPresence", label: "Digital Presence", hint: "Website & social visibility." },
+                      { key: "businessStrength", label: "Business Strength", hint: "Maturity & ability to pay." },
+                      { key: "opportunityGap", label: "Opportunity Gap", hint: "Growth headroom available." },
                       {
                         key: "stabilityRisk",
                         label: "Difficulty",
                         hint: "How hard to close — higher = harder.",
                         invert: true,
                       },
-                      { key: "evidenceConfidence", label: "Evidence Conf.", hint: "Signal data quality." },
+                      { key: "evidenceConfidence", label: "Evidence Confidence", hint: "Signal data quality." },
                     ];
 
                     function barColor(v: number, invert = false) {
