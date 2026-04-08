@@ -1892,10 +1892,26 @@ Light enrichment: ${addendumParts.join(", ")}.`
     setSelectedLead(null);
     setHasSearched(true);
     setChecklistState((prev: typeof checklistState) => ({ ...prev, hasSearched: true }));
+    // Animated progress — advances on a timer so the ring moves smoothly
+    // regardless of how long each server step takes.
+    const STEPS = [
+      { pct: 8, label: "Planning your search…" },
+      { pct: 20, label: "Generating query variants with AI…" },
+      { pct: 35, label: "Searching Google Maps…" },
+      { pct: 52, label: "AI scanning directories and review sites…" },
+      { pct: 68, label: "Aggregating results…" },
+      { pct: 80, label: "Scoring leads…" },
+      { pct: 90, label: "Removing duplicates…" },
+      { pct: 96, label: "Almost ready…" },
+    ];
+    let stepIdx = 0;
+    setSearchProgress(STEPS[0]);
+    const progressTimer = setInterval(() => {
+      stepIdx = Math.min(stepIdx + 1, STEPS.length - 1);
+      setSearchProgress(STEPS[stepIdx]);
+    }, 3500); // advance every 3.5s — covers ~28s total
+
     try {
-      setSearchProgress({ pct: 8, label: "Planning your search…" });
-      await new Promise((r) => setTimeout(r, 150));
-      setSearchProgress({ pct: 25, label: "Searching across multiple sources…" });
       const discoverRes = await fetch("/api/search/discover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1907,14 +1923,18 @@ Light enrichment: ${addendumParts.join(", ")}.`
           socialPresence,
         }),
       }).catch(() => null);
-      setSearchProgress({ pct: 65, label: "AI is searching directories and maps…" });
+
+      clearInterval(progressTimer);
+      setSearchProgress({ pct: 94, label: "Loading results…" });
+
       if (!discoverRes?.ok) throw new Error("Discovery search failed — please try again.");
       const discoverData = (await discoverRes.json()) as { ok: boolean; runIds: number[]; primaryRunId: number | null };
       if (!discoverData.ok || !discoverData.primaryRunId) {
         toastInfo("No leads found — try a different niche or location");
         return;
       }
-      setSearchProgress({ pct: 78, label: "Scoring and deduplicating leads…" });
+
+      // Fetch scored leads from all runs
       const allLeadResults = await Promise.allSettled(
         discoverData.runIds.map(async (rid) => {
           const res = await fetch(
@@ -1925,25 +1945,30 @@ Light enrichment: ${addendumParts.join(", ")}.`
           return Array.isArray(data?.leads) ? (data.leads as LeadUI[]) : [];
         }),
       );
+
       const allLeads: LeadUI[] = [];
       for (const r of allLeadResults) {
         if (r.status === "fulfilled") allLeads.push(...r.value);
       }
-      setSearchProgress({ pct: 90, label: "Removing duplicates…" });
+
+      setSearchProgress({ pct: 99, label: "Almost ready…" });
       const deduped = dedupeLeads(allLeads);
-      setSearchProgress({ pct: 98, label: "Almost ready…" });
-      await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 300));
+
       setLeads(deduped);
       setStableOrder(new Map(deduped.map((l: LeadUI, i: number) => [l.id, i])));
       setRunId(discoverData.primaryRunId);
       setNextCursor(null);
       setExhausted(true);
+      setChecklistState((prev: typeof checklistState) => ({ ...prev, hasSearched: true }));
+
       if (deduped.length > 0) {
         toastSuccess(`Found ${deduped.length} lead${deduped.length !== 1 ? "s" : ""}`);
       } else {
         toastInfo("No leads found — try a different niche or location");
       }
     } catch (error) {
+      clearInterval(progressTimer);
       console.error("Error fetching leads:", error);
       setLeads([]);
       const msg = error instanceof Error ? error.message : "Something went wrong. Please try again.";
