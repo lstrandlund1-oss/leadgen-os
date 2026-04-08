@@ -1892,24 +1892,26 @@ Light enrichment: ${addendumParts.join(", ")}.`
     setSelectedLead(null);
     setHasSearched(true);
     setChecklistState((prev: typeof checklistState) => ({ ...prev, hasSearched: true }));
-    // Animated progress — advances on a timer so the ring moves smoothly
-    // regardless of how long each server step takes.
-    const STEPS = [
-      { pct: 8, label: "Planning your search…" },
-      { pct: 20, label: "Generating query variants with AI…" },
-      { pct: 35, label: "Searching Google Maps…" },
-      { pct: 52, label: "AI scanning directories and review sites…" },
-      { pct: 68, label: "Aggregating results…" },
-      { pct: 80, label: "Scoring leads…" },
-      { pct: 90, label: "Removing duplicates…" },
-      { pct: 96, label: "Almost ready…" },
-    ];
-    let stepIdx = 0;
-    setSearchProgress(STEPS[0]);
+    // Smooth progress — increments 1% every 300ms, reaching ~100% over 30s.
+    // Caps at 98% so it never falsely completes before the server responds.
+    const LABELS: Record<number, string> = {
+      0: "Planning your search…",
+      20: "Searching Google Maps…",
+      40: "AI scanning directories and review sites…",
+      65: "Aggregating results…",
+      80: "Scoring leads…",
+      92: "Almost ready…",
+    };
+    let currentPct = 0;
+    setSearchProgress({ pct: 0, label: LABELS[0] });
     const progressTimer = setInterval(() => {
-      stepIdx = Math.min(stepIdx + 1, STEPS.length - 1);
-      setSearchProgress(STEPS[stepIdx]);
-    }, 3500); // advance every 3.5s — covers ~28s total
+      currentPct = Math.min(currentPct + 1, 98);
+      const label =
+        Object.entries(LABELS)
+          .filter(([threshold]) => currentPct >= Number(threshold))
+          .pop()?.[1] ?? "Searching…";
+      setSearchProgress({ pct: currentPct, label });
+    }, 300); // 1% per 300ms = 100% in 30s
 
     try {
       const discoverRes = await fetch("/api/search/discover", {
