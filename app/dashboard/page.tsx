@@ -1911,7 +1911,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
           .filter(([threshold]) => currentPct >= Number(threshold))
           .pop()?.[1] ?? "Searching…";
       setSearchProgress({ pct: currentPct, label });
-    }, 300); // 1% per 300ms = 100% in 30s
+    }, 600); // 1% per 600ms = 100% in 60s
 
     try {
       const discoverRes = await fetch("/api/search/discover", {
