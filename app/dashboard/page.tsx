@@ -1928,8 +1928,17 @@ Light enrichment: ${addendumParts.join(", ")}.`
       setSearchProgress({ pct: 94, label: "Loading results…" });
 
       if (!discoverRes?.ok) throw new Error("Discovery search failed — please try again.");
-      const discoverData = (await discoverRes.json()) as { ok: boolean; runIds: number[]; primaryRunId: number | null };
-      if (!discoverData.ok || !discoverData.primaryRunId) {
+      const discoverData = (await discoverRes.json()) as {
+        ok: boolean;
+        runIds: number[];
+        primaryRunId: number | null;
+        error?: string;
+      };
+
+      // Log what we got back for debugging
+      console.log("[search] discover response:", discoverData);
+
+      if (!discoverData.ok || !discoverData.primaryRunId || discoverData.runIds.length === 0) {
         toastInfo("No leads found — try a different niche or location");
         return;
       }
