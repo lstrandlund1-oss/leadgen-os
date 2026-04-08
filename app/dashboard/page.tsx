@@ -628,12 +628,12 @@ function GettingStartedPanel({
                 started
               </span>
             </h2>
-            <p className="text-[11px] text-[#444] mt-1">{doneCount} of 4 complete</p>
+            <p className="text-[11px] text-[#737373] mt-1">{doneCount} of 4 complete</p>
           </div>
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="text-[#333] hover:text-[#666] text-xl leading-none mt-1">
+            className="text-[#616161] hover:text-[#999999] text-xl leading-none mt-1">
             ×
           </button>
         </div>
@@ -666,10 +666,10 @@ function GettingStartedPanel({
                   {done && <span className="text-[9px] text-[#4ade80]">✓</span>}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={"text-[12px] font-medium " + (done ? "line-through text-[#444]" : "text-[#c8c0b0]")}>
+                  <p className={"text-[12px] font-medium " + (done ? "line-through text-[#737373]" : "text-[#c8c0b0]")}>
                     {label}
                   </p>
-                  <p className="text-[11px] text-[#444] mt-0.5 leading-snug">{sub}</p>
+                  <p className="text-[11px] text-[#737373] mt-0.5 leading-snug">{sub}</p>
                   {!done && href && (
                     <a
                       href={href}
@@ -689,7 +689,7 @@ function GettingStartedPanel({
           <button
             type="button"
             onClick={onDismiss}
-            className="w-full py-2.5 rounded-xl border border-[#252525] text-[12px] text-[#444] hover:border-[#333] hover:text-[#666] transition-all">
+            className="w-full py-2.5 rounded-xl border border-[#252525] text-[12px] text-[#737373] hover:border-[#333] hover:text-[#999999] transition-all">
             Dismiss checklist
           </button>
         </div>
@@ -2100,7 +2100,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                   <span className="text-[#c9a84c] text-base flex-shrink-0">⚠</span>
                   <div className="min-w-0">
                     <p className="text-[12px] font-semibold text-[#c9a84c] leading-tight">{t.ui.profileBanner.title}</p>
-                    <p className="text-[11px] text-[#666] mt-0.5 leading-snug">{t.ui.profileBanner.body}</p>
+                    <p className="text-[11px] text-[#999999] mt-0.5 leading-snug">{t.ui.profileBanner.body}</p>
                   </div>
                 </div>
                 <a
@@ -2113,10 +2113,10 @@ Light enrichment: ${addendumParts.join(", ")}.`
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-semibold text-[#f5f0e8]">{t.ui.savedSearches.title}</h2>
-                <p className="text-[11px] text-[#555] mt-0.5">{t.ui.savedSearches.subtitle}</p>
+                <p className="text-[11px] text-[#8a8a8a] mt-0.5">{t.ui.savedSearches.subtitle}</p>
               </div>
               <div className="flex items-center gap-2">
-                {isLoadingHistory && <span className="text-[11px] text-[#555] animate-pulse">Updating…</span>}
+                {isLoadingHistory && <span className="text-[11px] text-[#8a8a8a] animate-pulse">Updating…</span>}
                 {showSaveSearchInput ? (
                   <div className="flex items-center gap-1.5">
                     <input
@@ -2143,7 +2143,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         setSaveSearchName("");
                         setShowSaveSearchInput(false);
                       }}
-                      className="text-[11px] text-[#555] hover:text-[#888] px-1">
+                      className="text-[11px] text-[#8a8a8a] hover:text-[#bababa] px-1">
                       ✕
                     </button>
                   </div>
@@ -2188,7 +2188,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         <p className="text-[13px] font-semibold text-[#f5f0e8] truncate group-hover:text-[#e8c97a] transition-colors">
                           {s.niche || "—"}
                         </p>
-                        <p className="text-[11px] text-[#555] truncate mt-0.5">{s.location || "Any location"}</p>
+                        <p className="text-[11px] text-[#8a8a8a] truncate mt-0.5">{s.location || "Any location"}</p>
                       </div>
                       <span className="flex-shrink-0 text-[#c9a84c] text-xs opacity-0 group-hover:opacity-100 transition-opacity">
                         ↺
@@ -2196,11 +2196,11 @@ Light enrichment: ${addendumParts.join(", ")}.`
                     </div>
                     <div className="flex items-center justify-between">
                       {s.social_presence && s.social_presence !== "" && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded border border-[#252525] text-[#555] capitalize">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded border border-[#252525] text-[#8a8a8a] capitalize">
                           {s.social_presence} social
                         </span>
                       )}
-                      <span className="text-[10px] text-[#333] ml-auto">
+                      <span className="text-[10px] text-[#616161] ml-auto">
                         {dateStr} · {timeStr}
                       </span>
                     </div>
@@ -2220,7 +2220,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                 <span className="text-[#c9a84c] text-base flex-shrink-0">⚠</span>
                 <div className="min-w-0">
                   <p className="text-[12px] font-semibold text-[#c9a84c] leading-tight">{t.ui.profileBanner.title}</p>
-                  <p className="text-[11px] text-[#666] mt-0.5 leading-snug">{t.ui.profileBanner.body}</p>
+                  <p className="text-[11px] text-[#999999] mt-0.5 leading-snug">{t.ui.profileBanner.body}</p>
                 </div>
               </div>
               <a
@@ -2246,7 +2246,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                 />
                 {showNicheDropdown && recentSearches.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border border-[#252525] bg-[#111] shadow-xl overflow-hidden">
-                    <p className="text-[10px] uppercase tracking-widest text-[#444] px-3 pt-2.5 pb-1">
+                    <p className="text-[10px] uppercase tracking-widest text-[#737373] px-3 pt-2.5 pb-1">
                       Recent searches
                     </p>
                     {recentSearches.slice(0, 5).map((s: SearchRecord, i: number) => (
@@ -2258,9 +2258,9 @@ Light enrichment: ${addendumParts.join(", ")}.`
                           setLocation(s.location || "");
                           setShowNicheDropdown(false);
                         }}
-                        className="w-full text-left px-3 py-2 text-[12px] text-[#888] hover:bg-[#1a1a1a] hover:text-[#c8c0b0] transition-colors flex items-center justify-between">
+                        className="w-full text-left px-3 py-2 text-[12px] text-[#bababa] hover:bg-[#1a1a1a] hover:text-[#c8c0b0] transition-colors flex items-center justify-between">
                         <span>{s.niche || "—"}</span>
-                        <span className="text-[#444]">{s.location || ""}</span>
+                        <span className="text-[#737373]">{s.location || ""}</span>
                       </button>
                     ))}
                   </div>
@@ -2279,7 +2279,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                 />
                 {showLocationDropdown && recentSearches.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border border-[#252525] bg-[#111] shadow-xl overflow-hidden">
-                    <p className="text-[10px] uppercase tracking-widest text-[#444] px-3 pt-2.5 pb-1">
+                    <p className="text-[10px] uppercase tracking-widest text-[#737373] px-3 pt-2.5 pb-1">
                       Recent searches
                     </p>
                     {recentSearches.slice(0, 5).map((s: SearchRecord, i: number) => (
@@ -2291,9 +2291,9 @@ Light enrichment: ${addendumParts.join(", ")}.`
                           setLocation(s.location || "");
                           setShowLocationDropdown(false);
                         }}
-                        className="w-full text-left px-3 py-2 text-[12px] text-[#888] hover:bg-[#1a1a1a] hover:text-[#c8c0b0] transition-colors flex items-center justify-between">
+                        className="w-full text-left px-3 py-2 text-[12px] text-[#bababa] hover:bg-[#1a1a1a] hover:text-[#c8c0b0] transition-colors flex items-center justify-between">
                         <span>{s.location || "—"}</span>
-                        <span className="text-[#444]">{s.niche || ""}</span>
+                        <span className="text-[#737373]">{s.niche || ""}</span>
                       </button>
                     ))}
                   </div>
@@ -2304,7 +2304,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full inline-flex items-center justify-center rounded-lg bg-[#c9a84c] text-[#080808] hover:bg-[#e8c97a] disabled:bg-[rgba(201,168,76,0.1)] disabled:text-[#666] px-6 py-2.5 text-sm font-semibold tracking-wide transition-all shadow-lg shadow-[rgba(201,168,76,0.15)]">
+                className="w-full inline-flex items-center justify-center rounded-lg bg-[#c9a84c] text-[#080808] hover:bg-[#e8c97a] disabled:bg-[rgba(201,168,76,0.1)] disabled:text-[#999999] px-6 py-2.5 text-sm font-semibold tracking-wide transition-all shadow-lg shadow-[rgba(201,168,76,0.15)]">
                 {isLoading ? t.ui.filters.generatingButton : t.ui.filters.generateButton}
               </button>
             </div>
@@ -2316,10 +2316,10 @@ Light enrichment: ${addendumParts.join(", ")}.`
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="space-y-1">
               <h2 className="text-xl font-semibold">{t.ui.results.title}</h2>
-              <p className="text-xs text-[#888]"></p>
+              <p className="text-xs text-[#bababa]"></p>
 
               <div className="flex flex-wrap items-center gap-3 pt-2">
-                <label className="flex items-center gap-2 text-xs text-[#aaa]">
+                <label className="flex items-center gap-2 text-xs text-[#c4c0b8]">
                   {t.ui.results.minScore}:
                   <input
                     type="range"
@@ -2331,7 +2331,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                   <span className="w-8 text-right">{minScore}</span>
                 </label>
 
-                <label className="flex items-center gap-2 text-xs text-[#aaa]">
+                <label className="flex items-center gap-2 text-xs text-[#c4c0b8]">
                   {t.ui.results.sortBy}
                   <select
                     value={sortBy}
@@ -2347,7 +2347,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                   </select>
                 </label>
 
-                <label className="flex items-center gap-2 text-xs text-[#aaa]">
+                <label className="flex items-center gap-2 text-xs text-[#c4c0b8]">
                   Website
                   <select
                     value={filterHasWebsite}
@@ -2389,8 +2389,10 @@ Light enrichment: ${addendumParts.join(", ")}.`
                     <span className="text-[#f87171]">⚠</span>
                     <p className="text-[13px] font-semibold text-[#f87171]">Search failed</p>
                   </div>
-                  <p className="text-[12px] text-[#888] leading-relaxed">{searchError}</p>
-                  <p className="text-[11px] text-[#555]">Check your API key configuration or try a different search.</p>
+                  <p className="text-[12px] text-[#bababa] leading-relaxed">{searchError}</p>
+                  <p className="text-[11px] text-[#8a8a8a]">
+                    Check your API key configuration or try a different search.
+                  </p>
                 </div>
               )}
 
@@ -2398,16 +2400,16 @@ Light enrichment: ${addendumParts.join(", ")}.`
               {isLoading && !searchError && (
                 <div className="flex flex-col items-center gap-4 py-8">
                   <div className="w-6 h-6 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin" />
-                  <p className="text-[13px] text-[#555]">Scanning leads and scoring…</p>
+                  <p className="text-[13px] text-[#8a8a8a]">Scanning leads and scoring…</p>
                 </div>
               )}
 
               {/* Empty after search */}
               {!isLoading && !searchError && hasSearched && leads.length === 0 && (
                 <div className="flex flex-col items-center gap-3 py-10 text-center">
-                  <span className="text-3xl text-[#333]">◈</span>
-                  <p className="text-[14px] text-[#888] font-medium">No leads found for this search</p>
-                  <p className="text-[12px] text-[#555] max-w-sm leading-relaxed">
+                  <span className="text-3xl text-[#616161]">◈</span>
+                  <p className="text-[14px] text-[#bababa] font-medium">No leads found for this search</p>
+                  <p className="text-[12px] text-[#8a8a8a] max-w-sm leading-relaxed">
                     Try broadening your niche, removing the location, or lowering the minimum score filter.
                   </p>
                 </div>
@@ -2416,9 +2418,9 @@ Light enrichment: ${addendumParts.join(", ")}.`
               {/* Empty after filter */}
               {!isLoading && !searchError && hasSearched && leads.length > 0 && sortedLeads.length === 0 && (
                 <div className="flex flex-col items-center gap-3 py-10 text-center">
-                  <span className="text-3xl text-[#333]">◇</span>
-                  <p className="text-[14px] text-[#888] font-medium">All leads filtered out</p>
-                  <p className="text-[12px] text-[#555] max-w-sm leading-relaxed">
+                  <span className="text-3xl text-[#616161]">◇</span>
+                  <p className="text-[14px] text-[#bababa] font-medium">All leads filtered out</p>
+                  <p className="text-[12px] text-[#8a8a8a] max-w-sm leading-relaxed">
                     {leads.length} lead{leads.length !== 1 ? "s" : ""} found but none pass the current filters. Lower
                     the minimum score or clear the search query.
                   </p>
@@ -2429,9 +2431,9 @@ Light enrichment: ${addendumParts.join(", ")}.`
               {!isLoading && !searchError && !hasSearched && (
                 <div className="flex flex-col items-center gap-3 py-10 text-center">
                   <span className="text-3xl text-[#252525]">◈</span>
-                  <p className="text-[13px] text-[#555]">
+                  <p className="text-[13px] text-[#8a8a8a]">
                     {t.ui.results.empty}
-                    <span className="font-semibold text-[#888]"> &quot;Generate Leads&quot;</span>.
+                    <span className="font-semibold text-[#bababa]"> &quot;Generate Leads&quot;</span>.
                   </p>
                 </div>
               )}
@@ -2481,7 +2483,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                     <button
                       type="button"
                       onClick={() => setBulkSelected(new Set())}
-                      className="text-[11px] px-3 py-1.5 rounded-lg border border-[#252525] text-[#555] hover:border-[#444] transition-all">
+                      className="text-[11px] px-3 py-1.5 rounded-lg border border-[#252525] text-[#8a8a8a] hover:border-[#444] transition-all">
                       Clear
                     </button>
                   </div>
@@ -2538,7 +2540,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="min-w-0">
                           <p className="font-medium text-[13px] truncate">{lead.company.name}</p>
-                          <p className="text-[10px] text-[#555] mt-0.5 truncate">
+                          <p className="text-[10px] text-[#8a8a8a] mt-0.5 truncate">
                             {leadLocation(lead)} · {lead.classification.primaryIndustry.replaceAll("_", " ")}
                           </p>
                         </div>
@@ -2565,12 +2567,12 @@ Light enrichment: ${addendumParts.join(", ")}.`
                             <p className="text-[11px] font-bold" style={{ color: m.color }}>
                               {m.value}
                             </p>
-                            <p className="text-[9px] text-[#444] uppercase tracking-wide">{m.label}</p>
+                            <p className="text-[9px] text-[#737373] uppercase tracking-wide">{m.label}</p>
                           </div>
                         ))}
                       </div>
                       {/* Row 3: insight */}
-                      <p className="text-[10px] text-[#555] leading-snug">⚡ {gapLabel}</p>
+                      <p className="text-[10px] text-[#8a8a8a] leading-snug">⚡ {gapLabel}</p>
                     </div>
                   );
                 })}
@@ -2645,9 +2647,9 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                   {lead.company.name}
                                 </span>
                                 <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                                  <span className="text-[10px] text-[#555]">{leadLocation(lead)}</span>
-                                  <span className="text-[10px] text-[#444]">·</span>
-                                  <span className="text-[10px] text-[#555]">
+                                  <span className="text-[10px] text-[#8a8a8a]">{leadLocation(lead)}</span>
+                                  <span className="text-[10px] text-[#737373]">·</span>
+                                  <span className="text-[10px] text-[#8a8a8a]">
                                     {lead.classification.primaryIndustry.replaceAll("_", " ")}
                                   </span>
                                   {lead.company.website && (
@@ -2690,7 +2692,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                         {fitLabel}
                                       </span>
                                     ) : (
-                                      <span className="text-[#333] text-xs">—</span>
+                                      <span className="text-[#616161] text-xs">—</span>
                                     );
                                   })()}
                                 </div>
@@ -2701,7 +2703,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                               <ScoreTooltip text={lead.score.tooltips?.opportunity ?? ""}>
                                 <div>
                                   <span className="text-[#c8c0b0] font-semibold">{lead.score.opportunity ?? 0}</span>
-                                  <p className="mt-1 text-[11px] leading-snug text-[#888]">{t.ui.detail.upside}</p>
+                                  <p className="mt-1 text-[11px] leading-snug text-[#bababa]">{t.ui.detail.upside}</p>
                                 </div>
                               </ScoreTooltip>
                             </td>
@@ -2719,7 +2721,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                     }>
                                     {lead.score.risk ?? 0}
                                   </span>
-                                  <p className="mt-1 text-[11px] leading-snug text-[#888]">
+                                  <p className="mt-1 text-[11px] leading-snug text-[#bababa]">
                                     {lead.score.riskProfile ? lead.score.riskProfile.replaceAll("_", " ") : "—"}
                                   </p>
                                 </div>
@@ -2785,11 +2787,11 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         handleLoadMore();
                       }
                     }}
-                    className="px-8 py-2.5 rounded-xl border border-[#252525] text-[13px] text-[#888] hover:border-[rgba(201,168,76,0.3)] hover:text-[#c9a84c] hover:bg-[rgba(201,168,76,0.04)] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium">
+                    className="px-8 py-2.5 rounded-xl border border-[#252525] text-[13px] text-[#bababa] hover:border-[rgba(201,168,76,0.3)] hover:text-[#c9a84c] hover:bg-[rgba(201,168,76,0.04)] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium">
                     {isLoading ? "Loading…" : "Load more ↓"}
                   </button>
                 )}
-                <p className="text-[11px] text-[#333]">
+                <p className="text-[11px] text-[#616161]">
                   {visibleLeads.length} of {sortedLeads.length} lead{sortedLeads.length !== 1 ? "s" : ""} shown
                 </p>
               </div>
@@ -2847,7 +2849,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                   </div>
                   <button
                     onClick={() => setCompareMode(false)}
-                    className="text-[#444] hover:text-[#888] transition-colors text-xl leading-none">
+                    className="text-[#737373] hover:text-[#bababa] transition-colors text-xl leading-none">
                     ×
                   </button>
                 </div>
@@ -2860,10 +2862,10 @@ Light enrichment: ${addendumParts.join(", ")}.`
                     {compareLeads.map((l) => (
                       <div key={l.id} className="rounded-xl border border-[#1a1a1a] bg-[#080808] p-3 text-center">
                         <p className="text-[12px] font-semibold text-[#c8c0b0] truncate">{l.company.name}</p>
-                        <p className="text-[10px] text-[#444] mt-0.5 truncate">
+                        <p className="text-[10px] text-[#737373] mt-0.5 truncate">
                           {l.classification.primaryIndustry.replace(/_/g, " ")}
                         </p>
-                        {l.company.city && <p className="text-[10px] text-[#333]">{l.company.city}</p>}
+                        {l.company.city && <p className="text-[10px] text-[#616161]">{l.company.city}</p>}
                       </div>
                     ))}
                   </div>
@@ -2877,7 +2879,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         key={m.label}
                         className={"grid gap-3 items-center"}
                         style={{ gridTemplateColumns: `140px repeat(${compareLeads.length}, 1fr)` }}>
-                        <p className="text-[11px] text-[#555]">{m.label}</p>
+                        <p className="text-[11px] text-[#8a8a8a]">{m.label}</p>
                         {vals.map((v, i) => {
                           const c = m.color(v);
                           const isBest = v === maxVal && vals.filter((x) => x === maxVal).length === 1;
@@ -2908,12 +2910,12 @@ Light enrichment: ${addendumParts.join(", ")}.`
                   <div
                     className={"grid gap-3 items-start"}
                     style={{ gridTemplateColumns: `140px repeat(${compareLeads.length}, 1fr)` }}>
-                    <p className="text-[11px] text-[#555]">Gap type</p>
+                    <p className="text-[11px] text-[#8a8a8a]">Gap type</p>
                     {compareLeads.map((l) => {
                       const gap = (l.metadata?.outreach as { gap?: string } | null)?.gap ?? null;
                       return (
                         <div key={l.id} className="rounded-xl border border-[#1a1a1a] bg-[#080808] p-3 text-center">
-                          <p className="text-[11px] text-[#888]">{gap ? gap.replace(/_/g, " ") : "—"}</p>
+                          <p className="text-[11px] text-[#bababa]">{gap ? gap.replace(/_/g, " ") : "—"}</p>
                         </div>
                       );
                     })}
@@ -2923,7 +2925,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                   <div
                     className={"grid gap-3 items-start"}
                     style={{ gridTemplateColumns: `140px repeat(${compareLeads.length}, 1fr)` }}>
-                    <p className="text-[11px] text-[#555]">Website</p>
+                    <p className="text-[11px] text-[#8a8a8a]">Website</p>
                     {compareLeads.map((l) => (
                       <div key={l.id} className="rounded-xl border border-[#1a1a1a] bg-[#080808] p-3 text-center">
                         {l.company.website ? (
@@ -2936,7 +2938,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                             Visit ↗
                           </a>
                         ) : (
-                          <p className="text-[11px] text-[#333]">None</p>
+                          <p className="text-[11px] text-[#616161]">None</p>
                         )}
                       </div>
                     ))}
@@ -2946,7 +2948,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                   <div
                     className={"grid gap-3"}
                     style={{ gridTemplateColumns: `140px repeat(${compareLeads.length}, 1fr)` }}>
-                    <p className="text-[11px] text-[#555]">Action</p>
+                    <p className="text-[11px] text-[#8a8a8a]">Action</p>
                     {compareLeads.map((l) => (
                       <button
                         key={l.id}
@@ -3104,7 +3106,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         "text-[11px] px-3 py-1.5 rounded-t-md font-medium transition-colors " +
                         (detailTab === tab.key
                           ? "bg-[#1a1a1a] text-[#c9a84c] border border-b-0 border-[rgba(201,168,76,0.3)]"
-                          : "text-[#666] hover:text-[#888]")
+                          : "text-[#999999] hover:text-[#bababa]")
                       }>
                       {tab.label}
                     </button>
@@ -3200,8 +3202,8 @@ Light enrichment: ${addendumParts.join(", ")}.`
                           <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-6 flex flex-col items-center gap-3 text-center">
                             <div className="w-5 h-5 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin" />
                             <div>
-                              <p className="text-[12px] text-[#888]">Analyzing signals…</p>
-                              <p className="text-[10px] text-[#444] mt-0.5">Scoring this lead for your profile</p>
+                              <p className="text-[12px] text-[#bababa]">Analyzing signals…</p>
+                              <p className="text-[10px] text-[#737373] mt-0.5">Scoring this lead for your profile</p>
                             </div>
                           </div>
                         )}
@@ -3235,13 +3237,13 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                 </div>
                               </div>
                               <div className="min-w-0">
-                                <p className="text-[10px] uppercase tracking-widest text-[#555]">Score</p>
+                                <p className="text-[10px] uppercase tracking-widest text-[#8a8a8a]">Score</p>
                                 <p className="font-semibold text-sm" style={{ color: scoreColor }}>
                                   {scoreLabel}
                                 </p>
                               </div>
                             </div>
-                            <p className="text-[11px] text-[#666] leading-relaxed">
+                            <p className="text-[11px] text-[#999999] leading-relaxed">
                               {detailLead.score.tooltips?.value ?? getScoreReason(detailLead, language)}
                             </p>
 
@@ -3314,7 +3316,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                     </div>
                                   </div>
                                   <div className="min-w-0">
-                                    <p className="text-[12px] text-[#888] font-medium">{label}</p>
+                                    <p className="text-[12px] text-[#bababa] font-medium">{label}</p>
                                   </div>
                                 </div>
                               </ScoreTooltip>
@@ -3333,7 +3335,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                     style={{ color: gapInfo.color }}>
                                     ◆ {gapInfo.label}
                                   </span>
-                                  <p className="text-[11px] text-[#666] mt-1 leading-snug break-words">
+                                  <p className="text-[11px] text-[#999999] mt-1 leading-snug break-words">
                                     {gapInfo.desc}
                                   </p>
                                 </div>
@@ -3404,7 +3406,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                           {!detailWebsiteUrl && (
                             <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] px-3 py-2 flex items-center gap-2">
                               <span className="text-[#f87171] text-xs">✗</span>
-                              <p className="text-[11px] text-[#555]">{t.ui.detail.noWebsite}</p>
+                              <p className="text-[11px] text-[#8a8a8a]">{t.ui.detail.noWebsite}</p>
                             </div>
                           )}
 
@@ -3452,7 +3454,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                             ] as const;
                             return (
                               <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3 space-y-3">
-                                <p className="text-[10px] uppercase tracking-widest text-[#444]">Signal breakdown</p>
+                                <p className="text-[10px] uppercase tracking-widest text-[#737373]">Signal breakdown</p>
                                 {bars.map(({ key, label, hint, invert }) => {
                                   const v = (bd as Record<string, number>)[key] ?? 0;
                                   const color = invert
@@ -3470,8 +3472,8 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                     <div key={key}>
                                       <div className="flex items-center justify-between mb-1">
                                         <div>
-                                          <p className="text-[11px] text-[#888]">{label}</p>
-                                          <p className="text-[9px] text-[#444]">{hint}</p>
+                                          <p className="text-[11px] text-[#bababa]">{label}</p>
+                                          <p className="text-[9px] text-[#737373]">{hint}</p>
                                         </div>
                                         <p className="text-[12px] font-bold tabular-nums" style={{ color }}>
                                           {v}
@@ -3535,14 +3537,14 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         {/* Category score bars */}
                         {bd && (
                           <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                            <p className="text-[10px] uppercase tracking-widest text-[#555]">Breakdown</p>
+                            <p className="text-[10px] uppercase tracking-widest text-[#8a8a8a]">Breakdown</p>
                             {categories.map(({ key, label, hint, invert }) => {
                               const v = bd[key] ?? 0;
                               const color = barColor(v, invert);
                               return (
                                 <div key={key} className="space-y-1">
                                   <div className="flex items-center justify-between">
-                                    <p className="text-[11px] text-[#888]">{label}</p>
+                                    <p className="text-[11px] text-[#bababa]">{label}</p>
                                     <p className="text-[12px] font-bold tabular-nums" style={{ color }}>
                                       {v}
                                     </p>
@@ -3553,7 +3555,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                       style={{ width: `${v}%`, backgroundColor: color }}
                                     />
                                   </div>
-                                  <p className="text-[10px] text-[#444] leading-snug hidden sm:block">{hint}</p>
+                                  <p className="text-[10px] text-[#737373] leading-snug hidden sm:block">{hint}</p>
                                 </div>
                               );
                             })}
@@ -3564,7 +3566,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         {detailLead.score.reasons?.length > 0 && (
                           <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-3 space-y-2">
                             <div className="flex items-center gap-2">
-                              <p className="text-[9px] uppercase tracking-widest text-[#555]">Score evidence</p>
+                              <p className="text-[9px] uppercase tracking-widest text-[#8a8a8a]">Score evidence</p>
                               <div className="flex-1 h-[1px] bg-[#1a1a1a]" />
                             </div>
                             <div className="space-y-1.5">
@@ -3576,10 +3578,10 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                 return (
                                   <div key={i} className="flex items-start gap-2.5">
                                     <span
-                                      className={`text-[10px] mt-0.5 flex-shrink-0 ${isPositive ? "text-[#4ade80]" : isNegative ? "text-[#f87171]" : "text-[#555]"}`}>
+                                      className={`text-[10px] mt-0.5 flex-shrink-0 ${isPositive ? "text-[#4ade80]" : isNegative ? "text-[#f87171]" : "text-[#8a8a8a]"}`}>
                                       {isPositive ? "✓" : isNegative ? "✗" : "·"}
                                     </span>
-                                    <p className="text-[11px] text-[#888] leading-snug">{reason}</p>
+                                    <p className="text-[11px] text-[#bababa] leading-snug">{reason}</p>
                                   </div>
                                 );
                               })}
@@ -3591,20 +3593,20 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         {enrichmentLoading && (
                           <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] p-4 flex items-center gap-3">
                             <div className="w-3.5 h-3.5 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin shrink-0" />
-                            <span className="text-[12px] text-[#555]">Scanning website signals…</span>
+                            <span className="text-[12px] text-[#8a8a8a]">Scanning website signals…</span>
                           </div>
                         )}
                         {!safeEnrichment && !enrichmentLoading && detailLead.company.website && (
                           <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] p-4 space-y-1">
-                            <p className="text-[10px] uppercase tracking-widest text-[#555]">Web Signals</p>
-                            <p className="text-[12px] text-[#444]">Scan failed — unreachable or blocked.</p>
-                            <p className="text-[11px] text-[#333]">{detailLead.company.website}</p>
+                            <p className="text-[10px] uppercase tracking-widest text-[#8a8a8a]">Web Signals</p>
+                            <p className="text-[12px] text-[#737373]">Scan failed — unreachable or blocked.</p>
+                            <p className="text-[11px] text-[#616161]">{detailLead.company.website}</p>
                           </div>
                         )}
                         {!safeEnrichment && !enrichmentLoading && !detailLead.company.website && (
                           <div className="rounded-lg border border-[#252525] bg-[#0d0d0d] p-4">
-                            <p className="text-[10px] uppercase tracking-widest text-[#555] mb-1">Web Signals</p>
-                            <p className="text-[12px] text-[#444]">No website — signals unavailable.</p>
+                            <p className="text-[10px] uppercase tracking-widest text-[#8a8a8a] mb-1">Web Signals</p>
+                            <p className="text-[12px] text-[#737373]">No website — signals unavailable.</p>
                           </div>
                         )}
 
@@ -3667,12 +3669,12 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                   </div>
                                 )}
                                 <div className="flex items-center justify-between">
-                                  <p className="text-[10px] uppercase tracking-widest text-[#555]">Web Signals</p>
+                                  <p className="text-[10px] uppercase tracking-widest text-[#8a8a8a]">Web Signals</p>
                                   <button
                                     type="button"
                                     onClick={() => detailLead && runDeepScan(detailLead)}
                                     disabled={enrichmentLoading}
-                                    className="text-[10px] px-2 py-1 rounded border border-[#252525] text-[#555] hover:border-[#444] hover:text-[#888] disabled:opacity-40 transition-colors">
+                                    className="text-[10px] px-2 py-1 rounded border border-[#252525] text-[#8a8a8a] hover:border-[#444] hover:text-[#bababa] disabled:opacity-40 transition-colors">
                                     ↻ Re-enrich
                                   </button>
                                 </div>
@@ -3706,13 +3708,15 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                       <span className={`text-xs ${v ? "text-[#4ade80]" : "text-[#f87171]"}`}>
                                         {v ? "✓" : "✗"}
                                       </span>
-                                      <span className="text-[11px] text-[#888]">{label}</span>
+                                      <span className="text-[11px] text-[#bababa]">{label}</span>
                                     </div>
                                   ))}
                                 </div>
                                 {detectedPlatforms.length > 0 && (
                                   <div>
-                                    <p className="text-[10px] uppercase tracking-widest text-[#555] mb-1.5">Social</p>
+                                    <p className="text-[10px] uppercase tracking-widest text-[#8a8a8a] mb-1.5">
+                                      Social
+                                    </p>
                                     <div className="flex flex-wrap gap-1.5">
                                       {detectedPlatforms.map((p: string) => (
                                         <span
@@ -3745,7 +3749,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                   cached
                                 </span>
                               )}
-                              <p className="text-[10px] text-[#444]">
+                              <p className="text-[10px] text-[#737373]">
                                 Scanned{" "}
                                 {(() => {
                                   const diff = Date.now() - new Date(deepEnrichmentData.scannedAt).getTime();
@@ -3770,14 +3774,14 @@ Light enrichment: ${addendumParts.join(", ")}.`
                             <button
                               type="button"
                               onClick={() => detailLead && runDeepScan(detailLead)}
-                              className="text-[10px] px-2 py-1 rounded border border-[#252525] text-[#555] hover:border-[#444] hover:text-[#888] transition-colors">
+                              className="text-[10px] px-2 py-1 rounded border border-[#252525] text-[#8a8a8a] hover:border-[#444] hover:text-[#bababa] transition-colors">
                               ↻ Re-enrich
                             </button>
                           )}
                         </div>
                       </div>
                       {!deepEnrichmentData.pageReachable && (
-                        <p className="text-[11px] text-[#555]">Unreachable — partial scores only.</p>
+                        <p className="text-[11px] text-[#8a8a8a]">Unreachable — partial scores only.</p>
                       )}
                     </div>
 
@@ -3839,9 +3843,9 @@ Light enrichment: ${addendumParts.join(", ")}.`
                             </div>
                           )}
                           <div className="flex items-center justify-between">
-                            <p className="text-[10px] uppercase tracking-widest text-[#555]">Website</p>
+                            <p className="text-[10px] uppercase tracking-widest text-[#8a8a8a]">Website</p>
                             {!noWebsite && deepEnrichmentData.website.summary && (
-                              <p className="text-[10px] text-[#444] max-w-[60%] text-right truncate">
+                              <p className="text-[10px] text-[#737373] max-w-[60%] text-right truncate">
                                 {deepEnrichmentData.website.summary}
                               </p>
                             )}
@@ -3853,7 +3857,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                             return (
                               <div key={key} className="space-y-1">
                                 <div className="flex items-center justify-between">
-                                  <p className="text-[11px] text-[#888]">{label}</p>
+                                  <p className="text-[11px] text-[#bababa]">{label}</p>
                                   <p className="text-[12px] font-bold tabular-nums" style={{ color }}>
                                     {displayVal}
                                   </p>
@@ -3873,7 +3877,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
 
                     {/* Market signals */}
                     <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                      <p className="text-[10px] uppercase tracking-widest text-[#555]">Market</p>
+                      <p className="text-[10px] uppercase tracking-widest text-[#8a8a8a]">Market</p>
                       {Object.entries(deepEnrichmentData.market.scores).map(([key, val]) => {
                         const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (s: string) => s.toUpperCase());
                         const score = val as number;
@@ -3881,7 +3885,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         return (
                           <div key={key} className="space-y-1">
                             <div className="flex items-center justify-between">
-                              <p className="text-[11px] text-[#888]">{label}</p>
+                              <p className="text-[11px] text-[#bababa]">{label}</p>
                               <p className="text-[12px] font-bold tabular-nums" style={{ color }}>
                                 {val}
                               </p>
@@ -3896,7 +3900,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         );
                       })}
                       {deepEnrichmentData.market.recommendation && (
-                        <p className="text-[11px] text-[#666] border-t border-[#1a1a1a] pt-2">
+                        <p className="text-[11px] text-[#999999] border-t border-[#1a1a1a] pt-2">
                           {deepEnrichmentData.market.recommendation}
                         </p>
                       )}
@@ -3905,7 +3909,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                     {/* Brand grade */}
                     <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
                       <div className="flex items-center justify-between">
-                        <p className="text-[10px] uppercase tracking-widest text-[#555]">Brand</p>
+                        <p className="text-[10px] uppercase tracking-widest text-[#8a8a8a]">Brand</p>
                         <span className="text-[13px] font-bold text-[#c9a84c]">
                           Grade: {deepEnrichmentData.brand.brandGrade}
                         </span>
@@ -3917,7 +3921,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         return (
                           <div key={key} className="space-y-1">
                             <div className="flex items-center justify-between">
-                              <p className="text-[11px] text-[#888]">{label}</p>
+                              <p className="text-[11px] text-[#bababa]">{label}</p>
                               <p className="text-[12px] font-bold tabular-nums" style={{ color }}>
                                 {val}
                               </p>
@@ -3934,11 +3938,11 @@ Light enrichment: ${addendumParts.join(", ")}.`
                       <div className="grid grid-cols-2 gap-2 border-t border-[#1a1a1a] pt-2">
                         <div className="rounded-lg border border-[#4ade80]/15 bg-[#4ade80]/5 px-2 py-1.5">
                           <p className="text-[9px] uppercase tracking-widest text-[#4ade80]/60 mb-0.5">Strength</p>
-                          <p className="text-[11px] text-[#888]">{deepEnrichmentData.brand.strengthArea}</p>
+                          <p className="text-[11px] text-[#bababa]">{deepEnrichmentData.brand.strengthArea}</p>
                         </div>
                         <div className="rounded-lg border border-[#f87171]/15 bg-[#f87171]/5 px-2 py-1.5">
                           <p className="text-[9px] uppercase tracking-widest text-[#f87171]/60 mb-0.5">Weakest</p>
-                          <p className="text-[11px] text-[#888]">{deepEnrichmentData.brand.weakestArea}</p>
+                          <p className="text-[11px] text-[#bababa]">{deepEnrichmentData.brand.weakestArea}</p>
                         </div>
                       </div>
                     </div>
@@ -3948,8 +3952,8 @@ Light enrichment: ${addendumParts.join(", ")}.`
                 {detailTab === "signals" && !deepEnrichmentData && !deepEnrichmentLoading && (
                   <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 flex items-center justify-between">
                     <div>
-                      <p className="text-[12px] text-[#888] font-medium">Deep Enrichment</p>
-                      <p className="text-[11px] text-[#444] mt-0.5 hidden sm:block">Website · market · brand</p>
+                      <p className="text-[12px] text-[#bababa] font-medium">Deep Enrichment</p>
+                      <p className="text-[11px] text-[#737373] mt-0.5 hidden sm:block">Website · market · brand</p>
                     </div>
                     {deepEnrichmentUnlocked ? (
                       <button
@@ -3963,18 +3967,18 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         <button
                           type="button"
                           disabled
-                          className="text-[11px] px-3 py-1.5 rounded-lg border border-[#2a2a2a] bg-[#111] text-[#444] cursor-not-allowed flex items-center gap-1.5">
+                          className="text-[11px] px-3 py-1.5 rounded-lg border border-[#2a2a2a] bg-[#111] text-[#737373] cursor-not-allowed flex items-center gap-1.5">
                           <span>🔒</span>
                           <span>Deep Enrichment</span>
                         </button>
-                        <div className="absolute bottom-full right-0 mb-2 w-56 rounded-xl border border-[#2a2a2a] bg-[#111] p-3 text-[11px] text-[#666] leading-relaxed opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50 shadow-xl">
+                        <div className="absolute bottom-full right-0 mb-2 w-56 rounded-xl border border-[#2a2a2a] bg-[#111] p-3 text-[11px] text-[#999999] leading-relaxed opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50 shadow-xl">
                           <p className="text-[#c9a84c] font-medium mb-1">Operator & Agency feature</p>
                           <p>
                             Deep Enrichment fetches the lead&apos;s website and analyses SEO structure, CTA strength,
                             brand consistency, and market positioning — giving you a composite intelligence score before
                             you reach out.
                           </p>
-                          <p className="mt-1 text-[#555]">Upgrade to unlock.</p>
+                          <p className="mt-1 text-[#8a8a8a]">Upgrade to unlock.</p>
                         </div>
                       </div>
                     )}
@@ -3984,7 +3988,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                 {detailTab === "signals" && deepEnrichmentLoading && (
                   <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 flex items-center gap-3">
                     <div className="w-3.5 h-3.5 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin shrink-0" />
-                    <span className="text-[12px] text-[#555]">
+                    <span className="text-[12px] text-[#8a8a8a]">
                       Running deep enrichment — fetching website, market & brand signals…
                     </span>
                   </div>
@@ -4073,9 +4077,9 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         {/* Angle */}
                         {title && (
                           <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4">
-                            <p className="text-[9px] uppercase tracking-widest text-[#555] mb-1.5">Angle</p>
+                            <p className="text-[9px] uppercase tracking-widest text-[#8a8a8a] mb-1.5">Angle</p>
                             <p className="text-[13px] font-semibold text-[#e8c97a] mb-1">{title}</p>
-                            {why && <p className="text-[11px] text-[#666] leading-relaxed">{why}</p>}
+                            {why && <p className="text-[11px] text-[#999999] leading-relaxed">{why}</p>}
                           </div>
                         )}
 
@@ -4092,7 +4096,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                 {gc.label}
                               </p>
                             </div>
-                            <p className="text-[11px] text-[#888] leading-relaxed">{gc.intervention}</p>
+                            <p className="text-[11px] text-[#bababa] leading-relaxed">{gc.intervention}</p>
                           </div>
                         )}
 
@@ -4100,23 +4104,23 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         <div className="grid grid-cols-2 gap-2">
                           {dc && (
                             <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3">
-                              <p className="text-[9px] uppercase tracking-widest text-[#444] mb-1">Friction</p>
+                              <p className="text-[9px] uppercase tracking-widest text-[#737373] mb-1">Friction</p>
                               <p className="text-[11px] font-semibold" style={{ color: dc.color }}>
                                 {dc.label}
                               </p>
-                              <p className="text-[10px] text-[#555] mt-1 leading-snug">{dc.desc}</p>
+                              <p className="text-[10px] text-[#8a8a8a] mt-1 leading-snug">{dc.desc}</p>
                             </div>
                           )}
                           <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3">
-                            <p className="text-[9px] uppercase tracking-widest text-[#444] mb-1">Channel</p>
+                            <p className="text-[9px] uppercase tracking-widest text-[#737373] mb-1">Channel</p>
                             <p className="text-[11px] font-semibold text-[#c9a84c]">{channelPrimary}</p>
-                            <p className="text-[10px] text-[#555] mt-1 leading-snug">Best first point of contact</p>
+                            <p className="text-[10px] text-[#8a8a8a] mt-1 leading-snug">Best first point of contact</p>
                           </div>
                         </div>
 
                         {/* Tone guide */}
                         <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-4">
-                          <p className="text-[9px] uppercase tracking-widest text-[#444] mb-2.5">Tone guide</p>
+                          <p className="text-[9px] uppercase tracking-widest text-[#737373] mb-2.5">Tone guide</p>
                           <div className="space-y-2">
                             {tones.map((tone) => {
                               const isRecommended = dc
@@ -4135,7 +4139,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                   }>
                                   <span
                                     className={
-                                      "text-[10px] mt-0.5 " + (isRecommended ? "text-[#c9a84c]" : "text-[#333]")
+                                      "text-[10px] mt-0.5 " + (isRecommended ? "text-[#c9a84c]" : "text-[#616161]")
                                     }>
                                     {isRecommended ? "★" : "○"}
                                   </span>
@@ -4143,11 +4147,11 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                     <p
                                       className={
                                         "text-[11px] font-semibold " +
-                                        (isRecommended ? "text-[#c9a84c]" : "text-[#666]")
+                                        (isRecommended ? "text-[#c9a84c]" : "text-[#999999]")
                                       }>
                                       {tone.label}
                                     </p>
-                                    <p className="text-[10px] text-[#444] leading-snug">{tone.desc}</p>
+                                    <p className="text-[10px] text-[#737373] leading-snug">{tone.desc}</p>
                                   </div>
                                 </div>
                               );
@@ -4183,7 +4187,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                           className="flex items-center justify-between w-full px-4 py-3 rounded-xl border border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.04)] hover:bg-[rgba(201,168,76,0.08)] transition-all group">
                           <div>
                             <p className="text-[12px] font-semibold text-[#c9a84c]">Generate outreach message</p>
-                            <p className="text-[10px] text-[#555] mt-0.5">
+                            <p className="text-[10px] text-[#8a8a8a] mt-0.5">
                               Signal-driven · 3-stage pipeline · Operator+
                             </p>
                           </div>
@@ -4238,7 +4242,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         {/* Score snapshot */}
                         {scoreSnap !== null && (
                           <div className="rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] px-4 py-3 flex items-center justify-between">
-                            <p className="text-[10px] uppercase tracking-widest text-[#444]">Score at outreach</p>
+                            <p className="text-[10px] uppercase tracking-widest text-[#737373]">Score at outreach</p>
                             <span
                               className={
                                 "text-sm font-medium " +
@@ -4256,11 +4260,11 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         {/* Pipeline funnel */}
                         <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4">
                           <div className="flex items-center justify-between mb-3">
-                            <p className="text-[10px] uppercase tracking-widest text-[#555]">
+                            <p className="text-[10px] uppercase tracking-widest text-[#8a8a8a]">
                               {t.ui.detail.outcomeTracking}
                             </p>
                             {isSavingOutcome && (
-                              <p className="text-[10px] text-[#555] animate-pulse">{t.ui.detail.saving}…</p>
+                              <p className="text-[10px] text-[#8a8a8a] animate-pulse">{t.ui.detail.saving}…</p>
                             )}
                           </div>
                           <div className="flex items-stretch gap-1">
@@ -4309,19 +4313,19 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                     className={
                                       "text-sm transition-colors " +
                                       (isLost
-                                        ? "text-[#333]"
+                                        ? "text-[#616161]"
                                         : isCurrent
                                           ? "text-[#c9a84c]"
                                           : isActive
                                             ? "text-[#4ade80]"
-                                            : "text-[#333]")
+                                            : "text-[#616161]")
                                     }>
                                     {isActive ? (i < stage ? "✓" : icon) : icon}
                                   </span>
                                   <span
                                     className={
                                       "text-[9px] tracking-wide " +
-                                      (isLost ? "text-[#333]" : isActive ? "text-[#888]" : "text-[#333]")
+                                      (isLost ? "text-[#616161]" : isActive ? "text-[#bababa]" : "text-[#616161]")
                                     }>
                                     {label}
                                   </span>
@@ -4350,7 +4354,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                 "flex flex-col items-center gap-1.5 py-2.5 px-2.5 rounded-lg border transition-all disabled:cursor-not-allowed " +
                                 (isLost
                                   ? "border-[#f87171]/50 bg-[#f87171]/10 text-[#f87171]"
-                                  : "border-[#1a1a1a] bg-[#111] text-[#555] hover:border-[#f87171]/30 hover:text-[#f87171]/70")
+                                  : "border-[#1a1a1a] bg-[#111] text-[#8a8a8a] hover:border-[#f87171]/30 hover:text-[#f87171]/70")
                               }>
                               <span className="text-sm">✗</span>
                               <span className="text-[9px] tracking-wide">Lost</span>
@@ -4362,7 +4366,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                             </p>
                           )}
                           {!isLost && stage >= 0 && (
-                            <p className="text-[11px] text-[#555] mt-2 text-center">
+                            <p className="text-[11px] text-[#8a8a8a] mt-2 text-center">
                               {stage === 3 ? t.ui.detail.dealClosed : `${stage + 1} ${t.ui.detail.stagesReached}`}
                             </p>
                           )}
@@ -4371,7 +4375,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         {/* Lost reason — shown when contacted but stalled */}
                         {showLostReason && (
                           <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
-                            <p className="text-[10px] uppercase tracking-widest text-[#555]">Lost why</p>
+                            <p className="text-[10px] uppercase tracking-widest text-[#8a8a8a]">Lost why</p>
                             <div className="grid grid-cols-2 gap-1.5">
                               {lostReasons.map(({ key, label }) => (
                                 <button
@@ -4390,7 +4394,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                     "px-3 py-2 rounded-lg border text-[11px] transition-all text-left " +
                                     (lostReason === key
                                       ? "border-[#f87171]/40 bg-[#f87171]/8 text-[#f87171]"
-                                      : "border-[#1a1a1a] bg-[#111] text-[#555] hover:border-[#252525] hover:text-[#888]") +
+                                      : "border-[#1a1a1a] bg-[#111] text-[#8a8a8a] hover:border-[#252525] hover:text-[#bababa]") +
                                     " disabled:cursor-not-allowed"
                                   }>
                                   {label}
@@ -4402,7 +4406,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
 
                         {/* Tonality used */}
                         <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
-                          <p className="text-[10px] uppercase tracking-widest text-[#555]">Tone</p>
+                          <p className="text-[10px] uppercase tracking-widest text-[#8a8a8a]">Tone</p>
                           <div className="grid grid-cols-2 gap-1.5">
                             {(
                               [
@@ -4428,7 +4432,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                   "py-2 rounded-lg border text-[11px] transition-all " +
                                   (tonalityVal === tone.key
                                     ? "border-[#c9a84c]/40 bg-[rgba(201,168,76,0.08)] text-[#c9a84c]"
-                                    : "border-[#1a1a1a] bg-[#111] text-[#555] hover:border-[#252525] hover:text-[#888]") +
+                                    : "border-[#1a1a1a] bg-[#111] text-[#8a8a8a] hover:border-[#252525] hover:text-[#bababa]") +
                                   " disabled:cursor-not-allowed"
                                 }>
                                 {tone.label}
@@ -4439,7 +4443,9 @@ Light enrichment: ${addendumParts.join(", ")}.`
 
                         {/* Revenue input */}
                         <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                          <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.dealValue}</p>
+                          <p className="text-[10px] uppercase tracking-widest text-[#8a8a8a]">
+                            {t.ui.detail.dealValue}
+                          </p>
                           {(() => {
                             const loc = (location ?? "").toLowerCase();
                             const sym =
@@ -4462,7 +4468,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                             return (
                               <>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[#555] text-sm">{sym}</span>
+                                  <span className="text-[#8a8a8a] text-sm">{sym}</span>
                                   <input
                                     type="number"
                                     min="0"
@@ -4494,7 +4500,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
 
                         {/* Notes */}
                         <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
-                          <p className="text-[10px] uppercase tracking-widest text-[#555]">{t.ui.detail.notes}</p>
+                          <p className="text-[10px] uppercase tracking-widest text-[#8a8a8a]">{t.ui.detail.notes}</p>
                           <textarea
                             rows={3}
                             placeholder="Objections, context, follow-up reminders…"
@@ -4510,7 +4516,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                             }}
                             className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-[12px] text-[#c8c0b0] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors resize-none disabled:opacity-40"
                           />
-                          <p className="text-[10px] text-[#333]">{t.ui.detail.savesOnBlur}</p>
+                          <p className="text-[10px] text-[#616161]">{t.ui.detail.savesOnBlur}</p>
                         </div>
 
                         {/* Activity log — sent emails for this lead */}
@@ -4531,7 +4537,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                           if (leadEmails.length === 0) return null;
                           return (
                             <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                              <p className="text-[10px] uppercase tracking-widests text-[#555]">Sent messages</p>
+                              <p className="text-[10px] uppercase tracking-widests text-[#8a8a8a]">Sent messages</p>
                               <div className="space-y-2">
                                 {leadEmails.map((e, i) => (
                                   <div
@@ -4539,12 +4545,12 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                     className="rounded-lg border border-[#1a1a1a] bg-[#080808] px-3 py-2.5 space-y-1">
                                     <div className="flex items-center justify-between gap-2">
                                       <p className="text-[12px] font-medium text-[#c8c0b0] truncate">{e.subject}</p>
-                                      <p className="text-[10px] text-[#333] flex-shrink-0">
+                                      <p className="text-[10px] text-[#616161] flex-shrink-0">
                                         {new Date(e.sentAt).toLocaleDateString()}
                                       </p>
                                     </div>
-                                    <p className="text-[10px] text-[#444]">To: {e.to}</p>
-                                    <p className="text-[11px] text-[#555] line-clamp-2 leading-relaxed">{e.body}</p>
+                                    <p className="text-[10px] text-[#737373]">To: {e.to}</p>
+                                    <p className="text-[11px] text-[#8a8a8a] line-clamp-2 leading-relaxed">{e.body}</p>
                                   </div>
                                 ))}
                               </div>
@@ -4631,7 +4637,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                     }
 
                     if (sequenceLoading)
-                      return <div className="py-8 text-center text-[#444] text-sm animate-pulse">Loading…</div>;
+                      return <div className="py-8 text-center text-[#737373] text-sm animate-pulse">Loading…</div>;
 
                     // Next pending step from sequence
                     const nextSeqStep =
@@ -4668,8 +4674,8 @@ Light enrichment: ${addendumParts.join(", ")}.`
                             return (
                               <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
                                 <div className="flex items-center justify-between">
-                                  <p className="text-[10px] uppercase tracking-widest text-[#555]">Next Touch</p>
-                                  <span className="text-[9px] px-2 py-0.5 rounded-full border border-[#252525] text-[#444]">
+                                  <p className="text-[10px] uppercase tracking-widest text-[#8a8a8a]">Next Touch</p>
+                                  <span className="text-[9px] px-2 py-0.5 rounded-full border border-[#252525] text-[#737373]">
                                     {sentCount}/{totalCount} steps sent
                                   </span>
                                 </div>
@@ -4689,15 +4695,15 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-1.5 mb-1">
-                                      <span className="text-[11px] text-[#555]">
+                                      <span className="text-[11px] text-[#8a8a8a]">
                                         {CH_ICONS_FU[nextSeqStep.channel]}
                                       </span>
-                                      <span className="text-[10px] text-[#444]">
+                                      <span className="text-[10px] text-[#737373]">
                                         {CH_LABELS_FU[nextSeqStep.channel]}
                                       </span>
                                       <span className="text-[10px] text-[#2a2a2a]">· Step {nextSeqStep.step}</span>
                                     </div>
-                                    <p className="text-[11px] text-[#666] truncate">{nextSeqStep.objective}</p>
+                                    <p className="text-[11px] text-[#999999] truncate">{nextSeqStep.objective}</p>
                                   </div>
                                 </div>
                                 <div className="h-1 w-full bg-[#1a1a1a] rounded-full overflow-hidden">
@@ -4712,7 +4718,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         ) : (
                           <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
                             <div className="flex items-center justify-between">
-                              <p className="text-[10px] uppercase tracking-widest text-[#555]">Manual Follow-up</p>
+                              <p className="text-[10px] uppercase tracking-widest text-[#8a8a8a]">Manual Follow-up</p>
                               {followupVal &&
                                 !closedFU &&
                                 (() => {
@@ -4749,14 +4755,14 @@ Light enrichment: ${addendumParts.join(", ")}.`
                               }}
                               className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-[12px] text-[#c8c0b0] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40 [color-scheme:dark]"
                             />
-                            <p className="text-[10px] text-[#333]">Build a sequence below for smarter scheduling</p>
+                            <p className="text-[10px] text-[#616161]">Build a sequence below for smarter scheduling</p>
                           </div>
                         )}
 
                         {/* Sequence builder */}
                         <div>
                           <div className="flex items-center gap-3 mb-3">
-                            <p className="text-[10px] uppercase tracking-widest text-[#333]">Outreach Sequence</p>
+                            <p className="text-[10px] uppercase tracking-widest text-[#616161]">Outreach Sequence</p>
                             <div className="flex-1 h-px bg-[#141414]" />
                             <button
                               type="button"
@@ -4773,12 +4779,12 @@ Light enrichment: ${addendumParts.join(", ")}.`
                           {sequenceGenerating ? (
                             <div className="rounded-xl border border-[#1a1a1a] bg-[#0a0a0a] p-6 text-center space-y-2">
                               <div className="w-5 h-5 border border-[#c9a84c] border-t-transparent rounded-full animate-spin mx-auto" />
-                              <p className="text-[12px] text-[#555]">Generating sequence…</p>
+                              <p className="text-[12px] text-[#8a8a8a]">Generating sequence…</p>
                             </div>
                           ) : sequenceSteps.length === 0 ? (
                             <div className="rounded-xl border border-[#1a1a1a] bg-[#0a0a0a] p-5 text-center space-y-1.5">
                               <p className="text-[13px] text-[#2a2a2a]">⇉</p>
-                              <p className="text-[12px] text-[#444]">No sequence yet</p>
+                              <p className="text-[12px] text-[#737373]">No sequence yet</p>
                               <p className="text-[11px] text-[#2a2a2a] leading-relaxed">
                                 Build a 5-step cadence tailored to this lead&apos;s gap type and signals.
                               </p>
@@ -4811,10 +4817,12 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                       <span className="text-[11px] w-20 font-medium" style={{ color: dayClr }}>
                                         {dayStr}
                                       </span>
-                                      <span className="text-[11px] text-[#444] w-14">
+                                      <span className="text-[11px] text-[#737373] w-14">
                                         {CH_ICONS_FU[step.channel]} {CH_LABELS_FU[step.channel]}
                                       </span>
-                                      <span className="flex-1 text-[11px] text-[#555] truncate">{step.objective}</span>
+                                      <span className="flex-1 text-[11px] text-[#8a8a8a] truncate">
+                                        {step.objective}
+                                      </span>
                                       <span className="text-[10px]" style={{ color: st.color }}>
                                         {st.label}
                                       </span>
@@ -4827,7 +4835,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                             <p className="text-[9px] uppercase tracking-widest text-[#2a2a2a] mb-1">
                                               Subject
                                             </p>
-                                            <p className="text-[12px] text-[#777]">{step.subject}</p>
+                                            <p className="text-[12px] text-[#ababab]">{step.subject}</p>
                                           </div>
                                         )}
                                         <div>
@@ -4842,7 +4850,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                           <p className="text-[9px] uppercase tracking-widest text-[#2a2a2a] mb-1">
                                             CTA
                                           </p>
-                                          <p className="text-[11px] text-[#555]">{step.cta}</p>
+                                          <p className="text-[11px] text-[#8a8a8a]">{step.cta}</p>
                                         </div>
                                         <div className="flex gap-2 pt-0.5 flex-wrap">
                                           {step.status === "pending" && (
@@ -4856,7 +4864,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                               <button
                                                 type="button"
                                                 onClick={() => patchSeqStep(step.id, "skipped")}
-                                                className="px-3 py-1.5 rounded-lg border border-[#252525] text-[10px] text-[#444] hover:border-[#333] transition-all">
+                                                className="px-3 py-1.5 rounded-lg border border-[#252525] text-[10px] text-[#737373] hover:border-[#333] transition-all">
                                                 Skip
                                               </button>
                                             </>
@@ -4880,7 +4888,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                               })}
                               <a
                                 href="/followups"
-                                className="block text-center text-[11px] text-[#333] hover:text-[#c9a84c] transition-colors pt-1">
+                                className="block text-center text-[11px] text-[#616161] hover:text-[#c9a84c] transition-colors pt-1">
                                 View all sequences →
                               </a>
                             </div>
