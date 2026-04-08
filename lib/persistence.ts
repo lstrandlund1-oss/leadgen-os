@@ -2,10 +2,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { RawCompany, Classification } from "@/lib/types";
 import type { ProviderSearchIntent, ProviderName } from "@/lib/providers/types";
 
-import {
-  detectOpportunitySignals,
-  getPrimaryInsight,
-} from "@/lib/scoring/opportunitySignals";
+import { detectOpportunitySignals, getPrimaryInsight } from "@/lib/scoring/opportunitySignals";
 
 export async function createProviderRun(params: {
   provider: ProviderName;
@@ -47,9 +44,7 @@ export async function createProviderRun(params: {
  * H2.15: Retry semantics require reusing the same run row for (provider, intent_hash).
  * This resets the run into a "running" state and clears previous attempt outputs/errors.
  */
-export async function resetProviderRunForRetry(
-  runId: number,
-): Promise<number | null> {
+export async function resetProviderRunForRetry(runId: number): Promise<number | null> {
   if (!supabase) return null;
   if (!runId || runId <= 0) return null;
 
@@ -84,28 +79,20 @@ export async function resetProviderRunForRetry(
   return data?.id ?? null;
 }
 
-export async function attachRawIdsToRun(
-  runId: number,
-  rawIds: number[],
-): Promise<void> {
+export async function attachRawIdsToRun(runId: number, rawIds: number[]): Promise<void> {
   if (!supabase) return;
   if (!runId || rawIds.length === 0) return;
 
   const rows = rawIds.map((rawId) => ({ run_id: runId, raw_id: rawId }));
 
-  const { error } = await supabase
-    .from("provider_run_raws")
-    .upsert(rows, { onConflict: "run_id,raw_id" });
+  const { error } = await supabase.from("provider_run_raws").upsert(rows, { onConflict: "run_id,raw_id" });
 
   if (error) {
     console.error("provider_run_raws upsert error:", error.message);
   }
 }
 
-export async function getProviderRunByIntentHash(params: {
-  provider: ProviderName;
-  intentHash: string;
-}): Promise<{
+export async function getProviderRunByIntentHash(params: { provider: ProviderName; intentHash: string }): Promise<{
   id: number;
   provider: string;
   status: string;
@@ -139,10 +126,7 @@ export async function getProviderRunByIntentHash(params: {
 export async function getRawIdsForRun(runId: number): Promise<number[]> {
   if (!supabase) return [];
 
-  const { data, error } = await supabase
-    .from("provider_run_raws")
-    .select("raw_id")
-    .eq("run_id", runId);
+  const { data, error } = await supabase.from("provider_run_raws").select("raw_id").eq("run_id", runId);
 
   if (error || !data) return [];
 
@@ -186,9 +170,7 @@ export async function finalizeProviderRun(params: {
   }
 }
 
-export async function persistRawCompany(
-  raw: RawCompany,
-): Promise<number | null> {
+export async function persistRawCompany(raw: RawCompany): Promise<number | null> {
   if (!supabase) return null;
 
   const payload = raw.rawPayload ?? raw;
@@ -229,10 +211,7 @@ function deriveSocialPresence(raw: RawCompany): "low" | "medium" | "high" {
   return "low";
 }
 
-export async function persistNormalizedCompany(
-  rawId: number,
-  raw: RawCompany,
-): Promise<void> {
+export async function persistNormalizedCompany(rawId: number, raw: RawCompany): Promise<void> {
   if (!supabase) return;
 
   // --- NEW: compute opportunity insight at the same time we persist normalized ---
@@ -272,10 +251,7 @@ export async function persistNormalizedCompany(
   }
 }
 
-export async function persistClassification(
-  rawId: number,
-  classification: Classification,
-): Promise<void> {
+export async function persistClassification(rawId: number, classification: Classification): Promise<void> {
   if (!supabase) return;
 
   const { error } = await supabase.from("company_classifications").upsert(
@@ -299,16 +275,10 @@ export async function persistClassification(
   }
 }
 
-export async function getRawCompanyById(
-  rawId: number,
-): Promise<RawCompany | null> {
+export async function getRawCompanyById(rawId: number): Promise<RawCompany | null> {
   if (!supabase) return null;
 
-  const { data, error } = await supabase
-    .from("companies_raw")
-    .select("payload")
-    .eq("id", rawId)
-    .single();
+  const { data, error } = await supabase.from("companies_raw").select("payload").eq("id", rawId).single();
 
   if (error) {
     console.error("companies_raw select error:", error.message);
@@ -329,4 +299,75 @@ export async function getRawCompanyById(
   }
 
   return null;
+}
+
+// ── Score cache ───────────────────────────────────────────────────────────────
+// Scores are cached in companies_normalized alongside the company data.
+// A signal_hash captures the inputs that produced the score.
+// If signals change (new website, more reviews, etc.) the hash changes
+// and the score is recomputed and updated.
+
+export type CachedScore = {
+  value: number;
+  opportunity: number;
+  risk: number;
+  readiness: number;
+  riskProfile: string;
+  breakdown: Record<string, number>;
+  tooltips: Record<string, string>;
+  evidenceLevel: string;
+  scoredAt: string;
+};
+
+export function buildSignalHash(inputs: {
+  reviews: number;
+  rating: number;
+  hasWebsite: boolean;
+  socialPresence: string;
+  fitScore: number;
+  gapType: string;
+}): string {
+  // Simple deterministic hash of the scoring inputs
+  const str = JSON.stringify({
+    r: inputs.reviews,
+    ra: Math.round(inputs.rating * 10) / 10,
+    w: inputs.hasWebsite,
+    s: inputs.socialPresence,
+    f: Math.round(inputs.fitScore),
+    g: inputs.gapType,
+  });
+  // FNV-1a hash
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(16);
+}
+
+export async function getCachedScore(rawId: number): Promise<{ score: CachedScore; signalHash: string } | null> {
+  if (!supabase) return null;
+  try {
+    const { data } = await supabase
+      .from("companies_normalized")
+      .select("cached_score, signal_hash")
+      .eq("raw_id", rawId)
+      .single();
+    if (!data?.cached_score || !data?.signal_hash) return null;
+    return { score: data.cached_score as CachedScore, signalHash: data.signal_hash as string };
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedScore(rawId: number, score: CachedScore, signalHash: string): Promise<void> {
+  if (!supabase) return;
+  try {
+    await supabase
+      .from("companies_normalized")
+      .update({ cached_score: score, signal_hash: signalHash })
+      .eq("raw_id", rawId);
+  } catch (err) {
+    console.error("setCachedScore error:", err);
+  }
 }
