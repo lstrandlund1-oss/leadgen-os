@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import React, {
   Fragment,
   useEffect,
@@ -915,9 +916,9 @@ export default function Home() {
   const [bulkAction, setBulkAction] = useState<"contacted" | "replied" | "booked" | null>(null);
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [searchProgress, setSearchProgress] = useState<{ pct: number; label: string } | null>(null);
   const [searchMode, setSearchMode] = useState<"standard" | "deep">("standard");
-  const [searchError, setSearchError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
   const [recentSearches, setRecentSearches] = useState<SearchRecord[]>([]);
@@ -936,6 +937,17 @@ export default function Home() {
   });
 
   const [selectedLead, setSelectedLead] = useState<LeadUI | null>(null);
+
+  // Lock body scroll when lead panel is open
+  useEffect(() => {
+    if (selectedLead) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [selectedLead]);
 
   // Lock body scroll when lead panel is open
   useEffect(() => {
@@ -1950,6 +1962,8 @@ Light enrichment: ${addendumParts.join(", ")}.`
         deepSearchesRemaining?: number;
       };
 
+      console.log("[search] discover response:", discoverData);
+
       if (!discoverData.ok) {
         if (discoverData.code === "DEEP_SEARCH_LIMIT") {
           toastError(discoverData.error ?? "Deep search limit reached for this month.");
@@ -1964,7 +1978,6 @@ Light enrichment: ${addendumParts.join(", ")}.`
         return;
       }
 
-      // Fetch scored leads from all runs in parallel
       const allLeadResults = await Promise.allSettled(
         discoverData.runIds.map(async (rid) => {
           const res = await fetch(
@@ -1990,6 +2003,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
       setRunId(discoverData.primaryRunId);
       setNextCursor(null);
       setExhausted(true);
+      setChecklistState((prev: typeof checklistState) => ({ ...prev, hasSearched: true }));
 
       if (deduped.length > 0) {
         const modeLabel = searchMode === "deep" ? " (deep search)" : "";
@@ -2094,25 +2108,31 @@ Light enrichment: ${addendumParts.join(", ")}.`
       {searchProgress && <SearchProgressOverlay pct={searchProgress.pct} label={searchProgress.label} />}
       <main className="min-h-screen bg-[#080808] text-[#f5f0e8] flex flex-col items-center px-4">
         {/* Nav */}
-        <nav className="sticky top-0 z-50 w-full border-b border-[#252525] bg-[#080808]/90 backdrop-blur-md mb-0">
-          <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-[#c9a84c]">◈</span>
-              <span className="text-lg font-light tracking-wide" style={{ fontFamily: "var(--font-display), serif" }}>
-                Van
+        <nav className="sticky top-0 z-50 w-full border-b border-[#1a1a1a] bg-[#080808]/95 backdrop-blur-md">
+          <div className="max-w-7xl mx-auto px-4 py-3.5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Link href="/" className="flex items-center gap-2">
+                <span className="text-[#c9a84c] text-sm">◈</span>
                 <span
-                  style={{
-                    background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    backgroundClip: "text",
-                  }}>
-                  tio
+                  className="text-[15px] font-light tracking-wide"
+                  style={{ fontFamily: "var(--font-display), serif" }}>
+                  Van
+                  <span
+                    style={{
+                      background: "linear-gradient(135deg,#e8c97a,#c9a84c)",
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                      backgroundClip: "text",
+                    }}>
+                    tio
+                  </span>
                 </span>
-              </span>
-              <span className="ml-2 text-[10px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full border border-[rgba(201,168,76,0.3)] text-[#8a6e30]">
-                Beta
-              </span>
+                <span className="text-[9px] tracking-[0.18em] uppercase px-1.5 py-0.5 rounded border border-[rgba(201,168,76,0.25)] text-[#8a6e30]">
+                  Beta
+                </span>
+              </Link>
+              <div className="h-4 w-px bg-[#1e1e1e] ml-1" />
+              <span className="text-[10px] tracking-[0.18em] uppercase text-[#616161] font-mono">Lead Scanner</span>
             </div>
             <div className="flex items-center gap-2">
               <NotificationBell />
@@ -2121,21 +2141,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
           </div>
         </nav>
 
-        <div className="w-full max-w-7xl space-y-8 py-8">
-          <header className="space-y-1">
-            <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30]">{t.ui.header.subtitle}</p>
-            <h1 className="text-2xl md:text-3xl font-light" style={{ fontFamily: "var(--font-display), serif" }}>
-              {t.ui.header.title}
-            </h1>
-          </header>
-
-          {/* Top nav */}
-          <nav className="flex gap-1 border-b border-[#252525] pb-0">
-            <span className="text-[13px] px-4 py-2 font-medium border-b-2 border-[#c9a84c] text-[#c9a84c]">
-              🔍 Leads
-            </span>
-          </nav>
-
+        <div className="w-full max-w-7xl space-y-6 py-8">
           {/* Getting Started — fixed left-edge tab + slide-in panel, never conflicts with z-index */}
           {!checklistDismissed &&
             !(
@@ -2267,629 +2273,783 @@ Light enrichment: ${addendumParts.join(", ")}.`
             </section>
           )}
 
-          {/* Filter Form */}
-          <section className="bg-[#111111] border border-[#252525] rounded-2xl p-6 md:p-8 shadow-xl shadow-black/40 space-y-6">
-            {/* Profile completeness banner — show here too when no saved searches exist */}
-            {profileChecked && !checklistState.hasProfile && recentSearches.length === 0 && (
-              <div className="flex items-center justify-between gap-4 rounded-xl border border-[#c9a84c]/20 bg-[#c9a84c]/04 px-4 py-3 -mb-2">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-[#c9a84c] text-base flex-shrink-0">⚠</span>
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-semibold text-[#c9a84c] leading-tight">{t.ui.profileBanner.title}</p>
-                    <p className="text-[11px] text-[#999999] mt-0.5 leading-snug">{t.ui.profileBanner.body}</p>
+          {/* Profile banner */}
+          {profileChecked && !checklistState.hasProfile && recentSearches.length === 0 && (
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-[#c9a84c]/20 bg-[rgba(201,168,76,0.04)] px-4 py-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-[#c9a84c] text-base flex-shrink-0">⚠</span>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-semibold text-[#c9a84c] leading-tight">{t.ui.profileBanner.title}</p>
+                  <p className="text-[11px] text-[#999999] mt-0.5 leading-snug">{t.ui.profileBanner.body}</p>
+                </div>
+              </div>
+              <a
+                href="/profile/settings"
+                className="flex-shrink-0 text-[11px] px-3 py-1.5 rounded-lg border border-[rgba(201,168,76,0.3)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-all whitespace-nowrap">
+                {t.ui.profileBanner.cta}
+              </a>
+            </div>
+          )}
+
+          {/* Search Command Interface */}
+          <section
+            className="relative rounded-2xl overflow-hidden"
+            style={{
+              background: "linear-gradient(135deg,#0e0e0e 0%,#111111 100%)",
+              border: "1px solid #1e1e1e",
+              boxShadow: "0 0 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)",
+            }}>
+            <div
+              style={{
+                height: 1,
+                background: "linear-gradient(90deg,transparent 5%,rgba(201,168,76,0.4) 50%,transparent 95%)",
+              }}
+            />
+            <div className="p-6 md:p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <span
+                  style={{
+                    fontSize: 9,
+                    letterSpacing: "0.2em",
+                    textTransform: "uppercase",
+                    color: "#8a6e30",
+                    fontFamily: "monospace",
+                  }}>
+                  ◈ Lead Scanner
+                </span>
+                <div
+                  style={{
+                    width: 5,
+                    height: 5,
+                    borderRadius: "50%",
+                    background: "#4ade80",
+                    boxShadow: "0 0 6px rgba(74,222,128,0.5)",
+                    animation: "pulse 2s infinite",
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 9,
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    color: "#4ade80",
+                    fontFamily: "monospace",
+                  }}>
+                  AI-Powered
+                </span>
+              </div>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="flex gap-3 flex-col sm:flex-row">
+                  <div className="flex-1 relative">
+                    <div
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                      style={{ color: "#555", fontSize: 14 }}>
+                      ⌕
+                    </div>
+                    <input
+                      type="text"
+                      value={niche}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setNiche(e.target.value)}
+                      onFocus={() => setShowNicheDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowNicheDropdown(false), 150)}
+                      placeholder="Niche or industry — e.g. tattoo studio, frisör"
+                      className="w-full focus:outline-none focus:ring-1 focus:ring-[rgba(201,168,76,0.4)]"
+                      style={{
+                        background: "#0d0d0d",
+                        border: "1px solid #262626",
+                        borderRadius: 10,
+                        padding: "13px 14px 13px 34px",
+                        fontSize: 13,
+                        color: "#f0ebe3",
+                      }}
+                    />
+                    {showNicheDropdown && recentSearches.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border border-[#252525] bg-[#111] shadow-xl overflow-hidden">
+                        <p className="text-[10px] uppercase tracking-widest text-[#737373] px-3 pt-2.5 pb-1">Recent</p>
+                        {recentSearches.slice(0, 5).map((s: SearchRecord, i: number) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onMouseDown={() => {
+                              setNiche(s.niche || "");
+                              setLocation(s.location || "");
+                              setShowNicheDropdown(false);
+                            }}
+                            className="w-full text-left px-3 py-2 text-[12px] text-[#bababa] hover:bg-[#1a1a1a] transition-colors flex items-center justify-between">
+                            <span>{s.niche || "—"}</span>
+                            <span className="text-[#616161]">{s.location || ""}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="sm:w-[200px] relative">
+                    <div
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                      style={{ color: "#555", fontSize: 13 }}>
+                      ⌖
+                    </div>
+                    <input
+                      type="text"
+                      value={location}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)}
+                      onFocus={() => setShowLocationDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowLocationDropdown(false), 150)}
+                      placeholder="City"
+                      className="w-full focus:outline-none focus:ring-1 focus:ring-[rgba(201,168,76,0.4)]"
+                      style={{
+                        background: "#0d0d0d",
+                        border: "1px solid #262626",
+                        borderRadius: 10,
+                        padding: "13px 14px 13px 34px",
+                        fontSize: 13,
+                        color: "#f0ebe3",
+                      }}
+                    />
+                    {showLocationDropdown && recentSearches.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border border-[#252525] bg-[#111] shadow-xl overflow-hidden">
+                        <p className="text-[10px] uppercase tracking-widest text-[#737373] px-3 pt-2.5 pb-1">Recent</p>
+                        {recentSearches.slice(0, 5).map((s: SearchRecord, i: number) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onMouseDown={() => {
+                              setNiche(s.niche || "");
+                              setLocation(s.location || "");
+                              setShowLocationDropdown(false);
+                            }}
+                            className="w-full text-left px-3 py-2 text-[12px] text-[#bababa] hover:bg-[#1a1a1a] transition-colors flex items-center justify-between">
+                            <span>{s.location || "—"}</span>
+                            <span className="text-[#616161]">{s.niche || ""}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
-                <a
-                  href="/profile/settings"
-                  className="flex-shrink-0 text-[11px] px-3 py-1.5 rounded-lg border border-[rgba(201,168,76,0.3)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-all whitespace-nowrap">
-                  {t.ui.profileBanner.cta}
-                </a>
-              </div>
-            )}
-            <h2 className="text-xl font-semibold mt-3">{t.ui.filters.title}</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1 relative">
-                  <label className="block text-sm font-medium">{t.ui.filters.nicheLabel}</label>
-                  <input
-                    type="text"
-                    value={niche}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setNiche(e.target.value)}
-                    onFocus={() => setShowNicheDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowNicheDropdown(false), 150)}
-                    placeholder="e.g. frisör, tattoo studio"
-                    className="w-full rounded-lg bg-[#111111] border border-[#2a2a2a] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(201,168,76,0.5)]"
-                  />
-                  {showNicheDropdown && recentSearches.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border border-[#252525] bg-[#111] shadow-xl overflow-hidden">
-                      <p className="text-[10px] uppercase tracking-widest text-[#737373] px-3 pt-2.5 pb-1">
-                        Recent searches
-                      </p>
-                      {recentSearches.slice(0, 5).map((s: SearchRecord, i: number) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onMouseDown={() => {
-                            setNiche(s.niche || "");
-                            setLocation(s.location || "");
-                            setShowNicheDropdown(false);
-                          }}
-                          className="w-full text-left px-3 py-2 text-[12px] text-[#bababa] hover:bg-[#1a1a1a] hover:text-[#c8c0b0] transition-colors flex items-center justify-between">
-                          <span>{s.niche || "—"}</span>
-                          <span className="text-[#737373]">{s.location || ""}</span>
-                        </button>
-                      ))}
-                    </div>
+                {/* Search mode toggle + submit */}
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2 p-1 rounded-lg bg-[#0d0d0d] border border-[#1e1e1e] self-start">
+                    <button
+                      type="button"
+                      onClick={() => setSearchMode("standard")}
+                      className="transition-all text-[11px] px-3 py-1.5 rounded-md font-medium"
+                      style={{
+                        background: searchMode === "standard" ? "#1a1a1a" : "transparent",
+                        color: searchMode === "standard" ? "#f5f0e8" : "#616161",
+                        border: searchMode === "standard" ? "1px solid #2a2a2a" : "1px solid transparent",
+                      }}>
+                      Standard
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSearchMode("deep")}
+                      className="transition-all text-[11px] px-3 py-1.5 rounded-md font-medium flex items-center gap-1.5"
+                      style={{
+                        background: searchMode === "deep" ? "rgba(201,168,76,0.12)" : "transparent",
+                        color: searchMode === "deep" ? "#c9a84c" : "#616161",
+                        border: searchMode === "deep" ? "1px solid rgba(201,168,76,0.3)" : "1px solid transparent",
+                      }}>
+                      <span>◈</span> Deep
+                    </button>
+                  </div>
+                  {searchMode === "deep" && (
+                    <p className="text-[10px] text-[#8a6e30]">
+                      AI generates targeted query variants · Uses 1 deep search credit
+                    </p>
                   )}
-                </div>
-                <div className="space-y-1 relative">
-                  <label className="block text-sm font-medium">City</label>
-                  <input
-                    type="text"
-                    value={location}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)}
-                    onFocus={() => setShowLocationDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowLocationDropdown(false), 150)}
-                    placeholder="e.g. Stockholm"
-                    className="w-full rounded-lg bg-[#111111] border border-[#2a2a2a] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgba(201,168,76,0.5)]"
-                  />
-                  {showLocationDropdown && recentSearches.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border border-[#252525] bg-[#111] shadow-xl overflow-hidden">
-                      <p className="text-[10px] uppercase tracking-widest text-[#737373] px-3 pt-2.5 pb-1">
-                        Recent searches
-                      </p>
-                      {recentSearches.slice(0, 5).map((s: SearchRecord, i: number) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onMouseDown={() => {
-                            setNiche(s.niche || "");
-                            setLocation(s.location || "");
-                            setShowLocationDropdown(false);
-                          }}
-                          className="w-full text-left px-3 py-2 text-[12px] text-[#bababa] hover:bg-[#1a1a1a] hover:text-[#c8c0b0] transition-colors flex items-center justify-between">
-                          <span>{s.location || "—"}</span>
-                          <span className="text-[#737373]">{s.niche || ""}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="flex flex-col gap-3">
-                {/* Search mode toggle */}
-                <div className="flex items-center gap-2 p-1 rounded-lg bg-[#0d0d0d] border border-[#1e1e1e] self-start">
                   <button
-                    type="button"
-                    onClick={() => setSearchMode("standard")}
-                    className="transition-all text-[11px] px-3 py-1.5 rounded-md font-medium"
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full inline-flex items-center justify-center transition-all"
                     style={{
-                      background: searchMode === "standard" ? "#1a1a1a" : "transparent",
-                      color: searchMode === "standard" ? "#f5f0e8" : "#616161",
-                      border: searchMode === "standard" ? "1px solid #2a2a2a" : "1px solid transparent",
+                      background: isLoading ? "rgba(201,168,76,0.06)" : "linear-gradient(135deg,#d4a84c,#c9a84c)",
+                      color: isLoading ? "#555" : "#080808",
+                      border: "none",
+                      borderRadius: 10,
+                      padding: "13px 28px",
+                      fontSize: 13,
+                      fontWeight: 700,
+                      letterSpacing: "0.04em",
+                      cursor: isLoading ? "not-allowed" : "pointer",
                     }}>
-                    Standard
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSearchMode("deep")}
-                    className="transition-all text-[11px] px-3 py-1.5 rounded-md font-medium flex items-center gap-1.5"
-                    style={{
-                      background: searchMode === "deep" ? "rgba(201,168,76,0.12)" : "transparent",
-                      color: searchMode === "deep" ? "#c9a84c" : "#616161",
-                      border: searchMode === "deep" ? "1px solid rgba(201,168,76,0.3)" : "1px solid transparent",
-                    }}>
-                    <span>◈</span> Deep
+                    {isLoading ? "Scanning…" : searchMode === "deep" ? "Deep Scan Market →" : "Scan Market →"}
                   </button>
                 </div>
-                {searchMode === "deep" && (
-                  <p className="text-[10px] text-[#8a6e30]">
-                    AI generates targeted query variants · Uses 1 deep search credit
-                  </p>
-                )}
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full inline-flex items-center justify-center rounded-lg bg-[#c9a84c] text-[#080808] hover:bg-[#e8c97a] disabled:bg-[rgba(201,168,76,0.1)] disabled:text-[#999999] px-6 py-2.5 text-sm font-semibold tracking-wide transition-all shadow-lg shadow-[rgba(201,168,76,0.15)]">
-                  {isLoading
-                    ? t.ui.filters.generatingButton
-                    : searchMode === "deep"
-                      ? "Deep Scan Market"
-                      : t.ui.filters.generateButton}
-                </button>
-              </div>
-            </form>
+                <p style={{ fontSize: 10, color: "#4a4a4a", fontFamily: "monospace", letterSpacing: "0.05em" }}>
+                  Multi-source AI discovery · Google Maps · Business directories · Review platforms
+                </p>
+              </form>
+            </div>
           </section>
 
           {/* Results */}
-          <section className="bg-[#111111] border border-[#252525] rounded-2xl p-6 md:p-8 shadow-xl shadow-black/40 space-y-4 overflow-hidden">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="space-y-1">
-                <h2 className="text-xl font-semibold">{t.ui.results.title}</h2>
-                <p className="text-xs text-[#bababa]"></p>
+          <section
+            className="rounded-2xl overflow-hidden"
+            style={{ background: "#0e0e0e", border: "1px solid #1a1a1a", boxShadow: "0 0 40px rgba(0,0,0,0.3)" }}>
+            <div
+              style={{
+                height: 1,
+                background: "linear-gradient(90deg,transparent 5%,rgba(201,168,76,0.15) 50%,transparent 95%)",
+              }}
+            />
+            <div className="p-6 md:p-8 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      style={{
+                        fontSize: 9,
+                        letterSpacing: "0.2em",
+                        textTransform: "uppercase",
+                        color: "#616161",
+                        fontFamily: "monospace",
+                      }}>
+                      Intelligence Report
+                    </span>
+                    {sortedLeads.length > 0 && (
+                      <span
+                        style={{
+                          fontSize: 9,
+                          padding: "2px 7px",
+                          borderRadius: 4,
+                          background: "rgba(201,168,76,0.1)",
+                          color: "#c9a84c",
+                          fontFamily: "monospace",
+                          fontWeight: 700,
+                        }}>
+                        {sortedLeads.length} leads
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="text-lg font-semibold text-[#f5f0e8]">{t.ui.results.title}</h2>
 
-                <div className="flex flex-wrap items-center gap-3 pt-2">
-                  <label className="flex items-center gap-2 text-xs text-[#c4c0b8]">
-                    {t.ui.results.minScore}:
+                  <div className="flex flex-wrap items-center gap-3 pt-2">
+                    <label className="flex items-center gap-2 text-xs text-[#c4c0b8]">
+                      {t.ui.results.minScore}:
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={minScore}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => setMinScore(Number(e.target.value))}
+                      />
+                      <span className="w-8 text-right">{minScore}</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 text-xs text-[#c4c0b8]">
+                      {t.ui.results.sortBy}
+                      <select
+                        value={sortBy}
+                        onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                          setSortBy(e.target.value as "score" | "opportunity" | "risk" | "confidence" | "fit")
+                        }
+                        className="rounded-md bg-[#111111] border border-[#2a2a2a] px-2 py-1">
+                        <option value="score">{t.ui.results.sortOptions.score}</option>
+                        <option value="opportunity">{t.ui.results.sortOptions.opportunity}</option>
+                        <option value="risk">{t.ui.results.sortOptions.risk}</option>
+                        <option value="confidence">{t.ui.results.sortOptions.confidence}</option>
+                        <option value="fit">{t.ui.results.sortOptions.fit}</option>
+                      </select>
+                    </label>
+
+                    <label className="flex items-center gap-2 text-xs text-[#c4c0b8]">
+                      Website
+                      <select
+                        value={filterHasWebsite}
+                        onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                          setFilterHasWebsite(e.target.value as "any" | "yes" | "no")
+                        }
+                        className="rounded-md bg-[#111111] border border-[#2a2a2a] px-2 py-1">
+                        <option value="any">Any</option>
+                        <option value="yes">Has website</option>
+                        <option value="no">No website</option>
+                      </select>
+                    </label>
+
                     <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      value={minScore}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => setMinScore(Number(e.target.value))}
+                      value={query}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
+                      placeholder={t.ui.results.searchPlaceholder}
+                      className="flex-1 min-w-[180px] rounded-md bg-[#111111] border border-[#2a2a2a] px-2 py-1 text-xs"
                     />
-                    <span className="w-8 text-right">{minScore}</span>
-                  </label>
 
-                  <label className="flex items-center gap-2 text-xs text-[#c4c0b8]">
-                    {t.ui.results.sortBy}
-                    <select
-                      value={sortBy}
-                      onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                        setSortBy(e.target.value as "score" | "opportunity" | "risk" | "confidence" | "fit")
-                      }
-                      className="rounded-md bg-[#111111] border border-[#2a2a2a] px-2 py-1">
-                      <option value="score">{t.ui.results.sortOptions.score}</option>
-                      <option value="opportunity">{t.ui.results.sortOptions.opportunity}</option>
-                      <option value="risk">{t.ui.results.sortOptions.risk}</option>
-                      <option value="confidence">{t.ui.results.sortOptions.confidence}</option>
-                      <option value="fit">{t.ui.results.sortOptions.fit}</option>
-                    </select>
-                  </label>
-
-                  <label className="flex items-center gap-2 text-xs text-[#c4c0b8]">
-                    Website
-                    <select
-                      value={filterHasWebsite}
-                      onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                        setFilterHasWebsite(e.target.value as "any" | "yes" | "no")
-                      }
-                      className="rounded-md bg-[#111111] border border-[#2a2a2a] px-2 py-1">
-                      <option value="any">Any</option>
-                      <option value="yes">Has website</option>
-                      <option value="no">No website</option>
-                    </select>
-                  </label>
-
-                  <input
-                    value={query}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
-                    placeholder={t.ui.results.searchPlaceholder}
-                    className="flex-1 min-w-[180px] rounded-md bg-[#111111] border border-[#2a2a2a] px-2 py-1 text-xs"
-                  />
-
-                  {sortedLeads.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={exportCSV}
-                      className="text-[11px] px-3 py-1.5 rounded-md border border-[rgba(201,168,76,0.3)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-colors flex items-center gap-1.5 whitespace-nowrap">
-                      ↓ Export CSV
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {sortedLeads.length === 0 ? (
-              <div className="py-6">
-                {/* Error state */}
-                {searchError && (
-                  <div className="rounded-xl border border-[#f87171]/20 bg-[#f87171]/5 p-5 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#f87171]">⚠</span>
-                      <p className="text-[13px] font-semibold text-[#f87171]">Search failed</p>
-                    </div>
-                    <p className="text-[12px] text-[#bababa] leading-relaxed">{searchError}</p>
-                    <p className="text-[11px] text-[#8a8a8a]">
-                      Check your API key configuration or try a different search.
-                    </p>
-                  </div>
-                )}
-
-                {/* Loading state */}
-                {isLoading && !searchError && (
-                  <div className="flex flex-col items-center gap-4 py-8">
-                    <div className="w-6 h-6 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin" />
-                    <p className="text-[13px] text-[#8a8a8a]">Scanning leads and scoring…</p>
-                  </div>
-                )}
-
-                {/* Empty after search */}
-                {!isLoading && !searchError && hasSearched && leads.length === 0 && (
-                  <div className="flex flex-col items-center gap-3 py-10 text-center">
-                    <span className="text-3xl text-[#616161]">◈</span>
-                    <p className="text-[14px] text-[#bababa] font-medium">No leads found for this search</p>
-                    <p className="text-[12px] text-[#8a8a8a] max-w-sm leading-relaxed">
-                      Try broadening your niche, removing the location, or lowering the minimum score filter.
-                    </p>
-                  </div>
-                )}
-
-                {/* Empty after filter */}
-                {!isLoading && !searchError && hasSearched && leads.length > 0 && sortedLeads.length === 0 && (
-                  <div className="flex flex-col items-center gap-3 py-10 text-center">
-                    <span className="text-3xl text-[#616161]">◇</span>
-                    <p className="text-[14px] text-[#bababa] font-medium">All leads filtered out</p>
-                    <p className="text-[12px] text-[#8a8a8a] max-w-sm leading-relaxed">
-                      {leads.length} lead{leads.length !== 1 ? "s" : ""} found but none pass the current filters. Lower
-                      the minimum score or clear the search query.
-                    </p>
-                  </div>
-                )}
-
-                {/* Pre-search prompt */}
-                {!isLoading && !searchError && !hasSearched && (
-                  <div className="flex flex-col items-center gap-3 py-10 text-center">
-                    <span className="text-3xl text-[#252525]">◈</span>
-                    <p className="text-[13px] text-[#8a8a8a]">
-                      {t.ui.results.empty}
-                      <span className="font-semibold text-[#bababa]"> &quot;Generate Leads&quot;</span>.
-                    </p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                {/* ── Bulk action toolbar ── */}
-                {bulkSelected.size > 0 && (
-                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-[rgba(201,168,76,0.3)] bg-[rgba(201,168,76,0.06)] mb-2">
-                    <p className="text-[12px] text-[#c9a84c] font-medium">{bulkSelected.size} selected</p>
-                    <div className="flex gap-2 ml-auto">
-                      {bulkSelected.size >= 2 && bulkSelected.size <= 3 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCompareIds([...bulkSelected]);
-                            setCompareMode(true);
-                          }}
-                          className="text-[11px] px-3 py-1.5 rounded-lg border border-[#818cf8]/30 text-[#818cf8] hover:bg-[rgba(129,140,248,0.08)] transition-all">
-                          ⊡ Compare
-                        </button>
-                      )}
-                      {(["contacted", "replied", "booked"] as const).map((action) => (
-                        <button
-                          key={action}
-                          type="button"
-                          onClick={async () => {
-                            setBulkAction(action);
-                            const activeRunId = sortedLeads.find((l: LeadUI) => bulkSelected.has(l.id))?.metadata
-                              ?.runId;
-                            await Promise.all(
-                              [...bulkSelected].map((id) =>
-                                fetch("/api/outcomes", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ leadId: id, runId: activeRunId ?? 0, [action]: true }),
-                                }),
-                              ),
-                            );
-                            setBulkSelected(new Set());
-                            setBulkAction(null);
-                            toastSuccess(`Marked ${bulkSelected.size} leads as ${action}`);
-                          }}
-                          className="text-[11px] px-3 py-1.5 rounded-lg border border-[#c9a84c]/25 text-[#c9a84c] hover:bg-[rgba(201,168,76,0.1)] transition-all capitalize">
-                          Mark {action}
-                        </button>
-                      ))}
+                    {sortedLeads.length > 0 && (
                       <button
                         type="button"
-                        onClick={() => setBulkSelected(new Set())}
-                        className="text-[11px] px-3 py-1.5 rounded-lg border border-[#252525] text-[#8a8a8a] hover:border-[#444] transition-all">
-                        Clear
+                        onClick={exportCSV}
+                        className="text-[11px] px-3 py-1.5 rounded-md border border-[rgba(201,168,76,0.3)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-colors flex items-center gap-1.5 whitespace-nowrap">
+                        ↓ Export CSV
                       </button>
-                    </div>
+                    )}
                   </div>
-                )}
+                </div>
+              </div>
 
-                {/* ── LEADS TABLE (desktop) / CARDS (mobile) ── */}
-
-                {/* MOBILE CARD LIST */}
-                <div className="flex flex-col gap-2 sm:hidden">
-                  {visibleLeads.map((lead) => {
-                    const isSelected = selectedLead?.id === lead.id;
-                    const insight = getLocalizedOpportunityInsight(lead, language);
-                    const gapLabel =
-                      insight?.type === "conversion_gap"
-                        ? t.ui.detail.whyNoBookingFlow
-                        : insight?.type === "visibility_gap"
-                          ? t.ui.detail.whyLowDigital
-                          : insight?.type === "foundation_gap"
-                            ? t.ui.detail.whyMissingInfra
-                            : insight?.type === "mature_competitor"
-                              ? t.ui.detail.whyAlreadyEstablished
-                              : lead.score.riskProfile === "early_stage" || lead.score.riskProfile === "limited_data"
-                                ? t.ui.detail.whyUnstableSignals
-                                : (lead.score.value ?? 0) >= 80
-                                  ? t.ui.detail.whyTopTier
-                                  : (lead.score.value ?? 0) >= 60
-                                    ? t.ui.detail.whyGoodValueFit
-                                    : t.ui.detail.whyLowPriority;
-                    const scoreColor =
-                      (lead.score.value ?? 0) >= 80 ? "#4ade80" : (lead.score.value ?? 0) >= 60 ? "#c9a84c" : "#888";
-                    const fitColor =
-                      (lead.fit?.fitScore ?? 0) >= 65
-                        ? "#4ade80"
-                        : (lead.fit?.fitScore ?? 0) >= 40
-                          ? "#c9a84c"
-                          : "#f87171";
-                    const riskColor =
-                      (lead.score.risk ?? 0) >= 70 ? "#f87171" : (lead.score.risk ?? 0) >= 40 ? "#c9a84c" : "#4ade80";
-                    return (
-                      <div
-                        key={lead.id}
-                        onClick={() => {
-                          setSelectedLead(lead);
-                          setChecklistState((prev: typeof checklistState) => ({ ...prev, hasSelected: true }));
-                        }}
-                        className={
-                          "rounded-xl border cursor-pointer transition-colors p-3 " +
-                          (isSelected
-                            ? "border-[rgba(201,168,76,0.4)] bg-[#111]"
-                            : "border-[#1e1e1e] bg-[#0d0d0d] hover:border-[#2a2a2a] hover:bg-[#111]")
-                        }>
-                        {/* Row 1: name + score badge */}
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="min-w-0">
-                            <p className="font-medium text-[13px] truncate">{lead.company.name}</p>
-                            <p className="text-[10px] text-[#8a8a8a] mt-0.5 truncate">
-                              {leadLocation(lead)} · {lead.classification.primaryIndustry.replaceAll("_", " ")}
-                            </p>
-                          </div>
-                          <span
-                            className="text-[12px] font-bold shrink-0 px-2 py-0.5 rounded-md"
-                            style={{
-                              color: scoreColor,
-                              background: `${scoreColor}18`,
-                              border: `1px solid ${scoreColor}30`,
-                            }}>
-                            {lead.score.value ?? 0}
-                          </span>
-                        </div>
-                        {/* Row 2: score metrics grid */}
-                        <div className="grid grid-cols-3 gap-1.5 mb-2">
-                          {[
-                            { label: "Fit", value: lead.fit?.fitScore ?? 0, color: fitColor },
-                            { label: "Opportunity", value: lead.score.opportunity ?? 0, color: "#818cf8" },
-                            { label: "Risk", value: lead.score.risk ?? 0, color: riskColor },
-                          ].map((m) => (
-                            <div
-                              key={m.label}
-                              className="rounded-lg bg-[#111] border border-[#1a1a1a] px-2 py-1.5 text-center">
-                              <p className="text-[11px] font-bold" style={{ color: m.color }}>
-                                {m.value}
-                              </p>
-                              <p className="text-[9px] text-[#737373] uppercase tracking-wide">{m.label}</p>
-                            </div>
-                          ))}
-                        </div>
-                        {/* Row 3: insight */}
-                        <p className="text-[10px] text-[#8a8a8a] leading-snug">⚡ {gapLabel}</p>
+              {sortedLeads.length === 0 ? (
+                <div className="py-6">
+                  {/* Error state */}
+                  {searchError && (
+                    <div className="rounded-xl border border-[#f87171]/20 bg-[#f87171]/5 p-5 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[#f87171]">⚠</span>
+                        <p className="text-[13px] font-semibold text-[#f87171]">Search failed</p>
                       </div>
-                    );
-                  })}
-                </div>
-
-                {/* DESKTOP TABLE — hidden on mobile except when a lead is selected */}
-                <div className="block overflow-x-hidden">
-                  <table className="w-full text-sm border-collapse">
-                    <thead className="hidden sm:table-header-group">
-                      <tr className="bg-[#111111] border-b border-[#252525]">
-                        <th className="py-2 px-3 w-[32px]" />
-                        <th className="text-left py-2 px-3 w-[35%]">{t.ui.table.company}</th>
-                        <th className="text-left py-2 px-3 w-[10%]">Fit</th>
-                        <th className="text-left py-2 px-3 w-[13%]">{t.ui.table.opportunity}</th>
-                        <th className="text-left py-2 px-3 w-[10%]">Difficulty</th>
-                        <th className="text-left py-2 px-3">Lead Score</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {visibleLeads.map((lead: LeadUI) => {
-                        const isSelected = selectedLead?.id === lead.id;
-                        const mainInsight = getLocalizedOpportunityInsight(lead, language);
-                        const mainOpp = Number.isFinite(lead.score.opportunity)
-                          ? (lead.score.opportunity as number)
-                          : 0;
-
-                        return (
-                          <Fragment key={lead.id}>
-                            <tr
-                              onClick={() => {
-                                setSelectedLead(lead);
-                                setChecklistState((prev: typeof checklistState) => ({ ...prev, hasSelected: true }));
-                              }}
-                              className={
-                                "border-b border-[#252525] hover:bg-[#111111]/70 cursor-pointer " +
-                                (isSelected ? "bg-[#111111]/90" : "") +
-                                " hidden sm:table-row"
-                              }>
-                              <td className="py-2 pl-3 pr-1 w-6">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setBulkSelected((prev) => {
-                                      const next = new Set(prev);
-                                      if (next.has(lead.id)) next.delete(lead.id);
-                                      else next.add(lead.id);
-                                      return next;
-                                    });
-                                  }}
-                                  className="flex items-center justify-center w-4 h-4 focus:outline-none"
-                                  title="Select lead">
-                                  {/* Diamond shape — rotated square */}
-                                  <span
-                                    className="block w-3 h-3 rotate-45 border transition-all duration-150"
-                                    style={
-                                      bulkSelected.has(lead.id)
-                                        ? {
-                                            backgroundColor: "#c9a84c",
-                                            borderColor: "#c9a84c",
-                                            boxShadow: "0 0 6px rgba(201,168,76,0.4)",
-                                          }
-                                        : {
-                                            backgroundColor: "transparent",
-                                            borderColor: "#2a2a2a",
-                                          }
-                                    }
-                                  />
-                                </button>
-                              </td>
-                              <td className="py-2 px-3">
-                                <div>
-                                  <span className="font-medium text-[13px] truncate max-w-[140px] sm:max-w-none block">
-                                    {lead.company.name}
-                                  </span>
-                                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                                    <span className="text-[10px] text-[#8a8a8a]">{leadLocation(lead)}</span>
-                                    <span className="text-[10px] text-[#737373]">·</span>
-                                    <span className="text-[10px] text-[#8a8a8a]">
-                                      {lead.classification.primaryIndustry.replaceAll("_", " ")}
-                                    </span>
-                                    {lead.company.website && (
-                                      <a
-                                        href={lead.company.website}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        onClick={(e: MouseEvent) => e.stopPropagation()}
-                                        className="text-[10px] text-[#c9a84c] hover:underline">
-                                        Visit ↗
-                                      </a>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-
-                              <td className="py-2 px-3 hidden sm:table-cell">
-                                <ScoreTooltip text={lead.fit?.tooltip ?? lead.score.tooltips?.fit ?? ""}>
-                                  <div>
-                                    {(() => {
-                                      const fitVal = lead.fit?.fitScore ?? 0;
-                                      const fitLabel =
-                                        fitVal >= 75
-                                          ? "Ideal match"
-                                          : fitVal >= 50
-                                            ? "Strong match"
-                                            : fitVal >= 25
-                                              ? "Partial match"
-                                              : "Weak match";
-                                      const fitColor =
-                                        fitVal >= 75
-                                          ? "#4ade80"
-                                          : fitVal >= 50
-                                            ? "#86efac"
-                                            : fitVal >= 25
-                                              ? "#c9a84c"
-                                              : "#f87171";
-                                      return lead.fit ? (
-                                        <span className="text-[11px] font-medium" style={{ color: fitColor }}>
-                                          {fitLabel}
-                                        </span>
-                                      ) : (
-                                        <span className="text-[#616161] text-xs">—</span>
-                                      );
-                                    })()}
-                                  </div>
-                                </ScoreTooltip>
-                              </td>
-
-                              <td className="py-2 px-3 hidden sm:table-cell">
-                                <ScoreTooltip text={lead.score.tooltips?.opportunity ?? ""}>
-                                  <div>
-                                    <span className="text-[#c8c0b0] font-semibold">{lead.score.opportunity ?? 0}</span>
-                                    <p className="mt-1 text-[11px] leading-snug text-[#bababa]">{t.ui.detail.upside}</p>
-                                  </div>
-                                </ScoreTooltip>
-                              </td>
-
-                              <td className="py-2 px-3">
-                                <ScoreTooltip text={lead.score.tooltips?.risk ?? ""}>
-                                  <div>
-                                    <span
-                                      className={
-                                        (lead.score.risk ?? 0) >= 70
-                                          ? "text-rose-300 font-semibold"
-                                          : (lead.score.risk ?? 0) >= 45
-                                            ? "text-amber-300 font-semibold"
-                                            : "text-emerald-300 font-semibold"
-                                      }>
-                                      {lead.score.risk ?? 0}
-                                    </span>
-                                    <p className="mt-1 text-[11px] leading-snug text-[#bababa]">
-                                      {lead.score.riskProfile ? lead.score.riskProfile.replaceAll("_", " ") : "—"}
-                                    </p>
-                                  </div>
-                                </ScoreTooltip>
-                              </td>
-
-                              <td className="py-2 px-3 hidden md:table-cell">
-                                <ScoreTooltip text={lead.score.tooltips?.value ?? ""}>
-                                  <div>
-                                    {(() => {
-                                      const val = lead.score.value ?? 0;
-                                      const color = val >= 70 ? "#4ade80" : val >= 45 ? "#c9a84c" : "#f87171";
-                                      const label =
-                                        val >= 70
-                                          ? "Strong lead"
-                                          : val >= 45
-                                            ? "Good lead"
-                                            : val >= 25
-                                              ? "Moderate lead"
-                                              : "Weak lead";
-                                      return (
-                                        <>
-                                          <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-sm font-bold" style={{ color }}>
-                                              {val}
-                                            </span>
-                                            <div className="flex-1 h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
-                                              <div
-                                                className="h-full rounded-full"
-                                                style={{ width: `${val}%`, backgroundColor: color }}
-                                              />
-                                            </div>
-                                          </div>
-                                          <p className="text-[10px]" style={{ color }}>
-                                            {label}
-                                          </p>
-                                        </>
-                                      );
-                                    })()}
-                                  </div>
-                                </ScoreTooltip>
-                              </td>
-                            </tr>
-                          </Fragment>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Load more — single unified button */}
-                <div className="flex flex-col items-center gap-3 pt-5 pb-2">
-                  {hasMore && (
-                    <button
-                      type="button"
-                      disabled={isLoading}
-                      onClick={() => {
-                        if (hasMoreLocal) {
-                          // More leads already fetched — just reveal them
-                          setDisplayCount((n: number) => n + LEADS_PER_BATCH);
-                        } else if (hasMoreRemote) {
-                          // All local leads shown — fetch next page from API
-                          handleLoadMore();
-                        }
-                      }}
-                      className="px-8 py-2.5 rounded-xl border border-[#252525] text-[13px] text-[#bababa] hover:border-[rgba(201,168,76,0.3)] hover:text-[#c9a84c] hover:bg-[rgba(201,168,76,0.04)] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium">
-                      {isLoading ? "Loading…" : "Load more ↓"}
-                    </button>
+                      <p className="text-[12px] text-[#bababa] leading-relaxed">{searchError}</p>
+                      <p className="text-[11px] text-[#8a8a8a]">
+                        Check your API key configuration or try a different search.
+                      </p>
+                    </div>
                   )}
-                  <p className="text-[11px] text-[#616161]">
-                    {visibleLeads.length} of {sortedLeads.length} lead{sortedLeads.length !== 1 ? "s" : ""} shown
-                  </p>
+
+                  {/* Loading state */}
+                  {isLoading && !searchError && (
+                    <div className="flex flex-col items-center gap-4 py-8">
+                      <div className="w-6 h-6 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin" />
+                      <p className="text-[13px] text-[#8a8a8a]">Scanning leads and scoring…</p>
+                    </div>
+                  )}
+
+                  {/* Empty after search */}
+                  {!isLoading && !searchError && hasSearched && leads.length === 0 && (
+                    <div className="flex flex-col items-center gap-3 py-10 text-center">
+                      <span className="text-3xl text-[#616161]">◈</span>
+                      <p className="text-[14px] text-[#bababa] font-medium">No leads found for this search</p>
+                      <p className="text-[12px] text-[#8a8a8a] max-w-sm leading-relaxed">
+                        Try broadening your niche, removing the location, or lowering the minimum score filter.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Empty after filter */}
+                  {!isLoading && !searchError && hasSearched && leads.length > 0 && sortedLeads.length === 0 && (
+                    <div className="flex flex-col items-center gap-3 py-10 text-center">
+                      <span className="text-3xl text-[#616161]">◇</span>
+                      <p className="text-[14px] text-[#bababa] font-medium">All leads filtered out</p>
+                      <p className="text-[12px] text-[#8a8a8a] max-w-sm leading-relaxed">
+                        {leads.length} lead{leads.length !== 1 ? "s" : ""} found but none pass the current filters.
+                        Lower the minimum score or clear the search query.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Pre-search prompt */}
+                  {!isLoading && !searchError && !hasSearched && (
+                    <div className="flex flex-col items-center gap-3 py-10 text-center">
+                      <span className="text-3xl text-[#252525]">◈</span>
+                      <p className="text-[13px] text-[#8a8a8a]">
+                        {t.ui.results.empty}
+                        <span className="font-semibold text-[#bababa]"> &quot;Generate Leads&quot;</span>.
+                      </p>
+                    </div>
+                  )}
                 </div>
-              </>
-            )}
+              ) : (
+                <>
+                  {/* ── Bulk action toolbar ── */}
+                  {bulkSelected.size > 0 && (
+                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-[rgba(201,168,76,0.3)] bg-[rgba(201,168,76,0.06)] mb-2">
+                      <p className="text-[12px] text-[#c9a84c] font-medium">{bulkSelected.size} selected</p>
+                      <div className="flex gap-2 ml-auto">
+                        {bulkSelected.size >= 2 && bulkSelected.size <= 3 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCompareIds([...bulkSelected]);
+                              setCompareMode(true);
+                            }}
+                            className="text-[11px] px-3 py-1.5 rounded-lg border border-[#818cf8]/30 text-[#818cf8] hover:bg-[rgba(129,140,248,0.08)] transition-all">
+                            ⊡ Compare
+                          </button>
+                        )}
+                        {(["contacted", "replied", "booked"] as const).map((action) => (
+                          <button
+                            key={action}
+                            type="button"
+                            onClick={async () => {
+                              setBulkAction(action);
+                              const activeRunId = sortedLeads.find((l: LeadUI) => bulkSelected.has(l.id))?.metadata
+                                ?.runId;
+                              await Promise.all(
+                                [...bulkSelected].map((id) =>
+                                  fetch("/api/outcomes", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ leadId: id, runId: activeRunId ?? 0, [action]: true }),
+                                  }),
+                                ),
+                              );
+                              setBulkSelected(new Set());
+                              setBulkAction(null);
+                              toastSuccess(`Marked ${bulkSelected.size} leads as ${action}`);
+                            }}
+                            className="text-[11px] px-3 py-1.5 rounded-lg border border-[#c9a84c]/25 text-[#c9a84c] hover:bg-[rgba(201,168,76,0.1)] transition-all capitalize">
+                            Mark {action}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => setBulkSelected(new Set())}
+                          className="text-[11px] px-3 py-1.5 rounded-lg border border-[#252525] text-[#8a8a8a] hover:border-[#444] transition-all">
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── LEADS TABLE (desktop) / CARDS (mobile) ── */}
+
+                  {/* MOBILE CARD LIST */}
+                  <div className="flex flex-col gap-2 sm:hidden">
+                    {visibleLeads.map((lead) => {
+                      const isSelected = selectedLead?.id === lead.id;
+                      const insight = getLocalizedOpportunityInsight(lead, language);
+                      const gapLabel =
+                        insight?.type === "conversion_gap"
+                          ? t.ui.detail.whyNoBookingFlow
+                          : insight?.type === "visibility_gap"
+                            ? t.ui.detail.whyLowDigital
+                            : insight?.type === "foundation_gap"
+                              ? t.ui.detail.whyMissingInfra
+                              : insight?.type === "mature_competitor"
+                                ? t.ui.detail.whyAlreadyEstablished
+                                : lead.score.riskProfile === "early_stage" || lead.score.riskProfile === "limited_data"
+                                  ? t.ui.detail.whyUnstableSignals
+                                  : (lead.score.value ?? 0) >= 80
+                                    ? t.ui.detail.whyTopTier
+                                    : (lead.score.value ?? 0) >= 60
+                                      ? t.ui.detail.whyGoodValueFit
+                                      : t.ui.detail.whyLowPriority;
+                      const scoreColor =
+                        (lead.score.value ?? 0) >= 80 ? "#4ade80" : (lead.score.value ?? 0) >= 60 ? "#c9a84c" : "#888";
+                      const fitColor =
+                        (lead.fit?.fitScore ?? 0) >= 65
+                          ? "#4ade80"
+                          : (lead.fit?.fitScore ?? 0) >= 40
+                            ? "#c9a84c"
+                            : "#f87171";
+                      const riskColor =
+                        (lead.score.risk ?? 0) >= 70 ? "#f87171" : (lead.score.risk ?? 0) >= 40 ? "#c9a84c" : "#4ade80";
+                      return (
+                        <div
+                          key={lead.id}
+                          onClick={() => {
+                            setSelectedLead(lead);
+                            setChecklistState((prev: typeof checklistState) => ({ ...prev, hasSelected: true }));
+                          }}
+                          className={
+                            "rounded-xl border cursor-pointer transition-colors p-3 " +
+                            (isSelected
+                              ? "border-[rgba(201,168,76,0.4)] bg-[#111]"
+                              : "border-[#1e1e1e] bg-[#0d0d0d] hover:border-[#2a2a2a] hover:bg-[#111]")
+                          }>
+                          {/* Row 1: name + score badge */}
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="min-w-0">
+                              <p className="font-medium text-[13px] truncate">{lead.company.name}</p>
+                              <p className="text-[10px] text-[#8a8a8a] mt-0.5 truncate">
+                                {leadLocation(lead)} · {lead.classification.primaryIndustry.replaceAll("_", " ")}
+                              </p>
+                            </div>
+                            <span
+                              className="text-[12px] font-bold shrink-0 px-2 py-0.5 rounded-md"
+                              style={{
+                                color: scoreColor,
+                                background: `${scoreColor}18`,
+                                border: `1px solid ${scoreColor}30`,
+                              }}>
+                              {lead.score.value ?? 0}
+                            </span>
+                          </div>
+                          {/* Row 2: score metrics grid */}
+                          <div className="grid grid-cols-3 gap-1.5 mb-2">
+                            {[
+                              { label: "Fit", value: lead.fit?.fitScore ?? 0, color: fitColor },
+                              { label: "Opportunity", value: lead.score.opportunity ?? 0, color: "#818cf8" },
+                              { label: "Risk", value: lead.score.risk ?? 0, color: riskColor },
+                            ].map((m) => (
+                              <div
+                                key={m.label}
+                                className="rounded-lg bg-[#111] border border-[#1a1a1a] px-2 py-1.5 text-center">
+                                <p className="text-[11px] font-bold" style={{ color: m.color }}>
+                                  {m.value}
+                                </p>
+                                <p className="text-[9px] text-[#737373] uppercase tracking-wide">{m.label}</p>
+                              </div>
+                            ))}
+                          </div>
+                          {/* Row 3: insight */}
+                          <p className="text-[10px] text-[#8a8a8a] leading-snug">⚡ {gapLabel}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* DESKTOP TABLE — hidden on mobile except when a lead is selected */}
+                  <div className="block overflow-x-hidden">
+                    <table className="w-full text-sm border-collapse">
+                      <thead className="hidden sm:table-header-group">
+                        <tr className="bg-[#111111] border-b border-[#252525]">
+                          <th className="py-2 px-3 w-[32px]" />
+                          <th className="text-left py-2 px-3 w-[35%]">{t.ui.table.company}</th>
+                          <th className="text-left py-2 px-3 w-[10%]">Fit</th>
+                          <th className="text-left py-2 px-3 w-[13%]">{t.ui.table.opportunity}</th>
+                          <th className="text-left py-2 px-3 w-[10%]">Difficulty</th>
+                          <th className="text-left py-2 px-3">Lead Score</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visibleLeads.map((lead: LeadUI) => {
+                          const isSelected = selectedLead?.id === lead.id;
+                          const mainInsight = getLocalizedOpportunityInsight(lead, language);
+                          const mainOpp = Number.isFinite(lead.score.opportunity)
+                            ? (lead.score.opportunity as number)
+                            : 0;
+
+                          return (
+                            <Fragment key={lead.id}>
+                              <tr
+                                onClick={() => {
+                                  setSelectedLead(lead);
+                                  setChecklistState((prev: typeof checklistState) => ({ ...prev, hasSelected: true }));
+                                }}
+                                className={
+                                  "border-b border-[#252525] hover:bg-[#111111]/70 cursor-pointer " +
+                                  (isSelected ? "bg-[#111111]/90" : "") +
+                                  " hidden sm:table-row"
+                                }>
+                                <td className="py-2 pl-3 pr-1 w-6">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setBulkSelected((prev) => {
+                                        const next = new Set(prev);
+                                        if (next.has(lead.id)) next.delete(lead.id);
+                                        else next.add(lead.id);
+                                        return next;
+                                      });
+                                    }}
+                                    className="flex items-center justify-center w-4 h-4 focus:outline-none"
+                                    title="Select lead">
+                                    {/* Diamond shape — rotated square */}
+                                    <span
+                                      className="block w-3 h-3 rotate-45 border transition-all duration-150"
+                                      style={
+                                        bulkSelected.has(lead.id)
+                                          ? {
+                                              backgroundColor: "#c9a84c",
+                                              borderColor: "#c9a84c",
+                                              boxShadow: "0 0 6px rgba(201,168,76,0.4)",
+                                            }
+                                          : {
+                                              backgroundColor: "transparent",
+                                              borderColor: "#2a2a2a",
+                                            }
+                                      }
+                                    />
+                                  </button>
+                                </td>
+                                <td className="py-2 px-3">
+                                  <div>
+                                    <span className="font-medium text-[13px] truncate max-w-[140px] sm:max-w-none block">
+                                      {lead.company.name}
+                                    </span>
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                      <span className="text-[10px] text-[#8a8a8a]">{leadLocation(lead)}</span>
+                                      <span className="text-[10px] text-[#737373]">·</span>
+                                      <span className="text-[10px] text-[#8a8a8a]">
+                                        {lead.classification.primaryIndustry.replaceAll("_", " ")}
+                                      </span>
+                                      {lead.company.website && (
+                                        <a
+                                          href={lead.company.website}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          onClick={(e: MouseEvent) => e.stopPropagation()}
+                                          className="text-[10px] text-[#c9a84c] hover:underline">
+                                          Visit ↗
+                                        </a>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+
+                                <td className="py-2 px-3 hidden sm:table-cell">
+                                  <ScoreTooltip text={lead.fit?.tooltip ?? lead.score.tooltips?.fit ?? ""}>
+                                    <div>
+                                      {(() => {
+                                        const fitVal = lead.fit?.fitScore ?? 0;
+                                        const fitLabel =
+                                          fitVal >= 75
+                                            ? "Ideal match"
+                                            : fitVal >= 50
+                                              ? "Strong match"
+                                              : fitVal >= 25
+                                                ? "Partial match"
+                                                : "Weak match";
+                                        function lerpColor(
+                                          a: [number, number, number],
+                                          b: [number, number, number],
+                                          t: number,
+                                        ): string {
+                                          const r = Math.round(a[0] + (b[0] - a[0]) * t);
+                                          const g = Math.round(a[1] + (b[1] - a[1]) * t);
+                                          const bl = Math.round(a[2] + (b[2] - a[2]) * t);
+                                          return `rgb(${r},${g},${bl})`;
+                                        }
+                                        const RED: [number, number, number] = [248, 113, 113];
+                                        const AMBER: [number, number, number] = [245, 158, 11];
+                                        const GOLD: [number, number, number] = [201, 168, 76];
+                                        const LGRN: [number, number, number] = [134, 239, 172];
+                                        const GRN: [number, number, number] = [34, 197, 94];
+                                        let fitColor: string;
+                                        if (fitVal < 25) fitColor = lerpColor(RED, AMBER, fitVal / 25);
+                                        else if (fitVal < 50) fitColor = lerpColor(AMBER, GOLD, (fitVal - 25) / 25);
+                                        else if (fitVal < 75) fitColor = lerpColor(GOLD, LGRN, (fitVal - 50) / 25);
+                                        else fitColor = lerpColor(LGRN, GRN, (fitVal - 75) / 25);
+                                        const rr = 9,
+                                          circ = 2 * Math.PI * rr;
+                                        const dash = circ * (fitVal / 100);
+                                        return lead.fit ? (
+                                          <div className="flex items-center gap-2">
+                                            <svg
+                                              width="22"
+                                              height="22"
+                                              viewBox="0 0 22 22"
+                                              style={{ flexShrink: 0, transform: "rotate(-90deg)" }}>
+                                              <circle
+                                                cx="11"
+                                                cy="11"
+                                                r={rr}
+                                                fill="none"
+                                                stroke="#1e1e1e"
+                                                strokeWidth="2.5"
+                                              />
+                                              <circle
+                                                cx="11"
+                                                cy="11"
+                                                r={rr}
+                                                fill="none"
+                                                stroke={fitColor}
+                                                strokeWidth="2.5"
+                                                strokeLinecap="round"
+                                                strokeDasharray={`${dash} ${circ}`}
+                                              />
+                                            </svg>
+                                            <span className="text-[11px] font-medium" style={{ color: fitColor }}>
+                                              {fitLabel}
+                                            </span>
+                                          </div>
+                                        ) : (
+                                          <span className="text-[#616161] text-xs">—</span>
+                                        );
+                                      })()}
+                                    </div>
+                                  </ScoreTooltip>
+                                </td>
+
+                                <td className="py-2 px-3 hidden sm:table-cell">
+                                  <ScoreTooltip text={lead.score.tooltips?.opportunity ?? ""}>
+                                    <div>
+                                      <span className="text-[#c8c0b0] font-semibold">
+                                        {lead.score.opportunity ?? 0}
+                                      </span>
+                                      <p className="mt-1 text-[11px] leading-snug text-[#bababa]">Potential</p>
+                                    </div>
+                                  </ScoreTooltip>
+                                </td>
+
+                                <td className="py-2 px-3">
+                                  <ScoreTooltip text={lead.score.tooltips?.risk ?? ""}>
+                                    <div>
+                                      <span
+                                        className={
+                                          (lead.score.risk ?? 0) >= 70
+                                            ? "text-rose-300 font-semibold"
+                                            : (lead.score.risk ?? 0) >= 45
+                                              ? "text-amber-300 font-semibold"
+                                              : "text-emerald-300 font-semibold"
+                                        }>
+                                        {lead.score.risk ?? 0}
+                                      </span>
+                                      <p className="mt-1 text-[11px] leading-snug text-[#bababa]">
+                                        {lead.score.riskProfile ? lead.score.riskProfile.replaceAll("_", " ") : "—"}
+                                      </p>
+                                    </div>
+                                  </ScoreTooltip>
+                                </td>
+
+                                <td className="py-2 px-3 hidden md:table-cell">
+                                  <ScoreTooltip text={lead.score.tooltips?.value ?? ""}>
+                                    <div>
+                                      {(() => {
+                                        const val = lead.score.value ?? 0;
+                                        const color = val >= 70 ? "#4ade80" : val >= 45 ? "#c9a84c" : "#f87171";
+                                        const label =
+                                          val >= 70
+                                            ? "Strong lead"
+                                            : val >= 45
+                                              ? "Good lead"
+                                              : val >= 25
+                                                ? "Moderate lead"
+                                                : "Weak lead";
+                                        return (
+                                          <>
+                                            <div className="flex items-center gap-2 mb-1">
+                                              <span className="text-sm font-bold" style={{ color }}>
+                                                {val}
+                                              </span>
+                                              <div className="flex-1 h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
+                                                <div
+                                                  className="h-full rounded-full"
+                                                  style={{ width: `${val}%`, backgroundColor: color }}
+                                                />
+                                              </div>
+                                            </div>
+                                            <p className="text-[10px]" style={{ color }}>
+                                              {label}
+                                            </p>
+                                          </>
+                                        );
+                                      })()}
+                                    </div>
+                                  </ScoreTooltip>
+                                </td>
+                              </tr>
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Load more — single unified button */}
+                  <div className="flex flex-col items-center gap-3 pt-5 pb-2">
+                    {hasMore && (
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        onClick={() => {
+                          if (hasMoreLocal) {
+                            // More leads already fetched — just reveal them
+                            setDisplayCount((n: number) => n + LEADS_PER_BATCH);
+                          } else if (hasMoreRemote) {
+                            // All local leads shown — fetch next page from API
+                            handleLoadMore();
+                          }
+                        }}
+                        className="px-8 py-2.5 rounded-xl border border-[#252525] text-[13px] text-[#bababa] hover:border-[rgba(201,168,76,0.3)] hover:text-[#c9a84c] hover:bg-[rgba(201,168,76,0.04)] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium">
+                        {isLoading ? "Loading…" : "Load more ↓"}
+                      </button>
+                    )}
+                    <p className="text-[11px] text-[#616161]">
+                      {visibleLeads.length} of {sortedLeads.length} lead{sortedLeads.length !== 1 ? "s" : ""} shown
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
           </section>
         </div>
 
@@ -4713,6 +4873,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                               leadId: detailLead.id,
                               runId: Number(detailLead.metadata.runId),
                               companyName: detailLead.company.name,
+                              firstTouchMessage: scriptText || undefined,
                               outreachRequest: {
                                 company_name: detailLead.company.name,
                                 industry: detailLead.classification.primaryIndustry ?? null,
