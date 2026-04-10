@@ -2763,18 +2763,68 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                               : fitVal >= 25
                                                 ? "Partial match"
                                                 : "Weak match";
-                                        const fitColor =
-                                          fitVal >= 75
-                                            ? "#4ade80"
-                                            : fitVal >= 50
-                                              ? "#86efac"
-                                              : fitVal >= 25
-                                                ? "#c9a84c"
-                                                : "#f87171";
+
+                                        // Smooth colour interpolation across 0-100
+                                        // 0-25:  red    (#f87171) → amber (#f59e0b)
+                                        // 25-50: amber  (#f59e0b) → gold  (#c9a84c)
+                                        // 50-75: gold   (#c9a84c) → light green (#86efac)
+                                        // 75-100: light green (#86efac) → bright green (#22c55e)
+                                        function lerpColor(
+                                          a: [number, number, number],
+                                          b: [number, number, number],
+                                          t: number,
+                                        ): string {
+                                          const r = Math.round(a[0] + (b[0] - a[0]) * t);
+                                          const g = Math.round(a[1] + (b[1] - a[1]) * t);
+                                          const bl = Math.round(a[2] + (b[2] - a[2]) * t);
+                                          return `rgb(${r},${g},${bl})`;
+                                        }
+                                        const RED: [number, number, number] = [248, 113, 113];
+                                        const AMBER: [number, number, number] = [245, 158, 11];
+                                        const GOLD: [number, number, number] = [201, 168, 76];
+                                        const LGRN: [number, number, number] = [134, 239, 172];
+                                        const GRN: [number, number, number] = [34, 197, 94];
+                                        let fitColor: string;
+                                        if (fitVal < 25) fitColor = lerpColor(RED, AMBER, fitVal / 25);
+                                        else if (fitVal < 50) fitColor = lerpColor(AMBER, GOLD, (fitVal - 25) / 25);
+                                        else if (fitVal < 75) fitColor = lerpColor(GOLD, LGRN, (fitVal - 50) / 25);
+                                        else fitColor = lerpColor(LGRN, GRN, (fitVal - 75) / 25);
+
+                                        // Mini ring — fills to fitVal%
+                                        const r = 9,
+                                          circ = 2 * Math.PI * r;
+                                        const dash = circ * (fitVal / 100);
+
                                         return lead.fit ? (
-                                          <span className="text-[11px] font-medium" style={{ color: fitColor }}>
-                                            {fitLabel}
-                                          </span>
+                                          <div className="flex items-center gap-2">
+                                            <svg
+                                              width="22"
+                                              height="22"
+                                              viewBox="0 0 22 22"
+                                              style={{ flexShrink: 0, transform: "rotate(-90deg)" }}>
+                                              <circle
+                                                cx="11"
+                                                cy="11"
+                                                r={r}
+                                                fill="none"
+                                                stroke="#1e1e1e"
+                                                strokeWidth="2.5"
+                                              />
+                                              <circle
+                                                cx="11"
+                                                cy="11"
+                                                r={r}
+                                                fill="none"
+                                                stroke={fitColor}
+                                                strokeWidth="2.5"
+                                                strokeLinecap="round"
+                                                strokeDasharray={`${dash} ${circ}`}
+                                              />
+                                            </svg>
+                                            <span className="text-[11px] font-medium" style={{ color: fitColor }}>
+                                              {fitLabel}
+                                            </span>
+                                          </div>
                                         ) : (
                                           <span className="text-[#616161] text-xs">—</span>
                                         );
