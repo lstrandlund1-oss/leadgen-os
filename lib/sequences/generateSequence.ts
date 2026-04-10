@@ -20,34 +20,34 @@ import type { StrategyBrief } from "@/lib/outreach/types";
 export type SequenceChannel = "email" | "call" | "dm" | "linkedin";
 
 export type SequenceStep = {
-  step: number;           // 1-5
-  day: number;            // day offset from sequence start (1, 2, 5, 9, 14)
+  step: number; // 1-5
+  day: number; // day offset from sequence start (1, 2, 5, 9, 14)
   channel: SequenceChannel;
-  subject?: string;       // email only
-  message: string;        // the actual copy
-  objective: string;      // what this step is trying to achieve (for UI display)
-  cta: string;            // the specific ask in this step
+  subject?: string; // email only
+  message: string; // the actual copy
+  objective: string; // what this step is trying to achieve (for UI display)
+  cta: string; // the specific ask in this step
 };
 
 export type GeneratedSequence = {
   steps: SequenceStep[];
   cadence_type: "aggressive" | "standard" | "nurture";
   total_days: number;
-  reasoning: string;      // brief explanation of why this cadence shape was chosen
+  reasoning: string; // brief explanation of why this cadence shape was chosen
 };
 
 // Day offsets by cadence type — based on research benchmarks
 const CADENCE_DAYS: Record<"aggressive" | "standard" | "nurture", number[]> = {
-  aggressive: [1, 2, 5, 9, 14],   // hot lead, clear gap, high score
-  standard:   [1, 3, 7, 12, 18],  // typical lead
-  nurture:    [1, 5, 10, 16, 21], // low score, mature competitor
+  aggressive: [1, 2, 5, 9, 14], // hot lead, clear gap, high score
+  standard: [1, 3, 7, 12, 18], // typical lead
+  nurture: [1, 5, 10, 16, 21], // low score, mature competitor
 };
 
 // Channel rotation patterns — never single-channel
 const CHANNEL_PATTERNS: Record<"aggressive" | "standard" | "nurture", SequenceChannel[]> = {
   aggressive: ["call", "email", "email", "call", "email"],
-  standard:   ["email", "call", "email", "dm", "email"],
-  nurture:    ["email", "email", "call", "email", "dm"],
+  standard: ["email", "call", "email", "dm", "email"],
+  nurture: ["email", "email", "call", "email", "dm"],
 };
 
 function decideCadenceType(
@@ -112,6 +112,7 @@ function buildUserPrompt(
   opportunity: number,
   fitScore: number,
   riskProfile: string,
+  firstTouchMessage?: string,
 ): string {
   const gapDescriptions = {
     INFRASTRUCTURE: "no website — missing digital foundation, all demand is leaking",
@@ -164,10 +165,14 @@ export async function generateSequence(
   fitScore: number,
   riskProfile: string,
   apiKey: string,
+  firstTouchMessage?: string, // anchor message — steps 2-5 build on this
 ): Promise<GeneratedSequence> {
   const cadenceType = decideCadenceType(opportunity, fitScore, riskProfile);
-  const days = CADENCE_DAYS[cadenceType];
-  const channels = CHANNEL_PATTERNS[cadenceType];
+  // If first touch already sent, generate steps 2-5 only (4 steps)
+  const allDays = CADENCE_DAYS[cadenceType];
+  const allChannels = CHANNEL_PATTERNS[cadenceType];
+  const days = firstTouchMessage ? allDays.slice(1) : allDays;
+  const channels = firstTouchMessage ? allChannels.slice(1) : allChannels;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -193,16 +198,22 @@ export async function generateSequence(
     throw new Error(`Anthropic API error: ${response.status}`);
   }
 
-  const data = await response.json() as {
+  const data = (await response.json()) as {
     content: Array<{ type: string; text: string }>;
   };
 
-  const text = data.content.find(b => b.type === "text")?.text ?? "";
+  const text = data.content.find((b) => b.type === "text")?.text ?? "";
 
   // Strip markdown fences if present
-  const clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+  const clean = text
+    .replace(/```json\n?/g, "")
+    .replace(/```\n?/g, "")
+    .trim();
 
-  let parsed: { steps: Array<{ step: number; subject?: string; message: string; objective: string; cta: string }>; reasoning: string };
+  let parsed: {
+    steps: Array<{ step: number; subject?: string; message: string; objective: string; cta: string }>;
+    reasoning: string;
+  };
   try {
     parsed = JSON.parse(clean);
   } catch {
@@ -211,7 +222,7 @@ export async function generateSequence(
 
   // Merge AI content with structural decisions (days, channels)
   const steps: SequenceStep[] = parsed.steps.map((s, i) => ({
-    step: s.step ?? (i + 1),
+    step: s.step ?? i + 1,
     day: days[i],
     channel: channels[i],
     subject: s.subject,

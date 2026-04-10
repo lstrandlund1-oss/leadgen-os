@@ -52,6 +52,19 @@ export function isBetaUser(betaJoinDate?: string | null): boolean {
   return new Date() < expires;
 }
 
+// ── Outreach + Sequence usage cap ────────────────────────────────────────────
+// Counts both outreach messages AND sequence generations against a single
+// monthly limit — they share the same Anthropic credits pool.
+
+export function outreachLimit(plan: PlanTier): number | null {
+  if (plan === "agency") return null; // unlimited
+  if (plan === "operator") return 200; // 200 messages/month
+  return 20; // scout — 20/month
+}
+
+export function canUseOutreachFeature(plan: PlanTier): boolean {
+  return true; // all tiers can use outreach (subject to limit)
+}
 export function canUseDeepSearch(plan: PlanTier): boolean {
   return plan === "operator" || plan === "agency";
 }

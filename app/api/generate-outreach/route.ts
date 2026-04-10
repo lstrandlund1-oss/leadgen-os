@@ -1,48 +1,86 @@
 // app/api/generate-outreach/route.ts
-// Three-stage outreach pipeline orchestrator.
 //
-// Stage A: buildStrategyBrief()  — deterministic, signal → brief
-// Stage B: generateMessage()     — AI generation from brief (structured prompt)
-// Stage C: humanizeMessage()     — AI rewrite for naturalness and brevity
+// First-touch outreach message generator.
+// Three-stage pipeline: deterministic brief → AI draft → AI humanise.
+// Locked to first_touch objective — follow-up and re-engage are handled
+// by the sequence generator which builds on this message as its anchor.
 //
-// The API key never leaves the server.
-// The user profile is injected server-side from the session.
+// Credit gating: shared outreach_usage table with sequence generator.
+// Scout: 20/month  Operator: 200/month  Agency: unlimited
 
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabaseServer";
+import { supabase } from "@/lib/supabaseClient";
 import { buildStrategyBrief } from "@/lib/outreach/strategyBrief";
 import { generateMessage } from "@/lib/outreach/generateMessage";
 import { humanizeMessage } from "@/lib/outreach/humanizeMessage";
+import { getEffectivePlan, outreachLimit } from "@/lib/plan";
 import type { OutreachRequest, OutreachResult } from "@/lib/outreach/types";
+
+async function checkAndLogOutreachUsage(userId: string): Promise<{
+  allowed: boolean;
+  used: number;
+  limit: number | null;
+}> {
+  const plan = getEffectivePlan();
+  const limit = outreachLimit(plan);
+  if (limit === null) return { allowed: true, used: 0, limit: null };
+  if (!supabase) return { allowed: true, used: 0, limit };
+
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+
+  const { count } = await supabase
+    .from("outreach_usage")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("created_at", monthStart.toISOString());
+
+  const used = count ?? 0;
+  if (used >= limit) return { allowed: false, used, limit };
+
+  // Log usage (fire-and-forget)
+  supabase
+    .from("outreach_usage")
+    .insert({ user_id: userId, type: "message" })
+    .then(() => {});
+  return { allowed: true, used, limit };
+}
 
 export async function POST(request: Request) {
   try {
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
+    if (!apiKey) return NextResponse.json({ error: "API key not configured" }, { status: 500 });
+
+    const authedSupabase = await createSupabaseServer();
+    const {
+      data: { user },
+    } = await authedSupabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    // Credit check
+    const usage = await checkAndLogOutreachUsage(user.id);
+    if (!usage.allowed) {
       return NextResponse.json(
-        { error: "Anthropic API key not configured" },
-        { status: 500 },
+        {
+          error: `Monthly outreach limit reached (${usage.limit} messages). Upgrade for more.`,
+          code: "OUTREACH_LIMIT",
+          used: usage.used,
+          limit: usage.limit,
+        },
+        { status: 429 },
       );
     }
 
     const body = (await request.json()) as OutreachRequest;
+    if (!body.company_name) return NextResponse.json({ error: "company_name is required" }, { status: 400 });
 
-    if (!body.company_name) {
-      return NextResponse.json(
-        { error: "company_name is required" },
-        { status: 400 },
-      );
-    }
+    // Always first touch — sequence generator handles follow-up/re-engage
+    body.objective = "first_touch";
 
     // Inject user profile server-side
-    const supabase = await createSupabaseServer();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { data: profileRow } = await supabase
+    const { data: profileRow } = await authedSupabase
       .from("user_profiles")
       .select("profile_data")
       .eq("user_id", user.id)
@@ -71,10 +109,13 @@ export async function POST(request: Request) {
       generated_at: new Date().toISOString(),
     };
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      ...result,
+      usage: { used: usage.used + 1, limit: usage.limit },
+    });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Internal error";
-    console.error("/api/generate-outreach error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    const msg = err instanceof Error ? err.message : "Internal error";
+    console.error("/api/generate-outreach error:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

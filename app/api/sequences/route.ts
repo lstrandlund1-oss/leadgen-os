@@ -1,6 +1,7 @@
 // app/api/sequences/route.ts
 import { NextResponse } from "next/server";
 import { getAuthUser, createSupabaseServer } from "@/lib/supabaseServer";
+import { getEffectivePlan, outreachLimit } from "@/lib/plan";
 import { supabase } from "@/lib/supabaseClient";
 import { buildStrategyBrief } from "@/lib/outreach/strategyBrief";
 import { generateSequence, type SequenceStep } from "../../../lib/sequences/generateSequence";
@@ -18,11 +19,7 @@ export async function GET(request: Request) {
     const leadId = searchParams.get("leadId");
     if (!leadId) return NextResponse.json({ error: "leadId required" }, { status: 400 });
 
-    let query = supabase
-      .from("lead_sequences")
-      .select("*")
-      .eq("lead_id", leadId)
-      .order("step", { ascending: true });
+    let query = supabase.from("lead_sequences").select("*").eq("lead_id", leadId).order("step", { ascending: true });
 
     if (userId) query = query.eq("user_id", userId);
 
@@ -43,10 +40,12 @@ export async function POST(request: Request) {
     if (!apiKey) return NextResponse.json({ error: "API key not configured" }, { status: 500 });
 
     const authedSupabase = await createSupabaseServer();
-    const { data: { user } } = await authedSupabase.auth.getUser();
+    const {
+      data: { user },
+    } = await authedSupabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const body = await request.json() as {
+    const body = (await request.json()) as {
       leadId: string;
       runId: number;
       companyName: string;
@@ -54,20 +53,45 @@ export async function POST(request: Request) {
       opportunity: number;
       fitScore: number;
       riskProfile: string;
-      startDate?: string; // ISO date — defaults to today
+      startDate?: string;
+      firstTouchMessage?: string; // anchor — if provided, sequence starts from step 2
     };
 
     if (!body.leadId || !body.companyName) {
       return NextResponse.json({ error: "leadId and companyName required" }, { status: 400 });
     }
 
+    // Credit check — shared limit with outreach message generator
+    const plan = getEffectivePlan();
+    const limit = outreachLimit(plan);
+    if (limit !== null && supabase) {
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+      const { count } = await supabase
+        .from("outreach_usage")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .gte("created_at", monthStart.toISOString());
+      if ((count ?? 0) >= limit) {
+        return NextResponse.json(
+          {
+            error: `Monthly outreach limit reached (${limit} messages). Upgrade for more.`,
+            code: "OUTREACH_LIMIT",
+          },
+          { status: 429 },
+        );
+      }
+      // Log this sequence (counts as 1 credit regardless of step count)
+      supabase
+        .from("outreach_usage")
+        .insert({ user_id: user.id, type: "sequence" })
+        .then(() => {});
+    }
+
     // Delete any existing sequence for this lead (regenerate)
     if (supabase) {
-      await supabase
-        .from("lead_sequences")
-        .delete()
-        .eq("lead_id", body.leadId)
-        .eq("user_id", user.id);
+      await supabase.from("lead_sequences").delete().eq("lead_id", body.leadId).eq("user_id", user.id);
     }
 
     // Inject user profile
@@ -95,6 +119,7 @@ export async function POST(request: Request) {
       body.fitScore,
       body.riskProfile,
       apiKey,
+      body.firstTouchMessage,
     );
 
     // Calculate actual dates from day offsets
@@ -129,10 +154,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, sequence, rows });
     }
 
-    const { data: inserted, error } = await supabase
-      .from("lead_sequences")
-      .insert(rows)
-      .select("*");
+    const { data: inserted, error } = await supabase.from("lead_sequences").insert(rows).select("*");
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
