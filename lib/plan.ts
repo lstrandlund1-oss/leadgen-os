@@ -20,9 +20,9 @@ export function canUseDeepEnrichment(plan: PlanTier): boolean {
 }
 
 export function deepEnrichmentLimit(plan: PlanTier): number | null {
-  if (plan === "agency") return null;     // unlimited
-  if (plan === "operator") return 50;     // 50/month
-  return 0;                               // scout — no access
+  if (plan === "agency") return null; // unlimited
+  if (plan === "operator") return 50; // 50/month
+  return 0; // scout — no access
 }
 
 export function canUseOutreach(plan: PlanTier): boolean {
@@ -31,16 +31,16 @@ export function canUseOutreach(plan: PlanTier): boolean {
 
 // Beta pricing tiers (locked in for 12 months from signup)
 export const BETA_PRICING: Record<PlanTier, { monthly: number; label: string }> = {
-  scout:    { monthly: 29,  label: "Scout Beta" },
-  operator: { monthly: 79,  label: "Operator Beta" },
-  agency:   { monthly: 199, label: "Agency Beta" },
+  scout: { monthly: 29, label: "Scout Beta" },
+  operator: { monthly: 79, label: "Operator Beta" },
+  agency: { monthly: 199, label: "Agency Beta" },
 };
 
 // Full release pricing (after beta period)
 export const RELEASE_PRICING: Record<PlanTier, { monthly: number; label: string }> = {
-  scout:    { monthly: 49,  label: "Scout" },
+  scout: { monthly: 49, label: "Scout" },
   operator: { monthly: 129, label: "Operator" },
-  agency:   { monthly: 349, label: "Agency" },
+  agency: { monthly: 349, label: "Agency" },
 };
 
 export function isBetaUser(betaJoinDate?: string | null): boolean {
@@ -50,4 +50,14 @@ export function isBetaUser(betaJoinDate?: string | null): boolean {
   const expires = new Date(joined);
   expires.setFullYear(expires.getFullYear() + 1);
   return new Date() < expires;
+}
+
+export function canUseDeepSearch(plan: PlanTier): boolean {
+  return plan === "operator" || plan === "agency";
+}
+
+export function deepSearchLimit(plan: PlanTier): number | null {
+  if (plan === "agency") return null; // unlimited
+  if (plan === "operator") return 10; // 10 deep searches/month
+  return 0; // scout — standard only
 }
