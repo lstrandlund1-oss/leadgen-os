@@ -607,25 +607,61 @@ ${result.message.body}`
               )}
             </div>
 
-            {/* Objective — always first touch; follow-ups handled by sequence builder */}
-            <div className="rounded-2xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2.5">
-              <p className="text-[9px] uppercase tracking-widests text-[#555]">Objective</p>
-              <div className="flex items-center gap-2 rounded-xl border border-[#c9a84c] bg-[rgba(201,168,76,0.06)] py-2.5 px-3">
-                <p className="text-sm text-[#c9a84c]">◎</p>
-                <div>
-                  <p className="text-[10px] font-semibold text-[#e8c97a]">First touch</p>
-                  <p className="text-[9px] text-[#737373] mt-0.5">
-                    Opening message · Follow-ups are handled by the sequence builder
-                  </p>
-                </div>
-              </div>
-            </div>
-
             {/* Channel */}
             <div className="rounded-2xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2.5">
               <p className="text-[9px] uppercase tracking-widest text-[#555]">
                 Channel <span className="text-[#f87171]">*</span>
               </p>
+
+              {/* Signal-based recommendation */}
+              {lead &&
+                (() => {
+                  const hasWebsite = !!lead.website;
+                  const social = lead.social_presence ?? "low";
+                  const reviews = lead.review_count ?? 0;
+
+                  let rec: OutreachChannel;
+                  let reason: string;
+
+                  if (!hasWebsite && reviews < 10) {
+                    rec = "cold_call";
+                    reason = "No website or digital presence — a direct call is the most reliable way in.";
+                  } else if (social === "high") {
+                    rec = "linkedin_dm";
+                    reason =
+                      "Strong social presence detected — they're active online and more likely to respond to a DM.";
+                  } else if (hasWebsite && social === "low") {
+                    rec = "email";
+                    reason =
+                      "Has a website but low social activity — email gives you space to reference their digital presence.";
+                  } else if (!hasWebsite) {
+                    rec = "cold_call";
+                    reason = "No website found — cold call or direct visit is the most direct route.";
+                  } else {
+                    rec = "email";
+                    reason = "Established business with web presence — email is the lowest-friction opener.";
+                  }
+
+                  return (
+                    <div className="flex items-start gap-2.5 rounded-xl border border-[#1e1e1e] bg-[#0a0a0a] px-3 py-2.5 mb-1">
+                      <span className="text-[#c9a84c] text-[10px] mt-0.5 flex-shrink-0">◈</span>
+                      <div className="min-w-0">
+                        <p className="text-[9px] uppercase tracking-widest text-[#555] mb-0.5">Recommended</p>
+                        <p className="text-[11px] font-semibold text-[#c9a84c]">{CHANNEL_META[rec].label}</p>
+                        <p className="text-[9px] text-[#616161] mt-0.5 leading-snug">{reason}</p>
+                        {channel !== rec && (
+                          <button
+                            type="button"
+                            onClick={() => setChannel(rec)}
+                            className="mt-1.5 text-[9px] text-[#8a6e30] hover:text-[#c9a84c] transition-colors underline underline-offset-2">
+                            Use recommended
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
               <div className="space-y-1.5">
                 {(Object.entries(CHANNEL_META) as [OutreachChannel, (typeof CHANNEL_META)[OutreachChannel]][]).map(
                   ([ch, meta]) => (
@@ -639,14 +675,16 @@ ${result.message.body}`
                           ? "border-[#c9a84c] bg-[rgba(201,168,76,0.06)]"
                           : "border-[#1a1a1a] bg-[#080808] hover:border-[#333]")
                       }>
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className={channel === ch ? "text-[#c9a84c]" : "text-[#555]"}>{meta.icon}</span>
-                        <p
-                          className={
-                            "text-[12px] font-semibold " + (channel === ch ? "text-[#f5f0e8]" : "text-[#666]")
-                          }>
-                          {meta.label}
-                        </p>
+                      <div className="flex items-center justify-between gap-2 mb-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className={channel === ch ? "text-[#c9a84c]" : "text-[#555]"}>{meta.icon}</span>
+                          <p
+                            className={
+                              "text-[12px] font-semibold " + (channel === ch ? "text-[#f5f0e8]" : "text-[#666]")
+                            }>
+                            {meta.label}
+                          </p>
+                        </div>
                       </div>
                       <p className="text-[10px] text-[#444] pl-5">{meta.note}</p>
                     </button>
