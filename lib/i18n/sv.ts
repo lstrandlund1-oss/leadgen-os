@@ -9,8 +9,7 @@ export const sv: TranslationSchema = {
     },
     header: {
       title: "Hitta dina nästa kunder",
-      subtitle:
-        "Sök i valfri nisch och plats — varje lead poängsätts, analyseras och är redo att kontaktas.",
+      subtitle: "Sök i valfri nisch och plats — varje lead poängsätts, analyseras och är redo att kontaktas.",
       languageLabel: "Språk",
     },
     filters: {
@@ -92,8 +91,7 @@ export const sv: TranslationSchema = {
       noWebsite: "Ingen webbplats tillgänglig.",
       suggestedAngleLabel: "Lämplig kontaktvinkel",
       readinessLabel: "Beredskap",
-      clickLeadHint:
-        "Klicka på en lead för att generera ett anpassat outreach-manus.",
+      clickLeadHint: "Klicka på en lead för att generera ett anpassat outreach-manus.",
       tabOverview: "Översikt",
       tabSignals: "Signaler",
       tabOutreach: "Outreach",
@@ -108,7 +106,7 @@ export const sv: TranslationSchema = {
       overdueLabel: "d försenad",
       todayLabel: "Idag",
       inDaysLabel: "om",
-      upside: "Uppsida",
+      upside: "Potential",
       deliverability: "Leveransbarhet",
       inboxReady: "Inkorgsredo",
       useWithCare: "Använd med omdöme",

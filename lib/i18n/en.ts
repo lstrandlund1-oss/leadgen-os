@@ -8,8 +8,7 @@ export const en: TranslationSchema = {
     },
     header: {
       title: "Find your next clients",
-      subtitle:
-        "Search any niche and location — every lead is scored, analyzed, and ready to contact.",
+      subtitle: "Search any niche and location — every lead is scored, analyzed, and ready to contact.",
       languageLabel: "Language",
     },
     filters: {
@@ -106,7 +105,7 @@ export const en: TranslationSchema = {
       overdueLabel: "d overdue",
       todayLabel: "Today",
       inDaysLabel: "in",
-      upside: "Upside",
+      upside: "Potential",
       deliverability: "Deliverability",
       inboxReady: "Inbox-ready",
       useWithCare: "Use with care",
