@@ -960,11 +960,19 @@ export default function Home() {
     }
   }, [selectedLead]);
   const [detailTab, setDetailTab] = useState<"overview" | "signals" | "outreach" | "tracking" | "followup">("overview");
+  const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
   const userPlan = getEffectivePlan();
   const deepEnrichmentUnlocked = canUseDeepEnrichment(userPlan);
 
   const [enrichmentLoading, setEnrichmentLoading] = useState(false);
   const [isRescoring, setIsRescoring] = useState(false);
+
+  // Reset snapshot when selected lead changes
+  useEffect(() => {
+    setSnapshot(null);
+    setSnapshotLoading(false);
+  }, [selectedLead?.id]);
 
   const [stableOrder, setStableOrder] = useState<Map<string, number>>(new Map());
   const [sequenceSteps, setSequenceSteps] = useState<
@@ -3647,6 +3655,86 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                   )}
                                 </div>
                               )}
+
+                            {/* ── Lead Snapshot ─────────────────────────────── */}
+                            <div className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-widest text-[#555]">AI Snapshot</p>
+                                  <p className="text-[11px] text-[#616161] mt-0.5">
+                                    Plain-English summary of this lead
+                                  </p>
+                                </div>
+                                {!snapshot && (
+                                  <button
+                                    onClick={async () => {
+                                      setSnapshotLoading(true);
+                                      try {
+                                        const res = await fetch("/api/leads/snapshot", {
+                                          method: "POST",
+                                          headers: { "Content-Type": "application/json" },
+                                          body: JSON.stringify({
+                                            company_name: detailLead.company.name,
+                                            city: detailLead.company.city,
+                                            industry: detailLead.classification.primaryIndustry,
+                                            rating: detailLead.metrics.rating,
+                                            review_count: detailLead.metrics.reviewCount,
+                                            has_website: !!detailLead.company.website,
+                                            social_presence: detailLead.metrics.socialPresence,
+                                            opportunity: detailLead.score.opportunity,
+                                            risk: detailLead.score.risk,
+                                            fit_score: detailLead.fit?.fitScore,
+                                            gap_type: (detailLead.metadata?.outreach as { gap?: string } | null)?.gap,
+                                            gap_tooltip: detailLead.score.tooltips?.gap,
+                                            risk_profile: detailLead.score.riskProfile,
+                                            matched_needs: detailLead.fit?.matchedNeeds,
+                                          }),
+                                        });
+                                        const data = (await res.json()) as {
+                                          ok: boolean;
+                                          snapshot?: string;
+                                          error?: string;
+                                          code?: string;
+                                        };
+                                        if (data.ok && data.snapshot) {
+                                          setSnapshot(data.snapshot);
+                                        } else if (data.code === "OUTREACH_LIMIT") {
+                                          toastError("Monthly limit reached — upgrade for more snapshots");
+                                        } else {
+                                          toastError("Snapshot failed — please try again");
+                                        }
+                                      } catch {
+                                        toastError("Something went wrong");
+                                      } finally {
+                                        setSnapshotLoading(false);
+                                      }
+                                    }}
+                                    disabled={snapshotLoading}
+                                    className="flex-shrink-0 text-[11px] px-3 py-1.5 rounded-lg border border-[rgba(201,168,76,0.3)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-all disabled:opacity-50">
+                                    {snapshotLoading ? (
+                                      <span className="flex items-center gap-1.5">
+                                        <span className="w-3 h-3 rounded-full border border-[#c9a84c] border-t-transparent animate-spin" />
+                                        Analyzing…
+                                      </span>
+                                    ) : (
+                                      "◈ Generate"
+                                    )}
+                                  </button>
+                                )}
+                                {snapshot && (
+                                  <button
+                                    onClick={() => setSnapshot(null)}
+                                    className="text-[10px] text-[#555] hover:text-[#888] transition-colors">
+                                    Clear
+                                  </button>
+                                )}
+                              </div>
+                              {snapshot && (
+                                <p className="text-[12px] text-[#a0a0a0] leading-relaxed border-t border-[#1a1a1a] pt-2">
+                                  {snapshot}
+                                </p>
+                              )}
+                            </div>
 
                             {/* Risk flag */}
                             {hasRisk && (
