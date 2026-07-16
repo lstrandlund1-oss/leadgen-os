@@ -73,7 +73,7 @@ export async function middleware(request: NextRequest) {
       const { data: profileData } = await supabase
         .from("user_profiles")
         .select("profile_data")
-        .eq("user_id", user.id)
+        .eq("user_id", user!.id)
         .single();
 
       const hasProfile = !!(profileData?.profile_data as Record<string, unknown> | null)?.businessName;
