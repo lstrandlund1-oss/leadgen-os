@@ -112,12 +112,7 @@ const PLANS: {
       { text: "Follow-up queue", note: null },
       { text: "CSV export", note: null },
     ],
-    lockedFeatures: [
-      "AI outreach generator",
-      "In-platform email sending",
-      "Website signal deep scan",
-      "Profile analytics & revenue tracking",
-    ],
+    lockedFeatures: ["AI outreach generator", "Website signal deep scan", "Profile analytics & revenue tracking"],
     trial: false,
   },
   {
