@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import HamburgerMenu from "./components/HamburgerMenu";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
+import { MOBILE_NEBULA_ENABLED } from "@/lib/config/mobileVisuals";
 
 const FEATURES = [
   {
@@ -1125,6 +1126,257 @@ function nbScreenBlit(ctx: CanvasRenderingContext2D, W: number, H: number, img: 
 }
 
 // ── HERO SCENE — flat dashboard + unified particle canvas ──
+// ── MOBILE HERO CARD — static replacement for the animated dashboard demo ──
+// The desktop demo is a two-column mockup (search+leads / score+AI message)
+// designed for a 1020px canvas, driven by a JS typing/reveal sequence. On a
+// phone that grid has nowhere to shrink to, so it overflows and gets clipped
+// (only the left column was visible), and the JS sequence is both expensive
+// and grows the container's height mid-animation, dragging the whole page
+// along with it. This is a fixed-height, single-column, fully static
+// snapshot instead — same example data, zero timers, nothing to clip or shift.
+function MobileHeroCard() {
+  const score = 88;
+  const ringColor = "#4ade80";
+  const ringCircumference = 226;
+  const ringOffset = ringCircumference * (1 - score / 100);
+  const gapColor = "#fb923c";
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        zIndex: 10,
+        width: "min(420px, 92vw)",
+        animation: "fadeUp 1.2s cubic-bezier(0.16,1,0.3,1) 0.5s both",
+      }}>
+      <div
+        style={{
+          background: "rgba(8,8,14,0.96)",
+          border: "1px solid rgba(201,168,76,0.13)",
+          borderRadius: 16,
+          overflow: "hidden",
+          boxShadow:
+            "0 0 0 1px rgba(201,168,76,0.05), 0 24px 60px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.03)",
+        }}>
+        {/* Gold accent line */}
+        <div
+          style={{
+            height: 1,
+            background: "linear-gradient(90deg,transparent 5%,rgba(201,168,76,0.35) 50%,transparent 95%)",
+          }}
+        />
+
+        {/* Chrome bar */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 7,
+            padding: "11px 16px",
+            background: "rgba(5,5,10,0.8)",
+            borderBottom: "1px solid rgba(201,168,76,0.07)",
+          }}>
+          {[0, 1, 2].map((i) => (
+            <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: "#141420" }} />
+          ))}
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            <span style={{ fontSize: 8, color: "rgba(201,168,76,0.25)" }}>◈</span>
+            <span style={{ fontSize: 9, color: "#8a8478", fontFamily: "monospace", letterSpacing: "0.04em" }}>
+              vantioapp.com — Lead Scanner
+            </span>
+          </div>
+        </div>
+
+        <div style={{ padding: "20px 18px" }}>
+          {/* Query context */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              background: "rgba(255,255,255,0.02)",
+              border: "1px solid rgba(201,168,76,0.1)",
+              borderRadius: 8,
+              padding: "9px 13px",
+              marginBottom: 18,
+            }}>
+            <span style={{ fontSize: 12, color: "#c9a84c" }}>🔍</span>
+            <span style={{ flex: 1, fontSize: 12, color: "#c0b8a8" }}>beauty salons · london</span>
+            <span style={{ fontSize: 8, color: "#7a7468", fontFamily: "monospace" }}>5 scored</span>
+          </div>
+
+          {/* Score ring + lead info */}
+          <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 18 }}>
+            <div
+              style={{
+                position: "relative",
+                width: 74,
+                height: 74,
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}>
+              <svg
+                viewBox="0 0 90 90"
+                width="74"
+                height="74"
+                style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}>
+                <circle cx="45" cy="45" r="36" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="6" />
+                <circle
+                  cx="45"
+                  cy="45"
+                  r="36"
+                  fill="none"
+                  stroke={ringColor}
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                  strokeDasharray={ringCircumference}
+                  strokeDashoffset={ringOffset}
+                />
+              </svg>
+              <span
+                style={{
+                  fontSize: 21,
+                  fontWeight: 700,
+                  fontFamily: "monospace",
+                  color: ringColor,
+                  position: "relative",
+                  zIndex: 1,
+                }}>
+                {score}
+              </span>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#d8d0c0", marginBottom: 4 }}>
+                Luxe Nail &amp; Spa
+              </div>
+              <div style={{ fontSize: 8, color: "#7a7468", fontFamily: "monospace", marginBottom: 8 }}>
+                Intelligence Report
+              </div>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  fontSize: 8,
+                  padding: "3px 9px",
+                  borderRadius: 4,
+                  fontWeight: 700,
+                  fontFamily: "monospace",
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: gapColor + "20",
+                  border: `1px solid ${gapColor}40`,
+                  color: gapColor,
+                }}>
+                ⬡ Conversion Gap
+              </span>
+            </div>
+          </div>
+
+          {/* Score bars */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+            {[
+              { label: "Fit Score", val: 92, color: "#818cf8" },
+              { label: "Opportunity", val: 85, color: "#4ade80" },
+              { label: "Risk Index", val: 10, color: "#f87171" },
+            ].map((bar) => (
+              <div key={bar.label}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span
+                    style={{
+                      fontSize: 8,
+                      color: "#8a8478",
+                      fontFamily: "monospace",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                    }}>
+                    {bar.label}
+                  </span>
+                  <span style={{ fontSize: 8, fontWeight: 700, fontFamily: "monospace", color: bar.color }}>
+                    {bar.val}
+                  </span>
+                </div>
+                <div style={{ height: 3, background: "rgba(255,255,255,0.04)", borderRadius: 99, overflow: "hidden" }}>
+                  <div style={{ height: "100%", background: bar.color, borderRadius: 99, width: `${bar.val}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* AI message */}
+          <div
+            style={{
+              padding: "11px 13px",
+              background: "rgba(201,168,76,0.03)",
+              border: "1px solid rgba(201,168,76,0.1)",
+              borderRadius: 8,
+            }}>
+            <div
+              style={{
+                fontSize: 7,
+                color: "rgba(201,168,76,0.6)",
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                fontFamily: "monospace",
+                marginBottom: 7,
+              }}>
+              ◈ AI Outreach — Generated
+            </div>
+            <div style={{ fontSize: 10.5, color: "#a09888", lineHeight: 1.6 }}>
+              Hi — <em style={{ color: "#c9a84c", fontStyle: "normal" }}>Luxe Nail &amp; Spa</em> has no mobile booking
+              CTA. I&apos;ll build one, install it, and send you a{" "}
+              <strong style={{ color: "#8080a0" }}>live preview within 48 hours</strong>. No commitment needed.
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "11px 18px",
+            borderTop: "1px solid rgba(201,168,76,0.06)",
+            background: "rgba(5,5,10,0.5)",
+          }}>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+            <div
+              style={{
+                fontSize: 8,
+                padding: "5px 12px",
+                borderRadius: 5,
+                fontFamily: "monospace",
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                background: "transparent",
+                border: "1px solid rgba(201,168,76,0.15)",
+                color: "rgba(201,168,76,0.35)",
+              }}>
+              Save Lead
+            </div>
+            <div
+              style={{
+                fontSize: 8,
+                padding: "5px 12px",
+                borderRadius: 5,
+                fontFamily: "monospace",
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                background: "#c9a84c",
+                color: "#080808",
+              }}>
+              Send Outreach
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HeroScene({ scrollY, waitlistCount }: { scrollY: number; waitlistCount: number | null }) {
   const isMobile = useIsMobile();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1225,6 +1477,7 @@ function HeroScene({ scrollY, waitlistCount }: { scrollY: number; waitlistCount:
 
     // ── HERO NEBULA — compute at reduced res then upscale to full device resolution ──
     // Deferred after first paint so page loads instantly
+    if (isMobile && !MOBILE_NEBULA_ENABLED) return; // plain black + stars only on mobile, per A/B toggle
     setTimeout(() => {
       const cv = canvasRef.current;
       if (!cv) return;
@@ -1816,461 +2069,471 @@ function HeroScene({ scrollY, waitlistCount }: { scrollY: number; waitlistCount:
       </div>
 
       {/* Dashboard */}
-      <div
-        style={{
-          position: "relative",
-          zIndex: 10,
-          width: "min(1020px,90vw)",
-          animation: "fadeUp 1.2s cubic-bezier(0.16,1,0.3,1) 0.5s both",
-        }}>
+      {isMobile ? (
+        <MobileHeroCard />
+      ) : (
         <div
           style={{
-            background: "rgba(8,8,14,0.96)",
-            border: "1px solid rgba(201,168,76,0.13)",
-            borderRadius: 16,
-            overflow: "hidden",
-            boxShadow:
-              "0 0 0 1px rgba(201,168,76,0.05), 0 24px 60px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.03)",
+            position: "relative",
+            zIndex: 10,
+            width: "min(1020px,90vw)",
+            animation: "fadeUp 1.2s cubic-bezier(0.16,1,0.3,1) 0.5s both",
           }}>
-          {/* Gold accent line */}
           <div
             style={{
-              height: 1,
-              background: "linear-gradient(90deg,transparent 5%,rgba(201,168,76,0.35) 50%,transparent 95%)",
-            }}
-          />
-
-          {/* Chrome bar */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 7,
-              padding: "11px 18px",
-              background: "rgba(5,5,10,0.8)",
-              borderBottom: "1px solid rgba(201,168,76,0.07)",
+              background: "rgba(8,8,14,0.96)",
+              border: "1px solid rgba(201,168,76,0.13)",
+              borderRadius: 16,
+              overflow: "hidden",
+              boxShadow:
+                "0 0 0 1px rgba(201,168,76,0.05), 0 24px 60px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.03)",
             }}>
-            {[0, 1, 2].map((i) => (
-              <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: "#141420" }} />
-            ))}
-            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-              <span style={{ fontSize: 8, color: "rgba(201,168,76,0.25)" }}>◈</span>
-              <span style={{ fontSize: 9, color: "#8a8478", fontFamily: "monospace", letterSpacing: "0.04em" }}>
-                vantioapp.com — Lead Scanner
-              </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <div
-                style={{
-                  width: 5,
-                  height: 5,
-                  borderRadius: "50%",
-                  background: "#4ade80",
-                  animation: "pulse 1.4s infinite",
-                }}
-              />
-              <span style={{ fontSize: 8, color: "#4ade80", fontFamily: "monospace", letterSpacing: "0.08em" }}>
-                SCANNING
-              </span>
-            </div>
-          </div>
+            {/* Gold accent line */}
+            <div
+              style={{
+                height: 1,
+                background: "linear-gradient(90deg,transparent 5%,rgba(201,168,76,0.35) 50%,transparent 95%)",
+              }}
+            />
 
-          {/* Two-column body */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: 340 }}>
-            {/* LEFT: search + leads */}
-            <div style={{ padding: "18px 20px", borderRight: "1px solid rgba(201,168,76,0.06)" }}>
-              {/* Search bar */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  background: "rgba(255,255,255,0.02)",
-                  border: `1px solid ${scanning ? "rgba(201,168,76,0.3)" : "rgba(201,168,76,0.1)"}`,
-                  borderRadius: 8,
-                  padding: "9px 13px",
-                  marginBottom: 14,
-                  transition: "border-color 0.3s",
-                  boxShadow: scanning ? "0 0 12px rgba(201,168,76,0.15)" : "none",
-                }}>
-                <span style={{ fontSize: 12, color: "#c9a84c" }}>🔍</span>
-                <span style={{ flex: 1, fontSize: 12, color: "#c0b8a8", minHeight: 15 }}>{queryText}</span>
-                <span
-                  style={{
-                    display: "inline-block",
-                    width: 2,
-                    height: 13,
-                    background: "#c9a84c",
-                    verticalAlign: "middle",
-                    animation: "blink 0.9s infinite",
-                  }}
-                />
+            {/* Chrome bar */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 7,
+                padding: "11px 18px",
+                background: "rgba(5,5,10,0.8)",
+                borderBottom: "1px solid rgba(201,168,76,0.07)",
+              }}>
+              {[0, 1, 2].map((i) => (
+                <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: "#141420" }} />
+              ))}
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                <span style={{ fontSize: 8, color: "rgba(201,168,76,0.25)" }}>◈</span>
+                <span style={{ fontSize: 9, color: "#8a8478", fontFamily: "monospace", letterSpacing: "0.04em" }}>
+                  vantioapp.com — Lead Scanner
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <div
                   style={{
-                    padding: "4px 11px",
-                    background: "#c9a84c",
-                    color: "#080808",
-                    fontSize: 8,
-                    fontWeight: 700,
-                    borderRadius: 5,
-                    fontFamily: "monospace",
-                    letterSpacing: "0.08em",
-                    boxShadow: scanning ? "0 0 12px rgba(201,168,76,0.4)" : "none",
-                    transition: "box-shadow 0.3s",
-                  }}>
-                  SCAN
-                </div>
+                    width: 5,
+                    height: 5,
+                    borderRadius: "50%",
+                    background: "#4ade80",
+                    animation: "pulse 1.4s infinite",
+                  }}
+                />
+                <span style={{ fontSize: 8, color: "#4ade80", fontFamily: "monospace", letterSpacing: "0.08em" }}>
+                  SCANNING
+                </span>
               </div>
+            </div>
 
-              {/* Results header */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  marginBottom: 9,
-                  opacity: showResultsHead ? 1 : 0,
-                  transition: "opacity 0.4s",
-                }}>
-                <span
+            {/* Two-column body */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: 340 }}>
+              {/* LEFT: search + leads */}
+              <div style={{ padding: "18px 20px", borderRight: "1px solid rgba(201,168,76,0.06)" }}>
+                {/* Search bar */}
+                <div
                   style={{
-                    fontSize: 8,
-                    color: "#7a7068",
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    fontFamily: "monospace",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    background: "rgba(255,255,255,0.02)",
+                    border: `1px solid ${scanning ? "rgba(201,168,76,0.3)" : "rgba(201,168,76,0.1)"}`,
+                    borderRadius: 8,
+                    padding: "9px 13px",
+                    marginBottom: 14,
+                    transition: "border-color 0.3s",
+                    boxShadow: scanning ? "0 0 12px rgba(201,168,76,0.15)" : "none",
                   }}>
-                  Results
-                </span>
-                <span style={{ fontSize: 8, color: "#c9a84c", fontWeight: 700, fontFamily: "monospace" }}>
-                  {leadCount}
-                </span>
-                <span
+                  <span style={{ fontSize: 12, color: "#c9a84c" }}>🔍</span>
+                  <span style={{ flex: 1, fontSize: 12, color: "#c0b8a8", minHeight: 15 }}>{queryText}</span>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 2,
+                      height: 13,
+                      background: "#c9a84c",
+                      verticalAlign: "middle",
+                      animation: "blink 0.9s infinite",
+                    }}
+                  />
+                  <div
+                    style={{
+                      padding: "4px 11px",
+                      background: "#c9a84c",
+                      color: "#080808",
+                      fontSize: 8,
+                      fontWeight: 700,
+                      borderRadius: 5,
+                      fontFamily: "monospace",
+                      letterSpacing: "0.08em",
+                      boxShadow: scanning ? "0 0 12px rgba(201,168,76,0.4)" : "none",
+                      transition: "box-shadow 0.3s",
+                    }}>
+                    SCAN
+                  </div>
+                </div>
+
+                {/* Results header */}
+                <div
                   style={{
-                    fontSize: 8,
-                    color: "#7a7068",
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    fontFamily: "monospace",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    marginBottom: 9,
+                    opacity: showResultsHead ? 1 : 0,
+                    transition: "opacity 0.4s",
                   }}>
-                  leads
-                </span>
-                <div style={{ marginLeft: "auto", display: "flex", gap: 3 }}>
-                  {["Score ↓", "Gap", "Fit"].map((f) => (
-                    <span
-                      key={f}
+                  <span
+                    style={{
+                      fontSize: 8,
+                      color: "#7a7068",
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      fontFamily: "monospace",
+                    }}>
+                    Results
+                  </span>
+                  <span style={{ fontSize: 8, color: "#c9a84c", fontWeight: 700, fontFamily: "monospace" }}>
+                    {leadCount}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 8,
+                      color: "#7a7068",
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      fontFamily: "monospace",
+                    }}>
+                    leads
+                  </span>
+                  <div style={{ marginLeft: "auto", display: "flex", gap: 3 }}>
+                    {["Score ↓", "Gap", "Fit"].map((f) => (
+                      <span
+                        key={f}
+                        style={{
+                          fontSize: 7,
+                          padding: "1px 6px",
+                          border: "1px solid #383848",
+                          borderRadius: 3,
+                          color: "#6a6068",
+                          fontFamily: "monospace",
+                        }}>
+                        {f}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Leads list — fixed height to prevent dashboard growing */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 5, minHeight: 205 }}>
+                  {leads.map((l, idx) => (
+                    <div
+                      key={idx}
                       style={{
-                        fontSize: 7,
-                        padding: "1px 6px",
-                        border: "1px solid #383848",
-                        borderRadius: 3,
-                        color: "#6a6068",
-                        fontFamily: "monospace",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 9,
+                        padding: "8px 11px",
+                        borderRadius: 8,
+                        background: idx === 0 ? "rgba(201,168,76,0.05)" : "rgba(255,255,255,0.015)",
+                        border: `1px solid ${idx === 0 ? "rgba(201,168,76,0.22)" : "rgba(255,255,255,0.04)"}`,
+                        boxShadow: idx === 0 ? "0 0 20px rgba(201,168,76,0.06)" : "none",
+                        animation: "leadIn 0.35s ease both",
                       }}>
-                      {f}
-                    </span>
+                      <span
+                        style={{
+                          fontSize: 8,
+                          fontFamily: "monospace",
+                          color: idx === 0 ? "#c9a84c" : "#6a6068",
+                          minWidth: 18,
+                        }}>
+                        {String(idx + 1).padStart(2, "0")}
+                      </span>
+                      <span
+                        style={{ flex: 1, fontSize: 11, fontWeight: 600, color: idx === 0 ? "#d8d0c0" : "#b0a898" }}>
+                        {l.n}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 7,
+                          padding: "1px 6px",
+                          borderRadius: 3,
+                          fontWeight: 700,
+                          fontFamily: "monospace",
+                          background: l.gc + "18",
+                          color: l.gc,
+                        }}>
+                        {l.gap}
+                      </span>
+                      <span style={{ fontSize: 15, fontWeight: 700, minWidth: 28, textAlign: "right", color: l.sc }}>
+                        {l.score}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 7,
+                          padding: "1px 6px",
+                          borderRadius: 3,
+                          fontWeight: 700,
+                          fontFamily: "monospace",
+                          background: l.vc + "18",
+                          color: l.vc,
+                          minWidth: 44,
+                          textAlign: "center",
+                        }}>
+                        {l.v}
+                      </span>
+                    </div>
                   ))}
                 </div>
               </div>
 
-              {/* Leads list — fixed height to prevent dashboard growing */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 5, minHeight: 205 }}>
-                {leads.map((l, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 9,
-                      padding: "8px 11px",
-                      borderRadius: 8,
-                      background: idx === 0 ? "rgba(201,168,76,0.05)" : "rgba(255,255,255,0.015)",
-                      border: `1px solid ${idx === 0 ? "rgba(201,168,76,0.22)" : "rgba(255,255,255,0.04)"}`,
-                      boxShadow: idx === 0 ? "0 0 20px rgba(201,168,76,0.06)" : "none",
-                      animation: "leadIn 0.35s ease both",
-                    }}>
-                    <span
-                      style={{
-                        fontSize: 8,
-                        fontFamily: "monospace",
-                        color: idx === 0 ? "#c9a84c" : "#6a6068",
-                        minWidth: 18,
-                      }}>
-                      {String(idx + 1).padStart(2, "0")}
-                    </span>
-                    <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color: idx === 0 ? "#d8d0c0" : "#b0a898" }}>
-                      {l.n}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 7,
-                        padding: "1px 6px",
-                        borderRadius: 3,
-                        fontWeight: 700,
-                        fontFamily: "monospace",
-                        background: l.gc + "18",
-                        color: l.gc,
-                      }}>
-                      {l.gap}
-                    </span>
-                    <span style={{ fontSize: 15, fontWeight: 700, minWidth: 28, textAlign: "right", color: l.sc }}>
-                      {l.score}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 7,
-                        padding: "1px 6px",
-                        borderRadius: 3,
-                        fontWeight: 700,
-                        fontFamily: "monospace",
-                        background: l.vc + "18",
-                        color: l.vc,
-                        minWidth: 44,
-                        textAlign: "center",
-                      }}>
-                      {l.v}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* RIGHT: score ring + bars + AI message */}
-            <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column" }}>
-              <div
-                style={{
-                  fontSize: 8,
-                  color: "rgba(201,168,76,0.6)",
-                  letterSpacing: "0.18em",
-                  textTransform: "uppercase",
-                  fontFamily: "monospace",
-                  marginBottom: 16,
-                }}>
-                Top Match — Intelligence Report
-              </div>
-
-              {/* Score ring + lead info */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 20,
-                  marginBottom: 18,
-                  opacity: showRing ? 1 : 0,
-                  transition: "opacity 0.5s",
-                }}>
+              {/* RIGHT: score ring + bars + AI message */}
+              <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column" }}>
                 <div
                   style={{
-                    position: "relative",
-                    width: 90,
-                    height: 90,
-                    flexShrink: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}>
-                  <svg
-                    viewBox="0 0 90 90"
-                    width="90"
-                    height="90"
-                    style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}>
-                    <circle cx="45" cy="45" r="36" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="6" />
-                    <circle
-                      cx="45"
-                      cy="45"
-                      r="36"
-                      fill="none"
-                      stroke={ringColor}
-                      strokeWidth="6"
-                      strokeLinecap="round"
-                      strokeDasharray="226"
-                      strokeDashoffset={ringOffset}
-                      style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(0.16,1,0.3,1), stroke 0.4s" }}
-                    />
-                  </svg>
-                  <span
-                    style={{
-                      fontSize: 26,
-                      fontWeight: 700,
-                      fontFamily: "monospace",
-                      color: ringColor,
-                      position: "relative",
-                      zIndex: 1,
-                    }}>
-                    {ringScore}
-                  </span>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#d8d0c0", marginBottom: 4 }}>{topLead?.n}</div>
-                  <div style={{ fontSize: 8, color: "#7a7468", fontFamily: "monospace", marginBottom: 10 }}>
-                    Intelligence Report
-                  </div>
-                  {topLead && (
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                        fontSize: 8,
-                        padding: "3px 9px",
-                        borderRadius: 4,
-                        fontWeight: 700,
-                        fontFamily: "monospace",
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                        background: topLead.gc + "20",
-                        border: `1px solid ${topLead.gc}40`,
-                        color: topLead.gc,
-                      }}>
-                      ⬡ {topLead.gap} GAP DETECTED
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Score bars */}
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8,
-                  flex: 1,
-                  opacity: showBars ? 1 : 0,
-                  transition: "opacity 0.5s 0.2s",
-                }}>
-                {[
-                  { label: "Fit Score", val: barFit, color: "#818cf8", id: "fit" },
-                  { label: "Opportunity", val: barOpp, color: "#4ade80", id: "opp" },
-                  { label: "Risk Index", val: barRisk, color: "#f87171", id: "risk" },
-                ].map((bar) => (
-                  <div key={bar.id}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                      <span
-                        style={{
-                          fontSize: 8,
-                          color: "#8a8478",
-                          fontFamily: "monospace",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.08em",
-                        }}>
-                        {bar.label}
-                      </span>
-                      <span style={{ fontSize: 8, fontWeight: 700, fontFamily: "monospace", color: bar.color }}>
-                        {bar.val || "—"}
-                      </span>
-                    </div>
-                    <div
-                      style={{ height: 3, background: "rgba(255,255,255,0.04)", borderRadius: 99, overflow: "hidden" }}>
-                      <div
-                        style={{
-                          height: "100%",
-                          background: bar.color,
-                          borderRadius: 99,
-                          width: showBars ? `${bar.val}%` : "0%",
-                          transition: "width 1.1s cubic-bezier(0.16,1,0.3,1)",
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* AI message */}
-              <div
-                style={{
-                  marginTop: 14,
-                  padding: "11px 13px",
-                  background: "rgba(201,168,76,0.03)",
-                  border: "1px solid rgba(201,168,76,0.1)",
-                  borderRadius: 8,
-                  opacity: showAiMsg ? 1 : 0,
-                  transition: "opacity 0.5s 0.4s",
-                }}>
-                <div
-                  style={{
-                    fontSize: 7,
+                    fontSize: 8,
                     color: "rgba(201,168,76,0.6)",
-                    letterSpacing: "0.16em",
+                    letterSpacing: "0.18em",
                     textTransform: "uppercase",
                     fontFamily: "monospace",
-                    marginBottom: 7,
+                    marginBottom: 16,
                   }}>
-                  ◈ AI Outreach — Generated
+                  Top Match — Intelligence Report
                 </div>
-                <div style={{ fontSize: 10.5, color: "#a09888", lineHeight: 1.65 }}>
-                  {aiMsgDone ? (
+
+                {/* Score ring + lead info */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 20,
+                    marginBottom: 18,
+                    opacity: showRing ? 1 : 0,
+                    transition: "opacity 0.5s",
+                  }}>
+                  <div
+                    style={{
+                      position: "relative",
+                      width: 90,
+                      height: 90,
+                      flexShrink: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}>
+                    <svg
+                      viewBox="0 0 90 90"
+                      width="90"
+                      height="90"
+                      style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}>
+                      <circle cx="45" cy="45" r="36" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="6" />
+                      <circle
+                        cx="45"
+                        cy="45"
+                        r="36"
+                        fill="none"
+                        stroke={ringColor}
+                        strokeWidth="6"
+                        strokeLinecap="round"
+                        strokeDasharray="226"
+                        strokeDashoffset={ringOffset}
+                        style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(0.16,1,0.3,1), stroke 0.4s" }}
+                      />
+                    </svg>
                     <span
-                      dangerouslySetInnerHTML={{
-                        __html: aiMsgFull
-                          .replace(/<em>/g, '<em style="color:#c9a84c;font-style:normal">')
-                          .replace(/<strong>/g, '<strong style="color:#8080a0">'),
-                      }}
-                    />
-                  ) : (
-                    <>
-                      {aiMsgText}
+                      style={{
+                        fontSize: 26,
+                        fontWeight: 700,
+                        fontFamily: "monospace",
+                        color: ringColor,
+                        position: "relative",
+                        zIndex: 1,
+                      }}>
+                      {ringScore}
+                    </span>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#d8d0c0", marginBottom: 4 }}>{topLead?.n}</div>
+                    <div style={{ fontSize: 8, color: "#7a7468", fontFamily: "monospace", marginBottom: 10 }}>
+                      Intelligence Report
+                    </div>
+                    {topLead && (
                       <span
                         style={{
-                          display: "inline-block",
-                          width: 2,
-                          height: 11,
-                          background: "#c9a84c",
-                          verticalAlign: "middle",
-                          animation: "blink 0.9s infinite",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          fontSize: 8,
+                          padding: "3px 9px",
+                          borderRadius: 4,
+                          fontWeight: 700,
+                          fontFamily: "monospace",
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          background: topLead.gc + "20",
+                          border: `1px solid ${topLead.gc}40`,
+                          color: topLead.gc,
+                        }}>
+                        ⬡ {topLead.gap} GAP DETECTED
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Score bars */}
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                    flex: 1,
+                    opacity: showBars ? 1 : 0,
+                    transition: "opacity 0.5s 0.2s",
+                  }}>
+                  {[
+                    { label: "Fit Score", val: barFit, color: "#818cf8", id: "fit" },
+                    { label: "Opportunity", val: barOpp, color: "#4ade80", id: "opp" },
+                    { label: "Risk Index", val: barRisk, color: "#f87171", id: "risk" },
+                  ].map((bar) => (
+                    <div key={bar.id}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span
+                          style={{
+                            fontSize: 8,
+                            color: "#8a8478",
+                            fontFamily: "monospace",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.08em",
+                          }}>
+                          {bar.label}
+                        </span>
+                        <span style={{ fontSize: 8, fontWeight: 700, fontFamily: "monospace", color: bar.color }}>
+                          {bar.val || "—"}
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          height: 3,
+                          background: "rgba(255,255,255,0.04)",
+                          borderRadius: 99,
+                          overflow: "hidden",
+                        }}>
+                        <div
+                          style={{
+                            height: "100%",
+                            background: bar.color,
+                            borderRadius: 99,
+                            width: showBars ? `${bar.val}%` : "0%",
+                            transition: "width 1.1s cubic-bezier(0.16,1,0.3,1)",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* AI message */}
+                <div
+                  style={{
+                    marginTop: 14,
+                    padding: "11px 13px",
+                    background: "rgba(201,168,76,0.03)",
+                    border: "1px solid rgba(201,168,76,0.1)",
+                    borderRadius: 8,
+                    opacity: showAiMsg ? 1 : 0,
+                    transition: "opacity 0.5s 0.4s",
+                  }}>
+                  <div
+                    style={{
+                      fontSize: 7,
+                      color: "rgba(201,168,76,0.6)",
+                      letterSpacing: "0.16em",
+                      textTransform: "uppercase",
+                      fontFamily: "monospace",
+                      marginBottom: 7,
+                    }}>
+                    ◈ AI Outreach — Generated
+                  </div>
+                  <div style={{ fontSize: 10.5, color: "#a09888", lineHeight: 1.65 }}>
+                    {aiMsgDone ? (
+                      <span
+                        dangerouslySetInnerHTML={{
+                          __html: aiMsgFull
+                            .replace(/<em>/g, '<em style="color:#c9a84c;font-style:normal">')
+                            .replace(/<strong>/g, '<strong style="color:#8080a0">'),
                         }}
                       />
-                    </>
-                  )}
+                    ) : (
+                      <>
+                        {aiMsgText}
+                        <span
+                          style={{
+                            display: "inline-block",
+                            width: 2,
+                            height: 11,
+                            background: "#c9a84c",
+                            verticalAlign: "middle",
+                            animation: "blink 0.9s infinite",
+                          }}
+                        />
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Footer */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "11px 20px",
-              borderTop: "1px solid rgba(201,168,76,0.06)",
-              background: "rgba(5,5,10,0.5)",
-            }}>
-            <span style={{ fontSize: 8, color: "#7a7468", letterSpacing: "0.1em", fontFamily: "monospace" }}>
-              {footerHint}
-            </span>
-            <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-              <div
-                style={{
-                  fontSize: 8,
-                  padding: "5px 12px",
-                  borderRadius: 5,
-                  fontFamily: "monospace",
-                  fontWeight: 700,
-                  letterSpacing: "0.06em",
-                  background: "transparent",
-                  border: "1px solid rgba(201,168,76,0.15)",
-                  color: "rgba(201,168,76,0.35)",
-                }}>
-                Save Lead
-              </div>
-              <div
-                style={{
-                  fontSize: 8,
-                  padding: "5px 12px",
-                  borderRadius: 5,
-                  fontFamily: "monospace",
-                  fontWeight: 700,
-                  letterSpacing: "0.06em",
-                  background: "#c9a84c",
-                  color: "#080808",
-                }}>
-                Send Outreach
+            {/* Footer */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "11px 20px",
+                borderTop: "1px solid rgba(201,168,76,0.06)",
+                background: "rgba(5,5,10,0.5)",
+              }}>
+              <span style={{ fontSize: 8, color: "#7a7468", letterSpacing: "0.1em", fontFamily: "monospace" }}>
+                {footerHint}
+              </span>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                <div
+                  style={{
+                    fontSize: 8,
+                    padding: "5px 12px",
+                    borderRadius: 5,
+                    fontFamily: "monospace",
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    background: "transparent",
+                    border: "1px solid rgba(201,168,76,0.15)",
+                    color: "rgba(201,168,76,0.35)",
+                  }}>
+                  Save Lead
+                </div>
+                <div
+                  style={{
+                    fontSize: 8,
+                    padding: "5px 12px",
+                    borderRadius: 5,
+                    fontFamily: "monospace",
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    background: "#c9a84c",
+                    color: "#080808",
+                  }}>
+                  Send Outreach
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }
@@ -2443,6 +2706,12 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
       shooters: Shooter[] = [];
 
     function buildStarLayers() {
+      // Positions are percentage-based, so they never needed to regenerate
+      // on resize — only build once. Without this guard, every
+      // ResizeObserver firing (scroll-reveal transitions, images loading,
+      // any layout shift) reshuffled every star to a new random spot,
+      // which reads as continuous motion even in the "frozen" mobile path.
+      if (deep.length || mid.length || fore.length) return;
       deep = Array.from({ length: 220 }, () => ({
         x: Math.random() * 100,
         y: Math.random() * 100,
@@ -2515,138 +2784,143 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
         loCtx.fill();
       }
 
-      // Nebula clouds at low res
-      loCtx.globalCompositeOperation = "screen";
-      if (variant === "features") {
-        nbScreenBlit(
-          loCtx,
-          LW,
-          LH,
-          nbBuildCloud(LW, LH, {
-            cx: 0.84 * LW,
-            cy: 0.3 * LH,
-            rx: 0.4 * LW,
-            ry: 0.46 * LW,
-            rot: -0.5,
-            seed: 10.0,
-            warp: 3.0,
-            thresh: 0.32,
-            intensity: 0.75,
-            es: 1.2,
-            c0: [0.05, 0.04, 0.18],
-            c1: [0.09, 0.14, 0.32],
-            c2: [0.14, 0.22, 0.48],
-            c3: [0.2, 0.3, 0.58],
-          }),
-        );
-        nbScreenBlit(
-          loCtx,
-          LW,
-          LH,
-          nbBuildCloud(LW, LH, {
-            cx: 0.86 * LW,
-            cy: 0.25 * LH,
-            rx: 0.3 * LW,
-            ry: 0.36 * LW,
-            rot: -0.48,
-            seed: 11.5,
-            warp: 3.4,
-            thresh: 0.35,
-            intensity: 1.0,
-            es: 1.5,
-            c0: [0.05, 0.22, 0.34],
-            c1: [0.1, 0.4, 0.58],
-            c2: [0.18, 0.62, 0.78],
-            c3: [0.34, 0.8, 0.9],
-          }),
-        );
-        nbScreenBlit(
-          loCtx,
-          LW,
-          LH,
-          nbBuildCloud(LW, LH, {
-            cx: 0.88 * LW,
-            cy: 0.19 * LH,
-            rx: 0.17 * LW,
-            ry: 0.22 * LW,
-            rot: -0.46,
-            seed: 12.8,
-            warp: 3.6,
-            thresh: 0.4,
-            intensity: 1.0,
-            es: 2.0,
-            c0: [0.2, 0.56, 0.7],
-            c1: [0.32, 0.74, 0.86],
-            c2: [0.5, 0.88, 0.92],
-            c3: [0.78, 0.97, 0.98],
-          }),
-        );
-      } else {
-        nbScreenBlit(
-          loCtx,
-          LW,
-          LH,
-          nbBuildCloud(LW, LH, {
-            cx: 0.5 * LW,
-            cy: 0.82 * LH,
-            rx: 0.48 * LW,
-            ry: 0.34 * LW,
-            rot: 0.05,
-            seed: 20.0,
-            warp: 2.9,
-            thresh: 0.3,
-            intensity: 0.75,
-            es: 1.1,
-            c0: [0.1, 0.03, 0.2],
-            c1: [0.22, 0.07, 0.36],
-            c2: [0.34, 0.1, 0.48],
-            c3: [0.42, 0.14, 0.58],
-          }),
-        );
-        nbScreenBlit(
-          loCtx,
-          LW,
-          LH,
-          nbBuildCloud(LW, LH, {
-            cx: 0.5 * LW,
-            cy: 0.79 * LH,
-            rx: 0.38 * LW,
-            ry: 0.26 * LW,
-            rot: 0.04,
-            seed: 21.5,
-            warp: 3.3,
-            thresh: 0.34,
-            intensity: 1.05,
-            es: 1.4,
-            c0: [0.34, 0.08, 0.18],
-            c1: [0.66, 0.2, 0.32],
-            c2: [0.88, 0.36, 0.48],
-            c3: [0.96, 0.56, 0.64],
-          }),
-        );
-        nbScreenBlit(
-          loCtx,
-          LW,
-          LH,
-          nbBuildCloud(LW, LH, {
-            cx: 0.49 * LW,
-            cy: 0.76 * LH,
-            rx: 0.22 * LW,
-            ry: 0.15 * LW,
-            rot: 0.03,
-            seed: 22.8,
-            warp: 3.5,
-            thresh: 0.39,
-            intensity: 1.05,
-            es: 1.8,
-            c0: [0.76, 0.32, 0.42],
-            c1: [0.9, 0.54, 0.6],
-            c2: [0.96, 0.72, 0.76],
-            c3: [0.99, 0.88, 0.9],
-          }),
-        );
+      // Nebula clouds at low res — skipped on mobile when the A/B toggle
+      // is off, leaving just the neutral faint specks above for a plain
+      // black + stars look instead of the colored cloud composition.
+      const showNebulaClouds = !isMobile || MOBILE_NEBULA_ENABLED;
+      if (showNebulaClouds) {
+        loCtx.globalCompositeOperation = "screen";
+        if (variant === "features") {
+          nbScreenBlit(
+            loCtx,
+            LW,
+            LH,
+            nbBuildCloud(LW, LH, {
+              cx: 0.84 * LW,
+              cy: 0.3 * LH,
+              rx: 0.4 * LW,
+              ry: 0.46 * LW,
+              rot: -0.5,
+              seed: 10.0,
+              warp: 3.0,
+              thresh: 0.32,
+              intensity: 0.75,
+              es: 1.2,
+              c0: [0.05, 0.04, 0.18],
+              c1: [0.09, 0.14, 0.32],
+              c2: [0.14, 0.22, 0.48],
+              c3: [0.2, 0.3, 0.58],
+            }),
+          );
+          nbScreenBlit(
+            loCtx,
+            LW,
+            LH,
+            nbBuildCloud(LW, LH, {
+              cx: 0.86 * LW,
+              cy: 0.25 * LH,
+              rx: 0.3 * LW,
+              ry: 0.36 * LW,
+              rot: -0.48,
+              seed: 11.5,
+              warp: 3.4,
+              thresh: 0.35,
+              intensity: 1.0,
+              es: 1.5,
+              c0: [0.05, 0.22, 0.34],
+              c1: [0.1, 0.4, 0.58],
+              c2: [0.18, 0.62, 0.78],
+              c3: [0.34, 0.8, 0.9],
+            }),
+          );
+          nbScreenBlit(
+            loCtx,
+            LW,
+            LH,
+            nbBuildCloud(LW, LH, {
+              cx: 0.88 * LW,
+              cy: 0.19 * LH,
+              rx: 0.17 * LW,
+              ry: 0.22 * LW,
+              rot: -0.46,
+              seed: 12.8,
+              warp: 3.6,
+              thresh: 0.4,
+              intensity: 1.0,
+              es: 2.0,
+              c0: [0.2, 0.56, 0.7],
+              c1: [0.32, 0.74, 0.86],
+              c2: [0.5, 0.88, 0.92],
+              c3: [0.78, 0.97, 0.98],
+            }),
+          );
+        } else {
+          nbScreenBlit(
+            loCtx,
+            LW,
+            LH,
+            nbBuildCloud(LW, LH, {
+              cx: 0.5 * LW,
+              cy: 0.82 * LH,
+              rx: 0.48 * LW,
+              ry: 0.34 * LW,
+              rot: 0.05,
+              seed: 20.0,
+              warp: 2.9,
+              thresh: 0.3,
+              intensity: 0.75,
+              es: 1.1,
+              c0: [0.1, 0.03, 0.2],
+              c1: [0.22, 0.07, 0.36],
+              c2: [0.34, 0.1, 0.48],
+              c3: [0.42, 0.14, 0.58],
+            }),
+          );
+          nbScreenBlit(
+            loCtx,
+            LW,
+            LH,
+            nbBuildCloud(LW, LH, {
+              cx: 0.5 * LW,
+              cy: 0.79 * LH,
+              rx: 0.38 * LW,
+              ry: 0.26 * LW,
+              rot: 0.04,
+              seed: 21.5,
+              warp: 3.3,
+              thresh: 0.34,
+              intensity: 1.05,
+              es: 1.4,
+              c0: [0.34, 0.08, 0.18],
+              c1: [0.66, 0.2, 0.32],
+              c2: [0.88, 0.36, 0.48],
+              c3: [0.96, 0.56, 0.64],
+            }),
+          );
+          nbScreenBlit(
+            loCtx,
+            LW,
+            LH,
+            nbBuildCloud(LW, LH, {
+              cx: 0.49 * LW,
+              cy: 0.76 * LH,
+              rx: 0.22 * LW,
+              ry: 0.15 * LW,
+              rot: 0.03,
+              seed: 22.8,
+              warp: 3.5,
+              thresh: 0.39,
+              intensity: 1.05,
+              es: 1.8,
+              c0: [0.76, 0.32, 0.42],
+              c1: [0.9, 0.54, 0.6],
+              c2: [0.96, 0.72, 0.76],
+              c3: [0.99, 0.88, 0.9],
+            }),
+          );
+        }
+        loCtx.globalCompositeOperation = "source-over";
       }
-      loCtx.globalCompositeOperation = "source-over";
 
       // Upscale to full canvas size
       const snap = document.createElement("canvas");
