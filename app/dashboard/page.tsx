@@ -22,9 +22,8 @@ import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import type { TranslationSchema as Translations } from "@/lib/i18n/types";
 import type { SocialPresenceFilter } from "@/lib/providers/types";
 import { useToast } from "../components/ToastProvider";
-import { getSearchQueries, getSearchVariants } from "@/lib/niche/synonyms";
+import { getSearchQueries } from "@/lib/niche/synonyms";
 import { dedupeLeads } from "@/lib/search/dedupeLeads";
-import type { SearchPlan } from "@/lib/search/anthropicPlanner";
 import { createPortal } from "react-dom";
 import { rescoreWithLightSignals } from "@/lib/scoring/rescoreWithSignals";
 
@@ -96,21 +95,6 @@ type LeadOutcomeUI = {
 
 type OutcomeKey = "contacted" | "replied" | "booked_call" | "closed";
 
-const OUTCOME_STATUS_KEYS: readonly OutcomeKey[] = ["contacted", "replied", "booked_call", "closed"] as const;
-
-function outcomeLabel(k: OutcomeKey, t: Translations): string {
-  switch (k) {
-    case "contacted":
-      return t.ui.detail.contacted;
-    case "replied":
-      return t.ui.detail.replied;
-    case "booked_call":
-      return t.ui.detail.booked;
-    case "closed":
-      return t.ui.detail.closed;
-  }
-}
-
 function buildOutcomePatch(key: OutcomeKey, value: boolean): Partial<Record<OutcomeKey, boolean>> {
   const patch: Partial<Record<OutcomeKey, boolean>> = {};
   patch[key] = value;
@@ -120,18 +104,6 @@ function buildOutcomePatch(key: OutcomeKey, value: boolean): Partial<Record<Outc
 function leadLocation(lead: Lead): string {
   const parts = [lead.company.city, lead.company.country].filter(Boolean);
   return parts.length ? parts.join(", ") : "Unknown";
-}
-
-function bandLabel(language: Language, n: number): string {
-  const v = Math.max(0, Math.min(100, Math.round(n)));
-  const level = v >= 70 ? "high" : v >= 45 ? "medium" : "low";
-
-  if (language === "sv") {
-    if (level === "high") return "Hög";
-    if (level === "medium") return "Medium";
-    return "Låg";
-  }
-  return level === "high" ? "High" : level === "medium" ? "Medium" : "Low";
 }
 
 // ---------------------
@@ -322,11 +294,6 @@ function getScoreReason(lead: Lead, language: Language): string {
 // ---------------------
 // Outreach upgrades
 // ---------------------
-// Returns the plain-text angle string (legacy compat)
-function getOutreachAngle(lead: LeadUI, language: Language): string {
-  return getStructuredAngle(lead, language).body;
-}
-
 type StructuredAngle = { title: string; why: string; body: string };
 
 function getStructuredAngle(lead: LeadUI, language: Language): StructuredAngle {
@@ -853,7 +820,7 @@ export default function Home() {
 
   const provider: ProviderName = "google_places";
 
-  const [language, setLanguage] = useState<Language>(() => {
+  const [language] = useState<Language>(() => {
     if (typeof window === "undefined") return "en";
     try {
       const raw = localStorage.getItem("vantio_state_v1");
@@ -913,7 +880,7 @@ export default function Home() {
   const [compareMode, setCompareMode] = useState(false);
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
-  const [bulkAction, setBulkAction] = useState<"contacted" | "replied" | "booked" | null>(null);
+  const [, setBulkAction] = useState<"contacted" | "replied" | "booked" | null>(null);
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -1368,7 +1335,7 @@ Deep scan: ${deepAddendumParts.join(", ")}.`
   const searchKey = `${niche}::${location}`;
   useEffect(() => {
     setDisplayCount(LEADS_PER_BATCH);
-  }, [searchKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchKey]);
   const visibleLeads = useMemo(() => sortedLeads.slice(0, displayCount), [sortedLeads, displayCount]);
   // Show more locally if available, otherwise need API fetch
   const hasMoreLocal = displayCount < sortedLeads.length;
@@ -1463,6 +1430,9 @@ Deep scan: ${deepAddendumParts.join(", ")}.`
     setIsRescoring(true);
     const t = setTimeout(() => setIsRescoring(false), 1500);
     return () => clearTimeout(t);
+    // Intentionally depends only on the id, not the whole selectedLead object —
+    // this should re-trigger on lead *selection*, not on every data refresh of the same lead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLead?.id]);
 
   useEffect(() => {
@@ -1856,60 +1826,6 @@ Light enrichment: ${addendumParts.join(", ")}.`
   // =====================
   // HANDLERS
   // =====================
-
-  const downloadCsv = () => {
-    if (sortedLeads.length === 0) return;
-
-    const header = [
-      "Company",
-      "Industry",
-      "Location",
-      "Score",
-      "Opportunity",
-      "Risk",
-      "Readiness",
-      "Risk Profile",
-      "Confidence",
-      "Rating",
-      "Review Count",
-      "Website",
-      "Primary Opportunity Insight",
-    ];
-
-    const rows = sortedLeads.map((lead: LeadUI) => {
-      const insight = getLocalizedOpportunityInsight(lead, language);
-      return [
-        lead.company.name,
-        lead.classification.primaryIndustry,
-        leadLocation(lead),
-        String(lead.score.value ?? 0),
-        String(lead.score.opportunity ?? 0),
-        String(lead.score.risk ?? 0),
-        String(lead.score.readiness ?? 0),
-        lead.score.riskProfile ?? "",
-        String(lead.classification.confidence ?? 0),
-        lead.metrics.rating ?? "",
-        lead.metrics.reviewCount ?? "",
-        lead.company.website ?? "",
-        insight?.message ?? "",
-      ];
-    });
-
-    const csvContent = [header, ...rows]
-      .map((row) => row.map((field: string | number) => `"${String(field).replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "leads_export.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -2809,10 +2725,6 @@ Light enrichment: ${addendumParts.join(", ")}.`
                       <tbody>
                         {visibleLeads.map((lead: LeadUI) => {
                           const isSelected = selectedLead?.id === lead.id;
-                          const mainInsight = getLocalizedOpportunityInsight(lead, language);
-                          const mainOpp = Number.isFinite(lead.score.opportunity)
-                            ? (lead.score.opportunity as number)
-                            : 0;
 
                           return (
                             <Fragment key={lead.id}>
@@ -3444,17 +3356,6 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         },
                       };
                       const gapInfo = gap ? (gapLabels[gap] ?? null) : null;
-
-                      function ScoreBar({ value: v, color }: { value: number; color: string }) {
-                        return (
-                          <div className="h-1.5 w-full rounded-full bg-[#1a1a1a] overflow-hidden">
-                            <div
-                              className="h-full rounded-full transition-all duration-700"
-                              style={{ width: `${v}%`, backgroundColor: color }}
-                            />
-                          </div>
-                        );
-                      }
 
                       return (
                         <div className="space-y-3 pt-1">
@@ -4574,12 +4475,6 @@ Light enrichment: ${addendumParts.join(", ")}.`
 
                       const revenueVal = selectedOutcome?.revenue ?? null;
                       const notesVal = selectedOutcome?.notes ?? "";
-                      const followupVal = selectedOutcome?.followup_date ?? "";
-                      // Derive difficulty for auto follow-up calculation
-                      const safeOutreachForTracking = (detailLead?.metadata?.outreach ?? null) as {
-                        difficulty?: string;
-                      } | null;
-                      const difficultyForTracking = safeOutreachForTracking?.difficulty ?? null;
                       const tonalityVal = selectedOutcome?.tonality ?? null;
                       const scoreSnap = selectedOutcome?.score_at_outreach ?? detailLead.score.value ?? null;
 
@@ -4944,12 +4839,6 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         replied: { color: "#4ade80", label: "Replied" },
                         skipped: { color: "#333", label: "Skipped" },
                       };
-                      const CAD_LABELS_FU: Record<string, string> = {
-                        aggressive: "Hot cadence",
-                        standard: "Standard cadence",
-                        nurture: "Nurture cadence",
-                      };
-
                       async function buildSeq() {
                         if (!detailLead || sequenceGenerating) return;
                         setSequenceGenerating(true);
