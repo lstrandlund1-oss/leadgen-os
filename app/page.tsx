@@ -105,6 +105,7 @@ function easeOutExpo(t: number): number {
 }
 
 function StatBar() {
+  const isMobile = useIsMobile();
   const [triggered, setTriggered] = useState(false);
   const [shimmer, setShimmer] = useState(false);
   const [counts, setCounts] = useState([0, 0, 0, 0]);
@@ -197,15 +198,26 @@ function StatBar() {
         style={{
           maxWidth: 1000,
           margin: "0 auto",
-          padding: "48px 24px",
+          padding: isMobile ? "40px 20px" : "48px 24px",
           display: "grid",
-          gridTemplateColumns: "repeat(4,1fr)",
+          gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)",
+          gap: isMobile ? 12 : 0,
           position: "relative",
         }}>
         {STATS.map((s, i) => (
-          <div key={i} style={{ textAlign: "center", position: "relative", padding: "8px 16px" }}>
-            {/* Vertical divider — not on last item */}
-            {i < 3 && (
+          <div
+            key={i}
+            style={{
+              textAlign: "center",
+              position: "relative",
+              padding: isMobile ? "22px 14px" : "8px 16px",
+              // On mobile each stat becomes its own card in the 2x2 grid
+              border: isMobile ? "1px solid #161616" : "none",
+              borderRadius: isMobile ? 14 : 0,
+              background: isMobile ? "#0d0d0d" : "transparent",
+            }}>
+            {/* Vertical divider — desktop only; doesn't map onto the 2x2 card grid */}
+            {!isMobile && i < 3 && (
               <div
                 style={{
                   position: "absolute",
@@ -608,12 +620,14 @@ function StepCard({
 }
 
 function StepsSection({ visible, scrollY }: { visible: boolean; scrollY: number }) {
+  const isMobile = useIsMobile();
   // Scroll-driven animation that starts when step 2 is visible on screen.
   // We measure step 2's actual position in the document and use that as the trigger.
   const step2Ref = useRef<HTMLDivElement | null>(null);
   const [scrollStart, setScrollStart] = useState(9999);
 
   useEffect(() => {
+    if (isMobile) return; // mobile renders the static timeline — nothing to measure
     if (!step2Ref.current) return;
     const measure = () => {
       const el = step2Ref.current;
@@ -626,7 +640,7 @@ function StepsSection({ visible, scrollY }: { visible: boolean; scrollY: number 
     measure();
     window.addEventListener("resize", measure, { passive: true });
     return () => window.removeEventListener("resize", measure);
-  }, [visible]);
+  }, [visible, isMobile]);
 
   const SCROLL_RANGE = 600;
   const t = visible ? Math.max(0, Math.min(1, (scrollY - scrollStart) / SCROLL_RANGE)) : 0;
@@ -644,6 +658,84 @@ function StepsSection({ visible, scrollY }: { visible: boolean; scrollY: number 
   const pulseY = t * (NODE_Y[3] - NODE_Y[0]) + NODE_Y[0];
   // Trail: last 12% of the path behind the pulse
   const trailY = Math.max(NODE_Y[0], pulseY - 0.12 * (NODE_Y[3] - NODE_Y[0]));
+
+  if (isMobile) {
+    // ── Static mobile timeline ──
+    // No scroll-driven pulse, no SVG pipeline. A fixed gradient rail that
+    // blends each step's accent color into the next, with a colored node
+    // per step and cards carrying their step color as a left accent.
+    return (
+      <div style={{ position: "relative", paddingLeft: 30 }}>
+        {/* Rail — gradient walks through the four step colors */}
+        <div
+          style={{
+            position: "absolute",
+            left: 9,
+            top: 14,
+            bottom: 14,
+            width: 2,
+            borderRadius: 2,
+            background: `linear-gradient(to bottom, ${STEP_COLORS_LIST[0]}55, ${STEP_COLORS_LIST[1]}45, ${STEP_COLORS_LIST[2]}45, ${STEP_COLORS_LIST[3]}55)`,
+          }}
+        />
+        {STEPS.map((s, i) => {
+          const accent = STEP_COLORS_LIST[i];
+          return (
+            <div key={i} style={{ position: "relative", marginBottom: i < STEPS.length - 1 ? 22 : 0 }}>
+              {/* Node on the rail */}
+              <div
+                style={{
+                  position: "absolute",
+                  left: -30 + 9 + 1 - 5.5,
+                  top: 20,
+                  width: 11,
+                  height: 11,
+                  borderRadius: "50%",
+                  background: "#0a0a0a",
+                  border: `2px solid ${accent}`,
+                  boxShadow: `0 0 10px ${accent}40`,
+                }}
+              />
+              <div
+                style={{
+                  borderRadius: 14,
+                  border: "1px solid #151515",
+                  borderLeft: `2px solid ${accent}70`,
+                  background: "#0a0a0a",
+                  padding: "18px 16px",
+                  opacity: visible ? 1 : 0,
+                  transform: visible ? "none" : "translateY(20px)",
+                  transition: `all 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 90}ms`,
+                }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 8 }}>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-display), serif",
+                      fontSize: 26,
+                      fontWeight: 300,
+                      lineHeight: 1,
+                      color: accent,
+                    }}>
+                    {s.number}
+                  </span>
+                  <h3
+                    style={{
+                      fontFamily: "var(--font-display), serif",
+                      fontSize: 17,
+                      fontWeight: 500,
+                      color: "#e8e0d0",
+                    }}>
+                    {s.title}
+                  </h3>
+                </div>
+                <p style={{ fontSize: 13, lineHeight: 1.7, color: "#555" }}>{s.body}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", gap: 0, alignItems: "stretch", position: "relative" }}>
@@ -3151,6 +3243,7 @@ export default function LandingPage() {
   );
 
   const [featuresRef, featuresVisible] = useReveal();
+  const [activeFeature, setActiveFeature] = useState(0);
   const [stepsRef, stepsVisible] = useReveal();
   const [diffRef, diffVisible] = useReveal();
   const [ctaRef, ctaVisible] = useReveal();
@@ -3357,11 +3450,60 @@ export default function LandingPage() {
               </GoldText>
             </h2>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
-            {FEATURES.map((f, i) => (
-              <FeatureCard key={i} f={f} i={i} visible={featuresVisible} />
-            ))}
-          </div>
+          {isMobile ? (
+            <div>
+              {/* Swipeable card rail — native scroll-snap, no JS animation.
+                  Bleeds to the screen edges so the next card peeks in,
+                  which is the visual cue that the row swipes. */}
+              <div
+                className="vantio-feature-rail"
+                onScroll={(e) => {
+                  const el = e.currentTarget;
+                  const per = (el.scrollWidth - el.clientWidth) / (FEATURES.length - 1);
+                  if (per > 0)
+                    setActiveFeature(Math.min(FEATURES.length - 1, Math.max(0, Math.round(el.scrollLeft / per))));
+                }}
+                style={{
+                  display: "flex",
+                  gap: 14,
+                  overflowX: "auto",
+                  scrollSnapType: "x mandatory",
+                  WebkitOverflowScrolling: "touch",
+                  margin: "0 -24px",
+                  padding: "4px 24px 8px",
+                  scrollPaddingLeft: 24,
+                  scrollbarWidth: "none",
+                }}>
+                {FEATURES.map((f, i) => (
+                  <div key={i} style={{ flex: "0 0 82%", scrollSnapAlign: "center" }}>
+                    <FeatureCard f={f} i={i} visible={featuresVisible} />
+                  </div>
+                ))}
+              </div>
+              {/* Dot indicators */}
+              <div style={{ display: "flex", justifyContent: "center", gap: 7, marginTop: 20 }}>
+                {FEATURES.map((_, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      width: i === activeFeature ? 18 : 6,
+                      height: 6,
+                      borderRadius: 999,
+                      background: i === activeFeature ? "#c9a84c" : "#2a2a2a",
+                      transition: "all 0.3s cubic-bezier(0.16,1,0.3,1)",
+                    }}
+                  />
+                ))}
+              </div>
+              <style>{`.vantio-feature-rail::-webkit-scrollbar{display:none}`}</style>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
+              {FEATURES.map((f, i) => (
+                <FeatureCard key={i} f={f} i={i} visible={featuresVisible} />
+              ))}
+            </div>
+          )}
         </section>
       </div>
 
@@ -3394,7 +3536,9 @@ export default function LandingPage() {
       </div>
 
       <div ref={stepsRef}>
-        <section id="how-it-works" style={{ padding: "112px 48px", maxWidth: 960, margin: "0 auto" }}>
+        <section
+          id="how-it-works"
+          style={{ padding: isMobile ? "72px 20px" : "112px 48px", maxWidth: 960, margin: "0 auto" }}>
           <div
             style={{
               marginBottom: 64,
@@ -3458,7 +3602,7 @@ export default function LandingPage() {
         <GlowSection
           style={{ background: "#050505", borderTop: "1px solid #0e0e0e", overflow: "hidden" }}
           glowColor="rgba(201,168,76,0.06)">
-          <section style={{ padding: "120px 24px 100px", position: "relative" }}>
+          <section style={{ padding: isMobile ? "72px 20px 60px" : "120px 24px 100px", position: "relative" }}>
             {/* Background ambient glow behind Vantio column */}
             <div
               style={{
@@ -3475,39 +3619,42 @@ export default function LandingPage() {
               }}
             />
 
-            {/* Giant Scarabynth-style backdrop text */}
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                pointerEvents: "none",
-                overflow: "hidden",
-              }}>
-              <p
+            {/* Giant Scarabynth-style backdrop text — desktop only; at 80px+ it
+                overflows a phone viewport and fights the stacked layout */}
+            {!isMobile && (
+              <div
                 style={{
-                  fontFamily: "var(--font-display), serif",
-                  fontSize: "clamp(80px, 14vw, 180px)",
-                  fontWeight: 700,
-                  letterSpacing: "-0.04em",
-                  color: "transparent",
-                  WebkitTextStroke: "1px rgba(201,168,76,0.07)",
-                  whiteSpace: "nowrap",
-                  userSelect: "none",
-                  opacity: diffVisible ? 1 : 0,
-                  transition: "opacity 1.2s ease",
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  pointerEvents: "none",
+                  overflow: "hidden",
                 }}>
-                INTELLIGENCE
-              </p>
-            </div>
+                <p
+                  style={{
+                    fontFamily: "var(--font-display), serif",
+                    fontSize: "clamp(80px, 14vw, 180px)",
+                    fontWeight: 700,
+                    letterSpacing: "-0.04em",
+                    color: "transparent",
+                    WebkitTextStroke: "1px rgba(201,168,76,0.07)",
+                    whiteSpace: "nowrap",
+                    userSelect: "none",
+                    opacity: diffVisible ? 1 : 0,
+                    transition: "opacity 1.2s ease",
+                  }}>
+                  INTELLIGENCE
+                </p>
+              </div>
+            )}
 
             <div style={{ maxWidth: 1100, margin: "0 auto", position: "relative", zIndex: 1 }}>
               {/* Header */}
               <div
                 style={{
-                  marginBottom: 80,
+                  marginBottom: isMobile ? 40 : 80,
                   textAlign: "center",
                   opacity: diffVisible ? 1 : 0,
                   transform: diffVisible ? "none" : "translateY(40px)",
@@ -3547,9 +3694,10 @@ export default function LandingPage() {
                 </h2>
               </div>
 
-              {/* Three floating cards — Vantio physically elevated */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1.15fr 1fr", gap: 16, alignItems: "end" }}>
-                {[
+              {/* Three floating cards — Vantio physically elevated on desktop;
+                  on mobile Vantio leads the stack, alternatives follow compacted */}
+              {(() => {
+                const cols = [
                   {
                     label: "Typical lead lists",
                     icon: "✗",
@@ -3595,127 +3743,174 @@ export default function LandingPage() {
                     ],
                     delay: 240,
                   },
-                ].map((col, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      borderRadius: 20,
-                      border: col.highlight ? "1px solid rgba(201,168,76,0.25)" : "1px solid #111",
-                      background: col.highlight
-                        ? "linear-gradient(160deg, rgba(201,168,76,0.07) 0%, rgba(201,168,76,0.02) 100%)"
-                        : "#080808",
-                      padding: "36px 28px",
-                      position: "relative",
-                      overflow: "hidden",
-                      opacity: diffVisible ? 1 : 0,
-                      transform: diffVisible
-                        ? col.highlight
-                          ? "translateY(-20px)"
-                          : "translateY(0)"
-                        : "translateY(50px)",
-                      transition: `all 0.8s cubic-bezier(0.16,1,0.3,1) ${col.delay}ms`,
-                      boxShadow: col.highlight
-                        ? "0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(201,168,76,0.12), 0 40px 60px rgba(201,168,76,0.06)"
-                        : "0 8px 32px rgba(0,0,0,0.4)",
-                    }}>
-                    {/* Spotlight underneath Vantio card */}
-                    {col.highlight && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          bottom: -40,
-                          left: "50%",
-                          transform: "translateX(-50%)",
-                          width: 300,
-                          height: 80,
-                          background: "radial-gradient(ellipse, rgba(201,168,76,0.18) 0%, transparent 70%)",
-                          filter: "blur(16px)",
-                          pointerEvents: "none",
-                        }}
-                      />
-                    )}
-                    {/* Top edge accent */}
-                    {col.highlight && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: 0,
-                          left: "15%",
-                          right: "15%",
-                          height: 1,
-                          background: "linear-gradient(90deg, transparent, #c9a84c, transparent)",
-                        }}
-                      />
-                    )}
+                ];
+                // Mobile: Vantio first, then the alternatives. Desktop: original order.
+                const ordered = isMobile ? [cols[1], cols[0], cols[2]] : cols;
 
-                    {/* Header */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                      <span style={{ fontSize: col.highlight ? 20 : 14, color: col.iconColor }}>{col.icon}</span>
+                const renderCard = (col: (typeof cols)[0], i: number) => {
+                  const compact = isMobile && !col.highlight;
+                  return (
+                    <div
+                      key={col.label}
+                      style={{
+                        borderRadius: 20,
+                        border: col.highlight ? "1px solid rgba(201,168,76,0.25)" : "1px solid #111",
+                        background: col.highlight
+                          ? "linear-gradient(160deg, rgba(201,168,76,0.07) 0%, rgba(201,168,76,0.02) 100%)"
+                          : "#080808",
+                        padding: compact ? "24px 20px" : "36px 28px",
+                        position: "relative",
+                        overflow: "hidden",
+                        opacity: diffVisible ? 1 : 0,
+                        transform: diffVisible
+                          ? !isMobile && col.highlight
+                            ? "translateY(-20px)"
+                            : "translateY(0)"
+                          : "translateY(50px)",
+                        transition: `all 0.8s cubic-bezier(0.16,1,0.3,1) ${isMobile ? i * 100 : col.delay}ms`,
+                        boxShadow: col.highlight
+                          ? "0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(201,168,76,0.12), 0 40px 60px rgba(201,168,76,0.06)"
+                          : "0 8px 32px rgba(0,0,0,0.4)",
+                      }}>
+                      {/* Spotlight underneath Vantio card */}
+                      {col.highlight && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            bottom: -40,
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            width: 300,
+                            height: 80,
+                            background: "radial-gradient(ellipse, rgba(201,168,76,0.18) 0%, transparent 70%)",
+                            filter: "blur(16px)",
+                            pointerEvents: "none",
+                          }}
+                        />
+                      )}
+                      {/* Top edge accent */}
+                      {col.highlight && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: "15%",
+                            right: "15%",
+                            height: 1,
+                            background: "linear-gradient(90deg, transparent, #c9a84c, transparent)",
+                          }}
+                        />
+                      )}
+
+                      {/* Header */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: compact ? 10 : 16 }}>
+                        <span style={{ fontSize: col.highlight ? 20 : 14, color: col.iconColor }}>{col.icon}</span>
+                        <p
+                          style={{
+                            fontSize: col.highlight ? 16 : 13,
+                            fontWeight: 700,
+                            letterSpacing: "0.04em",
+                            color: col.highlight ? "#e8c97a" : "#888",
+                          }}>
+                          {col.label}
+                        </p>
+                        {col.highlight && (
+                          <span
+                            style={{
+                              fontSize: 9,
+                              padding: "2px 8px",
+                              borderRadius: 999,
+                              background: "rgba(201,168,76,0.15)",
+                              color: "#c9a84c",
+                              letterSpacing: "0.12em",
+                              textTransform: "uppercase",
+                              marginLeft: "auto",
+                            }}>
+                            You are here
+                          </span>
+                        )}
+                      </div>
+
                       <p
                         style={{
-                          fontSize: col.highlight ? 16 : 13,
-                          fontWeight: 700,
-                          letterSpacing: "0.04em",
-                          color: col.highlight ? "#e8c97a" : "#888",
+                          fontSize: 12,
+                          color: col.highlight ? "#888" : "#666",
+                          lineHeight: 1.6,
+                          marginBottom: compact ? 14 : 24,
                         }}>
-                        {col.label}
+                        {col.desc}
                       </p>
-                      {col.highlight && (
+
+                      {/* Divider */}
+                      <div
+                        style={{
+                          height: 1,
+                          background: col.highlight ? "rgba(201,168,76,0.1)" : "#111",
+                          marginBottom: compact ? 12 : 20,
+                        }}
+                      />
+
+                      {/* Points */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: compact ? 8 : 11 }}>
+                        {col.points.map((pt, j) => (
+                          <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                            <span
+                              style={{
+                                fontSize: 10,
+                                color: col.highlight ? "#4ade80" : "#2a2a2a",
+                                flexShrink: 0,
+                                marginTop: 2,
+                              }}>
+                              {col.highlight ? "✓" : "—"}
+                            </span>
+                            <p style={{ fontSize: 12, lineHeight: 1.5, color: col.highlight ? "#999" : "#666" }}>
+                              {pt}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                };
+
+                if (isMobile) {
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                      {renderCard(ordered[0], 0)}
+                      {/* Divider label between Vantio and the alternatives */}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                          margin: "10px 0 2px",
+                          opacity: diffVisible ? 1 : 0,
+                          transition: "opacity 0.8s ease 200ms",
+                        }}>
+                        <div style={{ flex: 1, height: 1, background: "#151515" }} />
                         <span
                           style={{
                             fontSize: 9,
-                            padding: "2px 8px",
-                            borderRadius: 999,
-                            background: "rgba(201,168,76,0.15)",
-                            color: "#c9a84c",
-                            letterSpacing: "0.12em",
+                            letterSpacing: "0.18em",
                             textTransform: "uppercase",
-                            marginLeft: "auto",
+                            color: "#555",
+                            fontFamily: "monospace",
                           }}>
-                          You are here
+                          Compared to the alternatives
                         </span>
-                      )}
+                        <div style={{ flex: 1, height: 1, background: "#151515" }} />
+                      </div>
+                      {renderCard(ordered[1], 1)}
+                      {renderCard(ordered[2], 2)}
                     </div>
-
-                    <p
-                      style={{
-                        fontSize: 12,
-                        color: col.highlight ? "#888" : "#666",
-                        lineHeight: 1.6,
-                        marginBottom: 24,
-                      }}>
-                      {col.desc}
-                    </p>
-
-                    {/* Divider */}
-                    <div
-                      style={{
-                        height: 1,
-                        background: col.highlight ? "rgba(201,168,76,0.1)" : "#111",
-                        marginBottom: 20,
-                      }}
-                    />
-
-                    {/* Points */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-                      {col.points.map((pt, j) => (
-                        <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                          <span
-                            style={{
-                              fontSize: 10,
-                              color: col.highlight ? "#4ade80" : "#2a2a2a",
-                              flexShrink: 0,
-                              marginTop: 2,
-                            }}>
-                            {col.highlight ? "✓" : "—"}
-                          </span>
-                          <p style={{ fontSize: 12, lineHeight: 1.5, color: col.highlight ? "#999" : "#666" }}>{pt}</p>
-                        </div>
-                      ))}
-                    </div>
+                  );
+                }
+                return (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1.15fr 1fr", gap: 16, alignItems: "end" }}>
+                    {ordered.map((col, i) => renderCard(col, i))}
                   </div>
-                ))}
-              </div>
+                );
+              })()}
             </div>
           </section>
         </GlowSection>
