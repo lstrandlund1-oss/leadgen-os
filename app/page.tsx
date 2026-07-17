@@ -1223,15 +1223,23 @@ function HeroScene({ scrollY, waitlistCount }: { scrollY: number; waitlistCount:
     particlesRef.current = [...deep, ...mid, ...fore] as unknown as typeof particlesRef.current;
     shooterRef.current = shooters;
 
-    // ── HERO NEBULA — compute at 1/3 res then upscale (9x faster) ──
+    // ── HERO NEBULA — compute at reduced res then upscale to full device resolution ──
     // Deferred after first paint so page loads instantly
     setTimeout(() => {
       const cv = canvasRef.current;
       if (!cv) return;
       const sec2 = cv.parentElement;
-      const W = sec2?.offsetWidth || cv.width || window.innerWidth;
-      const H = sec2?.offsetHeight || cv.height || window.innerHeight;
-      const S = 3; // compute at 1/3 size
+      const dpr = Math.min(window.devicePixelRatio || 1, 3);
+      const cssW = sec2?.offsetWidth || cv.width || window.innerWidth;
+      const cssH = sec2?.offsetHeight || cv.height || window.innerHeight;
+      // Build at actual device-pixel resolution — building at CSS-pixel
+      // resolution only (the old behavior) looks blurry on any retina/
+      // high-DPI screen, phones especially. Mobile is a one-time static
+      // paint (no per-frame cost) and has a smaller screen, so it can
+      // afford a milder downsample than desktop's continuously-redrawn version.
+      const W = Math.round(cssW * dpr);
+      const H = Math.round(cssH * dpr);
+      const S = isMobile ? 1.5 : 3; // compute at reduced size, then upscale
       const LW = Math.ceil(W / S),
         LH = Math.ceil(H / S);
       // Low-res offscreen for computation
@@ -1325,7 +1333,7 @@ function HeroScene({ scrollY, waitlistCount }: { scrollY: number; waitlistCount:
         }),
       );
       loCtx.globalCompositeOperation = "source-over";
-      // Upscale to full size with smoothing — LANCZOS-equivalent via bilinear
+      // Upscale to full device-pixel size with smoothing — LANCZOS-equivalent via bilinear
       const off = document.createElement("canvas");
       off.width = W;
       off.height = H;
@@ -1337,7 +1345,7 @@ function HeroScene({ scrollY, waitlistCount }: { scrollY: number; waitlistCount:
       offCtx.globalCompositeOperation = "source-over";
       nebulaOffRef.current = off;
     }, 0);
-  }, []);
+  }, [isMobile]);
 
   // Canvas draw loop — desktop animates continuously; mobile draws one
   // static frame and stops, so the galaxy still appears but nothing
@@ -1347,11 +1355,26 @@ function HeroScene({ scrollY, waitlistCount }: { scrollY: number; waitlistCount:
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
     const sec = canvas.parentElement!;
-    let W = (canvas.width = sec.offsetWidth || window.innerWidth);
-    let H = (canvas.height = sec.offsetHeight || window.innerHeight);
+
+    // W/H stay in logical CSS-pixel units for all drawing math below.
+    // The canvas backing store is sized to the actual device resolution
+    // and the context is scaled to match — without this, the canvas
+    // renders at CSS-pixel resolution and gets blurrily stretched on
+    // any retina/high-DPI screen (most phones).
+    let W = sec.offsetWidth || window.innerWidth;
+    let H = sec.offsetHeight || window.innerHeight;
+    const applyCanvasSize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 3);
+      canvas.width = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    applyCanvasSize();
+
     const onResize = () => {
-      W = canvas.width = sec.offsetWidth || window.innerWidth;
-      H = canvas.height = sec.offsetHeight || window.innerHeight;
+      W = sec.offsetWidth || window.innerWidth;
+      H = sec.offsetHeight || window.innerHeight;
+      applyCanvasSize();
       if (isMobile) draw(0); // redraw the single static frame at the new size
     };
     window.addEventListener("resize", onResize, { passive: true });
@@ -1373,10 +1396,12 @@ function HeroScene({ scrollY, waitlistCount }: { scrollY: number; waitlistCount:
       const pts = particlesRef.current;
       const shooters = shooterRef.current;
 
-      // ── 1. NEBULA CLOUD — precomputed offscreen, drawn once per frame ──
+      // ── 1. NEBULA CLOUD — precomputed offscreen (built at full device
+      // resolution), scaled down to logical W×H here since the context
+      // transform above already maps that onto the real screen resolution ──
       if (nebulaOffRef.current) {
         ctx.globalCompositeOperation = "screen";
-        ctx.drawImage(nebulaOffRef.current, 0, 0);
+        ctx.drawImage(nebulaOffRef.current, 0, 0, W, H);
         ctx.globalCompositeOperation = "source-over";
       }
 
@@ -2372,15 +2397,21 @@ function GlowButton({
 // ── GALAXY SECTION BACKGROUND — noise-based nebula, computed once on mount ──
 function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const container = canvas.parentElement!;
     const c = canvas;
+    // W/H are logical CSS-pixel dimensions used for all drawing math.
+    // The canvas backing store is set to the actual device resolution
+    // via dpr below, so visuals stay crisp on retina/high-DPI screens.
     let W = 0,
       H = 0;
+    let dpr = 1;
     let rafId = 0;
+    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
     // Snapshot of static nebula + dim stars — animated stars drawn on top each frame
     let staticSnap: HTMLCanvasElement | null = null;
 
@@ -2458,7 +2489,7 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
     }
 
     function buildNebula(w: number, h: number): HTMLCanvasElement {
-      const S = 3;
+      const S = isMobile ? 1.5 : 3;
       const LW = Math.ceil(w / S),
         LH = Math.ceil(h / S);
       const lo = document.createElement("canvas");
@@ -2633,14 +2664,17 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
     }
 
     function init() {
-      W = c.width = container.offsetWidth;
-      H = c.height = container.offsetHeight;
+      W = container.offsetWidth;
+      H = container.offsetHeight;
       if (W === 0 || H === 0) return;
+      dpr = Math.min(window.devicePixelRatio || 1, 3);
+      c.width = Math.round(W * dpr);
+      c.height = Math.round(H * dpr);
       cancelAnimationFrame(rafId);
       staticSnap = null;
       // Defer heavy computation
       setTimeout(() => {
-        staticSnap = buildNebula(W, H);
+        staticSnap = buildNebula(Math.round(W * dpr), Math.round(H * dpr));
         buildStarLayers();
         startAnim();
       }, 0);
@@ -2648,23 +2682,30 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
 
     function startAnim() {
       const ctx = c.getContext("2d")!;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       let t = performance.now();
 
       function frame(now: number) {
         const dt = now - t;
         t = now;
         if (!staticSnap) {
-          rafId = requestAnimationFrame(frame);
+          if (isMobile) {
+            retryTimeout = setTimeout(() => frame(performance.now()), 16);
+          } else {
+            rafId = requestAnimationFrame(frame);
+          }
           return;
         }
         ctx.clearRect(0, 0, W, H);
-        ctx.drawImage(staticSnap, 0, 0);
+        ctx.drawImage(staticSnap, 0, 0, W, H);
 
         // ── Layer 0: deep tiny stars ──
         for (const p of deep) {
-          p.x = (p.x + p.vx + 100) % 100;
-          p.y = (p.y + p.vy + 100) % 100;
-          const pulse = 0.55 + Math.sin(now * p.sp * 2 + p.ph) * 0.45;
+          if (!isMobile) {
+            p.x = (p.x + p.vx + 100) % 100;
+            p.y = (p.y + p.vy + 100) % 100;
+          }
+          const pulse = isMobile ? 1 : 0.55 + Math.sin(now * p.sp * 2 + p.ph) * 0.45;
           const op = Math.min(0.92, p.op * pulse);
           ctx.beginPath();
           ctx.arc((p.x * W) / 100, (p.y * H) / 100, p.r, 0, Math.PI * 2);
@@ -2673,9 +2714,11 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
         }
         // ── Layer 1: mid warm gold stars ──
         for (const p of mid) {
-          p.x = (p.x + p.vx + 100) % 100;
-          p.y = (p.y + p.vy + 100) % 100;
-          const pulse = 0.55 + Math.sin(now * p.sp * 2 + p.ph) * 0.45;
+          if (!isMobile) {
+            p.x = (p.x + p.vx + 100) % 100;
+            p.y = (p.y + p.vy + 100) % 100;
+          }
+          const pulse = isMobile ? 1 : 0.55 + Math.sin(now * p.sp * 2 + p.ph) * 0.45;
           const op = Math.min(0.92, p.op * pulse);
           if (pulse > 0.8) {
             const gr2 = ctx.createRadialGradient(
@@ -2700,9 +2743,11 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
         }
         // ── Layer 2: bright foreground stars with corona ──
         for (const p of fore) {
-          p.x = (p.x + p.vx + 100) % 100;
-          p.y = (p.y + p.vy + 100) % 100;
-          const pulse = 0.55 + Math.sin(now * p.sp * 2 + p.ph) * 0.45;
+          if (!isMobile) {
+            p.x = (p.x + p.vx + 100) % 100;
+            p.y = (p.y + p.vy + 100) % 100;
+          }
+          const pulse = isMobile ? 1 : 0.55 + Math.sin(now * p.sp * 2 + p.ph) * 0.45;
           const op = Math.min(0.92, p.op * pulse);
           const coronaR = p.r * 6;
           const gr = ctx.createRadialGradient(
@@ -2726,53 +2771,63 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
           ctx.fillStyle = `rgba(255,250,220,${op})`;
           ctx.fill();
         }
-        // ── Shooting stars ──
-        for (const s of shooters) {
-          if (!s.active) {
-            s.timer -= dt;
-            if (s.timer <= 0) {
-              s.x = Math.random() * W * 0.6;
-              s.y = Math.random() * H * 0.5;
-              s.vx = 4 + Math.random() * 5;
-              s.vy = 1 + Math.random() * 2.5;
-              s.len = 60 + Math.random() * 100;
-              s.op = 0.7 + Math.random() * 0.3;
-              s.active = true;
-              s.timer = 18000 + Math.random() * 22000;
+        // ── Shooting stars — desktop only, motion-only effect ──
+        if (!isMobile) {
+          for (const s of shooters) {
+            if (!s.active) {
+              s.timer -= dt;
+              if (s.timer <= 0) {
+                s.x = Math.random() * W * 0.6;
+                s.y = Math.random() * H * 0.5;
+                s.vx = 4 + Math.random() * 5;
+                s.vy = 1 + Math.random() * 2.5;
+                s.len = 60 + Math.random() * 100;
+                s.op = 0.7 + Math.random() * 0.3;
+                s.active = true;
+                s.timer = 18000 + Math.random() * 22000;
+              }
+              continue;
             }
-            continue;
+            s.x += s.vx;
+            s.y += s.vy;
+            s.op -= 0.012;
+            if (s.op <= 0 || s.x > W + 50 || s.y > H + 50) {
+              s.active = false;
+              continue;
+            }
+            const spd = Math.sqrt(s.vx * s.vx + s.vy * s.vy);
+            const tx = s.x - (s.vx / spd) * s.len,
+              ty = s.y - (s.vy / spd) * s.len;
+            const streak = ctx.createLinearGradient(tx, ty, s.x, s.y);
+            streak.addColorStop(0, "rgba(255,245,200,0)");
+            streak.addColorStop(0.7, `rgba(232,201,122,${(s.op * 0.4).toFixed(3)})`);
+            streak.addColorStop(1, `rgba(255,250,220,${s.op.toFixed(3)})`);
+            ctx.beginPath();
+            ctx.moveTo(tx, ty);
+            ctx.lineTo(s.x, s.y);
+            ctx.strokeStyle = streak;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            const hg = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 8);
+            hg.addColorStop(0, `rgba(255,250,220,${s.op})`);
+            hg.addColorStop(1, "rgba(0,0,0,0)");
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, 8, 0, Math.PI * 2);
+            ctx.fillStyle = hg;
+            ctx.fill();
           }
-          s.x += s.vx;
-          s.y += s.vy;
-          s.op -= 0.012;
-          if (s.op <= 0 || s.x > W + 50 || s.y > H + 50) {
-            s.active = false;
-            continue;
-          }
-          const spd = Math.sqrt(s.vx * s.vx + s.vy * s.vy);
-          const tx = s.x - (s.vx / spd) * s.len,
-            ty = s.y - (s.vy / spd) * s.len;
-          const streak = ctx.createLinearGradient(tx, ty, s.x, s.y);
-          streak.addColorStop(0, "rgba(255,245,200,0)");
-          streak.addColorStop(0.7, `rgba(232,201,122,${(s.op * 0.4).toFixed(3)})`);
-          streak.addColorStop(1, `rgba(255,250,220,${s.op.toFixed(3)})`);
-          ctx.beginPath();
-          ctx.moveTo(tx, ty);
-          ctx.lineTo(s.x, s.y);
-          ctx.strokeStyle = streak;
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-          const hg = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 8);
-          hg.addColorStop(0, `rgba(255,250,220,${s.op})`);
-          hg.addColorStop(1, "rgba(0,0,0,0)");
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, 8, 0, Math.PI * 2);
-          ctx.fillStyle = hg;
-          ctx.fill();
         }
+
+        if (!isMobile) {
+          rafId = requestAnimationFrame(frame);
+        }
+      }
+
+      if (isMobile) {
+        frame(performance.now());
+      } else {
         rafId = requestAnimationFrame(frame);
       }
-      rafId = requestAnimationFrame(frame);
     }
 
     init();
@@ -2780,9 +2835,10 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
     ro.observe(container);
     return () => {
       cancelAnimationFrame(rafId);
+      if (retryTimeout) clearTimeout(retryTimeout);
       ro.disconnect();
     };
-  }, [variant]);
+  }, [variant, isMobile]);
 
   return (
     <canvas
@@ -2801,6 +2857,7 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
 }
 
 export default function LandingPage() {
+  const isMobile = useIsMobile();
   const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
   const [scrollY, setScrollY] = useState(0);
 
@@ -2985,7 +3042,9 @@ export default function LandingPage() {
                 borderRadius: p.diamond ? "0" : "50%",
                 transform: p.diamond ? "rotate(45deg)" : "none",
                 opacity: p.opacity * 2.5,
-                animation: `moteDrift${p.id % 4} ${p.duration}s ease-in-out ${p.delay}s infinite alternate`,
+                animation: isMobile
+                  ? "none"
+                  : `moteDrift${p.id % 4} ${p.duration}s ease-in-out ${p.delay}s infinite alternate`,
               }}
             />
           ))}
@@ -3447,7 +3506,9 @@ export default function LandingPage() {
                   borderRadius: "50%",
                   background: "#c9a84c",
                   opacity: p.opacity,
-                  animation: `particleDrift ${p.duration}s ease-in-out ${p.delay}s infinite alternate`,
+                  animation: isMobile
+                    ? "none"
+                    : `particleDrift ${p.duration}s ease-in-out ${p.delay}s infinite alternate`,
                   pointerEvents: "none",
                 }}
               />
