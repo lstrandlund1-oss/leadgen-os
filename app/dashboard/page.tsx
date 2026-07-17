@@ -3685,7 +3685,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                             risk: detailLead.score.risk,
                                             fit_score: detailLead.fit?.fitScore,
                                             gap_type: (detailLead.metadata?.outreach as { gap?: string } | null)?.gap,
-                                            gap_tooltip: detailLead.score.tooltips?.gap,
+                                            gap_tooltip: detailLead.score.tooltips?.opportunity,
                                             risk_profile: detailLead.score.riskProfile,
                                             matched_needs: detailLead.fit?.matchedNeeds,
                                           }),
