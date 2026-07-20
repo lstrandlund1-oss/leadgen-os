@@ -99,7 +99,17 @@ export async function middleware(request: NextRequest) {
   if (needsProfileCheck) {
     try {
       const result = await withTimeout(
-        Promise.resolve(supabase.from("user_profiles").select("profile_data").eq("user_id", user!.id).single()),
+        // NOTE: user_profiles is keyed by `id` = the user's UID directly
+        // (see app/api/profile/route.ts and every other query site in the
+        // codebase) — not a separate `user_id` column. Querying the wrong
+        // column here meant this NEVER matched, so hasProfile was always
+        // false and every authenticated user got redirected to /onboarding
+        // on every single visit to a profile-gated route. Since the
+        // onboarding page's own check (via /api/profile, which uses the
+        // correct column) would then correctly find their profile and
+        // redirect back to /dashboard, this was an infinite redirect loop -
+        // the actual cause of the "endless loading."
+        Promise.resolve(supabase.from("user_profiles").select("profile_data").eq("id", user!.id).single()),
         MIDDLEWARE_TIMEOUT_MS,
       );
 

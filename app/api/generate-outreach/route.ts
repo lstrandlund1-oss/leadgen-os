@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     const { data: profileRow } = await authedSupabase
       .from("user_profiles")
       .select("profile_data")
-      .eq("user_id", user.id)
+      .eq("id", user.id)
       .single();
 
     const userProfile = profileRow?.profile_data ?? {};
