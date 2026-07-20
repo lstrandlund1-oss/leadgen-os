@@ -10,4 +10,4 @@
  * the losing branch (in app/page.tsx, search for MOBILE_NEBULA_ENABLED)
  * should be deleted rather than left dead behind this flag.
  */
-export const MOBILE_NEBULA_ENABLED = true;
+export const MOBILE_NEBULA_ENABLED = false;

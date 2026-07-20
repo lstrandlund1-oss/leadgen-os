@@ -6,6 +6,7 @@ import React, {
   useEffect,
   useMemo,
   useState,
+  useTransition,
   FormEvent,
   ChangeEvent,
   MouseEvent,
@@ -926,7 +927,19 @@ export default function Home() {
       };
     }
   }, [selectedLead]);
-  const [detailTab, setDetailTab] = useState<"overview" | "signals" | "outreach" | "tracking" | "followup">("overview");
+  type DetailTabKey = "overview" | "signals" | "outreach" | "tracking" | "followup";
+  const [detailTab, setDetailTabInternal] = useState<DetailTabKey>("overview");
+  // Separate from detailTab so the button highlight can update instantly on
+  // click, decoupled from the (potentially expensive) re-render of the
+  // actual tab content below. Without this split, React processes both in
+  // one synchronous commit — so even the highlight was waiting on the full
+  // content re-render to finish, which is what made tab switches feel slow.
+  const [activeTabUI, setActiveTabUI] = useState<DetailTabKey>("overview");
+  const [isTabPending, startTabTransition] = useTransition();
+  function setDetailTab(tab: DetailTabKey) {
+    setActiveTabUI(tab); // instant — button highlight responds immediately
+    startTabTransition(() => setDetailTabInternal(tab)); // deferred, interruptible — content can lag behind with isTabPending shown
+  }
   const [snapshot, setSnapshot] = useState<string | null>(null);
   const [snapshotLoading, setSnapshotLoading] = useState(false);
   const userPlan = getEffectivePlan();
@@ -3277,11 +3290,14 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         }}
                         className={
                           "text-[11px] px-3 py-1.5 rounded-t-md font-medium transition-colors " +
-                          (detailTab === tab.key
+                          (activeTabUI === tab.key
                             ? "bg-[#1a1a1a] text-[#c9a84c] border border-b-0 border-[rgba(201,168,76,0.3)]"
                             : "text-[#999999] hover:text-[#bababa]")
                         }>
                         {tab.label}
+                        {isTabPending && activeTabUI === tab.key && (
+                          <span className="inline-block ml-1.5 w-2.5 h-2.5 rounded-full border-[1.5px] border-[#c9a84c] border-t-transparent animate-spin align-[-1px]" />
+                        )}
                       </button>
                     ))}
 
