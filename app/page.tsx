@@ -364,7 +364,17 @@ function useReveal(): [(node: HTMLDivElement | null) => void, boolean] {
 }
 
 // Each feature card tracks mouse position to render a spotlight glow
-function FeatureCard({ f, i, visible }: { f: (typeof FEATURES)[0]; i: number; visible: boolean }) {
+function FeatureCard({
+  f,
+  i,
+  visible,
+  active,
+}: {
+  f: (typeof FEATURES)[0];
+  i: number;
+  visible: boolean;
+  active?: boolean;
+}) {
   const isMobile = useIsMobile();
   const [mouse, setMouse] = useState<{ x: number; y: number } | null>(null);
   const [hovered, setHovered] = useState(false);
@@ -377,10 +387,12 @@ function FeatureCard({ f, i, visible }: { f: (typeof FEATURES)[0]; i: number; vi
   const ICON_COLORS = ["#c9a84c", "#818cf8", "#4ade80", "#fb923c", "#f472b6", "#60a5fa"];
   const iconColor = ICON_COLORS[i % ICON_COLORS.length];
 
-  // On mobile there's no hover — cards are permanently in their lit state,
-  // each glowing in its own accent color. Pointer-only affordances (mouse
-  // spotlight, lift/scale on hover) remain desktop-only.
-  const lit = isMobile || hovered;
+  // On mobile there's no hover — exactly one card (the centered/swiped-to
+  // one, driven by `active`) is in the spotlight: lit in its accent color
+  // and scaled up. Every other card stays neutral. On desktop this is the
+  // familiar hover state instead.
+  const lit = isMobile ? !!active : hovered;
+  const popped = isMobile ? !!active : hovered;
 
   return (
     <div
@@ -398,8 +410,8 @@ function FeatureCard({ f, i, visible }: { f: (typeof FEATURES)[0]; i: number; vi
         border: `1px solid ${lit ? (isMobile ? iconColor + "45" : "rgba(201,168,76,0.35)") : "#151515"}`,
         background: lit ? "#111" : "#0d0d0d",
         opacity: visible ? 1 : 0,
-        transform: visible ? (!isMobile && hovered ? "translateY(-4px) scale(1.01)" : "none") : "translateY(40px)",
-        transition: `opacity 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 80}ms, transform 0.3s cubic-bezier(0.16,1,0.3,1), border-color 0.3s ease, background 0.3s ease`,
+        transform: visible ? (popped ? "scale(1.045)" : "scale(1)") : "translateY(40px)",
+        transition: `opacity 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 80}ms, transform 0.35s cubic-bezier(0.16,1,0.3,1), border-color 0.3s ease, background 0.3s ease`,
         boxShadow: lit
           ? `0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px ${isMobile ? iconColor + "18" : "rgba(201,168,76,0.1)"}`
           : "none",
@@ -442,7 +454,7 @@ function FeatureCard({ f, i, visible }: { f: (typeof FEATURES)[0]; i: number; vi
           fontSize: 22,
           marginBottom: 18,
           color: lit ? iconColor : "#8a7a4a",
-          transform: !isMobile && hovered ? "scale(1.25) translateY(-1px)" : "scale(1)",
+          transform: popped ? "scale(1.25) translateY(-1px)" : "scale(1)",
           transition: "all 0.3s cubic-bezier(0.16,1,0.3,1)",
           display: "inline-block",
           filter: lit ? `drop-shadow(0 0 8px ${iconColor}60)` : "none",
@@ -3528,7 +3540,7 @@ export default function LandingPage() {
                 }}>
                 {FEATURES.map((f, i) => (
                   <div key={i} style={{ flex: "0 0 82%", scrollSnapAlign: "center" }}>
-                    <FeatureCard f={f} i={i} visible={featuresVisible} />
+                    <FeatureCard f={f} i={i} visible={featuresVisible} active={i === activeFeature} />
                   </div>
                 ))}
               </div>

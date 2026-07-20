@@ -19,7 +19,7 @@ const PROFILE_GATED_ROUTES = ["/dashboard", "/outreach", "/collections", "/analy
 // since Next.js won't serve the page until middleware resolves. Both calls
 // below race against this and fail open (let the request through) on
 // timeout, rather than hang forever.
-const MIDDLEWARE_TIMEOUT_MS = 4000;
+const MIDDLEWARE_TIMEOUT_MS = 2500;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   return Promise.race([promise, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))]);
@@ -48,10 +48,20 @@ export async function middleware(request: NextRequest) {
     },
   });
 
+  // getUser() re-validates the JWT against Supabase's auth server on every
+  // call — a network round-trip, on every single navigation site-wide.
+  // getSession() reads the JWT locally from cookies with no network call,
+  // which is what we actually need here: middleware only gates UX-level
+  // redirects (send unauthenticated users to /login, gate onboarding).
+  // Real authorization for data access is independently verified via
+  // getUser() in the API routes themselves (see e.g. generate-outreach,
+  // leads/snapshot) and enforced by RLS, so this doesn't weaken security —
+  // it just stops paying a network round-trip for a check that isn't the
+  // actual security boundary.
   let user = null;
   try {
-    const result = await withTimeout(supabase.auth.getUser(), MIDDLEWARE_TIMEOUT_MS);
-    user = result?.data.user ?? null;
+    const result = await withTimeout(supabase.auth.getSession(), MIDDLEWARE_TIMEOUT_MS);
+    user = result?.data.session?.user ?? null;
     if (result === null) {
       // Auth check timed out — fail open. Don't force a redirect either way;
       // let the request through and let the page/client handle actual auth
