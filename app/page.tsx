@@ -2821,8 +2821,32 @@ function GlowButton({
 function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isMobile = useIsMobile();
+  const [nearViewport, setNearViewport] = useState(false);
+  const [ready, setReady] = useState(false);
+  const readyRef = useRef(false);
+
+  // Don't do any of the canvas/nebula setup work until this section is
+  // actually about to scroll into view. Both usages of this component are
+  // below the fold on initial load, so without this gate their setup (star
+  // generation, canvas sizing, nebula build) was competing with the initial
+  // page load for no visible benefit — pure wasted work on the critical path.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const container = canvas.parentElement;
+    if (!container) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setNearViewport(true);
+      },
+      { rootMargin: "600px 0px" }, // start a little before it's actually visible, so it's ready in time
+    );
+    io.observe(container);
+    return () => io.disconnect();
+  }, []);
 
   useEffect(() => {
+    if (!nearViewport) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const container = canvas.parentElement!;
@@ -3152,6 +3176,10 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
         }
         ctx.clearRect(0, 0, W, H);
         ctx.drawImage(staticSnap, 0, 0, W, H);
+        if (!readyRef.current) {
+          readyRef.current = true;
+          setReady(true);
+        }
 
         // ── Layer 0: deep tiny stars ──
         for (const p of deep) {
@@ -3297,7 +3325,7 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
       if (resizeDebounce) clearTimeout(resizeDebounce);
       ro.disconnect();
     };
-  }, [variant, isMobile]);
+  }, [variant, isMobile, nearViewport]);
 
   return (
     <canvas
@@ -3310,6 +3338,8 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
         pointerEvents: "none",
         zIndex: 0,
         display: "block",
+        opacity: ready ? 1 : 0,
+        transition: "opacity 0.9s ease",
       }}
     />
   );
