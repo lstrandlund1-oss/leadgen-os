@@ -13,6 +13,18 @@ const AUTH_ROUTES = ["/login"];
 // Routes that require a completed profile
 const PROFILE_GATED_ROUTES = ["/dashboard", "/outreach", "/collections", "/analytics"];
 
+// Middleware runs on every navigation site-wide. Without a timeout, a slow
+// or hanging Supabase call (auth check or profile lookup) blocks the whole
+// site indefinitely — this is what an "endless loading" page actually is,
+// since Next.js won't serve the page until middleware resolves. Both calls
+// below race against this and fail open (let the request through) on
+// timeout, rather than hang forever.
+const MIDDLEWARE_TIMEOUT_MS = 4000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([promise, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))]);
+}
+
 export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
@@ -38,8 +50,14 @@ export async function middleware(request: NextRequest) {
 
   let user = null;
   try {
-    const { data } = await supabase.auth.getUser();
-    user = data.user;
+    const result = await withTimeout(supabase.auth.getUser(), MIDDLEWARE_TIMEOUT_MS);
+    user = result?.data.user ?? null;
+    if (result === null) {
+      // Auth check timed out — fail open. Don't force a redirect either way;
+      // let the request through and let the page/client handle actual auth
+      // state, rather than hanging navigation indefinitely.
+      return supabaseResponse;
+    }
   } catch {
     return supabaseResponse;
   }
@@ -70,16 +88,17 @@ export async function middleware(request: NextRequest) {
 
   if (needsProfileCheck) {
     try {
-      const { data: profileData } = await supabase
-        .from("user_profiles")
-        .select("profile_data")
-        .eq("user_id", user!.id)
-        .single();
+      const result = await withTimeout(
+        Promise.resolve(supabase.from("user_profiles").select("profile_data").eq("user_id", user!.id).single()),
+        MIDDLEWARE_TIMEOUT_MS,
+      );
 
-      const hasProfile = !!(profileData?.profile_data as Record<string, unknown> | null)?.businessName;
-
-      if (!hasProfile) {
-        return NextResponse.redirect(new URL("/onboarding", request.url));
+      // Timed out — fail open, same as a query error below.
+      if (result !== null) {
+        const hasProfile = !!(result.data?.profile_data as Record<string, unknown> | null)?.businessName;
+        if (!hasProfile) {
+          return NextResponse.redirect(new URL("/onboarding", request.url));
+        }
       }
     } catch {
       // Profile check failed — fail open, let the dashboard handle it

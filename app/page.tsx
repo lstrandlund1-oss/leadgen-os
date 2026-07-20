@@ -365,6 +365,7 @@ function useReveal(): [(node: HTMLDivElement | null) => void, boolean] {
 
 // Each feature card tracks mouse position to render a spotlight glow
 function FeatureCard({ f, i, visible }: { f: (typeof FEATURES)[0]; i: number; visible: boolean }) {
+  const isMobile = useIsMobile();
   const [mouse, setMouse] = useState<{ x: number; y: number } | null>(null);
   const [hovered, setHovered] = useState(false);
 
@@ -375,6 +376,11 @@ function FeatureCard({ f, i, visible }: { f: (typeof FEATURES)[0]; i: number; vi
 
   const ICON_COLORS = ["#c9a84c", "#818cf8", "#4ade80", "#fb923c", "#f472b6", "#60a5fa"];
   const iconColor = ICON_COLORS[i % ICON_COLORS.length];
+
+  // On mobile there's no hover — cards are permanently in their lit state,
+  // each glowing in its own accent color. Pointer-only affordances (mouse
+  // spotlight, lift/scale on hover) remain desktop-only.
+  const lit = isMobile || hovered;
 
   return (
     <div
@@ -389,12 +395,14 @@ function FeatureCard({ f, i, visible }: { f: (typeof FEATURES)[0]; i: number; vi
         borderRadius: 18,
         position: "relative",
         overflow: "hidden",
-        border: `1px solid ${hovered ? "rgba(201,168,76,0.35)" : "#151515"}`,
-        background: hovered ? "#111" : "#0d0d0d",
+        border: `1px solid ${lit ? (isMobile ? iconColor + "45" : "rgba(201,168,76,0.35)") : "#151515"}`,
+        background: lit ? "#111" : "#0d0d0d",
         opacity: visible ? 1 : 0,
-        transform: visible ? (hovered ? "translateY(-4px) scale(1.01)" : "none") : "translateY(40px)",
+        transform: visible ? (!isMobile && hovered ? "translateY(-4px) scale(1.01)" : "none") : "translateY(40px)",
         transition: `opacity 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 80}ms, transform 0.3s cubic-bezier(0.16,1,0.3,1), border-color 0.3s ease, background 0.3s ease`,
-        boxShadow: hovered ? "0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,168,76,0.1)" : "none",
+        boxShadow: lit
+          ? `0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px ${isMobile ? iconColor + "18" : "rgba(201,168,76,0.1)"}`
+          : "none",
         cursor: "default",
       }}>
       {/* Mouse-tracked spotlight glow */}
@@ -414,7 +422,7 @@ function FeatureCard({ f, i, visible }: { f: (typeof FEATURES)[0]; i: number; vi
         />
       )}
 
-      {/* Top-edge gold line that appears on hover */}
+      {/* Top-edge gold line — lit constantly on mobile, on hover on desktop */}
       <div
         style={{
           position: "absolute",
@@ -423,7 +431,7 @@ function FeatureCard({ f, i, visible }: { f: (typeof FEATURES)[0]; i: number; vi
           right: "10%",
           height: 1,
           background: `linear-gradient(90deg, transparent, ${iconColor}, transparent)`,
-          opacity: hovered ? 0.6 : 0,
+          opacity: lit ? 0.6 : 0,
           transition: "opacity 0.3s ease",
         }}
       />
@@ -433,11 +441,11 @@ function FeatureCard({ f, i, visible }: { f: (typeof FEATURES)[0]; i: number; vi
         style={{
           fontSize: 22,
           marginBottom: 18,
-          color: hovered ? iconColor : "#8a7a4a",
-          transform: hovered ? "scale(1.25) translateY(-1px)" : "scale(1)",
+          color: lit ? iconColor : "#8a7a4a",
+          transform: !isMobile && hovered ? "scale(1.25) translateY(-1px)" : "scale(1)",
           transition: "all 0.3s cubic-bezier(0.16,1,0.3,1)",
           display: "inline-block",
-          filter: hovered ? `drop-shadow(0 0 8px ${iconColor}60)` : "none",
+          filter: lit ? `drop-shadow(0 0 8px ${iconColor}60)` : "none",
         }}>
         {f.icon}
       </div>
@@ -449,7 +457,7 @@ function FeatureCard({ f, i, visible }: { f: (typeof FEATURES)[0]; i: number; vi
           fontSize: 18,
           fontWeight: 500,
           marginBottom: 10,
-          color: hovered ? "#f5f0e8" : "#e8e0d0",
+          color: lit ? "#f5f0e8" : "#e8e0d0",
           transition: "color 0.3s ease",
         }}>
         {f.title}
@@ -460,7 +468,7 @@ function FeatureCard({ f, i, visible }: { f: (typeof FEATURES)[0]; i: number; vi
         style={{
           fontSize: 13,
           lineHeight: 1.7,
-          color: hovered ? "#666" : "#555",
+          color: lit ? "#666" : "#555",
           transition: "color 0.3s ease",
         }}>
         {f.body}
@@ -662,10 +670,11 @@ function StepsSection({ visible, scrollY }: { visible: boolean; scrollY: number 
   if (isMobile) {
     // ── Static mobile timeline ──
     // No scroll-driven pulse, no SVG pipeline. A fixed gradient rail that
-    // blends each step's accent color into the next, with a colored node
-    // per step and cards carrying their step color as a left accent.
+    // blends each step's accent color into the next. The step number now
+    // sits in the gutter beside the rail (not inside the card) — the rail
+    // effectively becomes a numbered spine, with cards holding title/body only.
     return (
-      <div style={{ position: "relative", paddingLeft: 30 }}>
+      <div style={{ position: "relative", paddingLeft: 58 }}>
         {/* Rail — gradient walks through the four step colors */}
         <div
           style={{
@@ -682,18 +691,34 @@ function StepsSection({ visible, scrollY }: { visible: boolean; scrollY: number 
           const accent = STEP_COLORS_LIST[i];
           return (
             <div key={i} style={{ position: "relative", marginBottom: i < STEPS.length - 1 ? 22 : 0 }}>
+              {/* Number — sits in the gutter beside the rail, not on the card */}
+              <div
+                style={{
+                  position: "absolute",
+                  left: -58 + 14,
+                  width: 36,
+                  top: 12,
+                  textAlign: "right",
+                  fontFamily: "var(--font-display), serif",
+                  fontSize: 22,
+                  fontWeight: 300,
+                  lineHeight: 1,
+                  color: accent,
+                  textShadow: `0 0 12px ${accent}50`,
+                }}>
+                {s.number}
+              </div>
               {/* Node on the rail */}
               <div
                 style={{
                   position: "absolute",
-                  left: -30 + 9 + 1 - 5.5,
+                  left: -58 + 9 + 1 - 3.5,
                   top: 20,
-                  width: 11,
-                  height: 11,
+                  width: 7,
+                  height: 7,
                   borderRadius: "50%",
-                  background: "#0a0a0a",
-                  border: `2px solid ${accent}`,
-                  boxShadow: `0 0 10px ${accent}40`,
+                  background: accent,
+                  boxShadow: `0 0 8px ${accent}80`,
                 }}
               />
               <div
@@ -707,17 +732,7 @@ function StepsSection({ visible, scrollY }: { visible: boolean; scrollY: number 
                   transform: visible ? "none" : "translateY(20px)",
                   transition: `all 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 90}ms`,
                 }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 8 }}>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-display), serif",
-                      fontSize: 26,
-                      fontWeight: 300,
-                      lineHeight: 1,
-                      color: accent,
-                    }}>
-                    {s.number}
-                  </span>
+                <div style={{ marginBottom: 8 }}>
                   <h3
                     style={{
                       fontFamily: "var(--font-display), serif",
@@ -2044,6 +2059,9 @@ function HeroScene({ scrollY, waitlistCount }: { scrollY: number; waitlistCount:
         overflow: "hidden",
         paddingTop: "clamp(80px, 12vh, 140px)",
         paddingBottom: "clamp(60px, 10vh, 120px)",
+        paddingLeft: isMobile ? 20 : 0,
+        paddingRight: isMobile ? 20 : 0,
+        boxSizing: "border-box",
       }}>
       {/* Canvas — particle field covers whole section */}
       <canvas
@@ -2070,7 +2088,7 @@ function HeroScene({ scrollY, waitlistCount }: { scrollY: number; waitlistCount:
         <div
           style={{
             fontSize: 9,
-            letterSpacing: "0.24em",
+            letterSpacing: isMobile ? "0.14em" : "0.24em",
             color: "rgba(201,168,76,0.35)",
             textTransform: "uppercase",
             fontFamily: "monospace",
@@ -2078,11 +2096,27 @@ function HeroScene({ scrollY, waitlistCount }: { scrollY: number; waitlistCount:
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: 10,
+            gap: isMobile ? 8 : 10,
           }}>
-          <span style={{ display: "block", width: 28, height: 1, background: "rgba(201,168,76,0.2)" }} />
+          <span
+            style={{
+              display: "block",
+              width: isMobile ? 16 : 28,
+              height: 1,
+              background: "rgba(201,168,76,0.2)",
+              flexShrink: 0,
+            }}
+          />
           Signal-Driven Lead Intelligence
-          <span style={{ display: "block", width: 28, height: 1, background: "rgba(201,168,76,0.2)" }} />
+          <span
+            style={{
+              display: "block",
+              width: isMobile ? 16 : 28,
+              height: 1,
+              background: "rgba(201,168,76,0.2)",
+              flexShrink: 0,
+            }}
+          />
         </div>
         <h2
           style={{
@@ -2104,7 +2138,7 @@ function HeroScene({ scrollY, waitlistCount }: { scrollY: number; waitlistCount:
             fontStyle: "italic",
             letterSpacing: "-0.025em",
             lineHeight: 1.1,
-            textAlign: "right",
+            textAlign: isMobile ? "center" : "right",
             background: "linear-gradient(135deg,#e8c97a,#c9a84c,#8a6e30)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
@@ -2128,7 +2162,15 @@ function HeroScene({ scrollY, waitlistCount }: { scrollY: number; waitlistCount:
         </p>
 
         {/* CTA buttons */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, marginTop: 32 }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: isMobile ? "column" : "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: isMobile ? 18 : 16,
+            marginTop: 32,
+          }}>
           <GlowButton
             href="/login"
             style={{
@@ -3276,7 +3318,7 @@ export default function LandingPage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "16px 48px",
+          padding: isMobile ? "14px 16px" : "16px 48px",
           borderBottom: "1px solid #181818",
           background: "rgba(8,8,8,0.92)",
           backdropFilter: "blur(16px)",
@@ -3303,60 +3345,70 @@ export default function LandingPage() {
           </span>
         </Link>
 
-        {/* Beta badge — right of logo */}
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "3px 10px",
-            borderRadius: 999,
-            border: "1px solid rgba(201,168,76,0.2)",
-            background: "rgba(201,168,76,0.04)",
-            marginLeft: 20,
-          }}>
-          <span
+        {/* Beta badge — right of logo; desktop only, hidden on mobile to
+            free up space for logo + CTA + hamburger on a narrow header */}
+        {!isMobile && (
+          <div
             style={{
-              width: 5,
-              height: 5,
-              borderRadius: "50%",
-              background: "#c9a84c",
-              display: "inline-block",
-              animation: "pulse 2s infinite",
-              flexShrink: 0,
-            }}
-          />
-          <span
-            style={{
-              fontSize: 10,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              color: "#c9a84c",
-              whiteSpace: "nowrap",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "3px 10px",
+              borderRadius: 999,
+              border: "1px solid rgba(201,168,76,0.2)",
+              background: "rgba(201,168,76,0.04)",
+              marginLeft: 20,
             }}>
-            Closed Beta
-          </span>
-        </div>
+            <span
+              style={{
+                width: 5,
+                height: 5,
+                borderRadius: "50%",
+                background: "#c9a84c",
+                display: "inline-block",
+                animation: "pulse 2s infinite",
+                flexShrink: 0,
+              }}
+            />
+            <span
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: "#c9a84c",
+                whiteSpace: "nowrap",
+              }}>
+              Closed Beta
+            </span>
+          </div>
+        )}
 
         {/* Spacer pushes nav links to the right */}
         <div style={{ flex: 1 }} />
 
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <Link href="/plans" style={{ fontSize: 13, color: "#555", textDecoration: "none", letterSpacing: "0.06em" }}>
-            Pricing
-          </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16 }}>
+          {/* Pricing — desktop only; still reachable on mobile via the
+              hamburger menu's Platform section */}
+          {!isMobile && (
+            <Link
+              href="/plans"
+              style={{ fontSize: 13, color: "#555", textDecoration: "none", letterSpacing: "0.06em" }}>
+              Pricing
+            </Link>
+          )}
           <Link
             href="/login"
             style={{
-              fontSize: 13,
-              padding: "8px 18px",
+              fontSize: isMobile ? 12 : 13,
+              padding: isMobile ? "7px 12px" : "8px 18px",
               borderRadius: 8,
               border: "1px solid rgba(201,168,76,0.3)",
               color: "#c9a84c",
               textDecoration: "none",
               letterSpacing: "0.06em",
+              whiteSpace: "nowrap",
             }}>
-            Get Early Access
+            {isMobile ? "Early Access" : "Get Early Access"}
           </Link>
           <HamburgerMenu hasProfile={false} />
         </div>
