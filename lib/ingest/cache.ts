@@ -4,12 +4,14 @@ import type { IngestSummary } from "@/lib/ingest/types";
 import { intentHash } from "./intentHash";
 import { getProviderRunByIntentHash } from "@/lib/persistence";
 
-// 14-day cache: serve stored results for 14 days, then re-fetch from Google Places
-// This protects the API quota while keeping signals reasonably fresh.
-const CACHE_TTL_SECONDS = 14 * 24 * 60 * 60; // 14 days
+// 90-day run cache: the run just points to companies_raw rows which are stored
+// permanently. Score freshness is handled separately via signal hashing in the
+// leads route — if signals change, the score is recomputed regardless of run age.
+// Re-fetching from Google Places only happens after 90 days to catch new businesses.
+const CACHE_TTL_SECONDS = 90 * 24 * 60 * 60; // 90 days
 
 export async function getCachedRun(
-  intent: ProviderSearchIntent
+  intent: ProviderSearchIntent,
 ): Promise<{ hit: false } | { hit: true; summary: IngestSummary }> {
   const hash = intentHash(intent);
 
