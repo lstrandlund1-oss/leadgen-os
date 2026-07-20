@@ -6,6 +6,19 @@ import HamburgerMenu from "./components/HamburgerMenu";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { MOBILE_NEBULA_ENABLED } from "@/lib/config/mobileVisuals";
 
+// Runs a callback once the browser is actually idle, instead of eagerly on
+// the next tick (setTimeout(...,0) still runs as soon as possible, which
+// can block the browser from painting the corrected layout or becoming
+// responsive to input first). Safari doesn't support requestIdleCallback,
+// hence the fallback.
+const runWhenIdle: (cb: () => void) => void =
+  typeof window !== "undefined" && "requestIdleCallback" in window
+    ? (cb) =>
+        (
+          window as unknown as { requestIdleCallback: (cb: () => void, opts?: { timeout: number }) => void }
+        ).requestIdleCallback(cb, { timeout: 1200 })
+    : (cb) => setTimeout(cb, 50);
+
 const FEATURES = [
   {
     icon: "◈",
@@ -1595,9 +1608,10 @@ function HeroScene({ scrollY, waitlistCount }: { scrollY: number; waitlistCount:
     shooterRef.current = shooters;
 
     // ── HERO NEBULA — compute at reduced res then upscale to full device resolution ──
-    // Deferred after first paint so page loads instantly
+    // Deferred until the browser is idle so it never competes with initial
+    // paint or input responsiveness
     if (isMobile && !MOBILE_NEBULA_ENABLED) return; // plain black + stars only on mobile, per A/B toggle
-    setTimeout(() => {
+    runWhenIdle(() => {
       const cv = canvasRef.current;
       if (!cv) return;
       const sec2 = cv.parentElement;
@@ -1716,7 +1730,7 @@ function HeroScene({ scrollY, waitlistCount }: { scrollY: number; waitlistCount:
       offCtx.drawImage(lo, 0, 0, W, H);
       offCtx.globalCompositeOperation = "source-over";
       nebulaOffRef.current = off;
-    }, 0);
+    });
   }, [isMobile]);
 
   // Canvas draw loop — desktop animates continuously; mobile draws one
@@ -3083,6 +3097,14 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
       return snap;
     }
 
+    // Track the size actually built at, so init() calls triggered by trivial
+    // layout shifts (scroll-reveal transitions constantly nudge container
+    // size by a pixel or two) don't re-trigger the expensive nebula
+    // computation — only a real, meaningful resize should do that.
+    let builtW = 0;
+    let builtH = 0;
+    const RESIZE_THRESHOLD_PX = 40;
+
     function init() {
       W = container.offsetWidth;
       H = container.offsetHeight;
@@ -3090,14 +3112,26 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
       dpr = Math.min(window.devicePixelRatio || 1, 3);
       c.width = Math.round(W * dpr);
       c.height = Math.round(H * dpr);
+
+      const sizeChanged = Math.abs(W - builtW) > RESIZE_THRESHOLD_PX || Math.abs(H - builtH) > RESIZE_THRESHOLD_PX;
+      if (!sizeChanged && staticSnap) {
+        // Canvas backing store was just resized above (cheap), but the
+        // expensive nebula/star rebuild isn't needed for a trivial shift.
+        // Just redraw the existing static snapshot at the new (near-identical) size.
+        startAnim();
+        return;
+      }
+
       cancelAnimationFrame(rafId);
       staticSnap = null;
-      // Defer heavy computation
-      setTimeout(() => {
+      // Defer heavy computation until the browser is actually idle
+      runWhenIdle(() => {
+        builtW = W;
+        builtH = H;
         staticSnap = buildNebula(Math.round(W * dpr), Math.round(H * dpr));
         buildStarLayers();
         startAnim();
-      }, 0);
+      });
     }
 
     function startAnim() {
@@ -3251,11 +3285,16 @@ function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
     }
 
     init();
-    const ro = new ResizeObserver(init);
+    let resizeDebounce: ReturnType<typeof setTimeout> | null = null;
+    const ro = new ResizeObserver(() => {
+      if (resizeDebounce) clearTimeout(resizeDebounce);
+      resizeDebounce = setTimeout(init, 120);
+    });
     ro.observe(container);
     return () => {
       cancelAnimationFrame(rafId);
       if (retryTimeout) clearTimeout(retryTimeout);
+      if (resizeDebounce) clearTimeout(resizeDebounce);
       ro.disconnect();
     };
   }, [variant, isMobile]);
