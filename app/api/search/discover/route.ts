@@ -17,6 +17,12 @@ import { supabase } from "@/lib/supabaseClient";
 import { ingestFromProvider } from "@/lib/ingest/ingest";
 import { getEffectivePlan, deepSearchLimit } from "@/lib/plan";
 import { getAuthUser } from "@/lib/supabaseServer";
+import {
+  beginBetaGatedAction,
+  finishBetaGatedAction,
+  abortBetaGatedAction,
+  betaBlockedResponseBody,
+} from "@/lib/beta/gate";
 
 // ── Haiku query planner (deep search only) ────────────────────────────────────
 
@@ -25,9 +31,10 @@ async function generateQueryVariants(
   city: string,
   country: string,
   language: string,
-): Promise<string[]> {
+): Promise<{ queries: string[]; aiSucceeded: boolean }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return [niche, `${niche} ${city}`];
+  const fallback = { queries: [niche, `${niche} ${city}`], aiSucceeded: false };
+  if (!apiKey) return fallback;
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -53,7 +60,7 @@ Return ONLY: ["query1","query2",...] — raw JSON array, nothing else.`,
       }),
     });
 
-    if (!res.ok) return [niche, `${niche} ${city}`];
+    if (!res.ok) return fallback;
 
     const data = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
     const text = (data.content ?? []).find((b) => b.type === "text")?.text?.trim() ?? "";
@@ -63,15 +70,15 @@ Return ONLY: ["query1","query2",...] — raw JSON array, nothing else.`,
       .trim();
     const start = clean.indexOf("[");
     const end = clean.lastIndexOf("]");
-    if (start === -1 || end === -1) return [niche, `${niche} ${city}`];
+    if (start === -1 || end === -1) return fallback;
 
     const parsed = JSON.parse(clean.slice(start, end + 1)) as unknown[];
     const queries = parsed.filter((q): q is string => typeof q === "string" && q.trim().length > 0);
     console.log(`[discover] Haiku generated ${queries.length} query variants`);
-    return queries.length > 0 ? queries : [niche, `${niche} ${city}`];
+    return queries.length > 0 ? { queries, aiSucceeded: true } : fallback;
   } catch (err) {
     console.error("[discover] Haiku query generation failed:", err);
-    return [niche, `${niche} ${city}`];
+    return fallback;
   }
 }
 
@@ -184,26 +191,50 @@ export async function POST(request: Request) {
     let queries: string[];
 
     if (searchMode === "deep") {
-      // Check credits
       const authUser = await getAuthUser();
       const userId = authUser?.id ?? null;
-      const usage = await checkAndLogDeepSearchUsage(userId);
 
-      if (!usage.allowed) {
-        return NextResponse.json(
-          {
-            error: "Deep search limit reached for this month. Upgrade your plan for more.",
-            code: "DEEP_SEARCH_LIMIT",
-          },
-          { status: 429 },
-        );
+      // ~$0.002 per the module's own cost note above; also used as the
+      // committed cost since Anthropic doesn't return per-call token cost here.
+      const ESTIMATED_COST_MICRO_USD = 2_000;
+      const betaGate = userId
+        ? await beginBetaGatedAction(userId, "ai_deep_search", ESTIMATED_COST_MICRO_USD)
+        : ({ mode: "not_beta" } as const);
+
+      if (betaGate.mode === "beta_blocked") {
+        return NextResponse.json(betaBlockedResponseBody(betaGate.reason), { status: 429 });
+      }
+
+      let remaining: number | null = null;
+      if (betaGate.mode === "not_beta") {
+        // Not a beta member — existing commercial credit check, unchanged.
+        const usage = await checkAndLogDeepSearchUsage(userId);
+        if (!usage.allowed) {
+          return NextResponse.json(
+            {
+              error: "Deep search limit reached for this month. Upgrade your plan for more.",
+              code: "DEEP_SEARCH_LIMIT",
+            },
+            { status: 429 },
+          );
+        }
+        remaining = usage.remaining;
       }
 
       // Generate smart query variants with Haiku
-      const aiQueries = await generateQueryVariants(niche, city, country, language);
-      queries = aiQueries;
+      const generation = await generateQueryVariants(niche, city, country, language);
+      queries = generation.queries;
 
-      return NextResponse.json(await executeAndRespond(queries, city, socialPresence, searchMode, usage.remaining));
+      // aiSucceeded reflects whether the actual Anthropic call worked —
+      // generateQueryVariants never throws, it always falls back silently,
+      // so this is the real signal for commit vs release, not a try/catch.
+      if (generation.aiSucceeded) {
+        await finishBetaGatedAction(betaGate, ESTIMATED_COST_MICRO_USD);
+      } else {
+        await abortBetaGatedAction(betaGate);
+      }
+
+      return NextResponse.json(await executeAndRespond(queries, city, socialPresence, searchMode, remaining));
     } else {
       // Standard — fixed set of query variants, no AI cost
       queries = [niche, `${niche} ${city}`, `${niche} i ${city}`, `bästa ${niche} ${city}`];

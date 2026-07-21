@@ -5,6 +5,12 @@ import { getEffectivePlan, outreachLimit } from "@/lib/plan";
 import { supabase } from "@/lib/supabaseClient";
 import { buildStrategyBrief } from "@/lib/outreach/strategyBrief";
 import { generateSequence, type SequenceStep } from "../../../lib/sequences/generateSequence";
+import {
+  beginBetaGatedAction,
+  finishBetaGatedAction,
+  abortBetaGatedAction,
+  betaBlockedResponseBody,
+} from "@/lib/beta/gate";
 import type { OutreachRequest } from "@/lib/outreach/types";
 
 // GET /api/sequences?leadId=X — fetch all steps for a lead
@@ -61,32 +67,46 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "leadId and companyName required" }, { status: 400 });
     }
 
-    // Credit check — shared limit with outreach message generator
-    const plan = getEffectivePlan();
-    const limit = outreachLimit(plan);
-    if (limit !== null && supabase) {
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      monthStart.setHours(0, 0, 0, 0);
-      const { count } = await supabase
-        .from("outreach_usage")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .gte("created_at", monthStart.toISOString());
-      if ((count ?? 0) >= limit) {
-        return NextResponse.json(
-          {
-            error: `Monthly outreach limit reached (${limit} messages). Upgrade for more.`,
-            code: "OUTREACH_LIMIT",
-          },
-          { status: 429 },
-        );
+    // Beta members get their own metered "followup" allowance instead of
+    // the commercial shared outreach_usage pool — see lib/beta/config.ts.
+    // ~$0.006 estimate (sequence generation is a larger single AI call than
+    // a single outreach message); also used as the committed cost since no
+    // per-call token cost is returned by generateSequence.
+    const ESTIMATED_COST_MICRO_USD = 6_000;
+    const betaGate = await beginBetaGatedAction(user.id, "followup", ESTIMATED_COST_MICRO_USD);
+
+    if (betaGate.mode === "beta_blocked") {
+      return NextResponse.json(betaBlockedResponseBody(betaGate.reason), { status: 429 });
+    }
+
+    if (betaGate.mode === "not_beta") {
+      // Not a beta member — existing commercial credit check, unchanged.
+      const plan = getEffectivePlan();
+      const limit = outreachLimit(plan);
+      if (limit !== null && supabase) {
+        const monthStart = new Date();
+        monthStart.setDate(1);
+        monthStart.setHours(0, 0, 0, 0);
+        const { count } = await supabase
+          .from("outreach_usage")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .gte("created_at", monthStart.toISOString());
+        if ((count ?? 0) >= limit) {
+          return NextResponse.json(
+            {
+              error: `Monthly outreach limit reached (${limit} messages). Upgrade for more.`,
+              code: "OUTREACH_LIMIT",
+            },
+            { status: 429 },
+          );
+        }
+        // Log this sequence (counts as 1 credit regardless of step count)
+        supabase
+          .from("outreach_usage")
+          .insert({ user_id: user.id, type: "sequence" })
+          .then(() => {});
       }
-      // Log this sequence (counts as 1 credit regardless of step count)
-      supabase
-        .from("outreach_usage")
-        .insert({ user_id: user.id, type: "sequence" })
-        .then(() => {});
     }
 
     // Delete any existing sequence for this lead (regenerate)
@@ -113,14 +133,21 @@ export async function POST(request: Request) {
     const brief = buildStrategyBrief(body.outreachRequest);
 
     // Generate sequence via AI
-    const sequence = await generateSequence(
-      brief,
-      body.opportunity,
-      body.fitScore,
-      body.riskProfile,
-      apiKey,
-      body.firstTouchMessage,
-    );
+    let sequence;
+    try {
+      sequence = await generateSequence(
+        brief,
+        body.opportunity,
+        body.fitScore,
+        body.riskProfile,
+        apiKey,
+        body.firstTouchMessage,
+      );
+    } catch (genErr) {
+      await abortBetaGatedAction(betaGate);
+      throw genErr;
+    }
+    await finishBetaGatedAction(betaGate, ESTIMATED_COST_MICRO_USD);
 
     // Calculate actual dates from day offsets
     const startDate = body.startDate ? new Date(body.startDate) : new Date();

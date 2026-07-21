@@ -15,6 +15,12 @@ import { buildStrategyBrief } from "@/lib/outreach/strategyBrief";
 import { generateMessage } from "@/lib/outreach/generateMessage";
 import { humanizeMessage } from "@/lib/outreach/humanizeMessage";
 import { getEffectivePlan, outreachLimit } from "@/lib/plan";
+import {
+  beginBetaGatedAction,
+  finishBetaGatedAction,
+  abortBetaGatedAction,
+  betaBlockedResponseBody,
+} from "@/lib/beta/gate";
 import type { OutreachRequest, OutreachResult } from "@/lib/outreach/types";
 
 async function checkAndLogOutreachUsage(userId: string): Promise<{
@@ -59,18 +65,34 @@ export async function POST(request: Request) {
     } = await authedSupabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    // Credit check
-    const usage = await checkAndLogOutreachUsage(user.id);
-    if (!usage.allowed) {
-      return NextResponse.json(
-        {
-          error: `Monthly outreach limit reached (${usage.limit} messages). Upgrade for more.`,
-          code: "OUTREACH_LIMIT",
-          used: usage.used,
-          limit: usage.limit,
-        },
-        { status: 429 },
-      );
+    // Beta members get their own metered allowance (see lib/beta/config.ts)
+    // instead of the commercial outreachLimit check — core access is
+    // operator-equivalent, only this AI action is capped for them.
+    // ~$0.004 per message (2 Haiku calls) — no per-call cost is returned by
+    // the generation pipeline, so this estimate is also used as the
+    // committed cost; real token-level cost tracking is a future refinement.
+    const ESTIMATED_COST_MICRO_USD = 4_000;
+    const betaGate = await beginBetaGatedAction(user.id, "outreach", ESTIMATED_COST_MICRO_USD);
+
+    if (betaGate.mode === "beta_blocked") {
+      return NextResponse.json(betaBlockedResponseBody(betaGate.reason), { status: 429 });
+    }
+
+    let usage = { allowed: true, used: 0, limit: null as number | null };
+    if (betaGate.mode === "not_beta") {
+      // Not a beta member — existing commercial credit check, unchanged.
+      usage = await checkAndLogOutreachUsage(user.id);
+      if (!usage.allowed) {
+        return NextResponse.json(
+          {
+            error: `Monthly outreach limit reached (${usage.limit} messages). Upgrade for more.`,
+            code: "OUTREACH_LIMIT",
+            used: usage.used,
+            limit: usage.limit,
+          },
+          { status: 429 },
+        );
+      }
     }
 
     const body = (await request.json()) as OutreachRequest;
@@ -97,11 +119,23 @@ export async function POST(request: Request) {
     // ── Stage A: deterministic brief ──────────────────────────────────────
     const brief = buildStrategyBrief(body);
 
-    // ── Stage B: AI generation ────────────────────────────────────────────
-    const draft = await generateMessage(brief, apiKey);
+    let draft, message;
+    try {
+      // ── Stage B: AI generation ────────────────────────────────────────────
+      draft = await generateMessage(brief, apiKey);
 
-    // ── Stage C: AI humanization ──────────────────────────────────────────
-    const message = await humanizeMessage(draft, brief, apiKey);
+      // ── Stage C: AI humanization ──────────────────────────────────────────
+      message = await humanizeMessage(draft, brief, apiKey);
+    } catch (genErr) {
+      // AI call failed — release the beta reservation so it doesn't count
+      // against the tester's allowance. Commercial usage_usage logging
+      // above is fire-and-forget and unaffected either way (pre-existing
+      // behavior, unchanged).
+      await abortBetaGatedAction(betaGate);
+      throw genErr;
+    }
+
+    await finishBetaGatedAction(betaGate, ESTIMATED_COST_MICRO_USD);
 
     const result: OutreachResult = {
       brief,
