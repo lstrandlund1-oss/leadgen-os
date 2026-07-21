@@ -179,6 +179,7 @@ export async function POST(request: Request) {
     const city = body.city?.trim() ?? "";
     const country = body.country ?? "Sweden";
     const language = body.language ?? "sv";
+    const langForI18n = language === "en" ? "en" : "sv";
     const socialPresence = body.socialPresence ?? "any";
     const searchMode = body.searchMode ?? "standard";
 
@@ -202,10 +203,10 @@ export async function POST(request: Request) {
         : ({ mode: "not_beta" } as const);
 
       if (betaGate.mode === "beta_blocked") {
-        return NextResponse.json(betaBlockedResponseBody(betaGate.reason), { status: 429 });
+        return NextResponse.json(betaBlockedResponseBody(betaGate, langForI18n), { status: 429 });
       }
 
-      let remaining: number | null = null;
+      let remaining: number | null = betaGate.mode === "beta_allowed" ? betaGate.remainingTotal : null;
       if (betaGate.mode === "not_beta") {
         // Not a beta member — existing commercial credit check, unchanged.
         const usage = await checkAndLogDeepSearchUsage(userId);

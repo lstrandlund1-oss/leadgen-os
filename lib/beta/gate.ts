@@ -9,13 +9,22 @@
 
 import crypto from "crypto";
 import { getBetaAccess, recordBetaActiveDay } from "./access";
-import { reserveBetaUsage, commitBetaUsage, releaseBetaUsage } from "./usage";
+import { reserveBetaUsage, commitBetaUsage, releaseBetaUsage, getBetaUsageCounts } from "./usage";
+import { BETA_DEFAULT_ALLOWANCES, BETA_TIMEZONE } from "./config";
+import { getTranslations } from "@/lib/i18n";
+import type { Language } from "@/lib/i18n/types";
 import type { BetaFeature, BetaMembership } from "./types";
 
 export type BetaGateResult =
   | { mode: "not_beta" }
-  | { mode: "beta_blocked"; reason: string }
-  | { mode: "beta_allowed"; usageId: number; membership: BetaMembership };
+  | { mode: "beta_blocked"; reason: string; remainingTotal: number | null; remainingToday: number | null }
+  | {
+      mode: "beta_allowed";
+      usageId: number;
+      membership: BetaMembership;
+      remainingTotal: number | null;
+      remainingToday: number | null;
+    };
 
 export async function beginBetaGatedAction(
   userId: string,
@@ -26,6 +35,9 @@ export async function beginBetaGatedAction(
   const access = await getBetaAccess(userId);
   if (!access.active) return { mode: "not_beta" };
 
+  const timezone = access.membership.timezone ?? BETA_TIMEZONE;
+  const allowance = BETA_DEFAULT_ALLOWANCES[feature];
+
   const reservation = await reserveBetaUsage(
     access.membership,
     feature,
@@ -33,11 +45,23 @@ export async function beginBetaGatedAction(
     estimatedCostMicroUsd,
   );
 
+  // Counts reflect state AFTER the reservation attempt (whether it
+  // succeeded or not), so "remaining" is always accurate to show the user.
+  const counts = await getBetaUsageCounts(access.membership.id, feature, timezone);
+  const remainingTotal = allowance.total === null ? null : Math.max(0, allowance.total - counts.usedTotal);
+  const remainingToday = allowance.daily === null ? null : Math.max(0, allowance.daily - counts.usedToday);
+
   if (!reservation.allowed || reservation.usageId === null) {
-    return { mode: "beta_blocked", reason: reservation.reason };
+    return { mode: "beta_blocked", reason: reservation.reason, remainingTotal, remainingToday };
   }
 
-  return { mode: "beta_allowed", usageId: reservation.usageId, membership: access.membership };
+  return {
+    mode: "beta_allowed",
+    usageId: reservation.usageId,
+    membership: access.membership,
+    remainingTotal,
+    remainingToday,
+  };
 }
 
 // Call after the AI action succeeds.
@@ -56,11 +80,20 @@ export async function abortBetaGatedAction(gate: BetaGateResult): Promise<void> 
   await releaseBetaUsage(gate.usageId);
 }
 
-export function betaBlockedResponseBody(reason: string): { error: string; code: string } {
+export function betaBlockedResponseBody(
+  gate: Extract<BetaGateResult, { mode: "beta_blocked" }>,
+  language: Language,
+): { error: string; code: string; remainingTotal: number | null; remainingToday: number | null } {
+  const t = getTranslations(language).ui.beta.limits;
   const messages: Record<string, string> = {
-    daily_limit: "You've reached today's usage limit for this beta feature. It resets tomorrow.",
-    total_limit: "You've reached your total beta allowance for this feature.",
-    monetary_ceiling: "You've reached the usage ceiling for your beta account. Contact us if you'd like to continue.",
+    daily_limit: t.dailyLimitReached,
+    total_limit: t.totalLimitReached,
+    monetary_ceiling: t.costCeilingReached,
   };
-  return { error: messages[reason] ?? "Beta usage limit reached.", code: `BETA_${reason.toUpperCase()}` };
+  return {
+    error: messages[gate.reason] ?? t.totalLimitReached,
+    code: `BETA_${gate.reason.toUpperCase()}`,
+    remainingTotal: gate.remainingTotal,
+    remainingToday: gate.remainingToday,
+  };
 }

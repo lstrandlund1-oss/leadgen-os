@@ -65,6 +65,12 @@ export async function POST(request: Request) {
     } = await authedSupabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const body = (await request.json()) as OutreachRequest;
+    if (!body.company_name) return NextResponse.json({ error: "company_name is required" }, { status: 400 });
+
+    const language = body.language === "en" ? "en" : "sv";
+    body.objective = "first_touch";
+
     // Beta members get their own metered allowance (see lib/beta/config.ts)
     // instead of the commercial outreachLimit check — core access is
     // operator-equivalent, only this AI action is capped for them.
@@ -75,7 +81,7 @@ export async function POST(request: Request) {
     const betaGate = await beginBetaGatedAction(user.id, "outreach", ESTIMATED_COST_MICRO_USD);
 
     if (betaGate.mode === "beta_blocked") {
-      return NextResponse.json(betaBlockedResponseBody(betaGate.reason), { status: 429 });
+      return NextResponse.json(betaBlockedResponseBody(betaGate, language), { status: 429 });
     }
 
     let usage = { allowed: true, used: 0, limit: null as number | null };
@@ -94,12 +100,6 @@ export async function POST(request: Request) {
         );
       }
     }
-
-    const body = (await request.json()) as OutreachRequest;
-    if (!body.company_name) return NextResponse.json({ error: "company_name is required" }, { status: 400 });
-
-    // Always first touch — sequence generator handles follow-up/re-engage
-    body.objective = "first_touch";
 
     // Inject user profile server-side
     const { data: profileRow } = await authedSupabase
@@ -145,7 +145,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ...result,
-      usage: { used: usage.used + 1, limit: usage.limit },
+      usage:
+        betaGate.mode === "beta_allowed"
+          ? { remainingTotal: betaGate.remainingTotal, remainingToday: betaGate.remainingToday }
+          : { used: usage.used + 1, limit: usage.limit },
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Internal error";

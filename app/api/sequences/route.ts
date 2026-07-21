@@ -67,6 +67,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "leadId and companyName required" }, { status: 400 });
     }
 
+    const language = body.outreachRequest?.language === "en" ? "en" : "sv";
+
     // Beta members get their own metered "followup" allowance instead of
     // the commercial shared outreach_usage pool — see lib/beta/config.ts.
     // ~$0.006 estimate (sequence generation is a larger single AI call than
@@ -76,7 +78,7 @@ export async function POST(request: Request) {
     const betaGate = await beginBetaGatedAction(user.id, "followup", ESTIMATED_COST_MICRO_USD);
 
     if (betaGate.mode === "beta_blocked") {
-      return NextResponse.json(betaBlockedResponseBody(betaGate.reason), { status: 429 });
+      return NextResponse.json(betaBlockedResponseBody(betaGate, language), { status: 429 });
     }
 
     if (betaGate.mode === "not_beta") {
@@ -191,6 +193,9 @@ export async function POST(request: Request) {
       steps: inserted,
       reasoning: sequence.reasoning,
       cadenceType: sequence.cadence_type,
+      ...(betaGate.mode === "beta_allowed"
+        ? { betaUsage: { remainingTotal: betaGate.remainingTotal, remainingToday: betaGate.remainingToday } }
+        : {}),
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Internal error";

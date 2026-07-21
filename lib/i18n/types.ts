@@ -2,7 +2,16 @@ export type Language = "en" | "sv";
 
 export type SocialPresenceFilter = "any" | "low" | "medium" | "high";
 export type SortKey = "score" | "opportunity" | "risk" | "confidence" | "fit";
-export type RiskProfile = "well_established" | "local_authority" | "early_stage" | "limited_data" | "growing_business" | "solo_run" | "independent_business" | "unknown" | null;
+export type RiskProfile =
+  | "well_established"
+  | "local_authority"
+  | "early_stage"
+  | "limited_data"
+  | "growing_business"
+  | "solo_run"
+  | "independent_business"
+  | "unknown"
+  | null;
 
 export type TranslationSchema = {
   ui: {
@@ -128,6 +137,53 @@ export type TranslationSchema = {
     feedback: {
       buttonLabel: string;
       tooltip: string;
+    };
+    beta: {
+      invite: {
+        heading: string;
+        subheading: string;
+        invitedEmailLabel: string;
+        passwordLabel: string;
+        passwordPlaceholderSignup: string;
+        passwordPlaceholderSignin: string;
+        submitSignin: string;
+        submitSignup: string;
+        pleaseWait: string;
+        newToVantio: string;
+        createAccount: string;
+        alreadyHaveAccount: string;
+        signIn: string;
+        signedInAs: string;
+        acceptButton: string;
+        activating: string;
+        emailMismatchBody: string; // {invited}, {current} placeholders
+        signOutAndContinue: string; // {email} placeholder
+        awaitingConfirmation: string; // {email} placeholder
+        errorNotFoundTitle: string;
+        errorNotFoundBody: string;
+        errorExpiredTitle: string;
+        errorExpiredBody: string;
+        errorRevokedTitle: string;
+        errorRevokedBody: string;
+        errorAcceptedTitle: string;
+        errorAcceptedBody: string;
+        backHome: string;
+      };
+      acceptErrors: {
+        expired: string;
+        revoked: string;
+        alreadyAccepted: string;
+        emailMismatch: string;
+        alreadyHasMembership: string;
+        generic: string;
+      };
+      limits: {
+        dailyLimitReached: string; // {remaining} placeholder context handled by caller
+        totalLimitReached: string;
+        costCeilingReached: string;
+        remainingToday: string; // {count}
+        remainingTotal: string; // {count}
+      };
     };
   };
 };

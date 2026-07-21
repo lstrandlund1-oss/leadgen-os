@@ -66,3 +66,40 @@ export async function releaseBetaUsage(usageId: number): Promise<void> {
   if (!client) return;
   await client.rpc("release_beta_usage", { p_usage_id: usageId });
 }
+
+// Read-only usage counts for display purposes (e.g. "3 left today"). This
+// is NOT the gating mechanism — reserve_beta_usage's row lock is what
+// actually prevents over-use — so a moment of staleness here is fine.
+export async function getBetaUsageCounts(
+  membershipId: string,
+  feature: BetaFeature,
+  timezone: string,
+): Promise<{ usedToday: number; usedTotal: number }> {
+  const client = await getBetaServiceClient();
+  if (!client) return { usedToday: 0, usedTotal: 0 };
+
+  const { count: usedTotal } = await client
+    .from("beta_usage")
+    .select("*", { count: "exact", head: true })
+    .eq("membership_id", membershipId)
+    .eq("feature", feature)
+    .in("status", ["reserved", "committed"]);
+
+  // Compute "today" in the membership's timezone the same way the SQL
+  // function does, via a date string boundary rather than UTC midnight.
+  // This is a JS-side approximation (not fully DST-precise like the SQL
+  // function's `at time zone` arithmetic) — acceptable here since this is
+  // a display-only count, not the enforcement mechanism.
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: timezone }); // en-CA gives YYYY-MM-DD
+  const startOfDayUtc = new Date(`${todayStr}T00:00:00Z`).toISOString();
+
+  const { count: usedToday } = await client
+    .from("beta_usage")
+    .select("*", { count: "exact", head: true })
+    .eq("membership_id", membershipId)
+    .eq("feature", feature)
+    .in("status", ["reserved", "committed"])
+    .gte("created_at", startOfDayUtc);
+
+  return { usedToday: usedToday ?? 0, usedTotal: usedTotal ?? 0 };
+}

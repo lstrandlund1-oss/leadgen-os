@@ -3,12 +3,23 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
+import { getTranslations } from "@/lib/i18n";
+import type { Language } from "@/lib/i18n/types";
 
 type Mode = "signin" | "signup";
 
-export default function BetaAcceptForm({ token, invitedEmail }: { token: string; invitedEmail: string }) {
+export default function BetaAcceptForm({
+  token,
+  invitedEmail,
+  language,
+}: {
+  token: string;
+  invitedEmail: string;
+  language: Language;
+}) {
   const router = useRouter();
   const supabase = createSupabaseBrowser();
+  const t = getTranslations(language).ui.beta;
 
   const [checkingSession, setCheckingSession] = useState(true);
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
@@ -29,6 +40,23 @@ export default function BetaAcceptForm({ token, invitedEmail }: { token: string;
 
   const emailMatches = sessionEmail && sessionEmail.toLowerCase() === invitedEmail.toLowerCase();
 
+  function acceptErrorCopy(reason: string): string {
+    switch (reason) {
+      case "expired":
+        return t.acceptErrors.expired;
+      case "revoked":
+        return t.acceptErrors.revoked;
+      case "already_accepted":
+        return t.acceptErrors.alreadyAccepted;
+      case "email_mismatch":
+        return t.acceptErrors.emailMismatch;
+      case "already_has_membership":
+        return t.acceptErrors.alreadyHasMembership;
+      default:
+        return t.acceptErrors.generic;
+    }
+  }
+
   async function completeAcceptance() {
     setAccepting(true);
     setError(null);
@@ -47,7 +75,7 @@ export default function BetaAcceptForm({ token, invitedEmail }: { token: string;
       router.push("/dashboard");
       router.refresh();
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(t.acceptErrors.generic);
       setAccepting(false);
     }
   }
@@ -59,7 +87,7 @@ export default function BetaAcceptForm({ token, invitedEmail }: { token: string;
 
   async function handleSubmit() {
     if (!password) {
-      setError("Please enter a password.");
+      setError(t.invite.passwordLabel);
       return;
     }
     setLoading(true);
@@ -96,18 +124,15 @@ export default function BetaAcceptForm({ token, invitedEmail }: { token: string;
   }
 
   if (checkingSession) {
-    return <div className="text-sm text-[#555]">Loading…</div>;
+    return <div className="text-sm text-[#555]">…</div>;
   }
 
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8 text-center">
-        <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-3">You&apos;re invited</p>
+        <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-3">{t.invite.subheading}</p>
         <h1 className="text-3xl md:text-4xl font-light" style={{ fontFamily: "var(--font-display), serif" }}>
-          Join the{" "}
-          <span className="italic" style={{ color: "#c9a84c" }}>
-            closed beta
-          </span>
+          {t.invite.heading}
         </h1>
       </div>
 
@@ -124,52 +149,56 @@ export default function BetaAcceptForm({ token, invitedEmail }: { token: string;
           emailMatches ? (
             <>
               <p className="text-sm text-[#ccc]">
-                Signed in as <span className="text-[#c9a84c]">{sessionEmail}</span>.
+                {t.invite.signedInAs} <span className="text-[#c9a84c]">{sessionEmail}</span>.
               </p>
               <button
                 type="button"
                 onClick={completeAcceptance}
                 disabled={accepting}
                 className="w-full py-3.5 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] tracking-wide hover:bg-[#e8c97a] disabled:opacity-50 transition-all">
-                {accepting ? "Activating…" : "Accept invitation"}
+                {accepting ? t.invite.activating : t.invite.acceptButton}
               </button>
             </>
           ) : (
             <>
               <p className="text-sm text-[#ccc]">
-                This invite is for <span className="text-[#c9a84c]">{invitedEmail}</span>, but you&apos;re signed in as{" "}
-                <span className="text-[#888]">{sessionEmail}</span>.
+                {t.invite.emailMismatchBody.replace("{invited}", invitedEmail).replace("{current}", sessionEmail)}
               </p>
               <button
                 type="button"
                 onClick={handleSignOut}
                 className="w-full py-3 rounded-lg border border-[#252525] text-[13px] text-[#ccc] hover:border-[rgba(201,168,76,0.4)] transition-colors">
-                Sign out and continue with {invitedEmail}
+                {t.invite.signOutAndContinue.replace("{email}", invitedEmail)}
               </button>
             </>
           )
         ) : awaitingConfirmation ? (
           <div className="px-4 py-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 text-[12px] text-emerald-400">
-            Check <span className="text-[#c9a84c]">{invitedEmail}</span> to confirm your account, then come back to this
-            same invite link to finish.
+            {t.invite.awaitingConfirmation.replace("{email}", invitedEmail)}
           </div>
         ) : (
           <>
             <div className="space-y-1.5">
-              <label className="block text-[11px] uppercase tracking-widest text-[#666]">Invited email</label>
+              <label className="block text-[11px] uppercase tracking-widest text-[#666]">
+                {t.invite.invitedEmailLabel}
+              </label>
               <div className="w-full bg-[#0a0a0a] border border-[#252525] rounded-lg px-4 py-3 text-sm text-[#888]">
                 {invitedEmail}
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-[11px] uppercase tracking-widest text-[#666]">Password</label>
+              <label className="block text-[11px] uppercase tracking-widest text-[#666]">
+                {t.invite.passwordLabel}
+              </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                placeholder={mode === "signup" ? "Min. 6 characters" : "••••••••"}
+                placeholder={
+                  mode === "signup" ? t.invite.passwordPlaceholderSignup : t.invite.passwordPlaceholderSignin
+                }
                 className="w-full bg-[#0d0d0d] border border-[#252525] rounded-lg px-4 py-3 text-sm text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.5)] transition-colors"
               />
             </div>
@@ -179,13 +208,13 @@ export default function BetaAcceptForm({ token, invitedEmail }: { token: string;
               onClick={handleSubmit}
               disabled={loading}
               className="w-full py-3.5 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] tracking-wide hover:bg-[#e8c97a] disabled:opacity-50 transition-all mt-2">
-              {loading ? "Please wait…" : mode === "signin" ? "Sign in & accept" : "Create account & accept"}
+              {loading ? t.invite.pleaseWait : mode === "signin" ? t.invite.submitSignin : t.invite.submitSignup}
             </button>
 
             <p className="text-center text-[12px] text-[#555] pt-2">
               {mode === "signin" ? (
                 <>
-                  New to Vantio?{" "}
+                  {t.invite.newToVantio}{" "}
                   <button
                     type="button"
                     onClick={() => {
@@ -193,12 +222,12 @@ export default function BetaAcceptForm({ token, invitedEmail }: { token: string;
                       setError(null);
                     }}
                     className="text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
-                    Create an account
+                    {t.invite.createAccount}
                   </button>
                 </>
               ) : (
                 <>
-                  Already have an account?{" "}
+                  {t.invite.alreadyHaveAccount}{" "}
                   <button
                     type="button"
                     onClick={() => {
@@ -206,7 +235,7 @@ export default function BetaAcceptForm({ token, invitedEmail }: { token: string;
                       setError(null);
                     }}
                     className="text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
-                    Sign in
+                    {t.invite.signIn}
                   </button>
                 </>
               )}
@@ -216,21 +245,4 @@ export default function BetaAcceptForm({ token, invitedEmail }: { token: string;
       </div>
     </div>
   );
-}
-
-function acceptErrorCopy(reason: string): string {
-  switch (reason) {
-    case "expired":
-      return "This invite has expired.";
-    case "revoked":
-      return "This invite is no longer active.";
-    case "already_accepted":
-      return "This invite has already been used.";
-    case "email_mismatch":
-      return "This invite is for a different email address.";
-    case "already_has_membership":
-      return "This account already has an active beta membership.";
-    default:
-      return "Something went wrong. Please try again.";
-  }
 }
