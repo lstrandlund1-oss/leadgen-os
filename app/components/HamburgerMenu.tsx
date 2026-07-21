@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getEffectivePlan, canUseOutreach } from "@/lib/plan";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
+import { useBetaStatus } from "@/lib/beta/useBetaStatus";
 
 interface HamburgerMenuProps {
   userEmail?: string;
@@ -42,6 +43,7 @@ export default function HamburgerMenu({ userEmail }: HamburgerMenuProps) {
   const supabase = createSupabaseBrowser();
   const plan = getEffectivePlan();
   const outreachUnlocked = canUseOutreach(plan);
+  const betaStatus = useBetaStatus();
 
   function toggleMenu() {
     if (!open && buttonRef.current) {
@@ -135,7 +137,7 @@ export default function HamburgerMenu({ userEmail }: HamburgerMenuProps) {
       heading: "Platform",
       items: [
         { label: "Import Leads", href: "/import", icon: "↑", locked: false },
-        { label: "Pricing", href: "/plans", icon: "◈", locked: false },
+        ...(betaStatus.active ? [] : [{ label: "Pricing", href: "/plans", icon: "◈", locked: false } as const]),
         { label: "Profile", href: "/profile", icon: "◈", locked: false },
         { label: "Settings", href: "/profile/settings", icon: "⚙", locked: false },
         { label: "Contact & Support", href: "/contact", icon: "✉", locked: false },
