@@ -22,6 +22,7 @@ export async function createBetaInvitation(
   email: string,
   createdBy: string,
   baseUrl: string,
+  companyName?: string,
 ): Promise<CreateInvitationResult> {
   const client = await getBetaServiceClient();
   if (!client) return { ok: false, error: "Service not configured" };
@@ -32,6 +33,7 @@ export async function createBetaInvitation(
 
   const { error } = await client.from("beta_invitations").insert({
     email: email.trim().toLowerCase(),
+    company_name: companyName?.trim() || null,
     token_hash: tokenHash,
     expires_at: expiresAt.toISOString(),
     created_by: createdBy,

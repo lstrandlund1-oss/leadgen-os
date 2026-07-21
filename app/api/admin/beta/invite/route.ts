@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
-  let body: { email?: string };
+  let body: { email?: string; companyName?: string };
   try {
     body = await request.json();
   } catch {
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? new URL(request.url).origin;
-  const result = await createBetaInvitation(email, adminEmail ?? "unknown", baseUrl);
+  const result = await createBetaInvitation(email, adminEmail ?? "unknown", baseUrl, body.companyName);
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 500 });

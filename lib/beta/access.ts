@@ -25,14 +25,11 @@ type MembershipRow = {
   extension_granted_at: string | null;
   expired_at: string | null;
   revoked_at: string | null;
+  converted_at: string | null;
   final_interview_completed: boolean;
   final_interview_completed_at: string | null;
   required_feedback_completed: boolean;
   required_feedback_completed_at: string | null;
-  discount_eligible: boolean;
-  discount_awarded_at: string | null;
-  discount_redeemed_at: string | null;
-  tutorial_state: Record<string, "completed" | "skipped">;
   internal_notes: string | null;
   created_at: string;
   updated_at: string;
@@ -54,14 +51,11 @@ function mapRow(row: MembershipRow): BetaMembership {
     extensionGrantedAt: row.extension_granted_at,
     expiredAt: row.expired_at,
     revokedAt: row.revoked_at,
+    convertedAt: row.converted_at,
     finalInterviewCompleted: row.final_interview_completed,
     finalInterviewCompletedAt: row.final_interview_completed_at,
     requiredFeedbackCompleted: row.required_feedback_completed,
     requiredFeedbackCompletedAt: row.required_feedback_completed_at,
-    discountEligible: row.discount_eligible,
-    discountAwardedAt: row.discount_awarded_at,
-    discountRedeemedAt: row.discount_redeemed_at,
-    tutorialState: row.tutorial_state ?? {},
     internalNotes: row.internal_notes,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
