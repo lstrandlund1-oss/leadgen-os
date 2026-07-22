@@ -183,6 +183,160 @@ export const sv: TranslationSchema = {
         remainingToday: "{count} kvar idag",
         remainingTotal: "{count} kvar totalt",
       },
+      tutorials: {
+        skip: "Hoppa över",
+        finish: "Klar",
+        next: "Nästa",
+        back: "Tillbaka",
+        stepOf: "{current} av {total}",
+        settingsHeading: "Guider",
+        settingsSubheading: "Se om valfri genomgång när du vill",
+        replay: "Se igen",
+        replayed: "Visad igen",
+        notStartedYet: "Inte påbörjad än",
+        content: {
+          dashboard: {
+            title: "Så funkar din instrumentpanel",
+            steps: [
+              {
+                title: "Välkommen till din instrumentpanel",
+                body: "Här finns alla sökningar, leads och resultat. Vi går igenom det viktigaste.",
+              },
+              {
+                title: "Starta en sökning",
+                body: "Ange en nisch och plats här uppe, kör sedan en sökning för att hämta poängsatta leads.",
+              },
+              {
+                title: "Din resultattabell",
+                body: "Varje lead kommer med poäng, en möjlighetsbedömning och en riskprofil — ingen manuell research behövs.",
+              },
+              {
+                title: "Öppna ett lead",
+                body: "Klicka på en rad för att se hela intelligensrapporten — signaler, matchning och en färdig outreach-vinkel.",
+              },
+            ],
+          },
+          search: {
+            title: "Att köra en sökning",
+            steps: [
+              {
+                title: "Nisch och plats",
+                body: "Berätta för Vantio vem du letar efter och var — så specifikt du vill.",
+              },
+              {
+                title: "Standard vs. Deep",
+                body: "Standard är snabb och gratis. Deep använder AI för att generera fler sökvarianter för bättre träffbild i svårare nischer.",
+              },
+              {
+                title: "Filter för synlighet online",
+                body: "Begränsa resultaten baserat på hur stor digital närvaro ett företag redan har.",
+              },
+              {
+                title: "Kör sökningen",
+                body: "Tryck på sök — resultat kommer oftast inom några sekunder för Standard, lite längre för Deep.",
+              },
+            ],
+          },
+          results: {
+            title: "Att läsa dina resultat",
+            steps: [
+              {
+                title: "Poängen",
+                body: "Ett tal som sammanfattar hur värt det är att kontakta det här leadet — byggt av möjlighet, risk och mognad tillsammans.",
+              },
+              {
+                title: "Möjlighet, risk, mognad",
+                body: "Möjlighet är hur sannolikt det är att affären går i lås. Risk flaggar problem. Mognad speglar hur strukturellt redo företaget är.",
+              },
+              {
+                title: "Sortera och filtrera",
+                body: "Sortera på valfri kolumn, eller sätt en lägsta poäng för att fokusera på dina bästa leads först.",
+              },
+              {
+                title: "Inget är dolt",
+                body: "Varje poäng kommer med skäl — klicka in på ett lead när som helst för att se exakt varför det fick sin poäng.",
+              },
+            ],
+          },
+          lead_focus: {
+            title: "Lead-vyn i detalj",
+            steps: [
+              {
+                title: "Fullständig intelligensrapport",
+                body: "Den här vyn är hjärtat i Vantio — allt om ett lead, på ett ställe.",
+              },
+              {
+                title: "Översikt",
+                body: "Huvudsiffrorna och gap-typen — vad som faktiskt saknas för det här företaget.",
+              },
+              {
+                title: "Signaler",
+                body: "De specifika bevisen bakom poängen — webbplatsens skick, recensioner, synlighet och mer.",
+              },
+              {
+                title: "Outreach",
+                body: "Generera ett färdigt meddelande byggt på det här leadets verkliga signaler, inte en generisk mall.",
+              },
+              {
+                title: "Uppföljning",
+                body: "Logga vad som händer efter att du hört av dig — kontaktad, svarat, bokat, avslutad — så byggs dina resultat upp över tid.",
+              },
+            ],
+          },
+          outreach: {
+            title: "Att generera outreach",
+            steps: [
+              {
+                title: "Ett klick, ett meddelande",
+                body: "Vantio bygger ett första meddelande utifrån leadets faktiska gap och din profil — inte en fyll-i-mall.",
+              },
+              {
+                title: "Välj en ton",
+                body: "Mjuk, direkt, konsultativ eller djärv — välj den vinkel som passar hur du säljer.",
+              },
+              {
+                title: "Finjustera",
+                body: "Korta ner det, gör det varmare eller mer direkt med ett klick — ingen anledning att börja om från noll.",
+              },
+              {
+                title: "Skicka eller kopiera",
+                body: "Kopiera in det i ditt eget outreach-verktyg, eller skicka direkt om du har kopplat e-post.",
+              },
+            ],
+          },
+          outcomes: {
+            title: "Att följa upp resultat",
+            steps: [
+              {
+                title: "Logga vad som händer",
+                body: "Markera ett lead som kontaktad, svarat, bokat eller avslutad allt eftersom — tar några sekunder.",
+              },
+              {
+                title: "Lägg till kontext",
+                body: "Notera intäkten och eventuella detaljer värda att komma ihåg till nästa gång.",
+              },
+              {
+                title: "Se dina mönster",
+                body: "Dina resultat matar analysvyn, som visar vad som faktiskt fungerar över tid.",
+              },
+            ],
+          },
+          settings: {
+            title: "Dina inställningar",
+            steps: [
+              {
+                title: "Din profil",
+                body: "Din tjänstetyp och kompetenser påverkar varje poäng — håll den uppdaterad för bäst matchning.",
+              },
+              { title: "Språk", body: "Byt mellan svenska och engelska när du vill." },
+              {
+                title: "Guider",
+                body: "Missade du en genomgång, eller vill du fräscha upp minnet? Se om valfri guide direkt härifrån.",
+              },
+            ],
+          },
+        },
+      },
     },
   },
 };

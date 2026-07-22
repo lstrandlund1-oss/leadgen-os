@@ -184,6 +184,22 @@ export type TranslationSchema = {
         remainingToday: string; // {count}
         remainingTotal: string; // {count}
       };
+      tutorials: {
+        skip: string;
+        finish: string;
+        next: string;
+        back: string;
+        stepOf: string; // "{current} of {total}" — {current}/{total} placeholders
+        settingsHeading: string;
+        settingsSubheading: string;
+        replay: string;
+        replayed: string;
+        notStartedYet: string;
+        content: Record<
+          "dashboard" | "search" | "results" | "lead_focus" | "outreach" | "outcomes" | "settings",
+          { title: string; steps: { title: string; body: string }[] }
+        >;
+      };
     };
   };
 };

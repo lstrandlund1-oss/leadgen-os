@@ -8,6 +8,8 @@ import NotificationBell from "@/app/components/NotificationBell";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { useTheme } from "@/app/components/ThemeProvider";
 import { useBetaStatus } from "@/lib/beta/useBetaStatus";
+import TutorialsSettingsList from "@/app/components/TutorialsSettingsList";
+import PageTutorial from "@/app/components/PageTutorial";
 
 type Tab = "profile" | "preferences" | "notifications" | "account";
 
@@ -811,6 +813,12 @@ export default function SettingsPage() {
                         </div>
                       </div>
                     )}
+
+                    {betaStatus.active && (
+                      <div className={sectionClass}>
+                        <TutorialsSettingsList language={language} />
+                      </div>
+                    )}
                   </>
                 )}
               </>
@@ -818,6 +826,7 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+      {betaStatus.active && <PageTutorial tutorialKey="settings" language={language} />}
     </div>
   );
 }

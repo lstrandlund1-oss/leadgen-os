@@ -184,6 +184,157 @@ export const en: TranslationSchema = {
         remainingToday: "{count} left today",
         remainingTotal: "{count} left in total",
       },
+      tutorials: {
+        skip: "Skip",
+        finish: "Finish",
+        next: "Next",
+        back: "Back",
+        stepOf: "{current} of {total}",
+        settingsHeading: "Tutorials",
+        settingsSubheading: "Replay any walkthrough at any time",
+        replay: "Replay",
+        replayed: "Replayed",
+        notStartedYet: "Not started yet",
+        content: {
+          dashboard: {
+            title: "Getting around the dashboard",
+            steps: [
+              {
+                title: "Welcome to your dashboard",
+                body: "This is where every search, lead, and result lives. Let's walk through the essentials.",
+              },
+              {
+                title: "Start a search",
+                body: "Enter a niche and location up here, then run a search to pull in scored leads.",
+              },
+              {
+                title: "Your results table",
+                body: "Every lead arrives with a score, an opportunity read, and a risk profile — no manual research needed.",
+              },
+              {
+                title: "Open a lead",
+                body: "Click any row to see the full intelligence report — signals, fit, and a ready-to-send outreach angle.",
+              },
+            ],
+          },
+          search: {
+            title: "Running a search",
+            steps: [
+              {
+                title: "Niche and location",
+                body: "Tell Vantio who you're looking for and where — as specific as you like.",
+              },
+              {
+                title: "Standard vs. Deep",
+                body: "Standard is fast and free. Deep uses AI to generate extra query variants for better recall on hard-to-find niches.",
+              },
+              {
+                title: "Social presence filter",
+                body: "Narrow results by how much of an online footprint a business already has.",
+              },
+              {
+                title: "Run it",
+                body: "Hit search — results usually land within seconds for Standard, a bit longer for Deep.",
+              },
+            ],
+          },
+          results: {
+            title: "Reading your results",
+            steps: [
+              {
+                title: "The score",
+                body: "One number summarizing how worth-contacting this lead is — built from opportunity, risk, and readiness together.",
+              },
+              {
+                title: "Opportunity, risk, readiness",
+                body: "Opportunity is how likely they are to close. Risk flags concerns. Readiness reflects how prepared they are structurally.",
+              },
+              {
+                title: "Sort and filter",
+                body: "Sort by any column, or set a minimum score to focus on your best leads first.",
+              },
+              {
+                title: "Nothing is hidden",
+                body: "Every score comes with reasons — click into a lead any time to see exactly why it scored the way it did.",
+              },
+            ],
+          },
+          lead_focus: {
+            title: "The lead detail view",
+            steps: [
+              {
+                title: "Full intelligence report",
+                body: "This view is the heart of Vantio — everything about one lead, in one place.",
+              },
+              {
+                title: "Overview",
+                body: "The headline numbers and the gap type — what's actually missing for this business.",
+              },
+              {
+                title: "Signals",
+                body: "The specific evidence behind the score — website state, reviews, visibility, and more.",
+              },
+              {
+                title: "Outreach",
+                body: "Generate a ready-to-send message built from this lead's real signals, not a generic template.",
+              },
+              {
+                title: "Tracking",
+                body: "Log what happens after you reach out — contacted, replied, booked, closed — so your outcomes build over time.",
+              },
+            ],
+          },
+          outreach: {
+            title: "Generating outreach",
+            steps: [
+              {
+                title: "One click, one message",
+                body: "Vantio builds a first-touch message from this lead's actual gap and your profile — not a fill-in-the-blank template.",
+              },
+              {
+                title: "Pick a tone",
+                body: "Soft, direct, consultative, or bold — choose the angle that fits how you sell.",
+              },
+              {
+                title: "Refine it",
+                body: "Shorten it, warm it up, or make it more direct with one click — no need to regenerate from scratch.",
+              },
+              {
+                title: "Send or copy",
+                body: "Copy it into your own outreach tool, or send it directly if you've connected email.",
+              },
+            ],
+          },
+          outcomes: {
+            title: "Tracking outcomes",
+            steps: [
+              {
+                title: "Log what happens",
+                body: "Mark a lead as contacted, replied, booked, or closed as things progress — takes seconds.",
+              },
+              { title: "Add context", body: "Note the revenue and any details worth remembering for next time." },
+              {
+                title: "See your patterns",
+                body: "Your outcomes feed the analytics view, showing what's actually working over time.",
+              },
+            ],
+          },
+          settings: {
+            title: "Your settings",
+            steps: [
+              {
+                title: "Your profile",
+                body: "Your service type and capabilities shape every score — keep this accurate for the best matches.",
+              },
+              { title: "Language", body: "Switch between English and Swedish any time." },
+              {
+                title: "Tutorials",
+                body: "Missed a walkthrough, or want a refresher? Replay any of them from right here.",
+              },
+            ],
+          },
+        },
+      },
     },
   },
 };

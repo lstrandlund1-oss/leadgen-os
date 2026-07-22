@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import PageTutorial from "../components/PageTutorial";
+import { useBetaStatus } from "@/lib/beta/useBetaStatus";
 import React, {
   Fragment,
   useEffect,
@@ -832,6 +834,7 @@ export default function Home() {
       return "en";
     }
   });
+  const betaStatus = useBetaStatus();
   const [userEmail, setUserEmail] = useState<string>("");
 
   // Fetch current user email
@@ -5177,6 +5180,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
             document.body,
           )}
       </main>
+      {betaStatus.active && <PageTutorial tutorialKey="dashboard" language={language} />}
     </>
   );
 }
