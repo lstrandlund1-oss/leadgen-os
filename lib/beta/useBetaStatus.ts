@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 
 export type BetaStatus = {
   active: boolean;
+  reason?: "no_membership" | "expired" | "revoked";
   daysRemainingActive?: number;
   daysRemainingCalendar?: number;
+  discount?: { percent: number; durationMonths: number; status: string } | null;
   loading: boolean;
 };
 

@@ -56,7 +56,7 @@ export type BetaDiscountGrant = {
   percent: number;
   durationMonths: number;
   eligibleAt: string;
-  redemptionDeadline: string;
+  redemptionDeadline: string | null; // null until official launch date is known
   status: BetaDiscountStatus;
   redeemedAt: string | null;
   subscriptionReference: string | null;

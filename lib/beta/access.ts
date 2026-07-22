@@ -8,6 +8,7 @@
 
 import { getBetaServiceClient } from "./serviceClient";
 import { BETA_ACTIVE_DAYS_LIMIT, BETA_TIMEZONE } from "./config";
+import { checkAndAwardDiscount } from "./completion";
 import type { BetaAccess, BetaMembership, BetaMembershipStatus } from "./types";
 
 type MembershipRow = {
@@ -105,6 +106,10 @@ export async function getBetaAccess(userId: string): Promise<BetaAccess> {
           .eq("id", membership.id)
           .eq("status", "active"); // avoid clobbering a concurrent admin revoke
       }
+      // Natural moment to check whether beta-completion criteria (active
+      // days, admin-marked interview, required feedback) were met — if so,
+      // award the discount now rather than needing a separate job.
+      await checkAndAwardDiscount(membership.id, membership.userId);
     }
     return { active: false, reason: "expired" };
   }

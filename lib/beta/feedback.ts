@@ -2,6 +2,7 @@
 import { getBetaServiceClient } from "./serviceClient";
 import { countEvents } from "@/lib/analytics/log";
 import { FEEDBACK_TRIGGERS, FEEDBACK_FEATURE_VERSION, type FeedbackFeatureKey } from "./feedbackTriggers";
+import { checkAndUpdateRequiredFeedback } from "./completion";
 
 export type FeatureFeedbackInput = {
   rating: number | null; // null when notUsedEnough is true
@@ -47,6 +48,8 @@ export async function submitFeatureFeedback(
   } else {
     await client.from("beta_feature_feedback").insert(row);
   }
+
+  await checkAndUpdateRequiredFeedback(membershipId);
 }
 
 export async function submitLeadFeedback(

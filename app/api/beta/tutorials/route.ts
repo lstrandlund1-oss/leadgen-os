@@ -5,7 +5,7 @@
 
 import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/supabaseServer";
-import { getBetaAccess } from "@/lib/beta/access";
+import { getBetaMembership } from "@/lib/beta/access";
 import {
   getAllTutorialProgress,
   recordTutorialStep,
@@ -19,10 +19,13 @@ export async function GET() {
   const user = await getAuthUser();
   if (!user) return NextResponse.json({ active: false, progress: {}, definitions: TUTORIAL_DEFINITIONS });
 
-  const access = await getBetaAccess(user.id);
-  if (!access.active) return NextResponse.json({ active: false, progress: {}, definitions: TUTORIAL_DEFINITIONS });
+  // Tutorial history is preserved and remains readable/replayable after
+  // expiration (it costs nothing and requires no active entitlement) — only
+  // a user who was never a beta member at all gets nothing here.
+  const membership = await getBetaMembership(user.id);
+  if (!membership) return NextResponse.json({ active: false, progress: {}, definitions: TUTORIAL_DEFINITIONS });
 
-  const progress = await getAllTutorialProgress(access.membership.id);
+  const progress = await getAllTutorialProgress(membership.id);
   return NextResponse.json({ active: true, progress, definitions: TUTORIAL_DEFINITIONS });
 }
 
@@ -30,8 +33,11 @@ export async function POST(request: Request) {
   const user = await getAuthUser();
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 
-  const access = await getBetaAccess(user.id);
-  if (!access.active) return NextResponse.json({ error: "No active beta membership" }, { status: 403 });
+  // Tutorial actions cost nothing and require no active entitlement, so
+  // expired members can still replay/interact with them — only someone who
+  // was never a beta member at all is blocked here.
+  const membership = await getBetaMembership(user.id);
+  if (!membership) return NextResponse.json({ error: "No beta membership" }, { status: 403 });
 
   let body: { key?: TutorialKey; action?: "step" | "complete" | "skip" | "replay"; step?: number };
   try {
@@ -46,7 +52,7 @@ export async function POST(request: Request) {
   }
 
   const version = TUTORIAL_DEFINITIONS[key].version;
-  const membershipId = access.membership.id;
+  const membershipId = membership.id;
 
   switch (action) {
     case "step":

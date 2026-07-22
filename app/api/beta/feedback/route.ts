@@ -1,7 +1,7 @@
 // app/api/beta/feedback/route.ts
 import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/supabaseServer";
-import { getBetaAccess } from "@/lib/beta/access";
+import { getBetaMembership } from "@/lib/beta/access";
 import { getEligibleFeedbackFeature, submitFeatureFeedback, getRatedFeatures } from "@/lib/beta/feedback";
 import type { FeedbackFeatureKey } from "@/lib/beta/feedbackTriggers";
 
@@ -9,12 +9,15 @@ export async function GET() {
   const user = await getAuthUser();
   if (!user) return NextResponse.json({ active: false, eligibleFeature: null, rated: [] });
 
-  const access = await getBetaAccess(user.id);
-  if (!access.active) return NextResponse.json({ active: false, eligibleFeature: null, rated: [] });
+  const membership = await getBetaMembership(user.id);
+  if (!membership) return NextResponse.json({ active: false, eligibleFeature: null, rated: [] });
 
+  // Automatic-prompt eligibility only makes sense for active members (an
+  // expired member incurs no further triggering actions), but rating
+  // history itself is preserved and stays readable regardless.
   const [eligibleFeature, rated] = await Promise.all([
-    getEligibleFeedbackFeature(user.id, access.membership.id),
-    getRatedFeatures(access.membership.id),
+    getEligibleFeedbackFeature(user.id, membership.id),
+    getRatedFeatures(membership.id),
   ]);
 
   return NextResponse.json({ active: true, eligibleFeature, rated: Array.from(rated) });
@@ -24,8 +27,10 @@ export async function POST(request: Request) {
   const user = await getAuthUser();
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 
-  const access = await getBetaAccess(user.id);
-  if (!access.active) return NextResponse.json({ error: "No active beta membership" }, { status: 403 });
+  // Voluntary re-rating costs nothing and requires no active entitlement,
+  // so this remains available after expiration too.
+  const membership = await getBetaMembership(user.id);
+  if (!membership) return NextResponse.json({ error: "No beta membership" }, { status: 403 });
 
   let body: {
     featureKey?: FeedbackFeatureKey;
@@ -45,7 +50,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "rating required unless notUsedEnough" }, { status: 400 });
   }
 
-  await submitFeatureFeedback(access.membership.id, user.id, body.featureKey, {
+  await submitFeatureFeedback(membership.id, user.id, body.featureKey, {
     rating: body.notUsedEnough ? null : (body.rating ?? null),
     notUsedEnough: body.notUsedEnough ?? false,
     reasonKey: body.reasonKey ?? null,

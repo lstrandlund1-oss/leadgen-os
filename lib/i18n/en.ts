@@ -374,6 +374,21 @@ export const en: TranslationSchema = {
           ready_to_use: "Ready to use as-is",
         },
       },
+      completed: {
+        heading: "Your beta period has ended",
+        body: "Thank you for being one of the first to test Vantio — your feedback genuinely shaped the product.",
+        dataPreserved:
+          "Your account, profile, searches, leads, generated messages, and outcomes are all preserved exactly as they were.",
+        discountEarnedTitle: "You've earned a discount",
+        discountEarnedBody:
+          "{percent}% off your first {months} paid months — redeemable once we officially launch. We'll let you know.",
+        discountPendingTitle: "Almost there",
+        discountPendingBody: "A few completion steps are still pending on our side — we'll follow up shortly.",
+        discountNotEarnedTitle: "Thanks for testing",
+        discountNotEarnedBody:
+          "This round didn't meet the full completion criteria for the beta discount, but your account and data remain exactly as they were.",
+        backToDashboard: "Back to dashboard →",
+      },
     },
   },
 };

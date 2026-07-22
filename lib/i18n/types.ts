@@ -235,6 +235,18 @@ export type TranslationSchema = {
           string
         >;
       };
+      completed: {
+        heading: string;
+        body: string;
+        dataPreserved: string;
+        discountEarnedTitle: string;
+        discountEarnedBody: string; // {percent}, {months} placeholders
+        discountPendingTitle: string;
+        discountPendingBody: string;
+        discountNotEarnedTitle: string;
+        discountNotEarnedBody: string;
+        backToDashboard: string;
+      };
     };
   };
 };

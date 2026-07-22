@@ -376,6 +376,21 @@ export const sv: TranslationSchema = {
           ready_to_use: "Klart att använda direkt",
         },
       },
+      completed: {
+        heading: "Din betaperiod har avslutats",
+        body: "Tack för att du var en av de första att testa Vantio — din feedback har verkligen format produkten.",
+        dataPreserved:
+          "Ditt konto, profil, sökningar, leads, genererade meddelanden och resultat finns kvar precis som de var.",
+        discountEarnedTitle: "Du har tjänat en rabatt",
+        discountEarnedBody:
+          "{percent}% rabatt på dina första {months} betalda månader — inlösbar när vi officiellt lanserar. Vi hör av oss.",
+        discountPendingTitle: "Nästan där",
+        discountPendingBody: "Några avslutande steg återstår på vår sida — vi hör av oss inom kort.",
+        discountNotEarnedTitle: "Tack för att du testade",
+        discountNotEarnedBody:
+          "Den här omgången uppfyllde inte alla kriterier för betarabatten, men ditt konto och din data finns kvar precis som de var.",
+        backToDashboard: "Tillbaka till instrumentpanelen →",
+      },
     },
   },
 };

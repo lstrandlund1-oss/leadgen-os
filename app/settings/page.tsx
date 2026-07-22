@@ -788,6 +788,23 @@ export default function SettingsPage() {
                           </p>
                         </div>
                       </div>
+                    ) : betaStatus.reason === "expired" ? (
+                      <div className={sectionClass}>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Private Beta</p>
+                          <h2 className="text-[15px] font-semibold text-[#c8c0b0]">Beta period ended</h2>
+                        </div>
+                        <div className="rounded-xl border border-[#1a1a1a] bg-[#080808] px-4 py-4 space-y-2">
+                          <p className="text-[13px] text-[#c8c0b0] font-medium">
+                            Your account and data are fully preserved
+                          </p>
+                          <Link
+                            href="/beta/completed"
+                            className="text-[11px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
+                            View details →
+                          </Link>
+                        </div>
+                      </div>
                     ) : (
                       <div className={sectionClass}>
                         <div>
@@ -816,13 +833,13 @@ export default function SettingsPage() {
                       </div>
                     )}
 
-                    {betaStatus.active && (
+                    {(betaStatus.active || betaStatus.reason === "expired") && (
                       <div className={sectionClass}>
                         <TutorialsSettingsList language={language} />
                       </div>
                     )}
 
-                    {betaStatus.active && (
+                    {(betaStatus.active || betaStatus.reason === "expired") && (
                       <div className={sectionClass}>
                         <FeatureRatingsList language={language} />
                       </div>
