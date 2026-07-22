@@ -25,6 +25,10 @@ export default function PageTutorial({ tutorialKey, language }: { tutorialKey: T
 
   useEffect(() => {
     let cancelled = false;
+    setVisible(false); // reset before checking the new key — otherwise a
+    // previous key's "visible" state could leak into this one if the new
+    // key turns out to already be completed/skipped.
+    setChecked(false);
     fetch("/api/beta/tutorials")
       .then((res) => (res.ok ? res.json() : null))
       .then((data: TutorialsApiResponse | null) => {

@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/supabaseServer";
 import { logEvent } from "@/lib/analytics/log";
 
-const ALLOWED_CLIENT_EVENTS = new Set(["profile_started"]);
+const ALLOWED_CLIENT_EVENTS = new Set(["profile_started", "lead_opened", "outreach_copied"]);
 
 export async function POST(request: Request) {
   const user = await getAuthUser();

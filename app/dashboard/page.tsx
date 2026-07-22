@@ -4,6 +4,7 @@ import Link from "next/link";
 import PageTutorial from "../components/PageTutorial";
 import FeedbackPrompt from "../components/FeedbackPrompt";
 import { useBetaStatus } from "@/lib/beta/useBetaStatus";
+import type { TutorialKey } from "@/lib/beta/tutorialDefinitions";
 import React, {
   Fragment,
   useEffect,
@@ -910,6 +911,20 @@ export default function Home() {
 
   const [selectedLead, setSelectedLead] = useState<LeadUI | null>(null);
 
+  // Fires whenever a genuinely different lead is opened, regardless of
+  // which of the several click handlers (desktop row, mobile card, etc.)
+  // triggered it — one centralized effect instead of duplicating the log
+  // call at every entry point.
+  useEffect(() => {
+    if (!selectedLead || !betaStatus.active) return;
+    fetch("/api/analytics/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: "lead_opened" }),
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLead?.id]);
+
   // Lock body scroll when lead panel is open
   useEffect(() => {
     if (selectedLead) {
@@ -1344,6 +1359,20 @@ Deep scan: ${deepAddendumParts.join(", ")}.`
     });
     return arr;
   }, [filteredLeads, sortBy, stableOrder]);
+
+  // Picks exactly one contextually-relevant tutorial key at a time, so
+  // there's never a risk of multiple tutorials trying to show
+  // simultaneously as the user navigates between states. Lead-specific
+  // views take priority over the general results/dashboard orientation.
+  const activeTutorialKey = useMemo<TutorialKey>(() => {
+    if (selectedLead) {
+      if (detailTab === "outreach") return "outreach";
+      if (detailTab === "tracking") return "outcomes";
+      return "lead_focus";
+    }
+    if (sortedLeads.length > 0) return "results";
+    return "dashboard";
+  }, [selectedLead, detailTab, sortedLeads.length]);
 
   const LEADS_PER_BATCH = 20;
   const [displayCount, setDisplayCount] = useState(LEADS_PER_BATCH);
@@ -5181,7 +5210,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
             document.body,
           )}
       </main>
-      {betaStatus.active && <PageTutorial tutorialKey="dashboard" language={language} />}
+      {betaStatus.active && <PageTutorial tutorialKey={activeTutorialKey} language={language} />}
       {betaStatus.active && <FeedbackPrompt language={language} />}
     </>
   );

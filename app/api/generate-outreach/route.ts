@@ -21,6 +21,7 @@ import {
   abortBetaGatedAction,
   betaBlockedResponseBody,
 } from "@/lib/beta/gate";
+import { logEvent } from "@/lib/analytics/log";
 import type { OutreachRequest, OutreachResult } from "@/lib/outreach/types";
 
 async function checkAndLogOutreachUsage(userId: string): Promise<{
@@ -136,6 +137,7 @@ export async function POST(request: Request) {
     }
 
     await finishBetaGatedAction(betaGate, ESTIMATED_COST_MICRO_USD);
+    await logEvent(user.id, "outreach_generated", {});
 
     const result: OutreachResult = {
       brief,

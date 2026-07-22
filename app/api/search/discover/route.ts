@@ -23,6 +23,7 @@ import {
   abortBetaGatedAction,
   betaBlockedResponseBody,
 } from "@/lib/beta/gate";
+import { logEvent } from "@/lib/analytics/log";
 
 // ── Haiku query planner (deep search only) ────────────────────────────────────
 
@@ -235,10 +236,15 @@ export async function POST(request: Request) {
         await abortBetaGatedAction(betaGate);
       }
 
+      if (userId) await logEvent(userId, "deep_search_completed", {});
+
       return NextResponse.json(await executeAndRespond(queries, city, socialPresence, searchMode, remaining));
     } else {
       // Standard — fixed set of query variants, no AI cost
       queries = [niche, `${niche} ${city}`, `${niche} i ${city}`, `bästa ${niche} ${city}`];
+
+      const authUser = await getAuthUser();
+      if (authUser) await logEvent(authUser.id, "search_completed", {});
 
       return NextResponse.json(await executeAndRespond(queries, city, socialPresence, searchMode, null));
     }

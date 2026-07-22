@@ -12,6 +12,7 @@ import {
   betaBlockedResponseBody,
 } from "@/lib/beta/gate";
 import type { OutreachRequest } from "@/lib/outreach/types";
+import { logEvent } from "@/lib/analytics/log";
 
 // GET /api/sequences?leadId=X — fetch all steps for a lead
 export async function GET(request: Request) {
@@ -150,6 +151,7 @@ export async function POST(request: Request) {
       throw genErr;
     }
     await finishBetaGatedAction(betaGate, ESTIMATED_COST_MICRO_USD);
+    await logEvent(user.id, "followup_completed", {});
 
     // Calculate actual dates from day offsets
     const startDate = body.startDate ? new Date(body.startDate) : new Date();

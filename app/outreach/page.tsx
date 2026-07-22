@@ -914,6 +914,11 @@ ${result.message.body}`
                         await navigator.clipboard.writeText(text);
                         setCopied(true);
                         setTimeout(() => setCopied(false), 2000);
+                        fetch("/api/analytics/track", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ event: "outreach_copied" }),
+                        }).catch(() => {});
                       }}
                       className="flex-1 py-2.5 rounded-xl border border-[#c9a84c]/30 text-[12px] font-semibold text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-all">
                       {copied ? "✓ Copied!" : "Copy message"}
