@@ -337,6 +337,39 @@ export default function AdminBetaDashboard() {
                       </button>
                       <button
                         onClick={() => {
+                          const quote = prompt("Approved testimonial quote (exact wording)", "");
+                          if (!quote) return;
+                          const name = prompt("Name to display (optional)", "") || null;
+                          const role = prompt("Role/title to display (optional)", "") || null;
+                          const company = prompt("Company to display (optional)", "") || null;
+                          const logoPermission = confirm("Permission to use their logo?");
+                          const photoPermission = confirm("Permission to use their photo?");
+                          runAction("approve_testimonial", {
+                            membershipId: t.membershipId,
+                            userId: t.userId,
+                            quote,
+                            name,
+                            role,
+                            company,
+                            logoPermission,
+                            photoPermission,
+                            channels: ["landing_page"],
+                          });
+                        }}
+                        className="text-[11px] px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-[#999]">
+                        Approve testimonial
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm("Mark this account as converted to a paid plan?")) {
+                            runAction("mark_converted", { membershipId: t.membershipId, userId: t.userId });
+                          }
+                        }}
+                        className="text-[11px] px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-[#999]">
+                        Mark converted
+                      </button>
+                      <button
+                        onClick={() => {
                           const val = prompt("Monetary ceiling in USD (blank = use default)", "");
                           if (val === null) return;
                           const micro = val.trim() === "" ? null : Math.round(Number(val) * 1_000_000);

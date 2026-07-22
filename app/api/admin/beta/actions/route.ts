@@ -15,6 +15,9 @@ import {
   adminSetAllowanceOverride,
   adminSetMonetaryCeiling,
   adminAwardDiscountManually,
+  adminApproveTestimonial,
+  adminRevokeTestimonial,
+  markBetaConverted,
 } from "@/lib/beta/completion";
 import { adminRevokeInvitation } from "@/lib/beta/invitations";
 import type { BetaFeature } from "@/lib/beta/types";
@@ -30,6 +33,13 @@ type ActionBody = {
   dailyLimit?: number | null;
   totalLimit?: number | null;
   ceilingMicroUsd?: number | null;
+  quote?: string;
+  name?: string | null;
+  role?: string | null;
+  company?: string | null;
+  logoPermission?: boolean;
+  photoPermission?: boolean;
+  channels?: string[];
 };
 
 export async function POST(request: Request) {
@@ -107,6 +117,37 @@ export async function POST(request: Request) {
     case "revoke_invitation":
       if (!body.invitationId) return NextResponse.json({ error: "invitationId required" }, { status: 400 });
       await adminRevokeInvitation(body.invitationId, adminEmail);
+      break;
+
+    case "approve_testimonial":
+      if (!membershipId || !userId || !body.quote) {
+        return NextResponse.json({ error: "membershipId, userId, and quote required" }, { status: 400 });
+      }
+      await adminApproveTestimonial(
+        membershipId,
+        userId,
+        {
+          quote: body.quote,
+          name: body.name ?? null,
+          role: body.role ?? null,
+          company: body.company ?? null,
+          logoPermission: body.logoPermission ?? false,
+          photoPermission: body.photoPermission ?? false,
+          channels: body.channels ?? [],
+        },
+        adminEmail,
+      );
+      break;
+
+    case "revoke_testimonial":
+      if (!membershipId) return NextResponse.json({ error: "membershipId required" }, { status: 400 });
+      await adminRevokeTestimonial(membershipId, adminEmail);
+      break;
+
+    case "mark_converted":
+      if (!membershipId || !userId)
+        return NextResponse.json({ error: "membershipId and userId required" }, { status: 400 });
+      await markBetaConverted(membershipId, userId, adminEmail);
       break;
 
     default:

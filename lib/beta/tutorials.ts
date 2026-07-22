@@ -99,6 +99,36 @@ async function upsertProgress(
     .eq("id", existing.id);
 }
 
+// Call once, right when a tutorial is actually shown to the user (not
+// just eligible) — ensures the row exists and logs the distinct
+// tutorial_started event per the spec's stable event taxonomy.
+export async function startTutorial(
+  membershipId: string,
+  userId: string,
+  key: TutorialKey,
+  version: string,
+): Promise<void> {
+  const client = await getBetaServiceClient();
+  if (!client) return;
+  const { data: existing } = await client
+    .from("beta_tutorial_progress")
+    .select("id")
+    .eq("membership_id", membershipId)
+    .eq("tutorial_key", key)
+    .eq("tutorial_version", version)
+    .maybeSingle();
+  if (!existing) {
+    await client.from("beta_tutorial_progress").insert({
+      membership_id: membershipId,
+      user_id: userId,
+      tutorial_key: key,
+      tutorial_version: version,
+      current_step: 0,
+    });
+  }
+  await logEvent(userId, "tutorial_started", { tutorialKey: key });
+}
+
 // Call after each step is shown — persists progress incrementally so
 // navigating away mid-tutorial doesn't lose the tester's place.
 export async function recordTutorialStep(
@@ -118,7 +148,7 @@ export async function completeTutorial(
   version: string,
 ): Promise<void> {
   await upsertProgress(membershipId, userId, key, version, { completed_at: new Date().toISOString() });
-  await logEvent(userId, "tutorial_finished", { tutorialKey: key, outcome: "completed" });
+  await logEvent(userId, "tutorial_completed", { tutorialKey: key });
 }
 
 export async function skipTutorial(
@@ -128,7 +158,7 @@ export async function skipTutorial(
   version: string,
 ): Promise<void> {
   await upsertProgress(membershipId, userId, key, version, { skipped_at: new Date().toISOString() });
-  await logEvent(userId, "tutorial_finished", { tutorialKey: key, outcome: "skipped" });
+  await logEvent(userId, "tutorial_skipped", { tutorialKey: key });
 }
 
 // Voluntary re-watch from Settings → Tutorials. Resets the seen state so
@@ -148,4 +178,5 @@ export async function replayTutorial(
     { current_step: 0, completed_at: null, skipped_at: null },
     true,
   );
+  await logEvent(userId, "tutorial_replayed", { tutorialKey: key });
 }

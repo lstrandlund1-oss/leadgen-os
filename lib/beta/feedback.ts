@@ -1,6 +1,6 @@
 // lib/beta/feedback.ts
 import { getBetaServiceClient } from "./serviceClient";
-import { countEvents } from "@/lib/analytics/log";
+import { countEvents, logEvent } from "@/lib/analytics/log";
 import { FEEDBACK_TRIGGERS, FEEDBACK_FEATURE_VERSION, type FeedbackFeatureKey } from "./feedbackTriggers";
 import { checkAndUpdateRequiredFeedback } from "./completion";
 
@@ -50,6 +50,11 @@ export async function submitFeatureFeedback(
   }
 
   await checkAndUpdateRequiredFeedback(membershipId);
+  await logEvent(userId, "feature_feedback_submitted", {
+    featureKey,
+    rating: input.rating,
+    notUsedEnough: input.notUsedEnough,
+  });
 }
 
 export async function submitLeadFeedback(
@@ -70,6 +75,7 @@ export async function submitLeadFeedback(
     accurate,
     comment,
   });
+  await logEvent(userId, "lead_feedback_submitted", { leadId, accurate });
 }
 
 export async function getRatedFeatures(membershipId: string): Promise<Set<string>> {

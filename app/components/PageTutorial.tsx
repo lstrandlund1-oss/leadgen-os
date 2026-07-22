@@ -34,6 +34,7 @@ export default function PageTutorial({ tutorialKey, language }: { tutorialKey: T
         if (existing?.completedAt || existing?.skippedAt) return; // already seen this version
         setStep(existing?.currentStep ?? 0);
         setVisible(true);
+        post("start");
       })
       .finally(() => {
         if (!cancelled) setChecked(true);
@@ -44,7 +45,7 @@ export default function PageTutorial({ tutorialKey, language }: { tutorialKey: T
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tutorialKey]);
 
-  function post(action: "step" | "complete" | "skip" | "replay", stepArg?: number) {
+  function post(action: "start" | "step" | "complete" | "skip" | "replay", stepArg?: number) {
     fetch("/api/beta/tutorials", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

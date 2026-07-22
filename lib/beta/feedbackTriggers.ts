@@ -30,14 +30,17 @@ export const FEEDBACK_FEATURE_VERSION: Record<FeedbackFeatureKey, string> = {
 export const FEEDBACK_TRIGGERS: Record<FeedbackFeatureKey, { event: string; threshold: number }[]> = {
   search: [{ event: "search_completed", threshold: 2 }],
   deep_search: [{ event: "deep_search_completed", threshold: 1 }],
-  lead_scoring: [{ event: "lead_detail_viewed", threshold: 5 }],
+  lead_scoring: [{ event: "lead_opened", threshold: 5 }],
   outreach: [
     { event: "outreach_generated", threshold: 3 },
     { event: "outreach_copied", threshold: 1 },
   ],
   followup: [{ event: "followup_completed", threshold: 1 }],
   outcomes: [{ event: "outcome_recorded", threshold: 1 }],
-  tutorial: [{ event: "tutorial_finished", threshold: 1 }],
+  tutorial: [
+    { event: "tutorial_completed", threshold: 1 },
+    { event: "tutorial_skipped", threshold: 1 },
+  ],
 };
 
 export type RatingReasonKey =

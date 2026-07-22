@@ -108,6 +108,20 @@ export async function POST(request: Request) {
 
     // Use authenticated server client so RLS policies are satisfied
     const authedSupabase = await createSupabaseServer();
+
+    // Distinguish the genuine first-ever save (onboarding completion) from
+    // routine subsequent profile edits (e.g. from Settings) — only the
+    // former should fire profile_completed/beta_activated.
+    let isFirstSave = false;
+    if (user) {
+      const { data: existingRow } = await authedSupabase
+        .from("user_profiles")
+        .select("id")
+        .eq("id", profileId)
+        .maybeSingle();
+      isFirstSave = !existingRow;
+    }
+
     const { error } = await authedSupabase.from("user_profiles").upsert({
       id: profileId,
       profile_data: profile,
@@ -116,6 +130,14 @@ export async function POST(request: Request) {
     });
 
     if (error) throw error;
+
+    if (isFirstSave && user) {
+      const { logEvent } = await import("@/lib/analytics/log");
+      await logEvent(user.id, "profile_completed", {});
+      const { getBetaAccess } = await import("@/lib/beta/access");
+      const access = await getBetaAccess(user.id);
+      if (access.active) await logEvent(user.id, "beta_activated", { membershipId: access.membership.id });
+    }
 
     return NextResponse.json({ profile, capabilities });
   } catch (err) {

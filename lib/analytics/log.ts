@@ -7,7 +7,7 @@
 import { getBetaServiceClient } from "@/lib/beta/serviceClient";
 
 export async function logEvent(
-  userId: string,
+  userId: string | null,
   eventName: string,
   properties: Record<string, unknown> = {},
 ): Promise<void> {

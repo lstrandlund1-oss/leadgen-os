@@ -7,6 +7,7 @@
 import crypto from "crypto";
 import { getBetaServiceClient } from "./serviceClient";
 import { BETA_INVITATION_EXPIRY_DAYS } from "./config";
+import { logEvent } from "@/lib/analytics/log";
 
 function hashToken(rawToken: string): string {
   return crypto.createHash("sha256").update(rawToken).digest("hex");
@@ -41,6 +42,8 @@ export async function createBetaInvitation(
 
   if (error) return { ok: false, error: error.message };
 
+  await logEvent(null, "beta_invite_created", { invitedEmail: email });
+
   return {
     ok: true,
     inviteUrl: `${baseUrl}/beta/invite/${rawToken}`,
@@ -70,6 +73,8 @@ export async function validateInviteToken(rawToken: string): Promise<InviteValid
   if (data.status === "revoked") return { valid: false, reason: "revoked" };
   if (data.status === "accepted") return { valid: false, reason: "accepted" };
   if (new Date(data.expires_at) < new Date()) return { valid: false, reason: "expired" };
+
+  await logEvent(null, "beta_invite_opened", { invitedEmail: data.email });
 
   return { valid: true, email: data.email as string };
 }
@@ -107,6 +112,8 @@ export async function acceptBetaInvitation(
 
   const row = data as { success: boolean; reason: AcceptInvitationReason; membership_id: string | null };
   if (row.success && row.membership_id) {
+    await logEvent(userId, "beta_invite_accepted", {});
+    await logEvent(userId, "beta_membership_started", { membershipId: row.membership_id });
     return { success: true, membershipId: row.membership_id };
   }
   return { success: false, reason: row.reason };

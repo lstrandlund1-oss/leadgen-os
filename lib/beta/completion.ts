@@ -4,7 +4,7 @@
 
 import { getBetaServiceClient } from "./serviceClient";
 import { BETA_COMPLETION_MIN_ACTIVE_DAYS, BETA_DISCOUNT_PERCENT, BETA_DISCOUNT_MONTHS } from "./config";
-import { logAdminAction } from "@/lib/analytics/log";
+import { logAdminAction, logEvent } from "@/lib/analytics/log";
 import type { BetaFeature } from "./types";
 
 const REQUIRED_FEATURE_COUNT = 7; // search, deep_search, lead_scoring, outreach, followup, outcomes, tutorial
@@ -83,6 +83,7 @@ export async function checkAndAwardDiscount(membershipId: string, userId: string
     redemption_deadline: null,
     status: "earned",
   });
+  await logEvent(userId, "discount_earned", { membershipId, source: "automatic" });
 }
 
 export async function getDiscountGrant(membershipId: string) {
@@ -133,7 +134,7 @@ export async function adminGrantExtension(membershipId: string, adminEmail: stri
 
   const { data: existing } = await client
     .from("beta_memberships")
-    .select("extended_days")
+    .select("extended_days, user_id")
     .eq("id", membershipId)
     .maybeSingle();
   const newExtendedDays = (existing?.extended_days ?? 0) + days;
@@ -148,6 +149,7 @@ export async function adminGrantExtension(membershipId: string, adminEmail: stri
     })
     .eq("id", membershipId);
   await logAdminAction(adminEmail, "grant_extension", membershipId, { days, newExtendedDays });
+  if (existing?.user_id) await logEvent(existing.user_id, "beta_extended", { membershipId, days, newExtendedDays });
 }
 
 export async function adminMarkInterviewCompleted(
@@ -260,4 +262,83 @@ export async function adminAwardDiscountManually(
     status: "earned",
   });
   await logAdminAction(adminEmail, "award_discount_manually", membershipId);
+  await logEvent(userId, "discount_earned", { membershipId, source: "admin_manual" });
+}
+
+// Testimonial approval is a manual, admin-driven process — the operator
+// personally asks a tester for a testimonial only when genuine value was
+// demonstrated (per spec), then records the exact approved wording here.
+// Deliberately does NOT log the quote text itself in the audit trail or
+// analytics event, since that's tester-provided content, not operational
+// metadata.
+export async function adminApproveTestimonial(
+  membershipId: string,
+  userId: string,
+  input: {
+    quote: string;
+    name: string | null;
+    role: string | null;
+    company: string | null;
+    logoPermission: boolean;
+    photoPermission: boolean;
+    channels: string[];
+  },
+  adminEmail: string,
+): Promise<void> {
+  const client = await getBetaServiceClient();
+  if (!client) return;
+
+  const { data: existing } = await client
+    .from("beta_testimonials")
+    .select("id")
+    .eq("membership_id", membershipId)
+    .maybeSingle();
+
+  const row = {
+    membership_id: membershipId,
+    user_id: userId,
+    approved_quote: input.quote,
+    approved_name: input.name,
+    approved_role: input.role,
+    approved_company: input.company,
+    logo_permission: input.logoPermission,
+    photo_permission: input.photoPermission,
+    permitted_channels: input.channels,
+    status: "approved",
+    approved_at: new Date().toISOString(),
+  };
+
+  if (existing) {
+    await client.from("beta_testimonials").update(row).eq("id", existing.id);
+  } else {
+    await client.from("beta_testimonials").insert(row);
+  }
+
+  await logAdminAction(adminEmail, "approve_testimonial", membershipId);
+  await logEvent(userId, "testimonial_approved", { membershipId });
+}
+
+export async function adminRevokeTestimonial(membershipId: string, adminEmail: string): Promise<void> {
+  const client = await getBetaServiceClient();
+  if (!client) return;
+  await client
+    .from("beta_testimonials")
+    .update({ status: "revoked", revoked_at: new Date().toISOString() })
+    .eq("membership_id", membershipId);
+  await logAdminAction(adminEmail, "revoke_testimonial", membershipId);
+}
+
+// Domain path for converting a beta account to paid, per Phase 7 — the
+// function exists now even though real Stripe redemption remains a
+// pending integration. Does not create a new profile or duplicate user;
+// only marks the existing membership as converted.
+export async function markBetaConverted(membershipId: string, userId: string, adminEmail: string): Promise<void> {
+  const client = await getBetaServiceClient();
+  if (!client) return;
+  await client
+    .from("beta_memberships")
+    .update({ status: "converted", converted_at: new Date().toISOString() })
+    .eq("id", membershipId);
+  await logAdminAction(adminEmail, "mark_converted", membershipId);
+  await logEvent(userId, "paid_conversion_completed", { membershipId });
 }

@@ -3,23 +3,11 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  PROFILE_TYPE_DEFINITIONS,
-  PROFILE_TYPE_KEYS,
-  type ProfileTypeKey,
-} from "@/lib/profile/profileTypes";
+import { PROFILE_TYPE_DEFINITIONS, PROFILE_TYPE_KEYS, type ProfileTypeKey } from "@/lib/profile/profileTypes";
 import type { Capability } from "@/lib/fit/needs";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 
-const ALL_CAPABILITIES: Capability[] = [
-  "ads",
-  "tracking",
-  "funnel",
-  "content",
-  "website",
-  "seo",
-  "crm",
-];
+const ALL_CAPABILITIES: Capability[] = ["ads", "tracking", "funnel", "content", "website", "seo", "crm"];
 
 const CAPABILITY_LABELS: Record<Capability, string> = {
   ads: "Paid Ads",
@@ -73,54 +61,54 @@ export default function OnboardingPage() {
     // Hard deadline — never wait more than 5s total for session + profile check
     const deadline = setTimeout(() => setSessionChecked(true), 5000);
 
-    supabase.auth.getUser().then(async ({ data }) => {
-      if (!data.user) {
-        clearTimeout(deadline);
-        router.replace("/login?next=/onboarding");
-        return;
-      }
-      // Check if user already has a saved profile — if so, skip onboarding
-      try {
-        const controller = new AbortController();
-        const profileTimeout = setTimeout(() => controller.abort(), 3000);
-        const res = await fetch("/api/profile", { signal: controller.signal });
-        clearTimeout(profileTimeout);
-        if (res.ok) {
-          const json = await res.json();
-          if (json.profile?.businessName) {
-            clearTimeout(deadline);
-            router.replace("/dashboard");
-            return;
-          }
+    supabase.auth
+      .getUser()
+      .then(async ({ data }) => {
+        if (!data.user) {
+          clearTimeout(deadline);
+          router.replace("/login?next=/onboarding");
+          return;
         }
-      } catch {
-        // Timeout or error — show onboarding anyway
-      }
-      clearTimeout(deadline);
-      setSessionChecked(true);
-    }).catch(() => {
-      // getUser itself failed — show onboarding as safe fallback
-      clearTimeout(deadline);
-      setSessionChecked(true);
-    });
+        // Check if user already has a saved profile — if so, skip onboarding
+        try {
+          const controller = new AbortController();
+          const profileTimeout = setTimeout(() => controller.abort(), 3000);
+          const res = await fetch("/api/profile", { signal: controller.signal });
+          clearTimeout(profileTimeout);
+          if (res.ok) {
+            const json = await res.json();
+            if (json.profile?.businessName) {
+              clearTimeout(deadline);
+              router.replace("/dashboard");
+              return;
+            }
+          }
+        } catch {
+          // Timeout or error — show onboarding anyway
+        }
+        clearTimeout(deadline);
+        fetch("/api/analytics/track", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ event: "profile_started" }),
+        }).catch(() => {});
+        setSessionChecked(true);
+      })
+      .catch(() => {
+        // getUser itself failed — show onboarding as safe fallback
+        clearTimeout(deadline);
+        setSessionChecked(true);
+      });
   }, [router]);
 
-  const [profileType, setProfileType] = useState<ProfileTypeKey>(
-    "performance_marketer",
-  );
+  const [profileType, setProfileType] = useState<ProfileTypeKey>("performance_marketer");
   const [businessName, setBusinessName] = useState("");
   const [capabilities, setCapabilities] = useState<Record<Capability, number>>(
     PROFILE_TYPE_DEFINITIONS["performance_marketer"].defaultCapabilities as Record<Capability, number>,
   );
-  const [experienceLevel, setExperienceLevel] = useState<
-    "beginner" | "intermediate" | "advanced"
-  >("intermediate");
-  const [acquisitionStyle, setAcquisitionStyle] = useState<
-    "volume" | "balanced" | "selective"
-  >("balanced");
-  const [targetBusinessSize, setTargetBusinessSize] = useState<
-    "small" | "medium" | "large"
-  >("small");
+  const [experienceLevel, setExperienceLevel] = useState<"beginner" | "intermediate" | "advanced">("intermediate");
+  const [acquisitionStyle, setAcquisitionStyle] = useState<"volume" | "balanced" | "selective">("balanced");
+  const [targetBusinessSize, setTargetBusinessSize] = useState<"small" | "medium" | "large">("small");
   const [targetLocation, setTargetLocation] = useState("");
 
   function handleProfileTypeChange(key: ProfileTypeKey) {
@@ -178,10 +166,7 @@ export default function OnboardingPage() {
       <div className="flex items-center justify-between px-6 md:px-12 py-5 border-b border-[#252525]">
         <Link href="/" className="flex items-center gap-2">
           <span className="text-[#c9a84c]">◈</span>
-          <span
-            className="text-lg font-light tracking-wide"
-            style={{ fontFamily: "var(--font-display), serif" }}
-          >
+          <span className="text-lg font-light tracking-wide" style={{ fontFamily: "var(--font-display), serif" }}>
             Vantio
           </span>
         </Link>
@@ -205,7 +190,8 @@ export default function OnboardingPage() {
             <div className="rounded-2xl border border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.04)] px-5 py-4 mb-8 text-center">
               <p className="text-[11px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Welcome to Vantio</p>
               <p className="text-[13px] text-[#888] leading-relaxed">
-                You&apos;re about to set up your lead intelligence profile. It takes under a minute and makes every result you see specific to your business.
+                You&apos;re about to set up your lead intelligence profile. It takes under a minute and makes every
+                result you see specific to your business.
               </p>
             </div>
           )}
@@ -215,19 +201,15 @@ export default function OnboardingPage() {
             {STEPS.map((label, i) => (
               <div key={i} className="flex items-center gap-2">
                 <div
-                  className={`flex items-center gap-1.5 text-[11px] tracking-wide uppercase transition-colors ${i === step ? "text-[#c9a84c]" : i < step ? "text-[#8a6e30]" : "text-[#333]"}`}
-                >
+                  className={`flex items-center gap-1.5 text-[11px] tracking-wide uppercase transition-colors ${i === step ? "text-[#c9a84c]" : i < step ? "text-[#8a6e30]" : "text-[#333]"}`}>
                   <span
-                    className={`w-5 h-5 rounded-full border flex items-center justify-center text-[10px] ${i === step ? "border-[#c9a84c] text-[#c9a84c]" : i < step ? "border-[#8a6e30] bg-[#8a6e30] text-[#080808]" : "border-[#333] text-[#333]"}`}
-                  >
+                    className={`w-5 h-5 rounded-full border flex items-center justify-center text-[10px] ${i === step ? "border-[#c9a84c] text-[#c9a84c]" : i < step ? "border-[#8a6e30] bg-[#8a6e30] text-[#080808]" : "border-[#333] text-[#333]"}`}>
                     {i < step ? "✓" : i + 1}
                   </span>
                   <span className="hidden md:block">{label}</span>
                 </div>
                 {i < STEPS.length - 1 && (
-                  <div
-                    className={`w-8 h-[1px] ${i < step ? "bg-[#8a6e30]" : "bg-[#252525]"}`}
-                  />
+                  <div className={`w-8 h-[1px] ${i < step ? "bg-[#8a6e30]" : "bg-[#252525]"}`} />
                 )}
               </div>
             ))}
@@ -239,15 +221,15 @@ export default function OnboardingPage() {
               <div>
                 <h1
                   className="text-3xl md:text-4xl font-light mb-2"
-                  style={{ fontFamily: "var(--font-display), serif" }}
-                >
+                  style={{ fontFamily: "var(--font-display), serif" }}>
                   Let&apos;s set up your{" "}
                   <span className="italic" style={{ color: "#c9a84c" }}>
                     profile
                   </span>
                 </h1>
                 <p className="text-[13px] text-[#666]">
-                  This takes about 60 seconds. Your answers shape how every lead is scored and matched — so results are relevant to you, not generic.
+                  This takes about 60 seconds. Your answers shape how every lead is scored and matched — so results are
+                  relevant to you, not generic.
                 </p>
               </div>
 
@@ -273,21 +255,28 @@ export default function OnboardingPage() {
                       key={key}
                       type="button"
                       onClick={() => handleProfileTypeChange(key)}
-                      className={`text-left p-4 rounded-xl border transition-all duration-200 group ${active ? "border-[#c9a84c] bg-[rgba(201,168,76,0.06)]" : "border-[#252525] bg-[#0d0d0d] hover:border-[#3a3a3a] hover:bg-[#111]"}`}
-                    >
+                      className={`text-left p-4 rounded-xl border transition-all duration-200 group ${active ? "border-[#c9a84c] bg-[rgba(201,168,76,0.06)]" : "border-[#252525] bg-[#0d0d0d] hover:border-[#3a3a3a] hover:bg-[#111]"}`}>
                       <div className="flex items-start gap-3">
-                        <span className={`text-xl mt-0.5 transition-all ${active ? "scale-110" : "opacity-50 group-hover:opacity-80"}`}>
+                        <span
+                          className={`text-xl mt-0.5 transition-all ${active ? "scale-110" : "opacity-50 group-hover:opacity-80"}`}>
                           {PROFILE_TYPE_ICONS[key]}
                         </span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <p className={`text-[13px] font-semibold ${active ? "text-[#f5f0e8]" : "text-[#888]"}`}>{def.label}</p>
-                            {active && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[rgba(201,168,76,0.15)] text-[#c9a84c] uppercase tracking-widest">Selected</span>}
+                            <p className={`text-[13px] font-semibold ${active ? "text-[#f5f0e8]" : "text-[#888]"}`}>
+                              {def.label}
+                            </p>
+                            {active && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[rgba(201,168,76,0.15)] text-[#c9a84c] uppercase tracking-widest">
+                                Selected
+                              </span>
+                            )}
                           </div>
-                          <p className={`text-[10px] uppercase tracking-widest mb-1.5 ${active ? "text-[#8a6e30]" : "text-[#333]"}`}>{PROFILE_TYPE_TAGS[key]}</p>
-                          <p className="text-[11px] text-[#555] leading-relaxed">
-                            {def.description}
+                          <p
+                            className={`text-[10px] uppercase tracking-widest mb-1.5 ${active ? "text-[#8a6e30]" : "text-[#333]"}`}>
+                            {PROFILE_TYPE_TAGS[key]}
                           </p>
+                          <p className="text-[11px] text-[#555] leading-relaxed">{def.description}</p>
                         </div>
                       </div>
                     </button>
@@ -298,8 +287,7 @@ export default function OnboardingPage() {
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="w-full py-3.5 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] tracking-wide hover:bg-[#e8c97a] transition-colors"
-              >
+                className="w-full py-3.5 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] tracking-wide hover:bg-[#e8c97a] transition-colors">
                 Continue →
               </button>
             </div>
@@ -311,15 +299,15 @@ export default function OnboardingPage() {
               <div>
                 <h1
                   className="text-3xl md:text-4xl font-light mb-2"
-                  style={{ fontFamily: "var(--font-display), serif" }}
-                >
+                  style={{ fontFamily: "var(--font-display), serif" }}>
                   What can you{" "}
                   <span className="italic" style={{ color: "#c9a84c" }}>
                     actually deliver?
                   </span>
                 </h1>
                 <p className="text-[13px] text-[#666]">
-                  Select what you can deliver. Leads are scored higher when their needs match your services — so you only see opportunities you can actually win.
+                  Select what you can deliver. Leads are scored higher when their needs match your services — so you
+                  only see opportunities you can actually win.
                 </p>
               </div>
 
@@ -336,8 +324,7 @@ export default function OnboardingPage() {
                           [cap]: !c[cap],
                         }))
                       }
-                      className={`flex items-center gap-2 px-3 py-3 rounded-lg border text-[12px] font-medium transition-all ${active ? "border-[#4ade80] bg-[rgba(74,222,128,0.05)] text-[#4ade80]" : "border-[#252525] bg-[#111] text-[#555] hover:border-[#444]"}`}
-                    >
+                      className={`flex items-center gap-2 px-3 py-3 rounded-lg border text-[12px] font-medium transition-all ${active ? "border-[#4ade80] bg-[rgba(74,222,128,0.05)] text-[#4ade80]" : "border-[#252525] bg-[#111] text-[#555] hover:border-[#444]"}`}>
                       <span>{CAPABILITY_ICONS[cap]}</span>
                       <span>{CAPABILITY_LABELS[cap]}</span>
                     </button>
@@ -349,15 +336,13 @@ export default function OnboardingPage() {
                 <button
                   type="button"
                   onClick={() => setStep(0)}
-                  className="flex-1 py-3 rounded-lg border border-[#252525] text-[#666] text-sm hover:border-[#444] transition-colors"
-                >
+                  className="flex-1 py-3 rounded-lg border border-[#252525] text-[#666] text-sm hover:border-[#444] transition-colors">
                   ← Back
                 </button>
                 <button
                   type="button"
                   onClick={() => setStep(2)}
-                  className="flex-[2] py-3 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] hover:bg-[#e8c97a] transition-colors"
-                >
+                  className="flex-[2] py-3 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] hover:bg-[#e8c97a] transition-colors">
                   Continue →
                 </button>
               </div>
@@ -370,8 +355,7 @@ export default function OnboardingPage() {
               <div>
                 <h1
                   className="text-3xl md:text-4xl font-light mb-2"
-                  style={{ fontFamily: "var(--font-display), serif" }}
-                >
+                  style={{ fontFamily: "var(--font-display), serif" }}>
                   Almost{" "}
                   <span className="italic" style={{ color: "#c9a84c" }}>
                     done
@@ -384,42 +368,32 @@ export default function OnboardingPage() {
 
               <div className="space-y-5">
                 <div className="space-y-2">
-                  <label className="text-[11px] uppercase tracking-widest text-[#666]">
-                    Experience Level
-                  </label>
+                  <label className="text-[11px] uppercase tracking-widest text-[#666]">Experience Level</label>
                   <div className="flex gap-2">
-                    {(["beginner", "intermediate", "advanced"] as const).map(
-                      (v) => (
-                        <button
-                          key={v}
-                          type="button"
-                          onClick={() => setExperienceLevel(v)}
-                          className={`flex-1 py-2.5 rounded-lg border text-[12px] capitalize transition-colors ${experienceLevel === v ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)] text-[#c9a84c]" : "border-[#252525] text-[#555] hover:border-[#444]"}`}
-                        >
-                          {v}
-                        </button>
-                      ),
-                    )}
+                    {(["beginner", "intermediate", "advanced"] as const).map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setExperienceLevel(v)}
+                        className={`flex-1 py-2.5 rounded-lg border text-[12px] capitalize transition-colors ${experienceLevel === v ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)] text-[#c9a84c]" : "border-[#252525] text-[#555] hover:border-[#444]"}`}>
+                        {v}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[11px] uppercase tracking-widest text-[#666]">
-                    Acquisition Style
-                  </label>
+                  <label className="text-[11px] uppercase tracking-widest text-[#666]">Acquisition Style</label>
                   <div className="flex gap-2">
-                    {(["volume", "balanced", "selective"] as const).map(
-                      (v) => (
-                        <button
-                          key={v}
-                          type="button"
-                          onClick={() => setAcquisitionStyle(v)}
-                          className={`flex-1 py-2.5 rounded-lg border text-[12px] capitalize transition-colors ${acquisitionStyle === v ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)] text-[#c9a84c]" : "border-[#252525] text-[#555] hover:border-[#444]"}`}
-                        >
-                          {v}
-                        </button>
-                      ),
-                    )}
+                    {(["volume", "balanced", "selective"] as const).map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setAcquisitionStyle(v)}
+                        className={`flex-1 py-2.5 rounded-lg border text-[12px] capitalize transition-colors ${acquisitionStyle === v ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)] text-[#c9a84c]" : "border-[#252525] text-[#555] hover:border-[#444]"}`}>
+                        {v}
+                      </button>
+                    ))}
                   </div>
                   <p className="text-[11px] text-[#444]">
                     {acquisitionStyle === "volume"
@@ -431,9 +405,7 @@ export default function OnboardingPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[11px] uppercase tracking-widest text-[#666]">
-                    Target Geography
-                  </label>
+                  <label className="text-[11px] uppercase tracking-widest text-[#666]">Target Geography</label>
                   <input
                     type="text"
                     value={targetLocation}
@@ -447,17 +419,14 @@ export default function OnboardingPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[11px] uppercase tracking-widest text-[#666]">
-                    Target Business Size
-                  </label>
+                  <label className="text-[11px] uppercase tracking-widest text-[#666]">Target Business Size</label>
                   <div className="flex gap-2">
                     {(["small", "medium", "large"] as const).map((v) => (
                       <button
                         key={v}
                         type="button"
                         onClick={() => setTargetBusinessSize(v)}
-                        className={`flex-1 py-2.5 rounded-lg border text-[12px] capitalize transition-colors ${targetBusinessSize === v ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)] text-[#c9a84c]" : "border-[#252525] text-[#555] hover:border-[#444]"}`}
-                      >
+                        className={`flex-1 py-2.5 rounded-lg border text-[12px] capitalize transition-colors ${targetBusinessSize === v ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)] text-[#c9a84c]" : "border-[#252525] text-[#555] hover:border-[#444]"}`}>
                         {v}
                       </button>
                     ))}
@@ -469,16 +438,14 @@ export default function OnboardingPage() {
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="flex-1 py-3 rounded-lg border border-[#252525] text-[#666] text-sm hover:border-[#444] transition-colors"
-                >
+                  className="flex-1 py-3 rounded-lg border border-[#252525] text-[#666] text-sm hover:border-[#444] transition-colors">
                   ← Back
                 </button>
                 <button
                   type="button"
                   onClick={handleFinish}
                   disabled={saving}
-                  className="flex-[2] py-3 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] hover:bg-[#e8c97a] disabled:opacity-50 transition-colors"
-                >
+                  className="flex-[2] py-3 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] hover:bg-[#e8c97a] disabled:opacity-50 transition-colors">
                   {saving ? "Saving…" : "Create My Profile →"}
                 </button>
               </div>
@@ -496,15 +463,15 @@ export default function OnboardingPage() {
                 <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-3">Profile ready</p>
                 <h1
                   className="text-3xl md:text-4xl font-light mb-4"
-                  style={{ fontFamily: "var(--font-display), serif" }}
-                >
+                  style={{ fontFamily: "var(--font-display), serif" }}>
                   You&apos;re ready to find{" "}
                   <span className="italic" style={{ color: "#c9a84c" }}>
                     clients.
                   </span>
                 </h1>
                 <p className="text-[14px] text-[#555] max-w-md mx-auto leading-relaxed">
-                  Your profile is saved. Every lead you find will be scored and matched to your service — so you spend time on the right prospects, not random ones.
+                  Your profile is saved. Every lead you find will be scored and matched to your service — so you spend
+                  time on the right prospects, not random ones.
                 </p>
               </div>
               <div className="grid grid-cols-3 gap-3 max-w-sm mx-auto">
@@ -522,8 +489,7 @@ export default function OnboardingPage() {
               <button
                 type="button"
                 onClick={() => router.push("/dashboard")}
-                className="inline-block px-10 py-4 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] tracking-wide hover:bg-[#e8c97a] transition-all shadow-lg shadow-[rgba(201,168,76,0.15)]"
-              >
+                className="inline-block px-10 py-4 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] tracking-wide hover:bg-[#e8c97a] transition-all shadow-lg shadow-[rgba(201,168,76,0.15)]">
                 Find my first leads →
               </button>
               <p className="text-[11px] text-[#333]">You can update your profile anytime from the dashboard.</p>

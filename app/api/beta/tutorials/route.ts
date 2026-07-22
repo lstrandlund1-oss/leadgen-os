@@ -12,6 +12,7 @@ import {
   completeTutorial,
   skipTutorial,
   replayTutorial,
+  startTutorial,
 } from "@/lib/beta/tutorials";
 import { TUTORIAL_DEFINITIONS, type TutorialKey } from "@/lib/beta/tutorialDefinitions";
 
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
   const membership = await getBetaMembership(user.id);
   if (!membership) return NextResponse.json({ error: "No beta membership" }, { status: 403 });
 
-  let body: { key?: TutorialKey; action?: "step" | "complete" | "skip" | "replay"; step?: number };
+  let body: { key?: TutorialKey; action?: "start" | "step" | "complete" | "skip" | "replay"; step?: number };
   try {
     body = await request.json();
   } catch {
@@ -55,6 +56,9 @@ export async function POST(request: Request) {
   const membershipId = membership.id;
 
   switch (action) {
+    case "start":
+      await startTutorial(membershipId, user.id, key, version);
+      break;
     case "step":
       await recordTutorialStep(membershipId, user.id, key, version, step ?? 0);
       break;

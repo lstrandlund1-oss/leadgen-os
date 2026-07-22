@@ -9,6 +9,7 @@
 import { getBetaServiceClient } from "./serviceClient";
 import { BETA_ACTIVE_DAYS_LIMIT, BETA_TIMEZONE } from "./config";
 import { checkAndAwardDiscount } from "./completion";
+import { logEvent } from "@/lib/analytics/log";
 import type { BetaAccess, BetaMembership, BetaMembershipStatus } from "./types";
 
 type MembershipRow = {
@@ -112,6 +113,7 @@ export async function getBetaAccess(userId: string): Promise<BetaAccess> {
       // days, admin-marked interview, required feedback) were met — if so,
       // award the discount now rather than needing a separate job.
       await checkAndAwardDiscount(membership.id, membership.userId);
+      await logEvent(membership.userId, "beta_membership_expired", { membershipId: membership.id });
     }
     return { active: false, reason: "expired" };
   }
