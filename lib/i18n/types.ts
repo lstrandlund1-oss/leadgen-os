@@ -200,6 +200,41 @@ export type TranslationSchema = {
           { title: string; steps: { title: string; body: string }[] }
         >;
       };
+      feedback: {
+        promptTitle: string; // "How's {feature} working for you?"
+        notUsedEnough: string;
+        reasonPrompt: string;
+        freeTextPlaceholder: string;
+        submit: string;
+        skip: string;
+        thanks: string;
+        settingsHeading: string;
+        settingsSubheading: string;
+        rateAgain: string;
+        notYetRated: string;
+        yourRating: string; // "{rating}/5"
+        featureNames: Record<
+          "search" | "deep_search" | "lead_scoring" | "outreach" | "followup" | "outcomes" | "tutorial",
+          string
+        >;
+        reasons: Record<
+          | "confusing"
+          | "inaccurate"
+          | "too_slow"
+          | "too_limited"
+          | "did_not_solve_need"
+          | "partly_useful"
+          | "missing_information"
+          | "required_too_much_editing"
+          | "unsure_i_trust_it"
+          | "easy_to_use"
+          | "accurate"
+          | "saved_time"
+          | "changed_my_decision"
+          | "ready_to_use",
+          string
+        >;
+      };
     };
   };
 };

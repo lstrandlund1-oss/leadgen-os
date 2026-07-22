@@ -10,6 +10,8 @@ import { useTheme } from "@/app/components/ThemeProvider";
 import { useBetaStatus } from "@/lib/beta/useBetaStatus";
 import TutorialsSettingsList from "@/app/components/TutorialsSettingsList";
 import PageTutorial from "@/app/components/PageTutorial";
+import FeedbackPrompt from "@/app/components/FeedbackPrompt";
+import FeatureRatingsList from "@/app/components/FeatureRatingsList";
 
 type Tab = "profile" | "preferences" | "notifications" | "account";
 
@@ -819,6 +821,12 @@ export default function SettingsPage() {
                         <TutorialsSettingsList language={language} />
                       </div>
                     )}
+
+                    {betaStatus.active && (
+                      <div className={sectionClass}>
+                        <FeatureRatingsList language={language} />
+                      </div>
+                    )}
                   </>
                 )}
               </>
@@ -827,6 +835,7 @@ export default function SettingsPage() {
         </div>
       </div>
       {betaStatus.active && <PageTutorial tutorialKey="settings" language={language} />}
+      {betaStatus.active && <FeedbackPrompt language={language} />}
     </div>
   );
 }

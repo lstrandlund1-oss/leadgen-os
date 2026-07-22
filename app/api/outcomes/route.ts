@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/supabaseServer";
 import { supabase } from "@/lib/supabaseClient";
+import { logEvent } from "@/lib/analytics/log";
 
 type OutcomePayload = {
   runId: number;
@@ -25,10 +26,7 @@ export async function POST(request: Request) {
   const userId = authUser?.id ?? null;
   try {
     if (!supabase) {
-      return NextResponse.json(
-        { error: "Supabase not configured" },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
     }
 
     const body = (await request.json()) as OutcomePayload;
@@ -66,6 +64,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    if (userId) await logEvent(userId, "outcome_recorded", { runId: body.runId, leadId: body.leadId });
+
     return NextResponse.json({ ok: true, outcome: data }, { status: 200 });
   } catch (err) {
     console.error("POST /api/outcomes error:", err);
@@ -76,10 +76,7 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   try {
     if (!supabase) {
-      return NextResponse.json(
-        { error: "Supabase not configured" },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
     }
 
     const authUser = await getAuthUser();
@@ -107,10 +104,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Invalid runId" }, { status: 400 });
     }
 
-    const { data, error } = await supabase
-      .from("lead_outcomes")
-      .select("*")
-      .eq("run_id", runId);
+    const { data, error } = await supabase.from("lead_outcomes").select("*").eq("run_id", runId);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

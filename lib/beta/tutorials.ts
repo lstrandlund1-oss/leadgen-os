@@ -5,6 +5,7 @@
 // against real concurrent-request races.
 
 import { getBetaServiceClient } from "./serviceClient";
+import { logEvent } from "@/lib/analytics/log";
 import type { TutorialKey } from "./tutorialDefinitions";
 import type { BetaTutorialProgress } from "./types";
 
@@ -117,6 +118,7 @@ export async function completeTutorial(
   version: string,
 ): Promise<void> {
   await upsertProgress(membershipId, userId, key, version, { completed_at: new Date().toISOString() });
+  await logEvent(userId, "tutorial_finished", { tutorialKey: key, outcome: "completed" });
 }
 
 export async function skipTutorial(
@@ -126,6 +128,7 @@ export async function skipTutorial(
   version: string,
 ): Promise<void> {
   await upsertProgress(membershipId, userId, key, version, { skipped_at: new Date().toISOString() });
+  await logEvent(userId, "tutorial_finished", { tutorialKey: key, outcome: "skipped" });
 }
 
 // Voluntary re-watch from Settings → Tutorials. Resets the seen state so

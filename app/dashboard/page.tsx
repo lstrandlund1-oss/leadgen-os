@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import PageTutorial from "../components/PageTutorial";
+import FeedbackPrompt from "../components/FeedbackPrompt";
 import { useBetaStatus } from "@/lib/beta/useBetaStatus";
 import React, {
   Fragment,
@@ -5181,6 +5182,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
           )}
       </main>
       {betaStatus.active && <PageTutorial tutorialKey="dashboard" language={language} />}
+      {betaStatus.active && <FeedbackPrompt language={language} />}
     </>
   );
 }
