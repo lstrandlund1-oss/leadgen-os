@@ -9,7 +9,7 @@
 
 import crypto from "crypto";
 import { getBetaAccess, recordBetaActiveDay } from "./access";
-import { reserveBetaUsage, commitBetaUsage, releaseBetaUsage, getBetaUsageCounts } from "./usage";
+import { reserveBetaUsage, commitBetaUsage, releaseBetaUsage, getBetaUsageCounts, getAllowanceOverride } from "./usage";
 import { BETA_DEFAULT_ALLOWANCES, BETA_TIMEZONE } from "./config";
 import { getTranslations } from "@/lib/i18n";
 import type { Language } from "@/lib/i18n/types";
@@ -36,7 +36,8 @@ export async function beginBetaGatedAction(
   if (!access.active) return { mode: "not_beta" };
 
   const timezone = access.membership.timezone ?? BETA_TIMEZONE;
-  const allowance = BETA_DEFAULT_ALLOWANCES[feature];
+  const override = await getAllowanceOverride(access.membership.id, feature);
+  const allowance = override ?? BETA_DEFAULT_ALLOWANCES[feature];
 
   const reservation = await reserveBetaUsage(
     access.membership,

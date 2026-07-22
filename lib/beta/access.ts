@@ -27,6 +27,7 @@ type MembershipRow = {
   expired_at: string | null;
   revoked_at: string | null;
   converted_at: string | null;
+  monetary_ceiling_micro_usd: number | null;
   final_interview_completed: boolean;
   final_interview_completed_at: string | null;
   required_feedback_completed: boolean;
@@ -53,6 +54,7 @@ function mapRow(row: MembershipRow): BetaMembership {
     expiredAt: row.expired_at,
     revokedAt: row.revoked_at,
     convertedAt: row.converted_at,
+    monetaryCeilingMicroUsd: row.monetary_ceiling_micro_usd,
     finalInterviewCompleted: row.final_interview_completed,
     finalInterviewCompletedAt: row.final_interview_completed_at,
     requiredFeedbackCompleted: row.required_feedback_completed,

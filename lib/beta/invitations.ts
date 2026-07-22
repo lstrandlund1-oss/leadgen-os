@@ -111,3 +111,40 @@ export async function acceptBetaInvitation(
   }
   return { success: false, reason: row.reason };
 }
+
+export type InvitationListItem = {
+  id: string;
+  email: string;
+  companyName: string | null;
+  status: string;
+  createdAt: string;
+  expiresAt: string;
+  acceptedAt: string | null;
+};
+
+export async function getAllInvitations(): Promise<InvitationListItem[]> {
+  const client = await getBetaServiceClient();
+  if (!client) return [];
+  const { data } = await client
+    .from("beta_invitations")
+    .select("id, email, company_name, status, created_at, expires_at, accepted_at")
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    email: r.email,
+    companyName: r.company_name,
+    status: r.status,
+    createdAt: r.created_at,
+    expiresAt: r.expires_at,
+    acceptedAt: r.accepted_at,
+  }));
+}
+
+export async function adminRevokeInvitation(invitationId: string, adminEmail: string): Promise<void> {
+  const client = await getBetaServiceClient();
+  if (!client) return;
+  await client.from("beta_invitations").update({ status: "revoked" }).eq("id", invitationId).eq("status", "pending"); // only revoke while still unaccepted
+  const { logAdminAction } = await import("@/lib/analytics/log");
+  await logAdminAction(adminEmail, "revoke_invitation", invitationId);
+}

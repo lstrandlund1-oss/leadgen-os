@@ -19,6 +19,24 @@ import { getBetaServiceClient } from "./serviceClient";
 import { BETA_DEFAULT_ALLOWANCES, BETA_DEFAULT_MONETARY_CEILING_MICRO_USD, BETA_TIMEZONE } from "./config";
 import type { BetaFeature, BetaMembership, BetaUsageReservation } from "./types";
 
+// Per-membership override, set by an admin (Phase 8's "Adjust AI
+// allowance"). No row = use the global default from lib/beta/config.ts.
+export async function getAllowanceOverride(
+  membershipId: string,
+  feature: BetaFeature,
+): Promise<{ daily: number | null; total: number | null } | null> {
+  const client = await getBetaServiceClient();
+  if (!client) return null;
+  const { data } = await client
+    .from("beta_feature_allowances")
+    .select("daily_limit, total_limit")
+    .eq("membership_id", membershipId)
+    .eq("feature", feature)
+    .maybeSingle();
+  if (!data) return null;
+  return { daily: data.daily_limit, total: data.total_limit };
+}
+
 export async function reserveBetaUsage(
   membership: BetaMembership,
   feature: BetaFeature,
@@ -32,7 +50,9 @@ export async function reserveBetaUsage(
     return { allowed: false, reason: "total_limit", usageId: null };
   }
 
-  const allowance = BETA_DEFAULT_ALLOWANCES[feature];
+  const override = await getAllowanceOverride(membership.id, feature);
+  const allowance = override ?? BETA_DEFAULT_ALLOWANCES[feature];
+  const monetaryCeiling = membership.monetaryCeilingMicroUsd ?? BETA_DEFAULT_MONETARY_CEILING_MICRO_USD;
 
   const { data, error } = await client
     .rpc("reserve_beta_usage", {
@@ -40,7 +60,7 @@ export async function reserveBetaUsage(
       p_feature: feature,
       p_daily_limit: allowance.daily,
       p_total_limit: allowance.total,
-      p_monetary_ceiling_micro_usd: BETA_DEFAULT_MONETARY_CEILING_MICRO_USD,
+      p_monetary_ceiling_micro_usd: monetaryCeiling,
       p_estimated_cost_micro_usd: estimatedCostMicroUsd,
       p_idempotency_key: idempotencyKey,
       p_timezone: membership.timezone ?? BETA_TIMEZONE,

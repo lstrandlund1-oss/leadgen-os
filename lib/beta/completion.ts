@@ -4,6 +4,8 @@
 
 import { getBetaServiceClient } from "./serviceClient";
 import { BETA_COMPLETION_MIN_ACTIVE_DAYS, BETA_DISCOUNT_PERCENT, BETA_DISCOUNT_MONTHS } from "./config";
+import { logAdminAction } from "@/lib/analytics/log";
+import type { BetaFeature } from "./types";
 
 const REQUIRED_FEATURE_COUNT = 7; // search, deep_search, lead_scoring, outreach, followup, outcomes, tutorial
 
@@ -109,6 +111,17 @@ export async function adminExpireMembership(membershipId: string, adminEmail: st
       internal_notes: `Manually expired by ${adminEmail}`,
     })
     .eq("id", membershipId);
+  await logAdminAction(adminEmail, "expire_membership", membershipId);
+}
+
+export async function adminRevokeMembership(membershipId: string, adminEmail: string): Promise<void> {
+  const client = await getBetaServiceClient();
+  if (!client) return;
+  await client
+    .from("beta_memberships")
+    .update({ status: "revoked", revoked_at: new Date().toISOString() })
+    .eq("id", membershipId);
+  await logAdminAction(adminEmail, "revoke_membership", membershipId);
 }
 
 // Extension is auditable (who granted it, when) and must NOT reset usage
@@ -134,14 +147,117 @@ export async function adminGrantExtension(membershipId: string, adminEmail: stri
       status: "active", // re-activate if it had already lapsed
     })
     .eq("id", membershipId);
+  await logAdminAction(adminEmail, "grant_extension", membershipId, { days, newExtendedDays });
 }
 
-export async function adminMarkInterviewCompleted(membershipId: string, userId: string): Promise<void> {
+export async function adminMarkInterviewCompleted(
+  membershipId: string,
+  userId: string,
+  adminEmail: string,
+): Promise<void> {
   const client = await getBetaServiceClient();
   if (!client) return;
   await client
     .from("beta_memberships")
     .update({ final_interview_completed: true, final_interview_completed_at: new Date().toISOString() })
     .eq("id", membershipId);
+  await logAdminAction(adminEmail, "mark_interview_completed", membershipId);
   await checkAndAwardDiscount(membershipId, userId);
+}
+
+// Manual override — the automatic path (checkAndUpdateRequiredFeedback)
+// computes this from actual submitted ratings, but an admin can also mark
+// it complete directly (e.g. a tester gave verbal feedback in the
+// interview instead of using the in-app rating flow).
+export async function adminMarkRequiredFeedbackCompleted(
+  membershipId: string,
+  userId: string,
+  adminEmail: string,
+): Promise<void> {
+  const client = await getBetaServiceClient();
+  if (!client) return;
+  await client
+    .from("beta_memberships")
+    .update({ required_feedback_completed: true, required_feedback_completed_at: new Date().toISOString() })
+    .eq("id", membershipId);
+  await logAdminAction(adminEmail, "mark_required_feedback_completed", membershipId);
+  await checkAndAwardDiscount(membershipId, userId);
+}
+
+export async function adminSetInternalNotes(membershipId: string, notes: string, adminEmail: string): Promise<void> {
+  const client = await getBetaServiceClient();
+  if (!client) return;
+  await client.from("beta_memberships").update({ internal_notes: notes }).eq("id", membershipId);
+  await logAdminAction(adminEmail, "set_internal_notes", membershipId);
+}
+
+// Per-tester AI allowance override (Phase 8: "Adjust AI allowance").
+// null values mean "use the global default from lib/beta/config.ts" for
+// that specific limit.
+export async function adminSetAllowanceOverride(
+  membershipId: string,
+  feature: BetaFeature,
+  dailyLimit: number | null,
+  totalLimit: number | null,
+  adminEmail: string,
+): Promise<void> {
+  const client = await getBetaServiceClient();
+  if (!client) return;
+  await client
+    .from("beta_feature_allowances")
+    .upsert(
+      {
+        membership_id: membershipId,
+        feature,
+        daily_limit: dailyLimit,
+        total_limit: totalLimit,
+        updated_by: adminEmail,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "membership_id,feature" },
+    );
+  await logAdminAction(adminEmail, "set_allowance_override", membershipId, { feature, dailyLimit, totalLimit });
+}
+
+// Per-tester monetary ceiling override (Phase 8: "Adjust monetary
+// ceiling"). null means "use the global default."
+export async function adminSetMonetaryCeiling(
+  membershipId: string,
+  ceilingMicroUsd: number | null,
+  adminEmail: string,
+): Promise<void> {
+  const client = await getBetaServiceClient();
+  if (!client) return;
+  await client.from("beta_memberships").update({ monetary_ceiling_micro_usd: ceilingMicroUsd }).eq("id", membershipId);
+  await logAdminAction(adminEmail, "set_monetary_ceiling", membershipId, { ceilingMicroUsd });
+}
+
+// Manual award, bypassing the automatic completion-criteria check — the
+// spec lists "Award/inspect discount" as a direct admin action, distinct
+// from the automatic award that fires when completion criteria are met.
+export async function adminAwardDiscountManually(
+  membershipId: string,
+  userId: string,
+  adminEmail: string,
+): Promise<void> {
+  const client = await getBetaServiceClient();
+  if (!client) return;
+
+  const { data: existing } = await client
+    .from("beta_discount_grants")
+    .select("id")
+    .eq("membership_id", membershipId)
+    .maybeSingle();
+  if (existing) return;
+
+  await client.from("beta_discount_grants").insert({
+    membership_id: membershipId,
+    user_id: userId,
+    source: "admin_manual_award",
+    percent: BETA_DISCOUNT_PERCENT,
+    duration_months: BETA_DISCOUNT_MONTHS,
+    redemption_deadline: null,
+    status: "earned",
+  });
+  await logAdminAction(adminEmail, "award_discount_manually", membershipId);
 }

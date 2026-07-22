@@ -28,3 +28,20 @@ export async function countEvents(userId: string, eventName: string): Promise<nu
     .eq("event_name", eventName);
   return count ?? 0;
 }
+
+// Every sensitive admin mutation must be auditable (who did what, when).
+// Reuses the same event log rather than a dedicated audit table.
+export async function logAdminAction(
+  adminEmail: string,
+  action: string,
+  membershipId: string,
+  details: Record<string, unknown> = {},
+): Promise<void> {
+  const client = await getBetaServiceClient();
+  if (!client) return;
+  await client.from("analytics_events").insert({
+    user_id: null,
+    event_name: "admin_action",
+    properties: { action, membershipId, adminEmail, details, at: new Date().toISOString() },
+  });
+}

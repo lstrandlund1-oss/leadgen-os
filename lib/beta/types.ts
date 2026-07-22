@@ -25,6 +25,7 @@ export type BetaMembership = {
   expiredAt: string | null;
   revokedAt: string | null;
   convertedAt: string | null;
+  monetaryCeilingMicroUsd: number | null; // null = use global default from lib/beta/config.ts
   finalInterviewCompleted: boolean;
   finalInterviewCompletedAt: string | null;
   requiredFeedbackCompleted: boolean;
