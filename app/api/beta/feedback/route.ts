@@ -2,7 +2,12 @@
 import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/supabaseServer";
 import { getBetaMembership } from "@/lib/beta/access";
-import { getEligibleFeedbackFeature, submitFeatureFeedback, getRatedFeatures } from "@/lib/beta/feedback";
+import {
+  getEligibleFeedbackFeature,
+  submitFeatureFeedback,
+  getRatedFeatures,
+  resolveFeedbackRating,
+} from "@/lib/beta/feedback";
 import type { FeedbackFeatureKey } from "@/lib/beta/feedbackTriggers";
 
 export async function GET() {
@@ -51,7 +56,7 @@ export async function POST(request: Request) {
   }
 
   await submitFeatureFeedback(membership.id, user.id, body.featureKey, {
-    rating: body.notUsedEnough ? null : (body.rating ?? null),
+    rating: resolveFeedbackRating(body.notUsedEnough ?? false, body.rating),
     notUsedEnough: body.notUsedEnough ?? false,
     reasonKey: body.reasonKey ?? null,
     freeText: body.freeText?.trim() || null,

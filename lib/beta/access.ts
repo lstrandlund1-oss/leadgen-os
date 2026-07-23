@@ -76,6 +76,29 @@ function effectiveHardEnd(membership: BetaMembership): Date {
   return base;
 }
 
+// Pure — no I/O, no dependency on the current wall clock unless explicitly
+// passed in. Exported specifically so the two hard limits from the spec
+// ("seven active days expire access" / "fourteen calendar days expire
+// access even with fewer than seven active days") have real, independent
+// unit test coverage rather than only being verified by reading the code.
+export function computeExpiryState(
+  membership: BetaMembership,
+  now: Date = new Date(),
+): {
+  hardEnd: Date;
+  daysUsedExceeded: boolean;
+  calendarExceeded: boolean;
+  daysRemainingActive: number;
+  daysRemainingCalendar: number;
+} {
+  const hardEnd = effectiveHardEnd(membership);
+  const daysUsedExceeded = membership.activeDaysUsed >= BETA_ACTIVE_DAYS_LIMIT;
+  const calendarExceeded = now >= hardEnd;
+  const daysRemainingActive = Math.max(0, BETA_ACTIVE_DAYS_LIMIT - membership.activeDaysUsed);
+  const daysRemainingCalendar = Math.max(0, Math.ceil((hardEnd.getTime() - now.getTime()) / 86_400_000));
+  return { hardEnd, daysUsedExceeded, calendarExceeded, daysRemainingActive, daysRemainingCalendar };
+}
+
 export async function getBetaMembership(userId: string): Promise<BetaMembership | null> {
   const client = await getBetaServiceClient();
   if (!client) return null;
@@ -92,9 +115,10 @@ export async function getBetaAccess(userId: string): Promise<BetaAccess> {
   if (membership.status === "revoked") return { active: false, reason: "revoked" };
 
   const now = new Date();
-  const hardEnd = effectiveHardEnd(membership);
-  const daysUsedExceeded = membership.activeDaysUsed >= BETA_ACTIVE_DAYS_LIMIT;
-  const calendarExceeded = now >= hardEnd;
+  const { daysUsedExceeded, calendarExceeded, daysRemainingActive, daysRemainingCalendar } = computeExpiryState(
+    membership,
+    now,
+  );
 
   if (membership.status === "expired" || daysUsedExceeded || calendarExceeded) {
     // Lazily transition active -> expired on read, since there's no
@@ -117,9 +141,6 @@ export async function getBetaAccess(userId: string): Promise<BetaAccess> {
     }
     return { active: false, reason: "expired" };
   }
-
-  const daysRemainingActive = Math.max(0, BETA_ACTIVE_DAYS_LIMIT - membership.activeDaysUsed);
-  const daysRemainingCalendar = Math.max(0, Math.ceil((hardEnd.getTime() - now.getTime()) / 86_400_000));
 
   return { active: true, membership, daysRemainingActive, daysRemainingCalendar };
 }

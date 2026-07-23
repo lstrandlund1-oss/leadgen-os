@@ -4,6 +4,14 @@ import { countEvents, logEvent } from "@/lib/analytics/log";
 import { FEEDBACK_TRIGGERS, FEEDBACK_FEATURE_VERSION, type FeedbackFeatureKey } from "./feedbackTriggers";
 import { checkAndUpdateRequiredFeedback } from "./completion";
 
+// Pure and exported specifically so it's independently testable — the
+// invariant "not_used_enough is never stored alongside a numeric rating"
+// is exactly the kind of thing that should have a real unit test rather
+// than only being verified by reading the code.
+export function resolveFeedbackRating(notUsedEnough: boolean, rating: number | null | undefined): number | null {
+  return notUsedEnough ? null : (rating ?? null);
+}
+
 export type FeatureFeedbackInput = {
   rating: number | null; // null when notUsedEnough is true
   notUsedEnough: boolean;
