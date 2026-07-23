@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import TesterActions from "./TesterActions";
 
 type TesterOverview = {
   membershipId: string;
@@ -292,111 +293,8 @@ export default function AdminBetaDashboard() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex flex-wrap gap-2 pt-2 border-t border-[#141414]">
-                      <button
-                        onClick={() => {
-                          const days = Number(prompt("Extension days", "7"));
-                          if (days) runAction("grant_extension", { membershipId: t.membershipId, days });
-                        }}
-                        className="text-[11px] px-3 py-1.5 rounded-lg border border-[rgba(201,168,76,0.25)] text-[#c9a84c]">
-                        Extend
-                      </button>
-                      <button
-                        onClick={() => runAction("expire_membership", { membershipId: t.membershipId })}
-                        className="text-[11px] px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-[#999]">
-                        Expire
-                      </button>
-                      <button
-                        onClick={() => runAction("revoke_membership", { membershipId: t.membershipId })}
-                        className="text-[11px] px-3 py-1.5 rounded-lg border border-rose-500/30 text-rose-400">
-                        Revoke
-                      </button>
-                      <button
-                        onClick={() =>
-                          runAction("mark_interview_completed", { membershipId: t.membershipId, userId: t.userId })
-                        }
-                        className="text-[11px] px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-[#999]">
-                        Mark interview done
-                      </button>
-                      <button
-                        onClick={() =>
-                          runAction("mark_required_feedback_completed", {
-                            membershipId: t.membershipId,
-                            userId: t.userId,
-                          })
-                        }
-                        className="text-[11px] px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-[#999]">
-                        Mark feedback done
-                      </button>
-                      <button
-                        onClick={() =>
-                          runAction("award_discount_manually", { membershipId: t.membershipId, userId: t.userId })
-                        }
-                        className="text-[11px] px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-[#999]">
-                        Award discount
-                      </button>
-                      <button
-                        onClick={() => {
-                          const quote = prompt("Approved testimonial quote (exact wording)", "");
-                          if (!quote) return;
-                          const name = prompt("Name to display (optional)", "") || null;
-                          const role = prompt("Role/title to display (optional)", "") || null;
-                          const company = prompt("Company to display (optional)", "") || null;
-                          const logoPermission = confirm("Permission to use their logo?");
-                          const photoPermission = confirm("Permission to use their photo?");
-                          runAction("approve_testimonial", {
-                            membershipId: t.membershipId,
-                            userId: t.userId,
-                            quote,
-                            name,
-                            role,
-                            company,
-                            logoPermission,
-                            photoPermission,
-                            channels: ["landing_page"],
-                          });
-                        }}
-                        className="text-[11px] px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-[#999]">
-                        Approve testimonial
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm("Mark this account as converted to a paid plan?")) {
-                            runAction("mark_converted", { membershipId: t.membershipId, userId: t.userId });
-                          }
-                        }}
-                        className="text-[11px] px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-[#999]">
-                        Mark converted
-                      </button>
-                      <button
-                        onClick={() => {
-                          const val = prompt("Monetary ceiling in USD (blank = use default)", "");
-                          if (val === null) return;
-                          const micro = val.trim() === "" ? null : Math.round(Number(val) * 1_000_000);
-                          runAction("set_monetary_ceiling", { membershipId: t.membershipId, ceilingMicroUsd: micro });
-                        }}
-                        className="text-[11px] px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-[#999]">
-                        Set ceiling
-                      </button>
-                      {(["outreach", "followup", "ai_deep_search"] as const).map((feature) => (
-                        <button
-                          key={feature}
-                          onClick={() => {
-                            const daily = prompt(`${feature} daily limit (blank = default)`, "");
-                            if (daily === null) return;
-                            const total = prompt(`${feature} total limit (blank = default)`, "");
-                            if (total === null) return;
-                            runAction("set_allowance_override", {
-                              membershipId: t.membershipId,
-                              feature,
-                              dailyLimit: daily.trim() === "" ? null : Number(daily),
-                              totalLimit: total.trim() === "" ? null : Number(total),
-                            });
-                          }}
-                          className="text-[11px] px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-[#999]">
-                          {feature} limit
-                        </button>
-                      ))}
+                    <div className="pt-2 border-t border-[#141414]">
+                      <TesterActions membershipId={t.membershipId} userId={t.userId} runAction={runAction} />
                     </div>
                   </div>
                 )}
