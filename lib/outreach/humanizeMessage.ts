@@ -58,7 +58,7 @@ Language: ${lang}
 Channel: ${brief.channel}
 
 PHRASES TO REMOVE if present (replace or cut):
-${AI_PHRASES_TO_AVOID.map(p => `- "${p}"`).join("\n")}
+${AI_PHRASES_TO_AVOID.map((p) => `- "${p}"`).join("\n")}
 
 TONE PROFILE: ${brief.tone}
 ${brief.tone === "consultative" ? "Advisory, thoughtful. Not a sales pitch. Peer-to-peer." : ""}
@@ -111,13 +111,14 @@ export async function humanizeMessage(
     throw new Error(`Stage C humanization failed: ${res.status} ${err}`);
   }
 
-  const data = await res.json() as {
+  const data = (await res.json()) as {
     content: Array<{ type: string; text: string }>;
+    usage?: { input_tokens: number; output_tokens: number };
   };
 
   const rawText = data.content
-    .filter(b => b.type === "text")
-    .map(b => b.text)
+    .filter((b) => b.type === "text")
+    .map((b) => b.text)
     .join("")
     .trim();
 
@@ -128,7 +129,10 @@ export async function humanizeMessage(
   if (brief.requires_subject && rawText.startsWith("Subject:")) {
     const lines = rawText.split("\n");
     subject = lines[0].replace(/^Subject:\s*/i, "").trim();
-    body = lines.slice(lines[1]?.trim() === "" ? 2 : 1).join("\n").trim();
+    body = lines
+      .slice(lines[1]?.trim() === "" ? 2 : 1)
+      .join("\n")
+      .trim();
   }
 
   // Enforce word limit as a final hard ceiling (truncate at sentence boundary if over)
@@ -136,11 +140,7 @@ export async function humanizeMessage(
   if (words.length > brief.max_words) {
     // Find last sentence boundary within limit
     const truncated = words.slice(0, brief.max_words).join(" ");
-    const lastPeriod = Math.max(
-      truncated.lastIndexOf("."),
-      truncated.lastIndexOf("?"),
-      truncated.lastIndexOf("!"),
-    );
+    const lastPeriod = Math.max(truncated.lastIndexOf("."), truncated.lastIndexOf("?"), truncated.lastIndexOf("!"));
     body = lastPeriod > 0 ? truncated.slice(0, lastPeriod + 1) : truncated;
   }
 
@@ -151,5 +151,6 @@ export async function humanizeMessage(
     body,
     word_count,
     channel: brief.channel,
+    usage: data.usage ? { inputTokens: data.usage.input_tokens, outputTokens: data.usage.output_tokens } : undefined,
   };
 }

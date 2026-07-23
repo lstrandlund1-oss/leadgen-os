@@ -22,6 +22,7 @@ import {
   betaBlockedResponseBody,
 } from "@/lib/beta/gate";
 import { logEvent } from "@/lib/analytics/log";
+import { computeRealCostMicroUsd } from "@/lib/ai/cost";
 import type { OutreachRequest, OutreachResult } from "@/lib/outreach/types";
 
 async function checkAndLogOutreachUsage(userId: string): Promise<{
@@ -136,7 +137,10 @@ export async function POST(request: Request) {
       throw genErr;
     }
 
-    await finishBetaGatedAction(betaGate, ESTIMATED_COST_MICRO_USD);
+    await finishBetaGatedAction(
+      betaGate,
+      computeRealCostMicroUsd(draft.usage, message.usage) ?? ESTIMATED_COST_MICRO_USD,
+    );
     await logEvent(user.id, "outreach_generated", {});
 
     const result: OutreachResult = {

@@ -24,6 +24,7 @@ import {
   betaBlockedResponseBody,
 } from "@/lib/beta/gate";
 import { logEvent } from "@/lib/analytics/log";
+import { computeRealCostMicroUsd } from "@/lib/ai/cost";
 
 // ── Haiku query planner (deep search only) ────────────────────────────────────
 
@@ -32,7 +33,7 @@ async function generateQueryVariants(
   city: string,
   country: string,
   language: string,
-): Promise<{ queries: string[]; aiSucceeded: boolean }> {
+): Promise<{ queries: string[]; aiSucceeded: boolean; usage?: { inputTokens: number; outputTokens: number } }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   const fallback = { queries: [niche, `${niche} ${city}`], aiSucceeded: false };
   if (!apiKey) return fallback;
@@ -63,7 +64,10 @@ Return ONLY: ["query1","query2",...] — raw JSON array, nothing else.`,
 
     if (!res.ok) return fallback;
 
-    const data = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
+    const data = (await res.json()) as {
+      content?: Array<{ type: string; text?: string }>;
+      usage?: { input_tokens: number; output_tokens: number };
+    };
     const text = (data.content ?? []).find((b) => b.type === "text")?.text?.trim() ?? "";
     const clean = text
       .replace(/^```json\s*/i, "")
@@ -76,7 +80,15 @@ Return ONLY: ["query1","query2",...] — raw JSON array, nothing else.`,
     const parsed = JSON.parse(clean.slice(start, end + 1)) as unknown[];
     const queries = parsed.filter((q): q is string => typeof q === "string" && q.trim().length > 0);
     console.log(`[discover] Haiku generated ${queries.length} query variants`);
-    return queries.length > 0 ? { queries, aiSucceeded: true } : fallback;
+    return queries.length > 0
+      ? {
+          queries,
+          aiSucceeded: true,
+          usage: data.usage
+            ? { inputTokens: data.usage.input_tokens, outputTokens: data.usage.output_tokens }
+            : undefined,
+        }
+      : fallback;
   } catch (err) {
     console.error("[discover] Haiku query generation failed:", err);
     return fallback;
@@ -231,7 +243,7 @@ export async function POST(request: Request) {
       // generateQueryVariants never throws, it always falls back silently,
       // so this is the real signal for commit vs release, not a try/catch.
       if (generation.aiSucceeded) {
-        await finishBetaGatedAction(betaGate, ESTIMATED_COST_MICRO_USD);
+        await finishBetaGatedAction(betaGate, computeRealCostMicroUsd(generation.usage) ?? ESTIMATED_COST_MICRO_USD);
       } else {
         await abortBetaGatedAction(betaGate);
       }

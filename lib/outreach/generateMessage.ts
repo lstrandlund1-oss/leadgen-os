@@ -53,26 +53,25 @@ GDPR / ETHICS GUARDRAIL:
 function buildUserPrompt(brief: StrategyBrief): string {
   const lang = brief.language === "sv" ? "Swedish" : "English";
 
-  const strengthsText = brief.lead_strengths.length > 0
-    ? brief.lead_strengths.join(", ")
-    : "limited data available";
-  const weaknessesText = brief.lead_weaknesses.length > 0
-    ? brief.lead_weaknesses.join(", ")
-    : "no obvious gaps identified";
+  const strengthsText = brief.lead_strengths.length > 0 ? brief.lead_strengths.join(", ") : "limited data available";
+  const weaknessesText =
+    brief.lead_weaknesses.length > 0 ? brief.lead_weaknesses.join(", ") : "no obvious gaps identified";
 
   // Channel-specific opener guidance (Gong 300M call study)
-  const callOpenerNote = brief.channel === "cold_call"
-    ? `\nCOLD CALL OPENER DATA (Gong, 300M calls):
+  const callOpenerNote =
+    brief.channel === "cold_call"
+      ? `\nCOLD CALL OPENER DATA (Gong, 300M calls):
 - Permission opener ("This is a cold call — do you want to hang up, or can I take 20 seconds?"): 11.18% success
 - Peer-context opener ("Have you heard our name tossed around?"): 11.24% success  
 - "How's your day going?": 7.6% success
 - "Did I catch you at a bad time?": 2.15% success (avoid)
 Choose the opener appropriate to evidence level: ${brief.evidence_confidence} evidence → ${brief.evidence_confidence === "high" ? "peer-context opener" : "permission-based opener"}.`
-    : "";
+      : "";
 
-  const executiveNote = brief.channel === "email" && brief.evidence_confidence === "low"
-    ? "\nNOTE: This is a high-friction lead. Executives spend max 9 seconds reading (Gong research). Aim for 50-75 words, not 100. Be tighter."
-    : "";
+  const executiveNote =
+    brief.channel === "email" && brief.evidence_confidence === "low"
+      ? "\nNOTE: This is a high-friction lead. Executives spend max 9 seconds reading (Gong research). Aim for 50-75 words, not 100. Be tighter."
+      : "";
 
   return `Write a ${brief.channel === "email" ? "cold email" : brief.channel === "linkedin_dm" ? "LinkedIn DM" : "cold call opener"} in ${lang}.
 
@@ -104,21 +103,23 @@ What they offer: ${brief.user_offer}
 ${callOpenerNote}${executiveNote}
 
 EVIDENCE CONFIDENCE NOTE:
-${brief.evidence_confidence === "high"
-  ? "You have strong signal data. Lead with specific, verifiable observations ('saw this on your website...'). Make concrete offers."
-  : brief.evidence_confidence === "medium"
-  ? "You have moderate signal data. Use pattern language ('businesses in this situation often...'). Avoid overclaiming."
-  : "You have limited signal data. Use hypothesis framing ('often when [peer group] is trying to [goal]...'). Ask, don't assert."
+${
+  brief.evidence_confidence === "high"
+    ? "You have strong signal data. Lead with specific, verifiable observations ('saw this on your website...'). Make concrete offers."
+    : brief.evidence_confidence === "medium"
+      ? "You have moderate signal data. Use pattern language ('businesses in this situation often...'). Avoid overclaiming."
+      : "You have limited signal data. Use hypothesis framing ('often when [peer group] is trying to [goal]...'). Ask, don't assert."
 }
 
-${brief.requires_subject ? `Write the subject on the FIRST line, starting with "Subject: "
-Then a blank line, then the body.` : "Write only the message body."}`;
+${
+  brief.requires_subject
+    ? `Write the subject on the FIRST line, starting with "Subject: "
+Then a blank line, then the body.`
+    : "Write only the message body."
+}`;
 }
 
-export async function generateMessage(
-  brief: StrategyBrief,
-  apiKey: string,
-): Promise<GeneratedDraft> {
+export async function generateMessage(brief: StrategyBrief, apiKey: string): Promise<GeneratedDraft> {
   const systemPrompt = buildSystemPrompt(brief);
   const userPrompt = buildUserPrompt(brief);
 
@@ -142,13 +143,14 @@ export async function generateMessage(
     throw new Error(`Stage B generation failed: ${res.status} ${err}`);
   }
 
-  const data = await res.json() as {
+  const data = (await res.json()) as {
     content: Array<{ type: string; text: string }>;
+    usage?: { input_tokens: number; output_tokens: number };
   };
 
   const rawText = data.content
-    .filter(b => b.type === "text")
-    .map(b => b.text)
+    .filter((b) => b.type === "text")
+    .map((b) => b.text)
     .join("")
     .trim();
 
@@ -161,7 +163,10 @@ export async function generateMessage(
     const subjectLine = lines[0].replace(/^Subject:\s*/i, "").trim();
     subject = subjectLine;
     // Skip blank line after subject
-    body = lines.slice(lines[1]?.trim() === "" ? 2 : 1).join("\n").trim();
+    body = lines
+      .slice(lines[1]?.trim() === "" ? 2 : 1)
+      .join("\n")
+      .trim();
   }
 
   const word_count = body.split(/\s+/).filter(Boolean).length;
@@ -171,5 +176,6 @@ export async function generateMessage(
     body,
     word_count,
     structure_used: CHANNEL_RULES[brief.channel].structure.join(" → "),
+    usage: data.usage ? { inputTokens: data.usage.input_tokens, outputTokens: data.usage.output_tokens } : undefined,
   };
 }

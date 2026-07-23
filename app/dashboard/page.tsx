@@ -868,6 +868,10 @@ export default function Home() {
   });
   const [showNicheDropdown, setShowNicheDropdown] = useState(false);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  // Drives the "search" tutorial trigger — the first genuine interaction
+  // with the search panel, distinct from just having landed on the page
+  // (which triggers the "dashboard" tutorial instead).
+  const [hasInteractedWithSearch, setHasInteractedWithSearch] = useState(false);
   const [socialPresence, setSocialPresence] = useState<SocialPresenceFilter>(() => {
     if (typeof window === "undefined") return "any";
     try {
@@ -1371,8 +1375,9 @@ Deep scan: ${deepAddendumParts.join(", ")}.`
       return "lead_focus";
     }
     if (sortedLeads.length > 0) return "results";
+    if (hasInteractedWithSearch) return "search";
     return "dashboard";
-  }, [selectedLead, detailTab, sortedLeads.length]);
+  }, [selectedLead, detailTab, sortedLeads.length, hasInteractedWithSearch]);
 
   const LEADS_PER_BATCH = 20;
   const [displayCount, setDisplayCount] = useState(LEADS_PER_BATCH);
@@ -2320,7 +2325,10 @@ Light enrichment: ${addendumParts.join(", ")}.`
                       type="text"
                       value={niche}
                       onChange={(e: ChangeEvent<HTMLInputElement>) => setNiche(e.target.value)}
-                      onFocus={() => setShowNicheDropdown(true)}
+                      onFocus={() => {
+                        setShowNicheDropdown(true);
+                        setHasInteractedWithSearch(true);
+                      }}
                       onBlur={() => setTimeout(() => setShowNicheDropdown(false), 150)}
                       placeholder="Niche or industry — e.g. tattoo studio, frisör"
                       className="w-full focus:outline-none focus:ring-1 focus:ring-[rgba(201,168,76,0.4)]"
@@ -2363,7 +2371,10 @@ Light enrichment: ${addendumParts.join(", ")}.`
                       type="text"
                       value={location}
                       onChange={(e: ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)}
-                      onFocus={() => setShowLocationDropdown(true)}
+                      onFocus={() => {
+                        setShowLocationDropdown(true);
+                        setHasInteractedWithSearch(true);
+                      }}
                       onBlur={() => setTimeout(() => setShowLocationDropdown(false), 150)}
                       placeholder="City"
                       className="w-full focus:outline-none focus:ring-1 focus:ring-[rgba(201,168,76,0.4)]"

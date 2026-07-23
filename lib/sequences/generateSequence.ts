@@ -34,6 +34,7 @@ export type GeneratedSequence = {
   cadence_type: "aggressive" | "standard" | "nurture";
   total_days: number;
   reasoning: string; // brief explanation of why this cadence shape was chosen
+  usage?: { inputTokens: number; outputTokens: number };
 };
 
 // Day offsets by cadence type — based on research benchmarks
@@ -200,6 +201,7 @@ export async function generateSequence(
 
   const data = (await response.json()) as {
     content: Array<{ type: string; text: string }>;
+    usage?: { input_tokens: number; output_tokens: number };
   };
 
   const text = data.content.find((b) => b.type === "text")?.text ?? "";
@@ -236,5 +238,6 @@ export async function generateSequence(
     cadence_type: cadenceType,
     total_days: days[days.length - 1],
     reasoning: parsed.reasoning ?? "",
+    usage: data.usage ? { inputTokens: data.usage.input_tokens, outputTokens: data.usage.output_tokens } : undefined,
   };
 }
