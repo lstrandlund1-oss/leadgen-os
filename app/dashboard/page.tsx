@@ -1791,20 +1791,28 @@ Light enrichment: ${addendumParts.join(", ")}.`
       if (!raw) return;
       const parsed = JSON.parse(raw) as {
         checklistDismissed?: boolean;
+        checklistCompleted?: boolean;
         checklistHasSearched?: boolean;
         checklistHasSelected?: boolean;
         checklistHasOutcome?: boolean;
       };
-      // Only restore the dismiss preference — NOT hasSearched/hasSelected/hasOutcome.
-      // Those are derived from real data (Supabase searches + session actions)
-      // to prevent stale state from a previous session appearing on fresh accounts.
+      // Only restore the dismiss/completed preference — NOT
+      // hasSearched/hasSelected/hasOutcome individually. Those are derived
+      // from real data (Supabase searches + session actions) to prevent
+      // stale state from a previous session appearing on fresh accounts.
+      // checklistCompleted is the one exception: it's a permanent latch set
+      // once all four conditions are true in any session, specifically so
+      // the panel doesn't reappear just because hasSelected/hasOutcome
+      // (session-only signals) reset to false on the next page load.
       const storedUid = (parsed as { userId?: string }).userId ?? "";
       const currentUid = localStorage.getItem("vantio_uid") ?? "";
       if (storedUid && currentUid && storedUid === currentUid) {
         if (parsed.checklistDismissed) setChecklistDismissed(true);
+        if (parsed.checklistCompleted) setChecklistCompleted(true);
       } else if (!storedUid) {
         // Legacy state without userId — still respect dismiss, ignore progress
         if (parsed.checklistDismissed) setChecklistDismissed(true);
+        if (parsed.checklistCompleted) setChecklistCompleted(true);
       }
     } catch (e) {
       console.error("Failed to load checklist state:", e);
@@ -1845,6 +1853,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
   // Pre-fill location from saved profile if field is still empty
   // Also check checklist completion
   const [checklistDismissed, setChecklistDismissed] = useState(false);
+  const [checklistCompleted, setChecklistCompleted] = useState(false);
   const [checklistState, setChecklistState] = useState({
     hasProfile: false,
     hasSearched: false,
@@ -1852,6 +1861,21 @@ Light enrichment: ${addendumParts.join(", ")}.`
     hasOutcome: false,
   });
   const [profileChecked, setProfileChecked] = useState(false); // true once profile API has responded
+
+  // Permanently latch completion the moment all four are true in any
+  // session. hasSelected/hasOutcome are session-only signals that reset to
+  // false on every fresh page load — without this latch, a user who fully
+  // completed the checklist once would see it reappear on their next visit.
+  useEffect(() => {
+    if (
+      checklistState.hasProfile &&
+      checklistState.hasSearched &&
+      checklistState.hasSelected &&
+      checklistState.hasOutcome
+    ) {
+      setChecklistCompleted(true);
+    }
+  }, [checklistState.hasProfile, checklistState.hasSearched, checklistState.hasSelected, checklistState.hasOutcome]);
 
   useEffect(() => {
     fetch("/api/profile")
@@ -1899,6 +1923,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
           location,
           socialPresence,
           checklistDismissed,
+          checklistCompleted,
           checklistHasSearched: checklistState.hasSearched,
           checklistHasSelected: checklistState.hasSelected,
           checklistHasOutcome: checklistState.hasOutcome,
@@ -1913,6 +1938,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
     location,
     socialPresence,
     checklistDismissed,
+    checklistCompleted,
     checklistState.hasSearched,
     checklistState.hasSelected,
     checklistState.hasOutcome,
@@ -2162,6 +2188,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
         <div className="w-full max-w-7xl space-y-6 py-8">
           {/* Getting Started — fixed left-edge tab + slide-in panel, never conflicts with z-index */}
           {!checklistDismissed &&
+            !checklistCompleted &&
             !(
               checklistState.hasProfile &&
               checklistState.hasSearched &&

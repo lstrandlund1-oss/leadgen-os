@@ -191,13 +191,17 @@ export default function OutreachPage() {
         const seenIds = new Set(localLeads.map((l) => l.id));
         const merged = [...localLeads, ...supabaseLeads.filter((l) => !seenIds.has(l.id))];
         setSavedLeads(merged);
-        // Pre-select lead if passed from dashboard
+        // Pre-select lead if passed from dashboard — consumed once, then
+        // cleared, so a later visit to this page without a fresh handoff
+        // doesn't keep re-showing the last lead someone sent here.
         const stored = localStorage.getItem("vantio_outreach_lead");
         if (stored) {
           try {
             setLead(JSON.parse(stored) as LeadSnapshot);
           } catch {
             /* ignore */
+          } finally {
+            localStorage.removeItem("vantio_outreach_lead");
           }
         }
       })
@@ -210,6 +214,8 @@ export default function OutreachPage() {
             setLead(JSON.parse(stored) as LeadSnapshot);
           } catch {
             /* ignore */
+          } finally {
+            localStorage.removeItem("vantio_outreach_lead");
           }
         }
       })
