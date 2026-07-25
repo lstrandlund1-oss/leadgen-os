@@ -6,18 +6,10 @@ import { useRouter } from "next/navigation";
 import { PROFILE_TYPE_DEFINITIONS, PROFILE_TYPE_KEYS, type ProfileTypeKey } from "@/lib/profile/profileTypes";
 import type { Capability } from "@/lib/fit/needs";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
+import { getTranslations } from "@/lib/i18n";
+import type { Language } from "@/lib/i18n/types";
 
 const ALL_CAPABILITIES: Capability[] = ["ads", "tracking", "funnel", "content", "website", "seo", "crm"];
-
-const CAPABILITY_LABELS: Record<Capability, string> = {
-  ads: "Paid Ads",
-  tracking: "Analytics & Tracking",
-  funnel: "Funnel Building",
-  content: "Content Creation",
-  website: "Website / Landing Pages",
-  seo: "SEO",
-  crm: "CRM / Follow-up",
-};
 
 const CAPABILITY_ICONS: Record<Capability, string> = {
   ads: "📢",
@@ -37,22 +29,23 @@ const PROFILE_TYPE_ICONS: Record<string, string> = {
   full_service_agency: "◈",
 };
 
-const PROFILE_TYPE_TAGS: Record<string, string> = {
-  performance_marketer: "Ads · Funnels · ROI",
-  web_developer: "Sites · Landing Pages · CRO",
-  content_creator: "Social · Organic · Brand",
-  seo_specialist: "Search · Local · Rankings",
-  full_service_agency: "Full Stack · Scale · Teams",
-};
-
-const STEPS = ["Service Type", "Capabilities", "Preferences", "Done"];
-
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
+  const [language, setLanguage] = useState<Language>(() => {
+    if (typeof window === "undefined") return "sv";
+    try {
+      const p = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}");
+      return p.language === "en" || p.language === "sv" ? p.language : "sv";
+    } catch {
+      return "sv";
+    }
+  });
+  const t = getTranslations(language).ui.onboarding;
+  const STEPS = t.stepLabels;
 
   // Guard: if no session → login. If profile already exists → skip to dashboard.
   useEffect(() => {
@@ -170,9 +163,17 @@ export default function OnboardingPage() {
             Vantio
           </span>
         </Link>
-        <p className="text-[12px] text-[#444] tracking-wide">
-          Step {step + 1} of {STEPS.length}
-        </p>
+        <div className="flex items-center gap-4">
+          <p className="text-[12px] text-[#444] tracking-wide">
+            {t.stepOf.replace("{current}", String(step + 1)).replace("{total}", String(STEPS.length))}
+          </p>
+          <button
+            type="button"
+            onClick={() => setLanguage(language === "sv" ? "en" : "sv")}
+            className="text-[11px] text-[#555] hover:text-[#c9a84c] transition-colors uppercase tracking-wide">
+            {language === "sv" ? "en" : "sv"}
+          </button>
+        </div>
       </div>
 
       {/* Progress bar */}
@@ -188,11 +189,8 @@ export default function OnboardingPage() {
           {/* Welcome banner — only on first step */}
           {step === 0 && (
             <div className="rounded-2xl border border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.04)] px-5 py-4 mb-8 text-center">
-              <p className="text-[11px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Welcome to Vantio</p>
-              <p className="text-[13px] text-[#888] leading-relaxed">
-                You&apos;re about to set up your lead intelligence profile. It takes under a minute and makes every
-                result you see specific to your business.
-              </p>
+              <p className="text-[11px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">{t.welcomeBadge}</p>
+              <p className="text-[13px] text-[#888] leading-relaxed">{t.welcomeBody}</p>
             </div>
           )}
 
@@ -222,33 +220,30 @@ export default function OnboardingPage() {
                 <h1
                   className="text-3xl md:text-4xl font-light mb-2"
                   style={{ fontFamily: "var(--font-display), serif" }}>
-                  Let&apos;s set up your{" "}
+                  {t.step0.headingStart}{" "}
                   <span className="italic" style={{ color: "#c9a84c" }}>
-                    profile
+                    {t.step0.headingItalic}
                   </span>
                 </h1>
-                <p className="text-[13px] text-[#666]">
-                  This takes about 60 seconds. Your answers shape how every lead is scored and matched — so results are
-                  relevant to you, not generic.
-                </p>
+                <p className="text-[13px] text-[#666]">{t.step0.body}</p>
               </div>
 
               <div>
                 <label className="block text-[11px] uppercase tracking-widest text-[#666] mb-2">
-                  Your business or agency name
+                  {t.step0.businessNameLabel}
                 </label>
                 <input
                   type="text"
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
-                  placeholder="e.g. Spark Agency"
-                  className="w-full bg-[#111] border border-[#252525] rounded-lg px-4 py-3 text-sm text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.5)] transition-colors"
+                  placeholder={t.step0.businessNamePlaceholder}
+                  className="w-full bg-[#111] border border-[#252525] rounded-lg px-4 py-3 text-base sm:text-sm text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.5)] transition-colors"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {PROFILE_TYPE_KEYS.map((key: ProfileTypeKey) => {
-                  const def = PROFILE_TYPE_DEFINITIONS[key];
+                  const def = t.profileTypes[key];
                   const active = profileType === key;
                   return (
                     <button
@@ -268,13 +263,13 @@ export default function OnboardingPage() {
                             </p>
                             {active && (
                               <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[rgba(201,168,76,0.15)] text-[#c9a84c] uppercase tracking-widest">
-                                Selected
+                                {t.step0.selectedBadge}
                               </span>
                             )}
                           </div>
                           <p
                             className={`text-[10px] uppercase tracking-widest mb-1.5 ${active ? "text-[#8a6e30]" : "text-[#333]"}`}>
-                            {PROFILE_TYPE_TAGS[key]}
+                            {def.tag}
                           </p>
                           <p className="text-[11px] text-[#555] leading-relaxed">{def.description}</p>
                         </div>
@@ -288,7 +283,7 @@ export default function OnboardingPage() {
                 type="button"
                 onClick={() => setStep(1)}
                 className="w-full py-3.5 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] tracking-wide hover:bg-[#e8c97a] transition-colors">
-                Continue →
+                {t.step0.continueButton}
               </button>
             </div>
           )}
@@ -300,15 +295,12 @@ export default function OnboardingPage() {
                 <h1
                   className="text-3xl md:text-4xl font-light mb-2"
                   style={{ fontFamily: "var(--font-display), serif" }}>
-                  What can you{" "}
+                  {t.step1.headingStart}{" "}
                   <span className="italic" style={{ color: "#c9a84c" }}>
-                    actually deliver?
+                    {t.step1.headingItalic}
                   </span>
                 </h1>
-                <p className="text-[13px] text-[#666]">
-                  Select what you can deliver. Leads are scored higher when their needs match your services — so you
-                  only see opportunities you can actually win.
-                </p>
+                <p className="text-[13px] text-[#666]">{t.step1.body}</p>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -326,7 +318,7 @@ export default function OnboardingPage() {
                       }
                       className={`flex items-center gap-2 px-3 py-3 rounded-lg border text-[12px] font-medium transition-all ${active ? "border-[#4ade80] bg-[rgba(74,222,128,0.05)] text-[#4ade80]" : "border-[#252525] bg-[#111] text-[#555] hover:border-[#444]"}`}>
                       <span>{CAPABILITY_ICONS[cap]}</span>
-                      <span>{CAPABILITY_LABELS[cap]}</span>
+                      <span>{t.capabilities[cap]}</span>
                     </button>
                   );
                 })}
@@ -337,13 +329,13 @@ export default function OnboardingPage() {
                   type="button"
                   onClick={() => setStep(0)}
                   className="flex-1 py-3 rounded-lg border border-[#252525] text-[#666] text-sm hover:border-[#444] transition-colors">
-                  ← Back
+                  {t.step1.back}
                 </button>
                 <button
                   type="button"
                   onClick={() => setStep(2)}
                   className="flex-[2] py-3 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] hover:bg-[#e8c97a] transition-colors">
-                  Continue →
+                  {t.step1.continueButton}
                 </button>
               </div>
             </div>
@@ -356,78 +348,76 @@ export default function OnboardingPage() {
                 <h1
                   className="text-3xl md:text-4xl font-light mb-2"
                   style={{ fontFamily: "var(--font-display), serif" }}>
-                  Almost{" "}
+                  {t.step2.headingStart}{" "}
                   <span className="italic" style={{ color: "#c9a84c" }}>
-                    done
+                    {t.step2.headingItalic}
                   </span>
                 </h1>
-                <p className="text-[13px] text-[#666]">
-                  A few final preferences to tune your results. You can change these anytime in your profile settings.
-                </p>
+                <p className="text-[13px] text-[#666]">{t.step2.body}</p>
               </div>
 
               <div className="space-y-5">
                 <div className="space-y-2">
-                  <label className="text-[11px] uppercase tracking-widest text-[#666]">Experience Level</label>
+                  <label className="text-[11px] uppercase tracking-widest text-[#666]">
+                    {t.step2.experienceLevelLabel}
+                  </label>
                   <div className="flex gap-2">
                     {(["beginner", "intermediate", "advanced"] as const).map((v) => (
                       <button
                         key={v}
                         type="button"
                         onClick={() => setExperienceLevel(v)}
-                        className={`flex-1 py-2.5 rounded-lg border text-[12px] capitalize transition-colors ${experienceLevel === v ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)] text-[#c9a84c]" : "border-[#252525] text-[#555] hover:border-[#444]"}`}>
-                        {v}
+                        className={`flex-1 py-2.5 rounded-lg border text-[12px] transition-colors ${experienceLevel === v ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)] text-[#c9a84c]" : "border-[#252525] text-[#555] hover:border-[#444]"}`}>
+                        {t.step2.experienceLevels[v]}
                       </button>
                     ))}
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[11px] uppercase tracking-widest text-[#666]">Acquisition Style</label>
+                  <label className="text-[11px] uppercase tracking-widest text-[#666]">
+                    {t.step2.acquisitionStyleLabel}
+                  </label>
                   <div className="flex gap-2">
                     {(["volume", "balanced", "selective"] as const).map((v) => (
                       <button
                         key={v}
                         type="button"
                         onClick={() => setAcquisitionStyle(v)}
-                        className={`flex-1 py-2.5 rounded-lg border text-[12px] capitalize transition-colors ${acquisitionStyle === v ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)] text-[#c9a84c]" : "border-[#252525] text-[#555] hover:border-[#444]"}`}>
-                        {v}
+                        className={`flex-1 py-2.5 rounded-lg border text-[12px] transition-colors ${acquisitionStyle === v ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)] text-[#c9a84c]" : "border-[#252525] text-[#555] hover:border-[#444]"}`}>
+                        {t.step2.acquisitionStyles[v]}
                       </button>
                     ))}
                   </div>
-                  <p className="text-[11px] text-[#444]">
-                    {acquisitionStyle === "volume"
-                      ? "Higher tolerance for imperfect leads — cast wide."
-                      : acquisitionStyle === "selective"
-                        ? "Stricter qualification — only high-readiness leads."
-                        : "Balanced scoring — best for most service providers."}
-                  </p>
+                  <p className="text-[11px] text-[#444]">{t.step2.acquisitionStyleHints[acquisitionStyle]}</p>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[11px] uppercase tracking-widest text-[#666]">Target Geography</label>
+                  <label className="text-[11px] uppercase tracking-widest text-[#666]">
+                    {t.step2.targetGeographyLabel}
+                  </label>
                   <input
                     type="text"
                     value={targetLocation}
                     onChange={(e) => setTargetLocation(e.target.value)}
-                    placeholder="e.g. Stockholm, London, New York"
-                    className="w-full bg-[#111] border border-[#252525] rounded-lg px-4 py-2.5 text-sm text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.5)] transition-colors"
+                    placeholder={t.step2.targetGeographyPlaceholder}
+                    className="w-full bg-[#111] border border-[#252525] rounded-lg px-4 py-2.5 text-base sm:text-sm text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.5)] transition-colors"
                   />
-                  <p className="text-[11px] text-[#444]">
-                    Pre-fills your location filter. Leave blank to search anywhere.
-                  </p>
+                  <p className="text-[11px] text-[#444]">{t.step2.targetGeographyHint}</p>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[11px] uppercase tracking-widest text-[#666]">Target Business Size</label>
+                  <label className="text-[11px] uppercase tracking-widest text-[#666]">
+                    {t.step2.targetBusinessSizeLabel}
+                  </label>
                   <div className="flex gap-2">
                     {(["small", "medium", "large"] as const).map((v) => (
                       <button
                         key={v}
                         type="button"
                         onClick={() => setTargetBusinessSize(v)}
-                        className={`flex-1 py-2.5 rounded-lg border text-[12px] capitalize transition-colors ${targetBusinessSize === v ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)] text-[#c9a84c]" : "border-[#252525] text-[#555] hover:border-[#444]"}`}>
-                        {v}
+                        className={`flex-1 py-2.5 rounded-lg border text-[12px] transition-colors ${targetBusinessSize === v ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)] text-[#c9a84c]" : "border-[#252525] text-[#555] hover:border-[#444]"}`}>
+                        {t.step2.businessSizes[v]}
                       </button>
                     ))}
                   </div>
@@ -439,14 +429,14 @@ export default function OnboardingPage() {
                   type="button"
                   onClick={() => setStep(1)}
                   className="flex-1 py-3 rounded-lg border border-[#252525] text-[#666] text-sm hover:border-[#444] transition-colors">
-                  ← Back
+                  {t.step2.back}
                 </button>
                 <button
                   type="button"
                   onClick={handleFinish}
                   disabled={saving}
                   className="flex-[2] py-3 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] hover:bg-[#e8c97a] disabled:opacity-50 transition-colors">
-                  {saving ? "Saving…" : "Create My Profile →"}
+                  {saving ? t.step2.saving : t.step2.createProfile}
                 </button>
               </div>
             </div>
@@ -460,26 +450,21 @@ export default function OnboardingPage() {
                 <div className="absolute inset-0 flex items-center justify-center text-3xl">✦</div>
               </div>
               <div>
-                <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-3">Profile ready</p>
+                <p className="text-[11px] tracking-[0.2em] uppercase text-[#8a6e30] mb-3">
+                  {t.step3.profileReadyBadge}
+                </p>
                 <h1
                   className="text-3xl md:text-4xl font-light mb-4"
                   style={{ fontFamily: "var(--font-display), serif" }}>
-                  You&apos;re ready to find{" "}
+                  {t.step3.headingStart}{" "}
                   <span className="italic" style={{ color: "#c9a84c" }}>
-                    clients.
+                    {t.step3.headingItalic}
                   </span>
                 </h1>
-                <p className="text-[14px] text-[#555] max-w-md mx-auto leading-relaxed">
-                  Your profile is saved. Every lead you find will be scored and matched to your service — so you spend
-                  time on the right prospects, not random ones.
-                </p>
+                <p className="text-[14px] text-[#555] max-w-md mx-auto leading-relaxed">{t.step3.body}</p>
               </div>
               <div className="grid grid-cols-3 gap-3 max-w-sm mx-auto">
-                {[
-                  { icon: "◈", label: "Profile-matched scoring" },
-                  { icon: "⬡", label: "Signal analysis" },
-                  { icon: "◆", label: "Outreach generator" },
-                ].map((f) => (
+                {t.step3.features.map((f) => (
                   <div key={f.label} className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3 text-center">
                     <p className="text-[#c9a84c] text-lg mb-1">{f.icon}</p>
                     <p className="text-[10px] text-[#444] leading-tight">{f.label}</p>
@@ -490,9 +475,9 @@ export default function OnboardingPage() {
                 type="button"
                 onClick={() => router.push("/dashboard")}
                 className="inline-block px-10 py-4 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] tracking-wide hover:bg-[#e8c97a] transition-all shadow-lg shadow-[rgba(201,168,76,0.15)]">
-                Find my first leads →
+                {t.step3.findLeads}
               </button>
-              <p className="text-[11px] text-[#333]">You can update your profile anytime from the dashboard.</p>
+              <p className="text-[11px] text-[#333]">{t.step3.updateAnytime}</p>
             </div>
           )}
         </div>

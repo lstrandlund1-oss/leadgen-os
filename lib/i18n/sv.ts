@@ -392,5 +392,104 @@ export const sv: TranslationSchema = {
         backToDashboard: "Tillbaka till instrumentpanelen →",
       },
     },
+    onboarding: {
+      stepLabels: ["Tjänstetyp", "Kompetenser", "Inställningar", "Klart"],
+      stepOf: "Steg {current} av {total}",
+      welcomeBadge: "Välkommen till Vantio",
+      welcomeBody:
+        "Du är på väg att skapa din lead-intelligensprofil. Det tar mindre än en minut och gör varje resultat du ser specifikt för din verksamhet.",
+      step0: {
+        headingStart: "Låt oss skapa din",
+        headingItalic: "profil",
+        body: "Det tar ungefär 60 sekunder. Dina svar styr hur varje lead poängsätts och matchas — så resultaten blir relevanta för dig, inte generiska.",
+        businessNameLabel: "Namnet på din verksamhet eller byrå",
+        businessNamePlaceholder: "t.ex. Spark Byrå",
+        selectedBadge: "Vald",
+        continueButton: "Fortsätt →",
+      },
+      step1: {
+        headingStart: "Vad kan du",
+        headingItalic: "faktiskt leverera?",
+        body: "Välj vad du kan leverera. Leads poängsätts högre när deras behov matchar dina tjänster — så du ser bara möjligheter du faktiskt kan vinna.",
+        back: "← Tillbaka",
+        continueButton: "Fortsätt →",
+      },
+      step2: {
+        headingStart: "Nästan",
+        headingItalic: "klart",
+        body: "Några sista inställningar för att finjustera dina resultat. Du kan ändra dessa när som helst i dina profilinställningar.",
+        experienceLevelLabel: "Erfarenhetsnivå",
+        experienceLevels: { beginner: "Nybörjare", intermediate: "Erfaren", advanced: "Avancerad" },
+        acquisitionStyleLabel: "Kundanskaffningsstil",
+        acquisitionStyles: { volume: "Volym", balanced: "Balanserad", selective: "Selektiv" },
+        acquisitionStyleHints: {
+          volume: "Högre tolerans för ofullständiga leads — brett nät.",
+          balanced: "Balanserad poängsättning — bäst för de flesta tjänsteleverantörer.",
+          selective: "Striktare kvalificering — endast leads med hög mognadsgrad.",
+        },
+        targetGeographyLabel: "Målgeografi",
+        targetGeographyPlaceholder: "t.ex. Stockholm, Göteborg, Malmö",
+        targetGeographyHint: "Förifyller ditt platsfilter. Lämna tomt för att söka var som helst.",
+        targetBusinessSizeLabel: "Målföretagsstorlek",
+        businessSizes: { small: "Litet", medium: "Medelstort", large: "Stort" },
+        back: "← Tillbaka",
+        saving: "Sparar…",
+        createProfile: "Skapa min profil →",
+      },
+      step3: {
+        profileReadyBadge: "Profil klar",
+        headingStart: "Du är redo att hitta",
+        headingItalic: "kunder.",
+        body: "Din profil är sparad. Varje lead du hittar poängsätts och matchas mot din tjänst — så du lägger tid på rätt prospekt, inte slumpmässiga.",
+        features: [
+          { icon: "◈", label: "Profilmatchad poängsättning" },
+          { icon: "⬡", label: "Signalanalys" },
+          { icon: "◆", label: "Outreach-generator" },
+        ],
+        findLeads: "Hitta mina första leads →",
+        updateAnytime: "Du kan uppdatera din profil när som helst från instrumentpanelen.",
+      },
+      capabilities: {
+        ads: "Betald annonsering",
+        tracking: "Analys & spårning",
+        funnel: "Funnel-uppbyggnad",
+        content: "Innehållsskapande",
+        website: "Webbplats / landningssidor",
+        seo: "SEO",
+        crm: "CRM / uppföljning",
+      },
+      profileTypes: {
+        performance_marketer: {
+          label: "Performance-marknadsförare",
+          description:
+            "Du driver betald annonsering, bygger funnels och levererar mätbar ROI åt kunder. Bästa leads har trafikpotential men saknar konverteringssystem.",
+          tag: "Annonsering · Funnels · ROI",
+        },
+        web_developer: {
+          label: "Webbutvecklare / designer",
+          description:
+            "Du bygger webbplatser, landningssidor och konverteringsinfrastruktur. Bästa leads saknar webbplats, har föråldrade sidor eller förtroendeproblem.",
+          tag: "Webbplatser · Landningssidor · CRO",
+        },
+        content_creator: {
+          label: "Innehållsskapare / social media-ansvarig",
+          description:
+            "Du skapar innehåll, sköter sociala medier och bygger organisk räckvidd. Bästa leads har låg synlighet i sociala medier eller underexponerad kvalitet.",
+          tag: "Sociala medier · Organiskt · Varumärke",
+        },
+        seo_specialist: {
+          label: "SEO-specialist",
+          description:
+            "Du förbättrar söksynlighet, lokal SEO och organiska placeringar. Bästa leads är lokala företag utan synlighet i sökresultat.",
+          tag: "Sök · Lokalt · Placeringar",
+        },
+        full_service_agency: {
+          label: "Fullservicebyrå",
+          description:
+            "Du erbjuder ett brett tjänsteutbud och riktar dig mot företag redo att växa. Bästa leads är högre poängsatta företag med budget och mognadsgrad.",
+          tag: "Helhetslösning · Skala · Team",
+        },
+      },
+    },
   },
 };

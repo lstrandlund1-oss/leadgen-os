@@ -390,5 +390,104 @@ export const en: TranslationSchema = {
         backToDashboard: "Back to dashboard →",
       },
     },
+    onboarding: {
+      stepLabels: ["Service Type", "Capabilities", "Preferences", "Done"],
+      stepOf: "Step {current} of {total}",
+      welcomeBadge: "Welcome to Vantio",
+      welcomeBody:
+        "You're about to set up your lead intelligence profile. It takes under a minute and makes every result you see specific to your business.",
+      step0: {
+        headingStart: "Let's set up your",
+        headingItalic: "profile",
+        body: "This takes about 60 seconds. Your answers shape how every lead is scored and matched — so results are relevant to you, not generic.",
+        businessNameLabel: "Your business or agency name",
+        businessNamePlaceholder: "e.g. Spark Agency",
+        selectedBadge: "Selected",
+        continueButton: "Continue →",
+      },
+      step1: {
+        headingStart: "What can you",
+        headingItalic: "actually deliver?",
+        body: "Select what you can deliver. Leads are scored higher when their needs match your services — so you only see opportunities you can actually win.",
+        back: "← Back",
+        continueButton: "Continue →",
+      },
+      step2: {
+        headingStart: "Almost",
+        headingItalic: "done",
+        body: "A few final preferences to tune your results. You can change these anytime in your profile settings.",
+        experienceLevelLabel: "Experience Level",
+        experienceLevels: { beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" },
+        acquisitionStyleLabel: "Acquisition Style",
+        acquisitionStyles: { volume: "Volume", balanced: "Balanced", selective: "Selective" },
+        acquisitionStyleHints: {
+          volume: "Higher tolerance for imperfect leads — cast wide.",
+          balanced: "Balanced scoring — best for most service providers.",
+          selective: "Stricter qualification — only high-readiness leads.",
+        },
+        targetGeographyLabel: "Target Geography",
+        targetGeographyPlaceholder: "e.g. Stockholm, London, New York",
+        targetGeographyHint: "Pre-fills your location filter. Leave blank to search anywhere.",
+        targetBusinessSizeLabel: "Target Business Size",
+        businessSizes: { small: "Small", medium: "Medium", large: "Large" },
+        back: "← Back",
+        saving: "Saving…",
+        createProfile: "Create My Profile →",
+      },
+      step3: {
+        profileReadyBadge: "Profile ready",
+        headingStart: "You're ready to find",
+        headingItalic: "clients.",
+        body: "Your profile is saved. Every lead you find will be scored and matched to your service — so you spend time on the right prospects, not random ones.",
+        features: [
+          { icon: "◈", label: "Profile-matched scoring" },
+          { icon: "⬡", label: "Signal analysis" },
+          { icon: "◆", label: "Outreach generator" },
+        ],
+        findLeads: "Find my first leads →",
+        updateAnytime: "You can update your profile anytime from the dashboard.",
+      },
+      capabilities: {
+        ads: "Paid Ads",
+        tracking: "Analytics & Tracking",
+        funnel: "Funnel Building",
+        content: "Content Creation",
+        website: "Website / Landing Pages",
+        seo: "SEO",
+        crm: "CRM / Follow-up",
+      },
+      profileTypes: {
+        performance_marketer: {
+          label: "Performance Marketer",
+          description:
+            "You run paid ads, build funnels, and drive measurable ROI for clients. Best leads have traffic potential but no conversion system.",
+          tag: "Ads · Funnels · ROI",
+        },
+        web_developer: {
+          label: "Web Developer / Designer",
+          description:
+            "You build websites, landing pages, and conversion infrastructure. Best leads have no website, outdated sites, or trust gap signals.",
+          tag: "Sites · Landing Pages · CRO",
+        },
+        content_creator: {
+          label: "Content Creator / Social Media Manager",
+          description:
+            "You create content, manage social media, and build organic audiences. Best leads have low social presence or underexposed quality.",
+          tag: "Social · Organic · Brand",
+        },
+        seo_specialist: {
+          label: "SEO Specialist",
+          description:
+            "You improve search visibility, local SEO, and organic rankings. Best leads are local businesses with no search presence.",
+          tag: "Search · Local · Rankings",
+        },
+        full_service_agency: {
+          label: "Full-Service Agency",
+          description:
+            "You offer a broad range of services and target businesses ready to scale. Best leads are higher-scoring businesses with budget and readiness.",
+          tag: "Full Stack · Scale · Teams",
+        },
+      },
+    },
   },
 };

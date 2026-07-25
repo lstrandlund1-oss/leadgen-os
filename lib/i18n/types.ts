@@ -248,5 +248,59 @@ export type TranslationSchema = {
         backToDashboard: string;
       };
     };
+    onboarding: {
+      stepLabels: [string, string, string, string];
+      stepOf: string; // "Step {current} of {total}"
+      welcomeBadge: string;
+      welcomeBody: string;
+      step0: {
+        headingStart: string;
+        headingItalic: string;
+        body: string;
+        businessNameLabel: string;
+        businessNamePlaceholder: string;
+        selectedBadge: string;
+        continueButton: string;
+      };
+      step1: {
+        headingStart: string;
+        headingItalic: string;
+        body: string;
+        back: string;
+        continueButton: string;
+      };
+      step2: {
+        headingStart: string;
+        headingItalic: string;
+        body: string;
+        experienceLevelLabel: string;
+        experienceLevels: { beginner: string; intermediate: string; advanced: string };
+        acquisitionStyleLabel: string;
+        acquisitionStyles: { volume: string; balanced: string; selective: string };
+        acquisitionStyleHints: { volume: string; balanced: string; selective: string };
+        targetGeographyLabel: string;
+        targetGeographyPlaceholder: string;
+        targetGeographyHint: string;
+        targetBusinessSizeLabel: string;
+        businessSizes: { small: string; medium: string; large: string };
+        back: string;
+        saving: string;
+        createProfile: string;
+      };
+      step3: {
+        profileReadyBadge: string;
+        headingStart: string;
+        headingItalic: string;
+        body: string;
+        features: { icon: string; label: string }[];
+        findLeads: string;
+        updateAnytime: string;
+      };
+      capabilities: Record<"ads" | "tracking" | "funnel" | "content" | "website" | "seo" | "crm", string>;
+      profileTypes: Record<
+        "performance_marketer" | "web_developer" | "content_creator" | "seo_specialist" | "full_service_agency",
+        { label: string; description: string; tag: string }
+      >;
+    };
   };
 };
