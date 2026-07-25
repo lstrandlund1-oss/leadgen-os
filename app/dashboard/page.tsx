@@ -9,6 +9,7 @@ import React, {
   Fragment,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
   FormEvent,
@@ -744,10 +745,39 @@ function GettingStartedPanel({
 }
 
 // ── ScoreTooltip ─────────────────────────────────────────────────────────────
-// Lightweight hover tooltip. Supports **bold** markers for section labels.
+// Lightweight tooltip. Supports **bold** markers for section labels.
 // Use "**Label** explanation text" format in tooltip strings.
+// Desktop: hover to show, mouse-leave to hide (unchanged behavior).
+// Touch: tap to show, dismiss on tap-anywhere-else or on scroll — touch
+// devices simulate mouseenter on tap but never fire mouseleave (there's
+// no cursor to "leave" with), so relying on hover alone left the tooltip
+// stuck open indefinitely on mobile.
 function ScoreTooltip({ text, children }: { text: string; children: React.ReactNode | React.ReactNode[] }) {
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const triggerRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!rect) return;
+
+    function handleOutsideInteraction(e: Event) {
+      if (triggerRef.current && !triggerRef.current.contains(e.target as Node)) {
+        setRect(null);
+      }
+    }
+    function handleScroll() {
+      setRect(null);
+    }
+
+    document.addEventListener("touchstart", handleOutsideInteraction, { passive: true });
+    document.addEventListener("mousedown", handleOutsideInteraction);
+    window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
+
+    return () => {
+      document.removeEventListener("touchstart", handleOutsideInteraction);
+      document.removeEventListener("mousedown", handleOutsideInteraction);
+      window.removeEventListener("scroll", handleScroll, { capture: true });
+    };
+  }, [rect]);
 
   if (!text) return <>{children}</>;
 
@@ -771,11 +801,29 @@ function ScoreTooltip({ text, children }: { text: string; children: React.ReactN
     });
   }
 
+  // Clamp within the viewport on BOTH edges — the tooltip is horizontally
+  // centered on this point via translateX(-50%), so a naive right-only
+  // clamp (the old behavior) still let it clip off the LEFT edge when the
+  // trigger sat near the left side of a narrow screen.
+  const TOOLTIP_HALF_WIDTH = 140; // half of maxWidth (280) — matches the centering transform
+  const VIEWPORT_MARGIN = 12;
+  const clampedLeft = rect
+    ? Math.min(
+        Math.max(rect.left + rect.width / 2, TOOLTIP_HALF_WIDTH + VIEWPORT_MARGIN),
+        window.innerWidth - TOOLTIP_HALF_WIDTH - VIEWPORT_MARGIN,
+      )
+    : 0;
+
   return (
     <span
+      ref={triggerRef}
       style={{ position: "relative", display: "inline-block", width: "100%" }}
       onMouseEnter={(e) => setRect((e.currentTarget as HTMLElement).getBoundingClientRect())}
-      onMouseLeave={() => setRect(null)}>
+      onMouseLeave={() => setRect(null)}
+      onClick={(e) => {
+        e.stopPropagation();
+        setRect((prev) => (prev ? null : (e.currentTarget as HTMLElement).getBoundingClientRect()));
+      }}>
       {children}
       {rect &&
         typeof window !== "undefined" &&
@@ -783,7 +831,7 @@ function ScoreTooltip({ text, children }: { text: string; children: React.ReactN
           <div
             style={{
               position: "fixed",
-              left: Math.min(rect.left + rect.width / 2, window.innerWidth - 160),
+              left: clampedLeft,
               top: rect.top - 12,
               transform: "translate(-50%, -100%)",
               zIndex: 999999,
@@ -928,17 +976,6 @@ export default function Home() {
     }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLead?.id]);
-
-  // Lock body scroll when lead panel is open
-  useEffect(() => {
-    if (selectedLead) {
-      const prev = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = prev;
-      };
-    }
-  }, [selectedLead]);
 
   // Lock body scroll when lead panel is open
   useEffect(() => {
@@ -5033,7 +5070,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                             })()
                           ) : (
                             <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2">
-                              <div className="flex items-center justify-between">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
                                 <p className="text-[10px] uppercase tracking-widest text-[#8a8a8a]">Manual Follow-up</p>
                                 {followupVal &&
                                   !closedFU &&
