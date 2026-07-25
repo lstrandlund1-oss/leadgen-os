@@ -1,17 +1,23 @@
 // app/api/waitlist/route.ts
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
+import { getServiceClient } from "@/lib/supabaseServiceClient";
 
 export async function GET() {
   try {
-    if (!supabase) return NextResponse.json({ count: 0 });
-    const { count, error } = await supabase
-      .from("waitlist")
-      .select("*", { count: "exact", head: true });
+    // RLS blocks anon SELECT on this table (public signups shouldn't be
+    // readable by any client key) — this aggregate count is a legitimate
+    // server-side need, so it uses the service-role client instead.
+    const serviceClient = await getServiceClient();
+    if (!serviceClient) return NextResponse.json({ count: 0 });
+    const { count, error } = await serviceClient.from("waitlist").select("*", { count: "exact", head: true });
     if (error) return NextResponse.json({ count: 0 });
-    return NextResponse.json({ count: count ?? 0 }, {
-      headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=600" }
-    });
+    return NextResponse.json(
+      { count: count ?? 0 },
+      {
+        headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=600" },
+      },
+    );
   } catch {
     return NextResponse.json({ count: 0 });
   }
@@ -19,7 +25,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { email, plan } = await request.json() as { email?: string; plan?: string };
+    const { email, plan } = (await request.json()) as { email?: string; plan?: string };
 
     if (!email || !email.includes("@")) {
       return NextResponse.json({ error: "Valid email required" }, { status: 400 });
@@ -41,7 +47,7 @@ export async function POST(request: Request) {
         beta_source: "waitlist",
         created_at: new Date().toISOString(),
       },
-      { onConflict: "email" }
+      { onConflict: "email" },
     );
 
     if (error) {

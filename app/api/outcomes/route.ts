@@ -82,16 +82,24 @@ export async function GET(request: Request) {
     const authUser = await getAuthUser();
     const userId = authUser?.id ?? null;
 
+    // Both query paths below return outcome data (revenue, notes, contact
+    // status) that must be scoped to the requesting user. Previously,
+    // (a) an unauthenticated request to ?all=true returned every user's
+    // outcomes unfiltered, and (b) the per-run path never checked user_id
+    // at all, for anyone — meaning any visitor could enumerate run_id
+    // values and read any user's private outcome data. Both are fixed by
+    // requiring authentication up front and always filtering by user_id.
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const runIdParam = searchParams.get("runId");
     const allRuns = searchParams.get("all") === "true";
 
     // User-scoped all-runs query (for profile stats)
     if (allRuns) {
-      let query = supabase.from("lead_outcomes").select("*");
-      if (userId) query = query.eq("user_id", userId);
-
-      const { data, error } = await query;
+      const { data, error } = await supabase.from("lead_outcomes").select("*").eq("user_id", userId);
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
@@ -104,7 +112,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Invalid runId" }, { status: 400 });
     }
 
-    const { data, error } = await supabase.from("lead_outcomes").select("*").eq("run_id", runId);
+    const { data, error } = await supabase.from("lead_outcomes").select("*").eq("run_id", runId).eq("user_id", userId);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
