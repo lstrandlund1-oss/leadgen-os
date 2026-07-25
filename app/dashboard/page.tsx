@@ -1022,7 +1022,6 @@ export default function Home() {
     setSnapshotLoading(false);
   }, [selectedLead?.id]);
 
-  const [stableOrder, setStableOrder] = useState<Map<string, number>>(new Map());
   const [sequenceSteps, setSequenceSteps] = useState<
     Array<{
       id: number;
@@ -1106,7 +1105,6 @@ export default function Home() {
         for (const lead of more.leads) {
           if (!seen.has(lead.id)) merged.push(lead);
         }
-        setStableOrder(new Map(merged.map((l: LeadUI, i: number) => [l.id, i])));
         return merged;
       });
     } finally {
@@ -1386,28 +1384,29 @@ Deep scan: ${deepAddendumParts.join(", ")}.`
 
   const sortedLeads = useMemo(() => {
     const arr = [...filteredLeads];
-    if (stableOrder.size > 0 && sortBy === "score") {
-      arr.sort((a: LeadUI, b: LeadUI) => (stableOrder.get(a.id) ?? 9999) - (stableOrder.get(b.id) ?? 9999));
-      return arr;
-    }
-    arr.sort((a: LeadUI, b: LeadUI) => {
-      if (sortBy === "confidence") return (b.classification.confidence ?? 0) - (a.classification.confidence ?? 0);
-      if (sortBy === "opportunity") return (b.score.opportunity ?? 0) - (a.score.opportunity ?? 0);
-      if (sortBy === "risk") return (a.score.risk ?? 0) - (b.score.risk ?? 0);
-      if (sortBy === "fit") return (b.fit?.fitScore ?? 0) - (a.fit?.fitScore ?? 0);
-      return (b.score.value ?? 0) - (a.score.value ?? 0);
-    });
     const priority = { high: 3, medium: 2, low: 1 } as const;
+
+    function primaryValue(lead: LeadUI): number {
+      if (sortBy === "confidence") return lead.classification.confidence ?? 0;
+      if (sortBy === "opportunity") return lead.score.opportunity ?? 0;
+      if (sortBy === "risk") return -(lead.score.risk ?? 0); // lower risk = "higher" in sort terms
+      if (sortBy === "fit") return lead.fit?.fitScore ?? 0;
+      return lead.score.value ?? 0; // "score" — the main/final score, genuinely sorted now
+    }
+
     arr.sort((a: LeadUI, b: LeadUI) => {
+      const diff = primaryValue(b) - primaryValue(a);
+      if (diff !== 0) return diff;
+      // Tiebreaker only — previously this ran as a second, unconditional
+      // full re-sort that silently overrode every sort option (not just
+      // "score"). Now it only decides ordering between leads that are
+      // genuinely tied on whatever the user actually selected.
       const ai = normalizeLegacyOrNewOpportunityInsight(a);
       const bi = normalizeLegacyOrNewOpportunityInsight(b);
-      const av = priority[ai?.strength ?? "low"];
-      const bv = priority[bi?.strength ?? "low"];
-      if (bv !== av) return bv - av;
-      return 0;
+      return priority[bi?.strength ?? "low"] - priority[ai?.strength ?? "low"];
     });
     return arr;
-  }, [filteredLeads, sortBy, stableOrder]);
+  }, [filteredLeads, sortBy]);
 
   // Picks exactly one contextually-relevant tutorial key at a time, so
   // there's never a risk of multiple tutorials trying to show
@@ -2019,7 +2018,6 @@ Light enrichment: ${addendumParts.join(", ")}.`
       await new Promise((r) => setTimeout(r, 200));
 
       setLeads(deduped);
-      setStableOrder(new Map(deduped.map((l: LeadUI, i: number) => [l.id, i])));
       setRunId(discoverData.primaryRunId);
       setNextCursor(null);
       setExhausted(true);
@@ -4196,9 +4194,13 @@ Light enrichment: ${addendumParts.join(", ")}.`
                             <div className="flex items-center justify-between">
                               <p className="text-[10px] uppercase tracking-widest text-[#8a8a8a]">Website</p>
                               {!noWebsite && deepEnrichmentData.website.summary && (
-                                <p className="text-[10px] text-[#737373] max-w-[60%] text-right truncate">
-                                  {deepEnrichmentData.website.summary}
-                                </p>
+                                <ScoreTooltip text={deepEnrichmentData.website.summary} inline>
+                                  <span
+                                    className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-[#3a3a3a] text-[#666] text-[9px] leading-none cursor-help flex-shrink-0"
+                                    aria-label="Primary gap insight">
+                                    i
+                                  </span>
+                                </ScoreTooltip>
                               )}
                             </div>
                             {Object.entries(deepEnrichmentData.website.scores).map(([key, val]) => {
