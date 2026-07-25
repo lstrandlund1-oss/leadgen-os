@@ -2209,7 +2209,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                           }
                         }}
                         placeholder={t.ui.savedSearches.nameInputPlaceholder}
-                        className="text-[11px] bg-[#0d0d0d] border border-[rgba(201,168,76,0.3)] rounded-lg px-2 py-1 text-[#f5f0e8] placeholder-[#444] focus:outline-none focus:border-[rgba(201,168,76,0.6)] w-36"
+                        className="text-base sm:text-[11px] bg-[#0d0d0d] border border-[rgba(201,168,76,0.3)] rounded-lg px-2 py-1 text-[#f5f0e8] placeholder-[#444] focus:outline-none focus:border-[rgba(201,168,76,0.6)] w-36"
                       />
                       <button
                         type="button"
@@ -2368,13 +2368,12 @@ Light enrichment: ${addendumParts.join(", ")}.`
                       }}
                       onBlur={() => setTimeout(() => setShowNicheDropdown(false), 150)}
                       placeholder="Niche or industry — e.g. tattoo studio, frisör"
-                      className="w-full focus:outline-none focus:ring-1 focus:ring-[rgba(201,168,76,0.4)]"
+                      className="w-full focus:outline-none focus:ring-1 focus:ring-[rgba(201,168,76,0.4)] text-base sm:text-[13px]"
                       style={{
                         background: "#0d0d0d",
                         border: "1px solid #262626",
                         borderRadius: 10,
                         padding: "13px 14px 13px 34px",
-                        fontSize: 13,
                         color: "#f0ebe3",
                       }}
                     />
@@ -2414,13 +2413,12 @@ Light enrichment: ${addendumParts.join(", ")}.`
                       }}
                       onBlur={() => setTimeout(() => setShowLocationDropdown(false), 150)}
                       placeholder="City"
-                      className="w-full focus:outline-none focus:ring-1 focus:ring-[rgba(201,168,76,0.4)]"
+                      className="w-full focus:outline-none focus:ring-1 focus:ring-[rgba(201,168,76,0.4)] text-base sm:text-[13px]"
                       style={{
                         background: "#0d0d0d",
                         border: "1px solid #262626",
                         borderRadius: 10,
                         padding: "13px 14px 13px 34px",
-                        fontSize: 13,
                         color: "#f0ebe3",
                       }}
                     />
@@ -2589,7 +2587,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                       value={query}
                       onChange={(e: ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
                       placeholder={t.ui.results.searchPlaceholder}
-                      className="flex-1 min-w-[180px] rounded-md bg-[#111111] border border-[#2a2a2a] px-2 py-1 text-xs"
+                      className="flex-1 min-w-[180px] rounded-md bg-[#111111] border border-[#2a2a2a] px-2 py-1 text-base sm:text-xs"
                     />
 
                     {sortedLeads.length > 0 && (
@@ -4839,7 +4837,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                           patch: { revenue: Number.isFinite(v) ? v : null },
                                         });
                                       }}
-                                      className="flex-1 bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-sm text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40"
+                                      className="flex-1 bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-base sm:text-sm text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40"
                                     />
                                   </div>
                                   {closed && revenueVal && (
@@ -4869,7 +4867,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                   patch: { notes: e.target.value.trim() || null },
                                 });
                               }}
-                              className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-[12px] text-[#c8c0b0] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors resize-none disabled:opacity-40"
+                              className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-base sm:text-[12px] text-[#c8c0b0] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors resize-none disabled:opacity-40"
                             />
                             <p className="text-[10px] text-[#616161]">{t.ui.detail.savesOnBlur}</p>
                           </div>
@@ -5106,7 +5104,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                     patch: { followup_date: e.target.value || null },
                                   });
                                 }}
-                                className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-[12px] text-[#c8c0b0] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40 [color-scheme:dark]"
+                                className="w-full bg-[#111] border border-[#252525] rounded-lg px-3 py-2 text-base sm:text-[12px] text-[#c8c0b0] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors disabled:opacity-40 [color-scheme:dark]"
                               />
                               <p className="text-[10px] text-[#616161]">
                                 Build a sequence below for smarter scheduling
