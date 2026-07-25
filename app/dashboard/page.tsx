@@ -3835,15 +3835,6 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                 </div>
                               );
                             })()}
-
-                            {/* Lead Snapshot button */}
-                            <button
-                              type="button"
-                              disabled
-                              className="w-full py-2 rounded-xl border border-[rgba(201,168,76,0.2)] text-[11px] text-[#8a6e30] bg-[rgba(201,168,76,0.04)] opacity-60 cursor-not-allowed flex items-center justify-center gap-2">
-                              <span>◈</span>
-                              <span>Lead Snapshot — coming soon</span>
-                            </button>
                           </div>
                           {/* end score content wrapper */}
                         </div>
