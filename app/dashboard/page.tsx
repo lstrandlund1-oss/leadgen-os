@@ -752,7 +752,15 @@ function GettingStartedPanel({
 // devices simulate mouseenter on tap but never fire mouseleave (there's
 // no cursor to "leave" with), so relying on hover alone left the tooltip
 // stuck open indefinitely on mobile.
-function ScoreTooltip({ text, children }: { text: string; children: React.ReactNode | React.ReactNode[] }) {
+function ScoreTooltip({
+  text,
+  children,
+  inline = false,
+}: {
+  text: string;
+  children: React.ReactNode | React.ReactNode[];
+  inline?: boolean;
+}) {
   const [rect, setRect] = useState<DOMRect | null>(null);
   const triggerRef = useRef<HTMLSpanElement>(null);
 
@@ -817,7 +825,7 @@ function ScoreTooltip({ text, children }: { text: string; children: React.ReactN
   return (
     <span
       ref={triggerRef}
-      style={{ position: "relative", display: "inline-block", width: "100%" }}
+      style={{ position: "relative", display: "inline-block", ...(inline ? {} : { width: "100%" }) }}
       onMouseEnter={(e) => setRect((e.currentTarget as HTMLElement).getBoundingClientRect())}
       onMouseLeave={() => setRect(null)}
       onClick={(e) => {
@@ -3848,16 +3856,16 @@ Light enrichment: ${addendumParts.join(", ")}.`
                       type CatDef = { key: keyof typeof bd; label: string; hint: string; invert?: boolean };
                       const categories: CatDef[] = [
                         { key: "reputation", label: "Reputation", hint: "Reviews & rating quality." },
-                        { key: "digitalPresence", label: "Digital Pres.", hint: "Website & social visibility." },
-                        { key: "businessStrength", label: "Biz Strength", hint: "Maturity & ability to pay." },
-                        { key: "opportunityGap", label: "Opp. Gap", hint: "Growth headroom available." },
+                        { key: "digitalPresence", label: "Digital Presence", hint: "Website & social visibility." },
+                        { key: "businessStrength", label: "Business Strength", hint: "Maturity & ability to pay." },
+                        { key: "opportunityGap", label: "Opportunity Gap", hint: "Growth headroom available." },
                         {
                           key: "stabilityRisk",
                           label: "Difficulty",
                           hint: "How hard to close — higher = harder.",
                           invert: true,
                         },
-                        { key: "evidenceConfidence", label: "Evidence Conf.", hint: "Signal data quality." },
+                        { key: "evidenceConfidence", label: "Evidence Confidence", hint: "Signal data quality." },
                       ];
 
                       function barColor(v: number, invert = false) {
@@ -3879,7 +3887,16 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                 return (
                                   <div key={key} className="space-y-1">
                                     <div className="flex items-center justify-between">
-                                      <p className="text-[11px] text-[#bababa]">{label}</p>
+                                      <ScoreTooltip text={hint} inline>
+                                        <span className="flex items-center gap-1.5">
+                                          <p className="text-[11px] text-[#bababa]">{label}</p>
+                                          <span
+                                            className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-[#3a3a3a] text-[#666] text-[9px] leading-none cursor-help flex-shrink-0"
+                                            aria-label={`What is ${label}?`}>
+                                            i
+                                          </span>
+                                        </span>
+                                      </ScoreTooltip>
                                       <p className="text-[12px] font-bold tabular-nums" style={{ color }}>
                                         {v}
                                       </p>
@@ -3890,7 +3907,6 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                         style={{ width: `${v}%`, backgroundColor: color }}
                                       />
                                     </div>
-                                    <p className="text-[10px] text-[#737373] leading-snug hidden sm:block">{hint}</p>
                                   </div>
                                 );
                               })}
