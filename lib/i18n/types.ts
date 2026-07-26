@@ -302,5 +302,36 @@ export type TranslationSchema = {
         { label: string; description: string; tag: string }
       >;
     };
+    login: {
+      welcomeBackBadge: string;
+      getStartedBadge: string;
+      signInHeadingStart: string;
+      signInHeadingItalic: string;
+      signUpHeadingStart: string;
+      signUpHeadingItalic: string;
+      emailConfirmFailedError: string;
+      fillFieldsError: string;
+      checkEmailSuccess: string;
+      didntGetIt: string;
+      resending: string;
+      resendConfirmation: string;
+      newConfirmationSent: string;
+      emailLabel: string;
+      emailPlaceholder: string;
+      passwordLabel: string;
+      passwordPlaceholderSignup: string;
+      passwordPlaceholderSignin: string;
+      forgotPassword: string;
+      pleaseWait: string;
+      signInButton: string;
+      createAccountButton: string;
+      noAccount: string;
+      signUpLink: string;
+      haveAccount: string;
+      signInLink: string;
+      freeDuringBeta: string;
+      backToHome: string;
+      loadingFallback: string;
+    };
   };
 };

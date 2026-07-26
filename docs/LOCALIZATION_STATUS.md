@@ -38,7 +38,7 @@ which is a hard blocker for a Swedish-first beta.
 | `app/beta/invite/[token]/page.tsx` + `BetaAcceptForm.tsx` | ✅ Fully translated | Built during the beta integration project |
 | `app/beta/completed/page.tsx` | ✅ Fully translated | Built during the beta integration project |
 | `app/onboarding/page.tsx` | ✅ Fully translated | Fixed as part of this audit. Also includes a language toggle since no user preference exists yet at this point. Profile type labels/descriptions/tags moved from `lib/profile/profileTypes.ts` into `lib/i18n/{en,sv}.ts` (`t.onboarding.profileTypes`) — that source file still owns the *structural* data (default capabilities, seller type) but no longer owns display text. |
-| `app/login/page.tsx` | ❌ Not started | English-only |
+| `app/login/page.tsx` | ✅ Fully translated | Fixed as part of this audit. Same language-toggle pattern as onboarding (no preference exists yet before login). |
 | `app/settings/page.tsx` | ❌ Not started | English-only, except the beta-specific card added during the beta project |
 | `app/profile/settings/page.tsx` | ❌ Not started | English-only, except the beta-specific card |
 | `app/outreach/page.tsx` | ❌ Not started | English-only |
