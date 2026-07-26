@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import HamburgerMenu from "@/app/components/HamburgerMenu";
 import { getEffectivePlan, canUseOutreach } from "@/lib/plan";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
+import { getTranslations } from "@/lib/i18n";
+import type { Language } from "@/lib/i18n/types";
 
 type OutreachChannel = "email" | "linkedin_dm" | "cold_call";
 type OutreachTone = "professional" | "consultative" | "friendly" | "direct" | "bold";
@@ -58,54 +60,6 @@ type SavedLeadItem = {
   social_presence: string | null;
 };
 
-const CHANNEL_META: Record<OutreachChannel, { label: string; icon: string; note: string }> = {
-  email: { label: "Email", icon: "✉", note: "50–100 words · subject 1–4 words · offer-based CTA" },
-  linkedin_dm: { label: "LinkedIn DM", icon: "◈", note: "25–75 words · conversational · permission framing" },
-  cold_call: { label: "Cold Call", icon: "☎", note: "Opener script · permission or peer-context opener" },
-};
-
-const TONE_META: Record<OutreachTone, { label: string; desc: string }> = {
-  professional: { label: "Professional", desc: "Polished, executive register" },
-  consultative: { label: "Consultative", desc: "Advisory, insight-led" },
-  friendly: { label: "Friendly", desc: "Warm but professional" },
-  direct: { label: "Direct", desc: "Confident, no hedging" },
-  bold: { label: "Bold", desc: "Pattern-interrupt" },
-};
-
-const OBJECTIVE_META: Record<OutreachObjective, { label: string; desc: string; icon: string }> = {
-  first_touch: { label: "First touch", desc: "Opening message — never contacted", icon: "◎" },
-};
-
-const GAP_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
-  VISIBILITY: { label: "Visibility Gap", color: "#818cf8", icon: "◎" },
-  CONVERSION: { label: "Conversion Gap", color: "#fb923c", icon: "⬡" },
-  INFRASTRUCTURE: { label: "Infrastructure Gap", color: "#f87171", icon: "△" },
-  OPTIMIZATION: { label: "Optimization Gap", color: "#34d399", icon: "◆" },
-};
-
-const REFINE_ACTIONS: { key: RefineAction; label: string; instruction: string }[] = [
-  {
-    key: "shorten",
-    label: "Shorten",
-    instruction: "Make this message shorter and more punchy. Cut to the essential. Stay under the word limit.",
-  },
-  {
-    key: "warmer",
-    label: "Make warmer",
-    instruction: "Make this message warmer and more human. Less formal, more like a real person typed it.",
-  },
-  {
-    key: "more_direct",
-    label: "More direct",
-    instruction: "Make this more direct and confident. Remove hedging and filler. Get to the point faster.",
-  },
-  {
-    key: "more_formal",
-    label: "More formal",
-    instruction: "Make this more professional and polished. Slightly elevate the register without sounding stiff.",
-  },
-];
-
 const CONFIDENCE_COLOR: Record<string, string> = {
   high: "#4ade80",
   medium: "#c9a84c",
@@ -115,6 +69,83 @@ const CONFIDENCE_COLOR: Record<string, string> = {
 export default function OutreachPage() {
   const plan = getEffectivePlan();
   const unlocked = canUseOutreach(plan);
+  const [language] = useState<Language>(() => {
+    if (typeof window === "undefined") return "sv";
+    try {
+      const p = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}");
+      return p.language === "en" || p.language === "sv" ? p.language : "sv";
+    } catch {
+      return "sv";
+    }
+  });
+  const t = getTranslations(language).ui.outreach;
+
+  const CHANNEL_META: Record<OutreachChannel, { label: string; icon: string; note: string }> = useMemo(
+    () => ({
+      email: { label: t.channels.email.label, icon: "✉", note: t.channels.email.note },
+      linkedin_dm: { label: t.channels.linkedin_dm.label, icon: "◈", note: t.channels.linkedin_dm.note },
+      cold_call: { label: t.channels.cold_call.label, icon: "☎", note: t.channels.cold_call.note },
+    }),
+    [t],
+  );
+
+  const TONE_META: Record<OutreachTone, { label: string; desc: string }> = useMemo(
+    () => ({
+      professional: t.tones.professional,
+      consultative: t.tones.consultative,
+      friendly: t.tones.friendly,
+      direct: t.tones.direct,
+      bold: t.tones.bold,
+    }),
+    [t],
+  );
+
+  const OBJECTIVE_META: Record<OutreachObjective, { label: string; desc: string; icon: string }> = useMemo(
+    () => ({
+      first_touch: { ...t.objectiveFirstTouch, icon: "◎" },
+    }),
+    [t],
+  );
+
+  const GAP_CONFIG: Record<string, { label: string; color: string; icon: string }> = useMemo(
+    () => ({
+      VISIBILITY: { label: t.gapLabels.visibility, color: "#818cf8", icon: "◎" },
+      CONVERSION: { label: t.gapLabels.conversion, color: "#fb923c", icon: "⬡" },
+      INFRASTRUCTURE: { label: t.gapLabels.infrastructure, color: "#f87171", icon: "△" },
+      OPTIMIZATION: { label: t.gapLabels.optimization, color: "#34d399", icon: "◆" },
+    }),
+    [t],
+  );
+
+  // Instructions are AI prompts (backend-facing, not UI text) — deliberately
+  // left in English regardless of interface language, since Claude reads
+  // them as a modifier alongside the separate outreach-language parameter.
+  // Only the button label is translated.
+  const REFINE_ACTIONS: { key: RefineAction; label: string; instruction: string }[] = useMemo(
+    () => [
+      {
+        key: "shorten" as const,
+        label: t.refineActions.shorten,
+        instruction: "Make this message shorter and more punchy. Cut to the essential. Stay under the word limit.",
+      },
+      {
+        key: "warmer" as const,
+        label: t.refineActions.warmer,
+        instruction: "Make this message warmer and more human. Less formal, more like a real person typed it.",
+      },
+      {
+        key: "more_direct" as const,
+        label: t.refineActions.moreDirect,
+        instruction: "Make this more direct and confident. Remove hedging and filler. Get to the point faster.",
+      },
+      {
+        key: "more_formal" as const,
+        label: t.refineActions.moreFormal,
+        instruction: "Make this more professional and polished. Slightly elevate the register without sounding stiff.",
+      },
+    ],
+    [t],
+  );
 
   const [userEmail, setUserEmail] = useState("");
   const [lead, setLead] = useState<LeadSnapshot | null>(null);
@@ -309,7 +340,7 @@ ${result.message.body}`
         setRefining(null);
       }
     },
-    [result, refining],
+    [result, refining, REFINE_ACTIONS],
   );
 
   useEffect(() => {
@@ -393,34 +424,25 @@ ${result.message.body}`
   if (!unlocked) {
     return (
       <div className="min-h-screen bg-[#080808] text-[#f5f0e8] flex flex-col">
-        <Nav userEmail={userEmail} />
+        <Nav userEmail={userEmail} language={language} />
         <div className="flex-1 flex items-center justify-center px-6 py-20">
           <div className="max-w-md w-full text-center space-y-6">
             <div className="w-16 h-16 rounded-full border border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.04)] flex items-center justify-center mx-auto text-2xl">
               🔒
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-[#8a6e30] mb-3">Operator & Agency</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-[#8a6e30] mb-3">{t.lockedEyebrow}</p>
               <h1 className="text-3xl font-light mb-3" style={{ fontFamily: "var(--font-display), serif" }}>
-                Outreach is a{" "}
+                {t.lockedHeadingStart}{" "}
                 <span className="italic" style={{ color: "#c9a84c" }}>
-                  premium
+                  {t.lockedHeadingItalic}
                 </span>{" "}
-                feature
+                {t.lockedHeadingEnd}
               </h1>
-              <p className="text-[13px] text-[#555] leading-relaxed">
-                Signal-driven outreach pipeline — three-stage AI generation, channel-optimised messaging, and
-                evidence-backed strategy.
-              </p>
+              <p className="text-[13px] text-[#555] leading-relaxed">{t.lockedBody}</p>
             </div>
             <div className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-5 text-left space-y-3">
-              {[
-                "Signal-grounded message generation",
-                "Email · LinkedIn DM · Cold call scripts",
-                "Three-stage pipeline: strategy → generate → humanize",
-                "One-click refinement: shorten, warmer, more direct",
-                "Evidence confidence scoring",
-              ].map((f) => (
+              {t.lockedFeatures.map((f) => (
                 <div key={f} className="flex items-center gap-3">
                   <span className="text-[#c9a84c] text-xs">✦</span>
                   <p className="text-[12px] text-[#888]">{f}</p>
@@ -430,11 +452,11 @@ ${result.message.body}`
             <Link
               href="/plans"
               className="inline-block px-8 py-3.5 rounded-xl bg-[#c9a84c] text-[#080808] font-semibold text-[14px] hover:bg-[#e8c97a] transition-all">
-              View plans →
+              {t.viewPlans}
             </Link>
             <p className="text-[11px] text-[#333]">
               <Link href="/dashboard" className="hover:text-[#555] transition-colors">
-                ← Back to dashboard
+                {t.backToDashboard}
               </Link>
             </p>
           </div>
@@ -452,22 +474,22 @@ ${result.message.body}`
 
   return (
     <div className="min-h-screen bg-[#080808] text-[#f5f0e8]">
-      <Nav userEmail={userEmail} />
+      <Nav userEmail={userEmail} language={language} />
       <div className="max-w-5xl mx-auto px-5 py-10">
         <div className="mb-8 flex items-end justify-between">
           <div>
-            <p className="text-[10px] tracking-[0.2em] uppercase text-[#8a6e30] mb-1">Operator</p>
+            <p className="text-[10px] tracking-[0.2em] uppercase text-[#8a6e30] mb-1">{t.headerEyebrow}</p>
             <h1 className="text-3xl md:text-4xl font-light" style={{ fontFamily: "var(--font-display), serif" }}>
-              Outreach{" "}
+              {t.headerTitleStart}{" "}
               <span className="italic" style={{ color: "#c9a84c" }}>
-                Generator
+                {t.headerTitleItalic}
               </span>
             </h1>
-            <p className="text-[12px] text-[#444] mt-1.5">Signal-driven · Three-stage pipeline · Evidence-backed</p>
+            <p className="text-[12px] text-[#444] mt-1.5">{t.headerSubtitle}</p>
           </div>
           {lead && (
             <div className="text-right hidden md:block">
-              <p className="text-[10px] text-[#444] uppercase tracking-widest mb-1">Current lead</p>
+              <p className="text-[10px] text-[#444] uppercase tracking-widest mb-1">{t.currentLead}</p>
               <p className="text-[13px] font-semibold text-[#c8c0b0]">{lead.company_name}</p>
               <p className="text-[11px] text-[#444]">{[lead.industry, lead.city].filter(Boolean).join(" · ")}</p>
             </div>
@@ -480,13 +502,13 @@ ${result.message.body}`
             {/* ── Lead picker ── */}
             <div className="rounded-2xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-[9px] uppercase tracking-widest text-[#555]">Lead</p>
+                <p className="text-[9px] uppercase tracking-widest text-[#555]">{t.leadSectionLabel}</p>
                 {lead && (
                   <button
                     type="button"
                     onClick={() => setLead(null)}
                     className="text-[10px] text-[#444] hover:text-[#f87171] transition-colors">
-                    × Clear
+                    {t.clearLead}
                   </button>
                 )}
               </div>
@@ -496,7 +518,7 @@ ${result.message.body}`
                 <div className="rounded-xl border border-[#c9a84c]/30 bg-[rgba(201,168,76,0.04)] px-3 py-2.5">
                   <p className="text-[12px] font-semibold text-[#e8c97a] truncate">{lead.company_name}</p>
                   <p className="text-[10px] text-[#666] mt-0.5">
-                    {[lead.industry, lead.city].filter(Boolean).join(" · ") || "Unknown"}
+                    {[lead.industry, lead.city].filter(Boolean).join(" · ") || t.unknownPlaceholder}
                   </p>
                 </div>
               )}
@@ -506,8 +528,10 @@ ${result.message.body}`
                 type="text"
                 value={leadSearch}
                 onChange={(e) => setLeadSearch(e.target.value)}
-                placeholder={leadsLoading ? "Loading leads…" : `Search ${savedLeads.length} saved leads`}
-                className="w-full bg-[#080808] border border-[#1e1e1e] rounded-lg px-3 py-2 text-[12px] text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors"
+                placeholder={
+                  leadsLoading ? t.loadingLeads : t.searchLeadsPlaceholder.replace("{count}", String(savedLeads.length))
+                }
+                className="w-full bg-[#080808] border border-[#1e1e1e] rounded-lg px-3 py-2 text-base sm:text-[12px] text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors"
               />
 
               {/* Lead list */}
@@ -518,11 +542,11 @@ ${result.message.body}`
                   </div>
                 ) : savedLeads.length === 0 ? (
                   <div className="py-4 text-center space-y-1.5">
-                    <p className="text-[12px] text-[#444]">No saved leads yet</p>
+                    <p className="text-[12px] text-[#444]">{t.noSavedLeads}</p>
                     <Link
                       href="/dashboard"
                       className="text-[11px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
-                      Run a search on the dashboard →
+                      {t.runSearchLink}
                     </Link>
                   </div>
                 ) : (
@@ -583,7 +607,7 @@ ${result.message.body}`
                                 {l.company_name}
                               </p>
                               <p className="text-[10px] text-[#444] truncate">
-                                {[l.industry, l.city].filter(Boolean).join(" · ") || "Unknown"}
+                                {[l.industry, l.city].filter(Boolean).join(" · ") || t.unknownPlaceholder}
                               </p>
                             </div>
                             {l.rating && <span className="text-[10px] text-[#555] flex-shrink-0">{l.rating}★</span>}
@@ -607,8 +631,7 @@ ${result.message.body}`
                       );
                     }).length
                   }{" "}
-                  leads
-                  {leadSearch ? " matched" : " saved"}
+                  leads {leadSearch ? t.leadsMatched : t.leadsSaved}
                 </p>
               )}
             </div>
@@ -616,7 +639,7 @@ ${result.message.body}`
             {/* Channel */}
             <div className="rounded-2xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2.5">
               <p className="text-[9px] uppercase tracking-widest text-[#555]">
-                Channel <span className="text-[#f87171]">*</span>
+                {t.channelLabel} <span className="text-[#f87171]">*</span>
               </p>
 
               {/* Signal-based recommendation */}
@@ -631,28 +654,28 @@ ${result.message.body}`
 
                   if (!hasWebsite && reviews < 10) {
                     rec = "cold_call";
-                    reason = "No website or digital presence — a direct call is the most reliable way in.";
+                    reason = t.channelReasons.noWebsiteNoReviews;
                   } else if (social === "high") {
                     rec = "linkedin_dm";
-                    reason =
-                      "Strong social presence detected — they're active online and more likely to respond to a DM.";
+                    reason = t.channelReasons.highSocial;
                   } else if (hasWebsite && social === "low") {
                     rec = "email";
-                    reason =
-                      "Has a website but low social activity — email gives you space to reference their digital presence.";
+                    reason = t.channelReasons.websiteLowSocial;
                   } else if (!hasWebsite) {
                     rec = "cold_call";
-                    reason = "No website found — cold call or direct visit is the most direct route.";
+                    reason = t.channelReasons.noWebsite;
                   } else {
                     rec = "email";
-                    reason = "Established business with web presence — email is the lowest-friction opener.";
+                    reason = t.channelReasons.established;
                   }
 
                   return (
                     <div className="flex items-start gap-2.5 rounded-xl border border-[#1e1e1e] bg-[#0a0a0a] px-3 py-2.5 mb-1">
                       <span className="text-[#c9a84c] text-[10px] mt-0.5 flex-shrink-0">◈</span>
                       <div className="min-w-0">
-                        <p className="text-[9px] uppercase tracking-widest text-[#555] mb-0.5">Recommended</p>
+                        <p className="text-[9px] uppercase tracking-widest text-[#555] mb-0.5">
+                          {t.channelRecommended}
+                        </p>
                         <p className="text-[11px] font-semibold text-[#c9a84c]">{CHANNEL_META[rec].label}</p>
                         <p className="text-[9px] text-[#616161] mt-0.5 leading-snug">{reason}</p>
                         {channel !== rec && (
@@ -660,7 +683,7 @@ ${result.message.body}`
                             type="button"
                             onClick={() => setChannel(rec)}
                             className="mt-1.5 text-[9px] text-[#8a6e30] hover:text-[#c9a84c] transition-colors underline underline-offset-2">
-                            Use recommended
+                            {t.useRecommended}
                           </button>
                         )}
                       </div>
@@ -702,8 +725,8 @@ ${result.message.body}`
             {/* Tone — auto + 2×2 grid */}
             <div className="rounded-2xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-2.5">
               <div className="flex items-center justify-between">
-                <p className="text-[9px] uppercase tracking-widest text-[#555]">Tone</p>
-                <span className="text-[9px] text-[#333]">Auto if not set</span>
+                <p className="text-[9px] uppercase tracking-widest text-[#555]">{t.toneLabel}</p>
+                <span className="text-[9px] text-[#333]">{t.toneAutoIfNotSet}</span>
               </div>
               <button
                 type="button"
@@ -714,21 +737,22 @@ ${result.message.body}`
                     ? "border-[#c9a84c] bg-[rgba(201,168,76,0.06)] text-[#c9a84c]"
                     : "border-[#1a1a1a] text-[#444] hover:border-[#333]")
                 }>
-                ✦ Auto-detect{result && tone === null ? ` — ${result.brief.tone}` : ""}
+                {t.toneAutoDetect}
+                {result && tone === null ? ` — ${result.brief.tone}` : ""}
               </button>
               <div className="grid grid-cols-2 gap-1.5">
-                {(Object.entries(TONE_META) as [OutreachTone, (typeof TONE_META)[OutreachTone]][]).map(([t, meta]) => (
+                {(Object.entries(TONE_META) as [OutreachTone, (typeof TONE_META)[OutreachTone]][]).map(([tn, meta]) => (
                   <button
-                    key={t}
+                    key={tn}
                     type="button"
-                    onClick={() => setTone(t)}
+                    onClick={() => setTone(tn)}
                     className={
                       "text-left px-3 py-2.5 rounded-xl border transition-all " +
-                      (tone === t
+                      (tone === tn
                         ? "border-[#c9a84c] bg-[rgba(201,168,76,0.06)]"
                         : "border-[#1a1a1a] bg-[#080808] hover:border-[#333]")
                     }>
-                    <p className={"text-[11px] font-semibold " + (tone === t ? "text-[#e8c97a]" : "text-[#666]")}>
+                    <p className={"text-[11px] font-semibold " + (tone === tn ? "text-[#e8c97a]" : "text-[#666]")}>
                       {meta.label}
                     </p>
                     <p className="text-[9px] text-[#444] mt-0.5 leading-snug">{meta.desc}</p>
@@ -742,7 +766,7 @@ ${result.message.body}`
               onClick={() => generate(!!result)}
               disabled={!lead || loading}
               className="w-full py-3.5 rounded-xl bg-[#c9a84c] text-[#080808] font-semibold text-[14px] tracking-wide hover:bg-[#e8c97a] disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-lg shadow-[rgba(201,168,76,0.1)]">
-              {loading ? "Generating…" : result ? "Regenerate ↺" : "Generate message ✦"}
+              {loading ? t.generating : result ? t.regenerate : t.generateMessage}
             </button>
           </div>
 
@@ -752,11 +776,11 @@ ${result.message.body}`
               <div className="rounded-2xl border border-[#252525] bg-[#0d0d0d] p-10 flex flex-col items-center gap-4 text-center">
                 <div className="w-6 h-6 rounded-full border-2 border-[#c9a84c] border-t-transparent animate-spin" />
                 <div className="space-y-1.5">
-                  <p className="text-[13px] text-[#888]">Building strategy brief…</p>
-                  <p className="text-[11px] text-[#444]">Analyzing signals → generating → humanizing</p>
+                  <p className="text-[13px] text-[#888]">{t.buildingStrategyBrief}</p>
+                  <p className="text-[11px] text-[#444]">{t.analyzingSignals}</p>
                 </div>
                 <div className="flex gap-2 mt-1">
-                  {["A — Strategy", "B — Generate", "C — Humanize"].map((s, i) => (
+                  {t.pipelineStages.map((s, i) => (
                     <div
                       key={s}
                       className="px-2.5 py-1 rounded-lg border border-[#1e1e1e] text-[9px] text-[#333] uppercase tracking-widest"
@@ -770,13 +794,13 @@ ${result.message.body}`
 
             {error && !loading && (
               <div className="rounded-2xl border border-rose-500/20 bg-rose-500/05 p-5 space-y-2">
-                <p className="text-[13px] text-rose-400">Generation failed</p>
+                <p className="text-[13px] text-rose-400">{t.generationFailed}</p>
                 <p className="text-[11px] text-[#555]">{error}</p>
                 <button
                   type="button"
                   onClick={() => generate(false)}
                   className="text-[11px] text-[#c9a84c] hover:text-[#e8c97a]">
-                  Try again →
+                  {t.tryAgain}
                 </button>
               </div>
             )}
@@ -787,13 +811,11 @@ ${result.message.body}`
                   <span className="text-[#c9a84c] text-lg">✦</span>
                 </div>
                 <div className="space-y-1.5">
-                  <p className="text-[13px] text-[#444]">Configure and generate</p>
-                  <p className="text-[11px] text-[#2a2a2a] leading-relaxed max-w-xs mx-auto">
-                    Select your objective, channel, and optional tone — the pipeline handles the rest.
-                  </p>
+                  <p className="text-[13px] text-[#444]">{t.configureAndGenerate}</p>
+                  <p className="text-[11px] text-[#2a2a2a] leading-relaxed max-w-xs mx-auto">{t.configureBody}</p>
                 </div>
                 <div className="flex items-center justify-center gap-3 pt-2">
-                  {["A — Strategy", "B — Generate", "C — Humanize"].map((s, i) => (
+                  {t.pipelineStages.map((s, i) => (
                     <div key={s} className="flex items-center gap-2">
                       <span className="text-[9px] text-[#252525]">{s}</span>
                       {i < 2 && <span className="text-[9px] text-[#1e1e1e]">→</span>}
@@ -808,7 +830,7 @@ ${result.message.body}`
                 {/* Strategy brief */}
                 <div className="rounded-2xl border border-[#1e1e1e] bg-[#0a0a0a] p-5 space-y-3">
                   <div className="flex items-start justify-between gap-3 flex-wrap">
-                    <p className="text-[9px] uppercase tracking-widest text-[#555]">Strategy brief</p>
+                    <p className="text-[9px] uppercase tracking-widest text-[#555]">{t.strategyBriefLabel}</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       {gc && (
                         <span
@@ -820,7 +842,7 @@ ${result.message.body}`
                       <span
                         className="text-[9px] px-2 py-1 rounded-full border font-medium capitalize"
                         style={{ borderColor: `${confColor}40`, color: confColor, backgroundColor: `${confColor}0a` }}>
-                        {result.brief.evidence_confidence} confidence
+                        {result.brief.evidence_confidence} {t.confidenceSuffix}
                       </span>
                     </div>
                   </div>
@@ -874,7 +896,7 @@ ${result.message.body}`
 
                   {result.message.subject && (
                     <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] px-4 py-3">
-                      <p className="text-[9px] uppercase tracking-widest text-[#444] mb-1.5">Subject</p>
+                      <p className="text-[9px] uppercase tracking-widest text-[#444] mb-1.5">{t.subjectLabel}</p>
                       <p className="text-[14px] font-semibold text-[#f5f0e8]">{result.message.subject}</p>
                     </div>
                   )}
@@ -887,7 +909,7 @@ ${result.message.body}`
 
                   {/* Refine */}
                   <div>
-                    <p className="text-[9px] uppercase tracking-widest text-[#444] mb-2">Refine</p>
+                    <p className="text-[9px] uppercase tracking-widest text-[#444] mb-2">{t.refineLabel}</p>
                     <div className="grid grid-cols-2 gap-1.5">
                       {REFINE_ACTIONS.map(({ key, label }) => (
                         <button
@@ -927,7 +949,7 @@ ${result.message.body}`
                         }).catch(() => {});
                       }}
                       className="flex-1 py-2.5 rounded-xl border border-[#c9a84c]/30 text-[12px] font-semibold text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-all">
-                      {copied ? "✓ Copied!" : "Copy message"}
+                      {copied ? t.copied : t.copyMessage}
                     </button>
                     <button
                       type="button"
@@ -938,7 +960,7 @@ ${result.message.body}`
                           ? "border-[#4ade80]/30 text-[#4ade80] bg-[rgba(74,222,128,0.05)]"
                           : "border-[#252525] text-[#555] hover:border-[#444] hover:text-[#888]")
                       }>
-                      ✉ Send email
+                      {t.sendEmail}
                     </button>
                     <button
                       type="button"
@@ -951,7 +973,7 @@ ${result.message.body}`
                   {/* Send email panel */}
                   {showSend && (
                     <div className="rounded-xl border border-[#252525] bg-[#0d0d0d] p-4 space-y-3">
-                      <p className="text-[9px] uppercase tracking-widest text-[#555]">Send via Vantio</p>
+                      <p className="text-[9px] uppercase tracking-widest text-[#555]">{t.sendViaVantio}</p>
                       <input
                         type="email"
                         value={sendTo}
@@ -959,23 +981,19 @@ ${result.message.body}`
                           setSendTo(e.target.value);
                           setSendResult(null);
                         }}
-                        placeholder="recipient@company.com"
-                        className="w-full bg-[#080808] border border-[#1e1e1e] rounded-lg px-3 py-2 text-[12px] text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors"
+                        placeholder={t.recipientPlaceholder}
+                        className="w-full bg-[#080808] border border-[#1e1e1e] rounded-lg px-3 py-2 text-base sm:text-[12px] text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors"
                       />
-                      {sendResult === "sent" && <p className="text-[11px] text-[#4ade80]">✓ Email sent successfully</p>}
-                      {sendResult === "error" && (
-                        <p className="text-[11px] text-[#f87171]">✗ Failed to send — check the address and try again</p>
-                      )}
+                      {sendResult === "sent" && <p className="text-[11px] text-[#4ade80]">{t.emailSentSuccess}</p>}
+                      {sendResult === "error" && <p className="text-[11px] text-[#f87171]">{t.emailSentError}</p>}
                       <button
                         type="button"
                         onClick={sendOutreachEmail}
                         disabled={!sendTo.trim() || sending}
                         className="w-full py-2.5 rounded-xl bg-[#4ade80]/10 border border-[#4ade80]/30 text-[12px] font-semibold text-[#4ade80] hover:bg-[#4ade80]/15 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
-                        {sending ? "Sending…" : `Send to ${sendTo || "recipient"}`}
+                        {sending ? t.sending : t.sendTo.replace("{recipient}", sendTo || t.recipientPlaceholder)}
                       </button>
-                      <p className="text-[10px] text-[#2d2d2d]">
-                        Sent from hello@vantioapp.com · logged to your outreach history
-                      </p>
+                      <p className="text-[10px] text-[#2d2d2d]">{t.sentFooter}</p>
                     </div>
                   )}
 
@@ -985,28 +1003,28 @@ ${result.message.body}`
                       type="button"
                       onClick={() => setShowTemplates((s) => !s)}
                       className="text-[10px] text-[#444] hover:text-[#666] transition-colors">
-                      {showTemplates ? "▾ Hide templates" : "▸ Save as template or load saved"}
+                      {showTemplates ? t.hideTemplates : t.showTemplates}
                     </button>
 
                     {showTemplates && (
                       <div className="rounded-xl border border-[#1e1e1e] bg-[#0a0a0a] p-4 space-y-3">
                         {/* Save current */}
                         <div className="space-y-2">
-                          <p className="text-[9px] uppercase tracking-widest text-[#444]">Save this message</p>
+                          <p className="text-[9px] uppercase tracking-widest text-[#444]">{t.saveThisMessage}</p>
                           <div className="flex gap-2">
                             <input
                               type="text"
                               value={templateName}
                               onChange={(e) => setTemplateName(e.target.value)}
-                              placeholder="Template name…"
-                              className="flex-1 bg-[#080808] border border-[#1e1e1e] rounded-lg px-3 py-2 text-[12px] text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors"
+                              placeholder={t.templateNamePlaceholder}
+                              className="flex-1 bg-[#080808] border border-[#1e1e1e] rounded-lg px-3 py-2 text-base sm:text-[12px] text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.4)] transition-colors"
                             />
                             <button
                               type="button"
                               onClick={saveTemplate}
                               disabled={!templateName.trim() || savingTemplate}
                               className="px-3 py-2 rounded-lg border border-[#c9a84c]/30 text-[11px] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] disabled:opacity-40 transition-all">
-                              {savingTemplate ? "…" : "Save ✦"}
+                              {savingTemplate ? "…" : t.saveButton}
                             </button>
                           </div>
                         </div>
@@ -1014,7 +1032,7 @@ ${result.message.body}`
                         {/* Saved templates list */}
                         {templates.length > 0 && (
                           <div className="space-y-1.5 pt-2 border-t border-[#141414]">
-                            <p className="text-[9px] uppercase tracking-widests text-[#333]">Saved templates</p>
+                            <p className="text-[9px] uppercase tracking-widests text-[#333]">{t.savedTemplatesLabel}</p>
                             {templates.map((tmpl) => (
                               <button
                                 key={tmpl.id}
@@ -1052,10 +1070,7 @@ ${result.message.body}`
                 </div>
 
                 <div className="rounded-xl border border-[#141414] bg-[#080808] px-4 py-3">
-                  <p className="text-[10px] text-[#2d2d2d] leading-relaxed">
-                    Constraints: Gong (28M emails, 300M calls) · Salesloft (15M emails) · no pitch on first touch ·
-                    offer-based CTA · ≥20% personalization
-                  </p>
+                  <p className="text-[10px] text-[#2d2d2d] leading-relaxed">{t.constraintsFooter}</p>
                 </div>
               </>
             )}
@@ -1066,7 +1081,8 @@ ${result.message.body}`
   );
 }
 
-function Nav({ userEmail }: { userEmail: string }) {
+function Nav({ userEmail, language }: { userEmail: string; language: Language }) {
+  const tShared = getTranslations(language).ui.settings;
   return (
     <nav className="w-full border-b border-[#151515] bg-[#080808]/90 backdrop-blur-md sticky top-0 z-40">
       <div className="max-w-5xl mx-auto px-5 py-4 flex items-center justify-between">
@@ -1088,12 +1104,12 @@ function Nav({ userEmail }: { userEmail: string }) {
             </span>
           </Link>
           <span className="text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full border border-[rgba(201,168,76,0.25)] text-[#8a6e30]">
-            Beta
+            {tShared.betaBadge}
           </span>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/dashboard" className="text-[12px] text-[#555] hover:text-[#888] transition-colors">
-            ← Dashboard
+            {tShared.backToDashboard}
           </Link>
           <HamburgerMenu userEmail={userEmail} />
         </div>
