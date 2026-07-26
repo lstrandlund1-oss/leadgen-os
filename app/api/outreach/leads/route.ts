@@ -11,36 +11,48 @@ type RunRawRow = { raw_id: number; run_id: number };
 export async function GET() {
   try {
     const supabase = await createSupabaseServer();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    // 1. Recent runs for this user
-    const { data: runs, error: runsErr } = await supabase
-      .from("provider_runs").select("id").eq("user_id", user.id)
-      .order("created_at", { ascending: false }).limit(20);
-    if (runsErr || !runs?.length) return NextResponse.json({ leads: [] });
+    // 1. Runs this user has used (provider_runs itself is a shared cache
+    // with no single owner — see docs/SEARCH_CACHING_ARCHITECTURE.md)
+    const { data: userRuns, error: userRunsErr } = await supabase
+      .from("user_search_runs")
+      .select("run_id")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (userRunsErr || !userRuns?.length) return NextResponse.json({ leads: [] });
 
-    const runIds = (runs as { id: number }[]).map(r => r.id);
+    const runIds = (userRuns as { run_id: number }[]).map((r) => r.run_id);
 
     // 2. All raw_ids in those runs
     const { data: runRaws } = await supabase
-      .from("provider_run_raws").select("raw_id, run_id").in("run_id", runIds).limit(300);
+      .from("provider_run_raws")
+      .select("raw_id, run_id")
+      .in("run_id", runIds)
+      .limit(300);
     if (!runRaws?.length) return NextResponse.json({ leads: [] });
 
     const rows = runRaws as RunRawRow[];
-    const rawIds = [...new Set(rows.map(r => r.raw_id))];
+    const rawIds = [...new Set(rows.map((r) => r.raw_id))];
     const rawToRun: Record<number, number> = {};
-    for (const r of rows) { if (!rawToRun[r.raw_id]) rawToRun[r.raw_id] = r.run_id; }
+    for (const r of rows) {
+      if (!rawToRun[r.raw_id]) rawToRun[r.raw_id] = r.run_id;
+    }
 
     // 3. Normalized names/city/website
     const { data: normalized } = await supabase
-      .from("companies_normalized").select("raw_id, name, website, city").in("raw_id", rawIds);
+      .from("companies_normalized")
+      .select("raw_id, name, website, city")
+      .in("raw_id", rawIds);
     const normMap: Record<number, NormalizedRow> = {};
     for (const n of (normalized ?? []) as NormalizedRow[]) normMap[n.raw_id] = n;
 
     // 4. Raw payload for rating/reviews/social
-    const { data: rawRows } = await supabase
-      .from("companies_raw").select("id, payload").in("id", rawIds);
+    const { data: rawRows } = await supabase.from("companies_raw").select("id, payload").in("id", rawIds);
     const rawMap: Record<number, Record<string, unknown>> = {};
     for (const r of (rawRows ?? []) as { id: number; payload: unknown }[]) {
       rawMap[r.id] = (r.payload ?? {}) as Record<string, unknown>;
@@ -48,7 +60,9 @@ export async function GET() {
 
     // 5. Industry from classifications
     const { data: classifications } = await supabase
-      .from("company_classifications").select("raw_id, primary_industry").in("raw_id", rawIds);
+      .from("company_classifications")
+      .select("raw_id, primary_industry")
+      .in("raw_id", rawIds);
     const classMap: Record<number, string | null> = {};
     for (const c of (classifications ?? []) as ClassificationRow[]) classMap[c.raw_id] = c.primary_industry;
 

@@ -4,6 +4,8 @@ import type { ProviderName, ProviderSearchIntent } from "@/lib/providers/types";
 import { ingestFromProvider } from "@/lib/ingest/ingest";
 import { rateLimitDb } from "@/lib/rateLimitDb";
 import { getCachedRun } from "@/lib/ingest/cache";
+import { getAuthUser } from "@/lib/supabaseServer";
+import { recordUserSearchRuns } from "@/lib/userSearchRuns";
 
 const GLOBAL_LIMIT = { limit: 30, windowMs: 60_000 }; // 30/min per caller
 const PROVIDER_LIMIT = { limit: 10, windowMs: 60_000 }; // 10/min per caller+provider
@@ -14,30 +16,20 @@ type SocialPresence = "low" | "medium" | "high";
 type SocialPresenceFilter = "any" | SocialPresence;
 
 function asRecord(v: unknown): Record<string, unknown> {
-  return v && typeof v === "object" && !Array.isArray(v)
-    ? (v as Record<string, unknown>)
-    : {};
+  return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 }
 
-function getString(
-  obj: Record<string, unknown>,
-  key: string,
-): string | undefined {
+function getString(obj: Record<string, unknown>, key: string): string | undefined {
   const v = obj[key];
   return typeof v === "string" ? v : undefined;
 }
 
-function getNumber(
-  obj: Record<string, unknown>,
-  key: string,
-): number | undefined {
+function getNumber(obj: Record<string, unknown>, key: string): number | undefined {
   const v = obj[key];
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
 }
 
-function normalizeSocialPresenceFilter(
-  v: unknown,
-): SocialPresenceFilter | undefined {
+function normalizeSocialPresenceFilter(v: unknown): SocialPresenceFilter | undefined {
   // Accept UI variants: "" means “no filter”
   if (v === "" || v == null) return "any";
   if (v === "any" || v === "low" || v === "medium" || v === "high") return v;
@@ -57,40 +49,26 @@ export async function POST(request: Request) {
           : undefined;
 
     const providerRaw = getString(body, "provider");
-    const provider =
-      typeof providerRaw === "string" ? (providerRaw as ProviderName) : null;
+    const provider = typeof providerRaw === "string" ? (providerRaw as ProviderName) : null;
 
     if (!provider || !PROVIDERS.includes(provider)) {
-      return NextResponse.json(
-        { error: "Missing or invalid 'provider'" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Missing or invalid 'provider'" }, { status: 400 });
     }
 
     const queryRaw = getString(body, "query");
     if (!queryRaw || queryRaw.trim().length === 0) {
-      return NextResponse.json(
-        { error: "Missing or invalid 'query'" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Missing or invalid 'query'" }, { status: 400 });
     }
 
     const requestIdRaw = getString(body, "requestId");
     const requestId =
-      typeof requestIdRaw === "string" && requestIdRaw.trim().length > 0
-        ? requestIdRaw.trim()
-        : makeRequestId();
+      typeof requestIdRaw === "string" && requestIdRaw.trim().length > 0 ? requestIdRaw.trim() : makeRequestId();
 
     // Canonical filters (must affect caching + provider output)
     const locationRaw = getString(body, "location");
-    const location =
-      typeof locationRaw === "string" && locationRaw.trim().length > 0
-        ? locationRaw.trim()
-        : undefined;
+    const location = typeof locationRaw === "string" && locationRaw.trim().length > 0 ? locationRaw.trim() : undefined;
 
-    const socialPresence = normalizeSocialPresenceFilter(
-      body["socialPresence"],
-    );
+    const socialPresence = normalizeSocialPresenceFilter(body["socialPresence"]);
 
     const areaRaw = getString(body, "area");
     const area = typeof areaRaw === "string" && areaRaw.trim().length > 0 ? areaRaw.trim() : undefined;
@@ -128,8 +106,7 @@ export async function POST(request: Request) {
     // Cache-first (now varies by socialPresence + location)
     // IMPORTANT: only cache the FIRST page (no cursor)
 
-    const hasCursor =
-      typeof intent.cursor === "string" && intent.cursor.trim().length > 0;
+    const hasCursor = typeof intent.cursor === "string" && intent.cursor.trim().length > 0;
 
     const forceRefresh = body["forceRefresh"] === true;
 
@@ -137,6 +114,10 @@ export async function POST(request: Request) {
       const cached = await getCachedRun(intent);
 
       if (cached.hit && cached.summary) {
+        const authUser = await getAuthUser();
+        if (cached.summary.runId) {
+          await recordUserSearchRuns(authUser?.id ?? null, [cached.summary.runId]);
+        }
         return NextResponse.json(
           {
             ok: true,
@@ -156,22 +137,21 @@ export async function POST(request: Request) {
     const globalKey = `providers:global:${caller}`;
     const g = await rateLimitDb({ key: globalKey, ...GLOBAL_LIMIT });
     if (!g.ok) {
-      return rateLimitedResponse(
-        g.retryAfterSeconds,
-        "Global rate limit exceeded",
-      );
+      return rateLimitedResponse(g.retryAfterSeconds, "Global rate limit exceeded");
     }
 
     const providerKey = `providers:${intent.provider}:${caller}`;
     const p = await rateLimitDb({ key: providerKey, ...PROVIDER_LIMIT });
     if (!p.ok) {
-      return rateLimitedResponse(
-        p.retryAfterSeconds,
-        `Rate limit exceeded for provider '${intent.provider}'`,
-      );
+      return rateLimitedResponse(p.retryAfterSeconds, `Rate limit exceeded for provider '${intent.provider}'`);
     }
 
     const summary = await ingestFromProvider(intent);
+
+    const authUser = await getAuthUser();
+    if (summary.runId) {
+      await recordUserSearchRuns(authUser?.id ?? null, [summary.runId]);
+    }
 
     return NextResponse.json(
       {
@@ -203,16 +183,13 @@ function getCallerId(request: Request): string {
 }
 
 function rateLimitedResponse(retryAfterSeconds: number, message: string) {
-  return new NextResponse(
-    JSON.stringify({ error: message, retryAfterSeconds }),
-    {
-      status: 429,
-      headers: {
-        "Content-Type": "application/json",
-        "Retry-After": String(retryAfterSeconds),
-      },
+  return new NextResponse(JSON.stringify({ error: message, retryAfterSeconds }), {
+    status: 429,
+    headers: {
+      "Content-Type": "application/json",
+      "Retry-After": String(retryAfterSeconds),
     },
-  );
+  });
 }
 
 function makeRequestId(): string {

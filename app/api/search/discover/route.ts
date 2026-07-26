@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { ingestFromProvider } from "@/lib/ingest/ingest";
 import { getEffectivePlan, deepSearchLimit } from "@/lib/plan";
 import { getAuthUser } from "@/lib/supabaseServer";
+import { recordUserSearchRuns } from "@/lib/userSearchRuns";
 import {
   beginBetaGatedAction,
   finishBetaGatedAction,
@@ -250,7 +251,7 @@ export async function POST(request: Request) {
 
       if (userId) await logEvent(userId, "deep_search_completed", {});
 
-      return NextResponse.json(await executeAndRespond(queries, city, socialPresence, searchMode, remaining));
+      return NextResponse.json(await executeAndRespond(queries, city, socialPresence, searchMode, remaining, userId));
     } else {
       // Standard — fixed set of query variants, no AI cost
       queries = [niche, `${niche} ${city}`, `${niche} i ${city}`, `bästa ${niche} ${city}`];
@@ -258,7 +259,9 @@ export async function POST(request: Request) {
       const authUser = await getAuthUser();
       if (authUser) await logEvent(authUser.id, "search_completed", {});
 
-      return NextResponse.json(await executeAndRespond(queries, city, socialPresence, searchMode, null));
+      return NextResponse.json(
+        await executeAndRespond(queries, city, socialPresence, searchMode, null, authUser?.id ?? null),
+      );
     }
   } catch (err) {
     console.error("[/api/search/discover]", err);
@@ -272,9 +275,17 @@ async function executeAndRespond(
   socialPresence: string,
   searchMode: string,
   deepRemaining: number | null,
+  userId: string | null,
 ) {
   const runIds = await runQueries(queries, city, socialPresence);
   console.log(`[discover] ${queries.length} queries → ${runIds.length} runs`);
+
+  // Record which user used these (shared) runs — provider_runs itself
+  // stays a shared cache across all users; this is a separate, additive
+  // ownership record used only by features that need "my saved leads"
+  // (e.g. the outreach page's lead picker). See
+  // docs/SEARCH_CACHING_ARCHITECTURE.md.
+  await recordUserSearchRuns(userId, runIds);
 
   if (runIds.length === 0) {
     return { ok: false, runIds: [], primaryRunId: null, searchMode };
