@@ -1,5 +1,5 @@
 // lib/ingest/db.ts
-import { supabase } from "@/lib/supabaseClient";
+import { getServiceClient } from "@/lib/supabaseServiceClient";
 import type { ProviderRecord } from "@/lib/providers/types";
 import type { RawCompany } from "@/lib/types";
 
@@ -19,6 +19,7 @@ function chunk<T>(items: readonly T[], size: number): T[][] {
 }
 
 export async function upsertCompaniesRaw(records: ProviderRecord[]): Promise<UpsertRawResult> {
+  const supabase = await getServiceClient();
   if (!supabase) {
     return { rawIdsBySourceId: {}, insertedRaw: 0, skippedDuplicates: 0 };
   }
@@ -93,19 +94,18 @@ export async function upsertCompaniesRaw(records: ProviderRecord[]): Promise<Ups
 
   // 3) Build map source_id -> raw_id
 
-// Start with prefetched duplicates
-const rawIdsBySourceId: Record<string, number> = { ...existingMap };
+  // Start with prefetched duplicates
+  const rawIdsBySourceId: Record<string, number> = { ...existingMap };
 
-// Merge newly upserted rows
-for (const row of upserted ?? []) {
-  if (row?.source_id != null) {
-    rawIdsBySourceId[row.source_id as string] = row.id as number;
+  // Merge newly upserted rows
+  for (const row of upserted ?? []) {
+    if (row?.source_id != null) {
+      rawIdsBySourceId[row.source_id as string] = row.id as number;
+    }
   }
-}
 
   // inserted = returned - duplicates (best-effort)
   const insertedRaw = Math.max((upserted?.length ?? 0) - skippedDuplicates, 0);
 
   return { rawIdsBySourceId, insertedRaw, skippedDuplicates };
 }
-

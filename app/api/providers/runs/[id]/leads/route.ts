@@ -1,6 +1,7 @@
 // app/api/providers/runs/[id]/leads/route.ts
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
+import { getServiceClient } from "@/lib/supabaseServiceClient";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getRawIdsForRun, getCachedScore, setCachedScore, buildSignalHash } from "@/lib/persistence";
 import type { Lead, RawCompany, Classification, PrimaryIndustry } from "@/lib/types";
 import { mapToLead } from "@/lib/mappers/leadMapper";
@@ -231,7 +232,7 @@ function normalizeClassification(c: ClassificationRow | null): Classification {
 }
 
 async function fetchRunIntent(
-  client: NonNullable<typeof supabase>,
+  client: SupabaseClient,
   runId: number,
 ): Promise<{ socialPresence: SocialPresenceFilter }> {
   const { data, error } = await client.from("provider_runs").select("id, intent").eq("id", runId).single();
@@ -247,7 +248,7 @@ async function fetchRunIntent(
 }
 
 async function fetchUserProfile(
-  client: NonNullable<typeof supabase>,
+  client: SupabaseClient,
   userId: string,
 ): Promise<{ profile: UserProfileV1; capabilities: CapabilityProfile }> {
   try {
@@ -282,7 +283,7 @@ async function fetchUserProfile(
   }
 }
 
-async function fetchRawRowsByIds(client: NonNullable<typeof supabase>, ids: number[]): Promise<RawRow[]> {
+async function fetchRawRowsByIds(client: SupabaseClient, ids: number[]): Promise<RawRow[]> {
   const parts = chunk(ids, IN_CLAUSE_CHUNK_SIZE);
   const all: RawRow[] = [];
 
@@ -296,10 +297,7 @@ async function fetchRawRowsByIds(client: NonNullable<typeof supabase>, ids: numb
   return all;
 }
 
-async function fetchNormalizedRowsByRawIds(
-  client: NonNullable<typeof supabase>,
-  ids: number[],
-): Promise<NormalizedRow[]> {
+async function fetchNormalizedRowsByRawIds(client: SupabaseClient, ids: number[]): Promise<NormalizedRow[]> {
   const parts = chunk(ids, IN_CLAUSE_CHUNK_SIZE);
   const all: NormalizedRow[] = [];
 
@@ -316,10 +314,7 @@ async function fetchNormalizedRowsByRawIds(
   return all;
 }
 
-async function fetchClassificationRowsByRawIds(
-  client: NonNullable<typeof supabase>,
-  ids: number[],
-): Promise<ClassificationRow[]> {
+async function fetchClassificationRowsByRawIds(client: SupabaseClient, ids: number[]): Promise<ClassificationRow[]> {
   const parts = chunk(ids, IN_CLAUSE_CHUNK_SIZE);
   const all: ClassificationRow[] = [];
 
@@ -356,6 +351,7 @@ function toLegacyPrimaryInsightFromWorkType(primary: WorkTypeSignal | null): Pri
 
 export async function GET(_request: Request, { params }: { params: { id: string } | Promise<{ id: string }> }) {
   try {
+    const supabase = await getServiceClient();
     if (!supabase) {
       return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
     }

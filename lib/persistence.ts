@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabaseClient";
+import { getServiceClient } from "@/lib/supabaseServiceClient";
 import { RawCompany, Classification } from "@/lib/types";
 import type { ProviderSearchIntent, ProviderName } from "@/lib/providers/types";
 
@@ -10,6 +10,7 @@ export async function createProviderRun(params: {
   intent: ProviderSearchIntent;
   requestId?: string;
 }): Promise<number | null> {
+  const supabase = await getServiceClient();
   if (!supabase) return null;
 
   const { data, error } = await supabase
@@ -45,6 +46,7 @@ export async function createProviderRun(params: {
  * This resets the run into a "running" state and clears previous attempt outputs/errors.
  */
 export async function resetProviderRunForRetry(runId: number): Promise<number | null> {
+  const supabase = await getServiceClient();
   if (!supabase) return null;
   if (!runId || runId <= 0) return null;
 
@@ -80,6 +82,7 @@ export async function resetProviderRunForRetry(runId: number): Promise<number | 
 }
 
 export async function attachRawIdsToRun(runId: number, rawIds: number[]): Promise<void> {
+  const supabase = await getServiceClient();
   if (!supabase) return;
   if (!runId || rawIds.length === 0) return;
 
@@ -108,6 +111,7 @@ export async function getProviderRunByIntentHash(params: { provider: ProviderNam
   error_code: string | null;
   error_message: string | null;
 } | null> {
+  const supabase = await getServiceClient();
   if (!supabase) return null;
 
   const { data, error } = await supabase
@@ -124,6 +128,7 @@ export async function getProviderRunByIntentHash(params: { provider: ProviderNam
 }
 
 export async function getRawIdsForRun(runId: number): Promise<number[]> {
+  const supabase = await getServiceClient();
   if (!supabase) return [];
 
   const { data, error } = await supabase.from("provider_run_raws").select("raw_id").eq("run_id", runId);
@@ -147,6 +152,7 @@ export async function finalizeProviderRun(params: {
   errorCode?: string;
   errorMessage?: string;
 }): Promise<void> {
+  const supabase = await getServiceClient();
   if (!supabase) return;
 
   const { error } = await supabase
@@ -171,6 +177,7 @@ export async function finalizeProviderRun(params: {
 }
 
 export async function persistRawCompany(raw: RawCompany): Promise<number | null> {
+  const supabase = await getServiceClient();
   if (!supabase) return null;
 
   const payload = raw.rawPayload ?? raw;
@@ -212,6 +219,7 @@ function deriveSocialPresence(raw: RawCompany): "low" | "medium" | "high" {
 }
 
 export async function persistNormalizedCompany(rawId: number, raw: RawCompany): Promise<void> {
+  const supabase = await getServiceClient();
   if (!supabase) return;
 
   // --- NEW: compute opportunity insight at the same time we persist normalized ---
@@ -252,6 +260,7 @@ export async function persistNormalizedCompany(rawId: number, raw: RawCompany): 
 }
 
 export async function persistClassification(rawId: number, classification: Classification): Promise<void> {
+  const supabase = await getServiceClient();
   if (!supabase) return;
 
   const { error } = await supabase.from("company_classifications").upsert(
@@ -276,6 +285,7 @@ export async function persistClassification(rawId: number, classification: Class
 }
 
 export async function getRawCompanyById(rawId: number): Promise<RawCompany | null> {
+  const supabase = await getServiceClient();
   if (!supabase) return null;
 
   const { data, error } = await supabase.from("companies_raw").select("payload").eq("id", rawId).single();
@@ -346,6 +356,7 @@ export function buildSignalHash(inputs: {
 }
 
 export async function getCachedScore(rawId: number): Promise<{ score: CachedScore; signalHash: string } | null> {
+  const supabase = await getServiceClient();
   if (!supabase) return null;
   try {
     const { data } = await supabase
@@ -361,6 +372,7 @@ export async function getCachedScore(rawId: number): Promise<{ score: CachedScor
 }
 
 export async function setCachedScore(rawId: number, score: CachedScore, signalHash: string): Promise<void> {
+  const supabase = await getServiceClient();
   if (!supabase) return;
   try {
     await supabase
