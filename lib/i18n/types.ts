@@ -605,5 +605,46 @@ export type TranslationSchema = {
       objectiveFirstTouch: { label: string; desc: string };
       gapLabels: { visibility: string; conversion: string; infrastructure: string; optimization: string };
     };
+    followups: {
+      pipelineEyebrow: string;
+      headerTitleStart: string;
+      headerTitleItalic: string;
+      headerSubtitle: string;
+      overdueLabel: string;
+      todayLabel: string;
+      filterToday: string; // {count}
+      filterOverdue: string; // {count}
+      filterUpcoming: string; // {count}
+      filterAll: string; // {count}
+      loadingSequences: string;
+      noActiveSequences: string;
+      noActiveSequencesBodyStart: string;
+      buildSequenceHighlight: string;
+      noActiveSequencesBodyEnd: string;
+      goToDashboard: string;
+      noStepsToday: string;
+      noStepsFilter: string;
+      cadenceLabels: { aggressive: string; standard: string; nurture: string };
+      cadenceSuffix: string;
+      viewLead: string;
+      channels: { email: string; call: string; dm: string; linkedin: string };
+      statusLabels: { pending: string; sent: string; replied: string; skipped: string };
+      subjectLabel: string;
+      messageLabel: string;
+      ctaLabel: string;
+      markSent: string;
+      skip: string;
+      gotReply: string;
+      repliedCelebration: string;
+      sentAwaitingReply: string;
+      legacyFollowupsLabel: string;
+      contactedBadge: string;
+      repliedBadge: string;
+      notContactedYet: string;
+      contactedStatusLabel: string;
+      leadFallback: string; // {id}
+      open: string;
+      dateLabels: { overdue: string; today: string; tomorrow: string; inDays: string }; // overdue/inDays use {days}
+    };
   };
 };
