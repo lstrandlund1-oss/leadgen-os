@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
+import { getAuthUser, createSupabaseServer } from "@/lib/supabaseServer";
 
 export async function GET() {
-  if (!supabase) {
-    console.warn("Supabase client not initialized in /api/searches.");
+  const user = await getAuthUser();
+  if (!user) {
+    // Matches the graceful-degradation pattern the dashboard already
+    // expects from this endpoint (empty array, not an error banner).
     return NextResponse.json({ searches: [] });
   }
 
   try {
-    const { data, error } = await supabase
+    const authedSupabase = await createSupabaseServer();
+    const { data, error } = await authedSupabase
       .from("searches")
       .select("id, niche, location, company_size, social_presence, created_at")
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(5);
 
