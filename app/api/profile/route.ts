@@ -26,13 +26,9 @@ export async function GET() {
   try {
     const user = await getAuthUser();
     const profileId = user?.id ?? FALLBACK_ID;
+    const authedSupabase = await createSupabaseServer();
 
-    if (!supabase) {
-      const d = defaultProfile(profileId);
-      return NextResponse.json({ profile: d.profile, capabilities: d.capabilities });
-    }
-
-    const { data, error } = await supabase
+    const { data, error } = await authedSupabase
       .from("user_profiles")
       .select("id, profile_data, capabilities_data, updated_at")
       .eq("id", profileId)
