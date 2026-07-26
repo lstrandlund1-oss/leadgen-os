@@ -40,11 +40,25 @@ which is a hard blocker for a Swedish-first beta.
 | `app/onboarding/page.tsx` | ✅ Fully translated | Fixed as part of this audit. Also includes a language toggle since no user preference exists yet at this point. Profile type labels/descriptions/tags moved from `lib/profile/profileTypes.ts` into `lib/i18n/{en,sv}.ts` (`t.onboarding.profileTypes`) — that source file still owns the *structural* data (default capabilities, seller type) but no longer owns display text. |
 | `app/login/page.tsx` | ✅ Fully translated | Fixed as part of this audit. Same language-toggle pattern as onboarding (no preference exists yet before login). |
 | `app/settings/page.tsx` | ✅ Fully translated | Fixed as part of this audit. Uses the user's real saved profile language preference (not a toggle) since this page is only reachable while logged in. Fixed a real bug while translating the delete-account confirmation text: it contains the literal word "DELETE" mid-sentence, and a naive `.replace()` approach broke word order in Swedish — fixed with a proper split-and-render. |
-| `app/profile/settings/page.tsx` | ❌ Not started | English-only, except the beta-specific card |
+| `app/profile/settings/page.tsx` | ✅ Fully translated | Fixed as part of this audit. Same architecture note as below — reuses `t.onboarding.capabilities`/`t.onboarding.profileTypes` for capability and profile-type labels rather than duplicating that content, and reuses `t.settings.betaBadge`/`backToDashboard` for the two identical nav strings. |
+| `app/outreach/page.tsx` | ❌ Not started | English-only |
 | `app/outreach/page.tsx` | ❌ Not started | English-only |
 | `app/followups/page.tsx` | ❌ Not started | English-only |
 | `app/page.tsx` (landing page) | ❌ Not started | English-only. Lower priority — pre-signup, not part of the in-app tester experience |
 | `app/plans/page.tsx` | ❌ Not started | English-only. Also has a broken checkout route — see `BETA_INTEGRATION_HANDOFF.md` / audit notes |
+
+## Architectural note worth flagging
+
+`app/settings/page.tsx` and `app/profile/settings/page.tsx` are two separate,
+nearly-duplicate implementations of the same concept — both have Profile/
+Preferences/Notifications/Account tabs, both have a delete-account flow,
+both have business-info fields. They differ in a few real ways (only
+`profile/settings` has capability-depth sliders and service-type selection;
+only `settings` has the appearance/theme toggle), but the overlap is
+substantial. This wasn't something to fix as part of translating them —
+translating a page doesn't mean redesigning it — but it's worth deciding
+deliberately whether both should exist long-term, since right now a change
+to "how profile settings work" has to be made twice.
 
 ## Suggested order for remaining work
 

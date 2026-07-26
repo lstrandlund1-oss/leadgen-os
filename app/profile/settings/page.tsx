@@ -8,26 +8,11 @@ import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import type { Capability } from "@/lib/fit/needs";
 import { PROFILE_TYPE_DEFINITIONS, PROFILE_TYPE_KEYS, type ProfileTypeKey } from "@/lib/profile/profileTypes";
 import { useBetaStatus } from "@/lib/beta/useBetaStatus";
+import { getTranslations } from "@/lib/i18n";
 
 type Tab = "profile" | "account" | "preferences" | "notifications";
 
-const TABS: { key: Tab; label: string; icon: string }[] = [
-  { key: "profile", label: "Profile", icon: "◈" },
-  { key: "preferences", label: "Preferences", icon: "◆" },
-  { key: "notifications", label: "Notifications", icon: "◉" },
-  { key: "account", label: "Account", icon: "◇" },
-];
-
 const ALL_CAPABILITIES: Capability[] = ["ads", "tracking", "funnel", "content", "website", "seo", "crm"];
-const CAPABILITY_LABELS: Record<Capability, string> = {
-  ads: "Paid Ads",
-  tracking: "Analytics & Tracking",
-  funnel: "Funnel Building",
-  content: "Content Creation",
-  website: "Website / Landing Pages",
-  seo: "SEO",
-  crm: "CRM / Follow-up",
-};
 const CAPABILITY_ICONS: Record<Capability, string> = {
   ads: "📢",
   tracking: "📊",
@@ -54,6 +39,15 @@ export default function SettingsPage() {
   const [acquisitionStyle, setAcquisitionStyle] = useState<"volume" | "balanced" | "selective">("balanced");
   const [targetBusinessSize, setTargetBusinessSize] = useState<"small" | "medium" | "large">("small");
   const [language, setLanguage] = useState<"en" | "sv">("en");
+  const t = getTranslations(language).ui.profileSettings;
+  const tOnboarding = getTranslations(language).ui.onboarding;
+  const tShared = getTranslations(language).ui.settings; // reused for betaBadge/backToDashboard — identical concepts, avoids duplicating them here
+  const TABS: { key: Tab; label: string; icon: string }[] = [
+    { key: "profile", label: t.tabs.profile, icon: "◈" },
+    { key: "preferences", label: t.tabs.preferences, icon: "◆" },
+    { key: "notifications", label: t.tabs.notifications, icon: "◉" },
+    { key: "account", label: t.tabs.account, icon: "◇" },
+  ];
 
   // Capabilities
   const [profileType, setProfileType] = useState<ProfileTypeKey>("performance_marketer");
@@ -186,7 +180,7 @@ export default function SettingsPage() {
   }
 
   const inputClass =
-    "w-full bg-[#0d0d0d] border border-[#252525] rounded-xl px-4 py-3 text-[13px] text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.5)] transition-colors";
+    "w-full bg-[#0d0d0d] border border-[#252525] rounded-xl px-4 py-3 text-base sm:text-[13px] text-[#f5f0e8] placeholder-[#333] focus:outline-none focus:border-[rgba(201,168,76,0.5)] transition-colors";
   const labelClass = "block text-[10px] uppercase tracking-[0.15em] text-[#666] mb-2";
   const sectionClass = "rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-6 space-y-5";
   const toggleClass = (on: boolean) =>
@@ -215,12 +209,12 @@ export default function SettingsPage() {
               </span>
             </Link>
             <span className="text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full border border-[rgba(201,168,76,0.25)] text-[#8a6e30]">
-              Beta
+              {tShared.betaBadge}
             </span>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/dashboard" className="text-[12px] text-[#555] hover:text-[#888] transition-colors">
-              ← Dashboard
+              {tShared.backToDashboard}
             </Link>
             <HamburgerMenu userEmail={userEmail} />
           </div>
@@ -229,11 +223,11 @@ export default function SettingsPage() {
 
       <div className="max-w-5xl mx-auto px-5 py-10">
         <div className="mb-8">
-          <p className="text-[10px] tracking-[0.2em] uppercase text-[#8a6e30] mb-1">Platform</p>
+          <p className="text-[10px] tracking-[0.2em] uppercase text-[#8a6e30] mb-1">{t.preferences.platformEyebrow}</p>
           <h1 className="text-3xl md:text-4xl font-light" style={{ fontFamily: "var(--font-display), serif" }}>
-            Settings
+            {t.headerTitle}
           </h1>
-          <p className="text-[12px] text-[#444] mt-1.5">Manage your profile, preferences, and account</p>
+          <p className="text-[12px] text-[#444] mt-1.5">{t.headerSubtitle}</p>
         </div>
 
         <div className="flex flex-col md:flex-row gap-6 items-start">
@@ -261,7 +255,7 @@ export default function SettingsPage() {
           {/* Content */}
           <div className="flex-1 min-w-0 space-y-5">
             {loading ? (
-              <div className="py-20 text-center text-[#444] text-sm animate-pulse">Loading…</div>
+              <div className="py-20 text-center text-[#444] text-sm animate-pulse">{t.loading}</div>
             ) : (
               <>
                 {/* ── Profile tab ── */}
@@ -269,59 +263,60 @@ export default function SettingsPage() {
                   <>
                     <div className={sectionClass}>
                       <div>
-                        <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Business</p>
-                        <h2 className="text-[15px] font-semibold text-[#c8c0b0]">Your Business</h2>
+                        <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">
+                          {t.profile.businessEyebrow}
+                        </p>
+                        <h2 className="text-[15px] font-semibold text-[#c8c0b0]">{t.profile.businessTitle}</h2>
                       </div>
                       <div className="space-y-4">
                         <div>
-                          <label className={labelClass}>Business / Agency Name</label>
+                          <label className={labelClass}>{t.profile.businessNameLabel}</label>
                           <input
                             type="text"
                             value={businessName}
                             onChange={(e) => setBusinessName(e.target.value)}
-                            placeholder="e.g. Spark Agency"
+                            placeholder={t.profile.businessNamePlaceholder}
                             className={inputClass}
                           />
                         </div>
                         <div>
-                          <label className={labelClass}>Target Geography</label>
+                          <label className={labelClass}>{t.profile.targetGeographyLabel}</label>
                           <input
                             type="text"
                             value={targetLocation}
                             onChange={(e) => setTargetLocation(e.target.value)}
-                            placeholder="e.g. Stockholm, London, New York"
+                            placeholder={t.profile.targetGeographyPlaceholder}
                             className={inputClass}
                           />
-                          <p className="text-[11px] text-[#444] mt-1.5">
-                            Pre-fills your location filter on the dashboard
-                          </p>
+                          <p className="text-[11px] text-[#444] mt-1.5">{t.profile.targetGeographyHint}</p>
                         </div>
                         <div>
                           <label className={labelClass}>
-                            Your Offer <span className="text-[#8a6e30] normal-case">— used in outreach generation</span>
+                            {t.profile.yourOfferLabel}{" "}
+                            <span className="text-[#8a6e30] normal-case">{t.profile.yourOfferSubLabel}</span>
                           </label>
                           <textarea
                             rows={4}
                             value={yourOffer}
                             onChange={(e) => setYourOffer(e.target.value)}
-                            placeholder="e.g. We run Meta and Google ads, build high-converting landing pages, and set up full tracking for service businesses. We typically work with businesses doing 1–10M SEK/year."
+                            placeholder={t.profile.yourOfferPlaceholder}
                             className={inputClass + " resize-none"}
                           />
-                          <p className="text-[11px] text-[#444] mt-1.5">
-                            Loaded automatically when generating outreach messages
-                          </p>
+                          <p className="text-[11px] text-[#444] mt-1.5">{t.profile.yourOfferHint}</p>
                         </div>
                       </div>
                     </div>
 
                     <div className={sectionClass}>
                       <div>
-                        <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Preferences</p>
-                        <h2 className="text-[15px] font-semibold text-[#c8c0b0]">How You Work</h2>
+                        <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">
+                          {t.profile.prospectingEyebrow}
+                        </p>
+                        <h2 className="text-[15px] font-semibold text-[#c8c0b0]">{t.profile.prospectingTitle}</h2>
                       </div>
                       <div className="space-y-5">
                         <div>
-                          <label className={labelClass}>Experience Level</label>
+                          <label className={labelClass}>{t.profile.experienceLevelLabel}</label>
                           <div className="flex gap-2">
                             {(["beginner", "intermediate", "advanced"] as const).map((v) => (
                               <button
@@ -329,18 +324,18 @@ export default function SettingsPage() {
                                 type="button"
                                 onClick={() => setExperienceLevel(v)}
                                 className={
-                                  "flex-1 py-2.5 rounded-xl border text-[12px] capitalize transition-colors " +
+                                  "flex-1 py-2.5 rounded-xl border text-[12px] transition-colors " +
                                   (experienceLevel === v
                                     ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)] text-[#c9a84c]"
                                     : "border-[#252525] text-[#555] hover:border-[#444]")
                                 }>
-                                {v}
+                                {t.profile.experienceLevels[v]}
                               </button>
                             ))}
                           </div>
                         </div>
                         <div>
-                          <label className={labelClass}>Prospecting Style</label>
+                          <label className={labelClass}>{t.profile.prospectingStyleLabel}</label>
                           <div className="flex gap-2">
                             {(["volume", "balanced", "selective"] as const).map((v) => (
                               <button
@@ -348,25 +343,21 @@ export default function SettingsPage() {
                                 type="button"
                                 onClick={() => setAcquisitionStyle(v)}
                                 className={
-                                  "flex-1 py-2.5 rounded-xl border text-[12px] capitalize transition-colors " +
+                                  "flex-1 py-2.5 rounded-xl border text-[12px] transition-colors " +
                                   (acquisitionStyle === v
                                     ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)] text-[#c9a84c]"
                                     : "border-[#252525] text-[#555] hover:border-[#444]")
                                 }>
-                                {v}
+                                {t.profile.acquisitionStyles[v]}
                               </button>
                             ))}
                           </div>
                           <p className="text-[11px] text-[#444] mt-1.5">
-                            {acquisitionStyle === "volume"
-                              ? "Cast a wide net — more leads, lower threshold."
-                              : acquisitionStyle === "selective"
-                                ? "Strict qualification — only high-readiness leads."
-                                : "Balanced scoring — best for most service providers."}
+                            {t.profile.acquisitionStyleHints[acquisitionStyle]}
                           </p>
                         </div>
                         <div>
-                          <label className={labelClass}>Target Business Size</label>
+                          <label className={labelClass}>{t.profile.targetBusinessSizeLabel}</label>
                           <div className="flex gap-2">
                             {(["small", "medium", "large"] as const).map((v) => (
                               <button
@@ -374,12 +365,12 @@ export default function SettingsPage() {
                                 type="button"
                                 onClick={() => setTargetBusinessSize(v)}
                                 className={
-                                  "flex-1 py-2.5 rounded-xl border text-[12px] capitalize transition-colors " +
+                                  "flex-1 py-2.5 rounded-xl border text-[12px] transition-colors " +
                                   (targetBusinessSize === v
                                     ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)] text-[#c9a84c]"
                                     : "border-[#252525] text-[#555] hover:border-[#444]")
                                 }>
-                                {v}
+                                {t.profile.businessSizes[v]}
                               </button>
                             ))}
                           </div>
@@ -390,15 +381,16 @@ export default function SettingsPage() {
                     {/* Service Type */}
                     <div className={sectionClass}>
                       <div>
-                        <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Service Type</p>
-                        <h2 className="text-[15px] font-semibold text-[#c8c0b0]">What You Offer</h2>
-                        <p className="text-[12px] text-[#444] mt-1">
-                          Shapes how leads are scored and matched to your capabilities.
+                        <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">
+                          {t.profile.serviceTypeEyebrow}
                         </p>
+                        <h2 className="text-[15px] font-semibold text-[#c8c0b0]">{t.profile.serviceTypeTitle}</h2>
+                        <p className="text-[12px] text-[#444] mt-1">{t.profile.serviceTypeSubtitle}</p>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                         {PROFILE_TYPE_KEYS.map((key) => {
                           const def = PROFILE_TYPE_DEFINITIONS[key];
+                          const trans = tOnboarding.profileTypes[key];
                           const isActive = profileType === key;
                           return (
                             <button
@@ -422,8 +414,8 @@ export default function SettingsPage() {
                                   ? "border-[#c9a84c] bg-[rgba(201,168,76,0.06)] text-[#f5f0e8]"
                                   : "border-[#1a1a1a] bg-[#080808] text-[#555] hover:border-[#333]")
                               }>
-                              <p className="text-[13px] font-semibold">{def.label}</p>
-                              <p className="text-[11px] text-[#555] mt-0.5 leading-relaxed">{def.description}</p>
+                              <p className="text-[13px] font-semibold">{trans.label}</p>
+                              <p className="text-[11px] text-[#555] mt-0.5 leading-relaxed">{trans.description}</p>
                             </button>
                           );
                         })}
@@ -433,12 +425,11 @@ export default function SettingsPage() {
                     {/* Capability Depths */}
                     <div className={sectionClass}>
                       <div>
-                        <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Capabilities</p>
-                        <h2 className="text-[15px] font-semibold text-[#c8c0b0]">Capability Depths</h2>
-                        <p className="text-[12px] text-[#444] mt-1">
-                          0 = not offered · 100 = core specialisation. A specialist with deep focus scores higher than a
-                          generalist on leads that need that specific skill.
+                        <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">
+                          {t.profile.capabilitiesEyebrow}
                         </p>
+                        <h2 className="text-[15px] font-semibold text-[#c8c0b0]">{t.profile.capabilitiesTitle}</h2>
+                        <p className="text-[12px] text-[#444] mt-1">{t.profile.capabilitiesSubtitle}</p>
                       </div>
                       <div className="space-y-4">
                         {ALL_CAPABILITIES.map((cap) => {
@@ -447,14 +438,14 @@ export default function SettingsPage() {
                           const isActive = depth > 0;
                           const depthLabel =
                             depth === 0
-                              ? "Not offered"
+                              ? t.profile.depthLabels.notOffered
                               : depth < 30
-                                ? "Light"
+                                ? t.profile.depthLabels.light
                                 : depth < 60
-                                  ? "Capable"
+                                  ? t.profile.depthLabels.capable
                                   : depth < 80
-                                    ? "Strong"
-                                    : "Specialist";
+                                    ? t.profile.depthLabels.strong
+                                    : t.profile.depthLabels.specialist;
                           return (
                             <div key={cap} className="space-y-1.5">
                               <div className="flex items-center justify-between">
@@ -464,7 +455,7 @@ export default function SettingsPage() {
                                     (isStrong ? "text-[#c9a84c]" : isActive ? "text-[#f5f0e8]" : "text-[#444]")
                                   }>
                                   <span>{CAPABILITY_ICONS[cap]}</span>
-                                  <span>{CAPABILITY_LABELS[cap]}</span>
+                                  <span>{tOnboarding.capabilities[cap]}</span>
                                 </span>
                                 <span className="text-[11px] tabular-nums">
                                   {depth > 0 && <span className="text-[#555]">{depthLabel} · </span>}
@@ -487,10 +478,7 @@ export default function SettingsPage() {
                           );
                         })}
                       </div>
-                      <p className="text-[11px] text-[#333] pt-1">
-                        Tip — one or two capabilities at 80%+ gets a specialist bonus on leads where those are the
-                        primary need.
-                      </p>
+                      <p className="text-[11px] text-[#333] pt-1">{t.profile.capabilitiesTip}</p>
                     </div>
 
                     <button
@@ -498,7 +486,7 @@ export default function SettingsPage() {
                       onClick={saveProfile}
                       disabled={saving}
                       className="w-full py-3.5 rounded-xl bg-[#c9a84c] text-[#080808] font-semibold text-[14px] hover:bg-[#e8c97a] disabled:opacity-50 transition-all">
-                      {saving ? "Saving…" : saved ? "✓ Saved!" : "Save changes"}
+                      {saving ? t.profile.saving : saved ? t.profile.saved : t.profile.saveChanges}
                     </button>
                   </>
                 )}
@@ -508,11 +496,15 @@ export default function SettingsPage() {
                   <>
                     <div className={sectionClass}>
                       <div>
-                        <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Platform</p>
-                        <h2 className="text-[15px] font-semibold text-[#c8c0b0]">Display & Language</h2>
+                        <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">
+                          {t.preferences.platformEyebrow}
+                        </p>
+                        <h2 className="text-[15px] font-semibold text-[#c8c0b0]">
+                          {t.preferences.displayLanguageTitle}
+                        </h2>
                       </div>
                       <div>
-                        <label className={labelClass}>Language</label>
+                        <label className={labelClass}>{t.preferences.languageLabel}</label>
                         <div className="flex gap-2">
                           {(["en", "sv"] as const).map((lang) => (
                             <button
@@ -536,7 +528,7 @@ export default function SettingsPage() {
                       onClick={saveProfile}
                       disabled={saving}
                       className="w-full py-3.5 rounded-xl bg-[#c9a84c] text-[#080808] font-semibold text-[14px] hover:bg-[#e8c97a] disabled:opacity-50 transition-all">
-                      {saving ? "Saving…" : saved ? "✓ Saved!" : "Save preferences"}
+                      {saving ? t.profile.saving : saved ? t.profile.saved : t.preferences.savePreferences}
                     </button>
                   </>
                 )}
@@ -546,27 +538,29 @@ export default function SettingsPage() {
                   <>
                     <div className={sectionClass}>
                       <div>
-                        <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Alerts</p>
-                        <h2 className="text-[15px] font-semibold text-[#c8c0b0]">Notification Preferences</h2>
-                        <p className="text-[12px] text-[#444] mt-1">Stored locally in your browser</p>
+                        <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">
+                          {t.notifications.alertsEyebrow}
+                        </p>
+                        <h2 className="text-[15px] font-semibold text-[#c8c0b0]">{t.notifications.title}</h2>
+                        <p className="text-[12px] text-[#444] mt-1">{t.notifications.subtitle}</p>
                       </div>
                       <div className="space-y-4">
                         {[
                           {
-                            label: "Follow-up reminders",
-                            sub: "Alert when a follow-up date passes",
+                            label: t.notifications.followupLabel,
+                            sub: t.notifications.followupSub,
                             val: notifyFollowup,
                             set: setNotifyFollowup,
                           },
                           {
-                            label: "Deal closed",
-                            sub: "Celebration alert when you close a deal",
+                            label: t.notifications.dealClosedLabel,
+                            sub: t.notifications.dealClosedSub,
                             val: notifyDealClosed,
                             set: setNotifyDealClosed,
                           },
                           {
-                            label: "Weekly digest",
-                            sub: "Summary of your pipeline activity each Monday",
+                            label: t.notifications.weeklyDigestLabel,
+                            sub: t.notifications.weeklyDigestSub,
                             val: notifyWeeklyDigest,
                             set: setNotifyWeeklyDigest,
                           },
@@ -594,7 +588,7 @@ export default function SettingsPage() {
                       type="button"
                       onClick={saveNotificationPrefs}
                       className="w-full py-3.5 rounded-xl bg-[#c9a84c] text-[#080808] font-semibold text-[14px] hover:bg-[#e8c97a] transition-all">
-                      {saved ? "✓ Saved!" : "Save preferences"}
+                      {saved ? t.profile.saved : t.preferences.savePreferences}
                     </button>
                   </>
                 )}
@@ -604,44 +598,50 @@ export default function SettingsPage() {
                   <div className="space-y-5">
                     <div className={sectionClass}>
                       <div>
-                        <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Account</p>
-                        <h2 className="text-[15px] font-semibold text-[#c8c0b0]">Your Account</h2>
+                        <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">
+                          {t.account.eyebrow}
+                        </p>
+                        <h2 className="text-[15px] font-semibold text-[#c8c0b0]">{t.account.title}</h2>
                       </div>
                       <div className="space-y-4">
                         <div className="rounded-xl border border-[#1a1a1a] bg-[#080808] px-4 py-4 space-y-1">
-                          <p className="text-[10px] uppercase tracking-widest text-[#444]">Signed in as</p>
+                          <p className="text-[10px] uppercase tracking-widest text-[#444]">{t.account.signedInAs}</p>
                           <p className="text-[14px] text-[#f5f0e8]">{userEmail || "—"}</p>
                         </div>
                         <div className="flex gap-2">
                           <Link
                             href="/forgot-password"
                             className="flex-1 py-2.5 rounded-xl border border-[#252525] text-[12px] text-[#555] hover:border-[#444] hover:text-[#888] transition-all text-center">
-                            Change password →
+                            {t.account.changePassword}
                           </Link>
                           <button
                             type="button"
                             onClick={handleSignOut}
                             className="flex-1 py-2.5 rounded-xl border border-[#252525] text-[12px] text-[#555] hover:border-[#f87171]/30 hover:text-[#f87171] transition-all">
-                            Sign out
+                            {t.account.signOut}
                           </button>
                         </div>
                         {betaStatus.active ? (
                           <div className="rounded-xl border border-[#1a1a1a] bg-[#080808] px-4 py-4 space-y-1">
-                            <p className="text-[10px] uppercase tracking-widests text-[#444]">Private Beta</p>
+                            <p className="text-[10px] uppercase tracking-widests text-[#444]">{t.account.betaLabel}</p>
                             <p className="text-[13px] text-[#888]">
-                              Free access — {betaStatus.daysRemainingActive} active day
-                              {betaStatus.daysRemainingActive === 1 ? "" : "s"} remaining
+                              {(betaStatus.daysRemainingActive === 1
+                                ? t.account.freeAccessSingular
+                                : t.account.freeAccessPlural
+                              ).replace("{count}", String(betaStatus.daysRemainingActive))}
                             </p>
                           </div>
                         ) : (
                           <div className="rounded-xl border border-[#1a1a1a] bg-[#080808] px-4 py-4 space-y-1">
-                            <p className="text-[10px] uppercase tracking-widests text-[#444]">Subscription</p>
+                            <p className="text-[10px] uppercase tracking-widests text-[#444]">
+                              {t.account.subscriptionLabel}
+                            </p>
                             <div className="flex items-center justify-between">
-                              <p className="text-[13px] text-[#888] capitalize">Beta access</p>
+                              <p className="text-[13px] text-[#888] capitalize">{t.account.betaAccessLabel}</p>
                               <Link
                                 href="/plans"
                                 className="text-[11px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
-                                View plans →
+                                {t.account.viewPlans}
                               </Link>
                             </div>
                           </div>
@@ -652,10 +652,8 @@ export default function SettingsPage() {
                     {/* Clear local data */}
                     <div className={sectionClass}>
                       <div>
-                        <p className="text-[13px] text-[#c8c0b0] font-medium">Clear local data</p>
-                        <p className="text-[11px] text-[#555] mt-0.5">
-                          Reset notes, saved leads, and local preferences stored in this browser only.
-                        </p>
+                        <p className="text-[13px] text-[#c8c0b0] font-medium">{t.account.clearLocalDataTitle}</p>
+                        <p className="text-[11px] text-[#555] mt-0.5">{t.account.clearLocalDataBody}</p>
                       </div>
                       <button
                         type="button"
@@ -670,7 +668,7 @@ export default function SettingsPage() {
                           setTimeout(() => setSaved(false), 2000);
                         }}
                         className="text-[12px] px-4 py-2 rounded-lg border border-[#252525] text-[#555] hover:border-[#444] hover:text-[#888] transition-all">
-                        Clear local data
+                        {t.account.clearLocalData}
                       </button>
                     </div>
 
@@ -678,46 +676,38 @@ export default function SettingsPage() {
                     <div className="rounded-2xl border border-[#f87171]/20 bg-[#0d0d0d] p-6 space-y-4">
                       <div>
                         <p className="text-[10px] uppercase tracking-[0.15em] text-[#f87171]/50 mb-1">
-                          Permanent action
+                          {t.account.deleteEyebrow}
                         </p>
-                        <p className="text-[14px] font-semibold text-[#c8c0b0]">Delete account</p>
-                        <p className="text-[11px] text-[#555] mt-1 leading-relaxed">
-                          Deletes your profile, all searches, lead outcomes, and login credentials in accordance with
-                          GDPR Article 17.
-                        </p>
+                        <p className="text-[14px] font-semibold text-[#c8c0b0]">{t.account.deleteTitle}</p>
+                        <p className="text-[11px] text-[#555] mt-1 leading-relaxed">{t.account.deleteBody}</p>
                       </div>
                       {deleteStep === 0 && (
                         <button
                           type="button"
                           onClick={() => setDeleteStep(1)}
                           className="text-[12px] px-4 py-2 rounded-lg border border-[#f87171]/25 text-[#f87171]/70 hover:border-[#f87171]/50 hover:text-[#f87171] transition-all">
-                          Delete my account
+                          {t.account.deleteMyAccount}
                         </button>
                       )}
                       {deleteStep === 1 && (
                         <div className="rounded-xl border border-[#f87171]/20 bg-[#f87171]/04 p-4 space-y-4">
                           <div className="space-y-2">
-                            <p className="text-[13px] font-medium text-[#f87171]">Are you sure?</p>
-                            <p className="text-[12px] text-[#888] leading-relaxed">
-                              This will permanently erase your account. There is no recovery option and no exceptions.
-                            </p>
-                            <p className="text-[11px] text-[#555] leading-relaxed">
-                              If you are on a paid plan, no refund will be issued for the remaining billing period.
-                              Please cancel your subscription first if applicable.
-                            </p>
+                            <p className="text-[13px] font-medium text-[#f87171]">{t.account.deleteConfirmTitle}</p>
+                            <p className="text-[12px] text-[#888] leading-relaxed">{t.account.deleteConfirmBody}</p>
+                            <p className="text-[11px] text-[#555] leading-relaxed">{t.account.deleteConfirmSubBody}</p>
                           </div>
                           <div className="flex gap-2">
                             <button
                               type="button"
                               onClick={() => setDeleteStep(0)}
                               className="flex-1 py-2 rounded-lg border border-[#252525] text-[#555] text-[12px] hover:border-[#444] transition-all">
-                              Cancel
+                              {t.account.cancel}
                             </button>
                             <button
                               type="button"
                               onClick={() => setDeleteStep(2)}
                               className="flex-1 py-2 rounded-lg border border-[#f87171]/40 text-[#f87171] text-[12px] hover:bg-[#f87171]/08 transition-all">
-                              Yes, continue
+                              {t.account.yesContinue}
                             </button>
                           </div>
                         </div>
@@ -725,8 +715,14 @@ export default function SettingsPage() {
                       {deleteStep === 2 && (
                         <div className="rounded-xl border border-[#f87171]/20 bg-[#f87171]/04 p-4 space-y-4">
                           <p className="text-[12px] text-[#888]">
-                            Type <span className="font-mono text-[#f87171] font-bold">DELETE</span> to confirm permanent
-                            deletion.
+                            {t.account.typeDeleteToConfirm.split("DELETE").map((part, i, arr) => (
+                              <span key={i}>
+                                {part}
+                                {i < arr.length - 1 && (
+                                  <span className="font-mono text-[#f87171] font-bold">DELETE</span>
+                                )}
+                              </span>
+                            ))}
                           </p>
                           <input
                             type="text"
@@ -736,7 +732,7 @@ export default function SettingsPage() {
                               setDeleteError(null);
                             }}
                             placeholder="DELETE"
-                            className="w-full bg-[#080808] border border-[#f87171]/30 rounded-lg px-3 py-2 text-[13px] text-[#f87171] placeholder-[#444] focus:outline-none focus:border-[#f87171]/60 transition-colors font-mono"
+                            className="w-full bg-[#080808] border border-[#f87171]/30 rounded-lg px-3 py-2 text-base sm:text-[13px] text-[#f87171] placeholder-[#444] focus:outline-none focus:border-[#f87171]/60 transition-colors font-mono"
                           />
                           {deleteError && <p className="text-[11px] text-[#f87171]">{deleteError}</p>}
                           <div className="flex gap-2">
@@ -748,14 +744,14 @@ export default function SettingsPage() {
                                 setDeleteError(null);
                               }}
                               className="flex-1 py-2 rounded-lg border border-[#252525] text-[#555] text-[12px] hover:border-[#444] transition-all">
-                              Cancel
+                              {t.account.cancel}
                             </button>
                             <button
                               type="button"
                               disabled={deleting}
                               onClick={async () => {
                                 if (deleteConfirm !== "DELETE") {
-                                  setDeleteError(`Type "DELETE" exactly to confirm.`);
+                                  setDeleteError(t.account.deleteErrorMustTypeExactly);
                                   return;
                                 }
                                 setDeleting(true);
@@ -764,9 +760,7 @@ export default function SettingsPage() {
                                   const res = await fetch("/api/account/delete", { method: "DELETE" });
                                   if (!res.ok) {
                                     const j = await res.json().catch(() => ({}));
-                                    setDeleteError(
-                                      (j as { error?: string }).error ?? "Deletion failed. Contact hello@vantioapp.com",
-                                    );
+                                    setDeleteError((j as { error?: string }).error ?? t.account.deleteErrorGeneric);
                                     setDeleting(false);
                                     return;
                                   }
@@ -792,12 +786,12 @@ export default function SettingsPage() {
                                   });
                                   window.location.href = "/?account=deleted";
                                 } catch {
-                                  setDeleteError("Network error. Please try again.");
+                                  setDeleteError(t.account.deleteErrorNetwork);
                                   setDeleting(false);
                                 }
                               }}
                               className="flex-1 py-2 rounded-lg bg-[#f87171]/15 border border-[#f87171]/40 text-[#f87171] text-[12px] font-semibold hover:bg-[#f87171]/25 disabled:opacity-50 transition-all">
-                              {deleting ? "Deleting…" : "Delete permanently"}
+                              {deleting ? t.account.deleting : t.account.deletePermanently}
                             </button>
                           </div>
                         </div>
