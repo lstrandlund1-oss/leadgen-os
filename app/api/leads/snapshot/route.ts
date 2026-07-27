@@ -8,6 +8,8 @@ import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabaseServer";
 import { supabase } from "@/lib/supabaseClient";
 import { getEffectivePlan, outreachLimit } from "@/lib/plan";
+import { computeRealCostMicroUsd } from "@/lib/ai/cost";
+import { logEvent } from "@/lib/analytics/log";
 
 export async function POST(request: Request) {
   try {
@@ -110,8 +112,16 @@ Be direct and specific. No fluff. Write as if briefing a sales rep before a call
 
     if (!res.ok) return NextResponse.json({ error: "AI request failed" }, { status: 500 });
 
-    const data = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
+    const data = (await res.json()) as {
+      content?: Array<{ type: string; text?: string }>;
+      usage?: { input_tokens: number; output_tokens: number };
+    };
     const text = (data.content ?? []).find((b) => b.type === "text")?.text?.trim() ?? "";
+
+    const costMicroUsd = computeRealCostMicroUsd(
+      data.usage ? { inputTokens: data.usage.input_tokens, outputTokens: data.usage.output_tokens } : undefined,
+    );
+    await logEvent(user.id, "lead_snapshot_generated", { costMicroUsd: costMicroUsd ?? 0 });
 
     return NextResponse.json({ ok: true, snapshot: text });
   } catch (err) {

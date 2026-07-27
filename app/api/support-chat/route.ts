@@ -7,10 +7,24 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getAuthUser } from "@/lib/supabaseServer";
+import { rateLimitDb } from "@/lib/rateLimitDb";
+import { logEvent } from "@/lib/analytics/log";
+import { computeRealCostMicroUsd } from "@/lib/ai/cost";
+
+function getCallerId(request: Request): string {
+  const xf = request.headers.get("x-forwarded-for");
+  if (xf) {
+    const first = xf.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) return realIp;
+  return "dev";
+}
 
 const supabase = createClient(
   process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY ?? ""
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY ?? "",
 );
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY ?? "";
@@ -34,7 +48,7 @@ When you've fully understood the issue and either resolved it or determined it n
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json() as {
+    const body = (await request.json()) as {
       messages: { role: "user" | "assistant"; content: string }[];
       userContext?: {
         plan?: string;
@@ -45,6 +59,21 @@ export async function POST(request: Request) {
 
     if (!ANTHROPIC_KEY) {
       return NextResponse.json({ error: "Support chat not configured" }, { status: 500 });
+    }
+
+    // This endpoint is intentionally public (rendered globally in
+    // app/layout.tsx, available to pre-signup visitors) — so auth can't
+    // gate it, but it was previously completely unmetered: no rate limit,
+    // no cost tracking, callable by anyone in an unbounded loop. Rate
+    // limit by IP instead; generous enough for a real extended
+    // conversation, tight enough to block scripted abuse.
+    const caller = getCallerId(request);
+    const limited = await rateLimitDb({ key: `support-chat:${caller}`, limit: 20, windowMs: 10 * 60 * 1000 });
+    if (!limited.ok) {
+      return NextResponse.json(
+        { error: "Too many requests — please wait a moment and try again." },
+        { status: 429, headers: { "Retry-After": String(limited.retryAfterSeconds) } },
+      );
     }
 
     const contextNote = body.userContext
@@ -72,8 +101,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "AI unavailable" }, { status: 502 });
     }
 
-    const data = await res.json() as { content: { type: string; text: string }[] };
+    const data = (await res.json()) as {
+      content: { type: string; text: string }[];
+      usage?: { input_tokens: number; output_tokens: number };
+    };
     const text = data.content?.find((b) => b.type === "text")?.text ?? "";
+
+    const authUser = await getAuthUser();
+    const costMicroUsd = computeRealCostMicroUsd(
+      data.usage ? { inputTokens: data.usage.input_tokens, outputTokens: data.usage.output_tokens } : undefined,
+    );
+    await logEvent(authUser?.id ?? null, "support_chat_message", { costMicroUsd: costMicroUsd ?? 0 });
 
     const resolved = text.includes("[RESOLVED]");
     const needsHuman = text.includes("[NEEDS_HUMAN]");
@@ -89,7 +127,7 @@ export async function POST(request: Request) {
 // Called when chat ends — saves ticket to Supabase
 export async function PUT(request: Request) {
   try {
-    const body = await request.json() as {
+    const body = (await request.json()) as {
       messages: { role: "user" | "assistant"; content: string }[];
       status: "resolved" | "needs_human";
       userEmail?: string;
@@ -101,9 +139,7 @@ export async function PUT(request: Request) {
     const user = await getAuthUser().catch(() => null);
 
     // Build a plain-text summary of the conversation
-    const transcript = body.messages
-      .map((m) => `${m.role === "user" ? "User" : "Bot"}: ${m.content}`)
-      .join("\n");
+    const transcript = body.messages.map((m) => `${m.role === "user" ? "User" : "Bot"}: ${m.content}`).join("\n");
 
     const ticketData = {
       user_id: user?.id ?? null,
@@ -125,7 +161,9 @@ export async function PUT(request: Request) {
     //   subject: `[LeadGenOS Support] ${body.status === "needs_human" ? "🔴 Needs Review" : "✅ Resolved"} — ${body.userEmail ?? "Anonymous"}`,
     //   text: `Status: ${body.status}\nUser: ${body.userEmail ?? "unknown"} (${body.userPlan ?? "unknown plan"})\nBusiness: ${body.businessName ?? "unknown"}\n\nTranscript:\n${transcript}`,
     // });
-    console.log(`[SUPPORT TICKET] status=${body.status} user=${body.userEmail ?? "anon"} plan=${body.userPlan ?? "?"}\nSummary: ${ticketData.summary}`);
+    console.log(
+      `[SUPPORT TICKET] status=${body.status} user=${body.userEmail ?? "anon"} plan=${body.userPlan ?? "?"}\nSummary: ${ticketData.summary}`,
+    );
 
     return NextResponse.json({ ok: true });
   } catch (err) {
