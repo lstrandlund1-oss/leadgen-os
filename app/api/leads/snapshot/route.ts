@@ -10,9 +10,14 @@ import { supabase } from "@/lib/supabaseClient";
 import { getEffectivePlan, outreachLimit } from "@/lib/plan";
 import { computeRealCostMicroUsd } from "@/lib/ai/cost";
 import { logEvent } from "@/lib/analytics/log";
+import { isAiGenerationEnabled, AI_DISABLED_RESPONSE } from "@/lib/killSwitch";
 
 export async function POST(request: Request) {
   try {
+    if (!(await isAiGenerationEnabled())) {
+      return NextResponse.json(AI_DISABLED_RESPONSE, { status: 503 });
+    }
+
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) return NextResponse.json({ error: "API not configured" }, { status: 500 });
 

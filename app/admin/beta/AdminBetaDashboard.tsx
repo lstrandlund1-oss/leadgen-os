@@ -64,6 +64,7 @@ export default function AdminBetaDashboard() {
   const [newCompany, setNewCompany] = useState("");
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [aiEnabled, setAiEnabled] = useState<boolean | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -74,9 +75,34 @@ export default function AdminBetaDashboard() {
         setTesters(data.testers ?? []);
         setInvitations(data.invitations ?? []);
       }
+      const settingsRes = await fetch("/api/admin/platform-settings");
+      if (settingsRes.ok) {
+        const settingsData = await settingsRes.json();
+        const aiSetting = (settingsData.settings ?? []).find((s: { key: string }) => s.key === "ai_generation_enabled");
+        setAiEnabled(aiSetting?.enabled ?? true);
+      }
     } finally {
       setLoading(false);
     }
+  }
+
+  async function toggleAiGeneration() {
+    if (aiEnabled === null) return;
+    const nextValue = !aiEnabled;
+    if (
+      !nextValue &&
+      !confirm(
+        "This will immediately stop ALL AI generation platform-wide (outreach, sequences, deep search, snapshots, support chat) for every user. Continue?",
+      )
+    ) {
+      return;
+    }
+    setAiEnabled(nextValue);
+    await fetch("/api/admin/platform-settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "ai_generation_enabled", enabled: nextValue }),
+    }).catch(() => {});
   }
 
   useEffect(() => {
@@ -120,6 +146,38 @@ export default function AdminBetaDashboard() {
       <h1 className="text-2xl font-light mb-8" style={{ fontFamily: "var(--font-display), serif" }}>
         Private Beta — Admin
       </h1>
+
+      {/* Platform Controls — not beta-specific, affects every user */}
+      <section
+        className={
+          "rounded-2xl border p-5 mb-8 " +
+          (aiEnabled === false ? "border-rose-500/40 bg-rose-500/5" : "border-[#252525] bg-[#111]")
+        }>
+        <h2 className="text-[13px] font-semibold text-[#c8c0b0] mb-1">Platform Controls</h2>
+        <p className="text-[11px] text-[#555] mb-3">Affects every user, not just beta testers.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[13px] text-[#c8c0b0]">AI generation</p>
+            <p className="text-[11px] text-[#555] mt-0.5">
+              {aiEnabled === false
+                ? "Disabled — outreach, sequences, deep search, snapshots, and support chat are all paused."
+                : "Enabled — normal operation."}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={toggleAiGeneration}
+            disabled={aiEnabled === null}
+            className={
+              "text-[12px] px-4 py-2 rounded-lg border font-semibold transition-all disabled:opacity-40 " +
+              (aiEnabled === false
+                ? "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+                : "border-rose-500/40 text-rose-400 hover:bg-rose-500/10")
+            }>
+            {aiEnabled === false ? "Re-enable AI" : "Emergency stop"}
+          </button>
+        </div>
+      </section>
 
       {/* Create invitation */}
       <section className="rounded-2xl border border-[#252525] bg-[#111] p-5 mb-8">

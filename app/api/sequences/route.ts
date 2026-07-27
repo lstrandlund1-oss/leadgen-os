@@ -14,6 +14,7 @@ import {
 import type { OutreachRequest } from "@/lib/outreach/types";
 import { logEvent } from "@/lib/analytics/log";
 import { computeRealCostMicroUsd } from "@/lib/ai/cost";
+import { isAiGenerationEnabled, AI_DISABLED_RESPONSE } from "@/lib/killSwitch";
 
 // GET /api/sequences?leadId=X — fetch all steps for a lead
 export async function GET(request: Request) {
@@ -44,6 +45,10 @@ export async function GET(request: Request) {
 // POST /api/sequences — generate a new sequence for a lead
 export async function POST(request: Request) {
   try {
+    if (!(await isAiGenerationEnabled())) {
+      return NextResponse.json(AI_DISABLED_RESPONSE, { status: 503 });
+    }
+
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) return NextResponse.json({ error: "API key not configured" }, { status: 500 });
 

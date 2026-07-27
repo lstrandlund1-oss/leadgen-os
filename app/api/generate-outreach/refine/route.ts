@@ -3,13 +3,18 @@
 // Takes the current message + a specific instruction and rewrites it.
 
 import { NextResponse } from "next/server";
+import { isAiGenerationEnabled, AI_DISABLED_RESPONSE } from "@/lib/killSwitch";
 
 export async function POST(request: Request) {
   try {
+    if (!(await isAiGenerationEnabled())) {
+      return NextResponse.json(AI_DISABLED_RESPONSE, { status: 503 });
+    }
+
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) return NextResponse.json({ error: "API key not configured" }, { status: 500 });
 
-    const body = await request.json() as {
+    const body = (await request.json()) as {
       current_message: string;
       instruction: string;
       channel: string;
@@ -37,10 +42,12 @@ No preamble, no explanation — just the rewritten message.`;
         model: "claude-haiku-4-5-20251001",
         max_tokens: 400,
         system: systemPrompt,
-        messages: [{
-          role: "user",
-          content: `Instruction: ${body.instruction}\n\nCurrent message:\n---\n${body.current_message}\n---\n\nRewrite it now.`
-        }],
+        messages: [
+          {
+            role: "user",
+            content: `Instruction: ${body.instruction}\n\nCurrent message:\n---\n${body.current_message}\n---\n\nRewrite it now.`,
+          },
+        ],
       }),
     });
 
@@ -49,8 +56,12 @@ No preamble, no explanation — just the rewritten message.`;
       return NextResponse.json({ error: "Refinement failed" }, { status: res.status });
     }
 
-    const data = await res.json() as { content: Array<{ type: string; text: string }> };
-    const rawText = data.content.filter(b => b.type === "text").map(b => b.text).join("").trim();
+    const data = (await res.json()) as { content: Array<{ type: string; text: string }> };
+    const rawText = data.content
+      .filter((b) => b.type === "text")
+      .map((b) => b.text)
+      .join("")
+      .trim();
 
     let subject: string | undefined;
     let bodyText = rawText;
@@ -58,7 +69,10 @@ No preamble, no explanation — just the rewritten message.`;
     if (hasSubject && rawText.startsWith("Subject:")) {
       const lines = rawText.split("\n");
       subject = lines[0].replace(/^Subject:\s*/i, "").trim();
-      bodyText = lines.slice(lines[1]?.trim() === "" ? 2 : 1).join("\n").trim();
+      bodyText = lines
+        .slice(lines[1]?.trim() === "" ? 2 : 1)
+        .join("\n")
+        .trim();
     }
 
     const word_count = bodyText.split(/\s+/).filter(Boolean).length;

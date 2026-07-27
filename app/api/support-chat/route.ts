@@ -10,6 +10,7 @@ import { getAuthUser } from "@/lib/supabaseServer";
 import { rateLimitDb } from "@/lib/rateLimitDb";
 import { logEvent } from "@/lib/analytics/log";
 import { computeRealCostMicroUsd } from "@/lib/ai/cost";
+import { isAiGenerationEnabled, AI_DISABLED_RESPONSE } from "@/lib/killSwitch";
 
 function getCallerId(request: Request): string {
   const xf = request.headers.get("x-forwarded-for");
@@ -59,6 +60,10 @@ export async function POST(request: Request) {
 
     if (!ANTHROPIC_KEY) {
       return NextResponse.json({ error: "Support chat not configured" }, { status: 500 });
+    }
+
+    if (!(await isAiGenerationEnabled())) {
+      return NextResponse.json(AI_DISABLED_RESPONSE, { status: 503 });
     }
 
     // This endpoint is intentionally public (rendered globally in

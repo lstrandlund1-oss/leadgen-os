@@ -25,6 +25,7 @@ import {
   betaBlockedResponseBody,
 } from "@/lib/beta/gate";
 import { logEvent } from "@/lib/analytics/log";
+import { isAiGenerationEnabled, AI_DISABLED_RESPONSE } from "@/lib/killSwitch";
 import { computeRealCostMicroUsd } from "@/lib/ai/cost";
 
 // ── Haiku query planner (deep search only) ────────────────────────────────────
@@ -206,6 +207,10 @@ export async function POST(request: Request) {
     let queries: string[];
 
     if (searchMode === "deep") {
+      if (!(await isAiGenerationEnabled())) {
+        return NextResponse.json(AI_DISABLED_RESPONSE, { status: 503 });
+      }
+
       const authUser = await getAuthUser();
       const userId = authUser?.id ?? null;
 
