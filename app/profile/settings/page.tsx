@@ -154,6 +154,16 @@ export default function SettingsPage() {
           capabilities,
         }),
       });
+      // Same reasoning as app/settings/page.tsx: the login/onboarding
+      // pages have no session yet, so they read language from localStorage
+      // rather than the database profile. Without this, changing language
+      // here had no effect on what those pages showed.
+      try {
+        const existing = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}");
+        localStorage.setItem("vantio_state_v1", JSON.stringify({ ...existing, language }));
+      } catch {
+        /* ignore */
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } finally {

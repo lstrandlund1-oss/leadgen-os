@@ -123,6 +123,17 @@ export default function SettingsPage() {
           language,
         }),
       });
+      // The database profile is only reachable once logged in — but the
+      // login and onboarding pages have no session yet, so they read the
+      // language choice from localStorage instead. Without this, changing
+      // the language here had zero effect on what those pages showed,
+      // since nothing ever wrote the choice there.
+      try {
+        const existing = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}");
+        localStorage.setItem("vantio_state_v1", JSON.stringify({ ...existing, language }));
+      } catch {
+        /* ignore */
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } finally {
