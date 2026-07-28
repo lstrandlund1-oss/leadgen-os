@@ -85,8 +85,13 @@ to be wrong, fix this file in the same change that proves it wrong.
   directly. It does not exist anywhere in the codebase. Anyone who isn't
   a beta member and clicks "upgrade" gets a 404, not a checkout flow.
   `stripe` is an installed dependency but there is no `app/api/stripe/`
-  directory at all. Not fixed — needs real Stripe price IDs/product
-  config from you before it can be built.
+  directory at all. **Correction to an earlier assessment in this
+  project**: this is not waiting on Stripe setup or credentials from you —
+  `.env.local` already has a complete, real Stripe configuration (secret
+  key, webhook secret, publishable key, and a full 36-price-ID matrix
+  across 3 plans × 3 periods × 4 currencies), confirmed unused by any
+  code. See `docs/ENVIRONMENT_VARIABLES.md`. What's missing is purely the
+  application code — a checkout route and a webhook handler.
 
 ## Not implemented
 
