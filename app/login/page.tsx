@@ -37,6 +37,7 @@ function LoginForm({ language }: { language: Language }) {
   const [success, setSuccess] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
+  const [resendError, setResendError] = useState<string | null>(null);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
   const supabase = createSupabaseBrowser();
@@ -81,15 +82,21 @@ function LoginForm({ language }: { language: Language }) {
   }
 
   async function resendConfirmation() {
-    if (!pendingEmail || resending) return;
+    const targetEmail = pendingEmail || email;
+    if (!targetEmail || resending) return;
     setResending(true);
+    setResendError(null);
     const { error } = await supabase.auth.resend({
       type: "signup",
-      email: pendingEmail,
+      email: targetEmail,
       options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding` },
     });
     setResending(false);
-    if (!error) setResent(true);
+    if (error) {
+      setResendError(error.message);
+    } else {
+      setResent(true);
+    }
   }
 
   return (
@@ -121,8 +128,25 @@ function LoginForm({ language }: { language: Language }) {
         <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-[#c9a84c] to-transparent -mt-6 mb-6 rounded-full" />
 
         {error && (
-          <div className="px-4 py-3 rounded-lg border border-rose-500/30 bg-rose-500/5 text-[12px] text-rose-400">
-            {error}
+          <div className="px-4 py-3 rounded-lg border border-rose-500/30 bg-rose-500/5 text-[12px] text-rose-400 space-y-2">
+            <p>{error}</p>
+            {errorParam === "auth_callback_failed" && !resent && (
+              <p className="text-[11px] text-[#888]">
+                {email ? (
+                  <button
+                    type="button"
+                    onClick={resendConfirmation}
+                    disabled={resending}
+                    className="text-[#c9a84c] hover:text-[#e8c97a] transition-colors disabled:opacity-50">
+                    {resending ? t.resending : t.resendConfirmation}
+                  </button>
+                ) : (
+                  t.typeEmailToResend
+                )}
+              </p>
+            )}
+            {resendError && <p className="text-[11px] text-rose-400">{resendError}</p>}
+            {resent && <p className="text-[11px] text-emerald-500">{t.newConfirmationSent}</p>}
           </div>
         )}
         {success && (
@@ -141,6 +165,7 @@ function LoginForm({ language }: { language: Language }) {
               </p>
             )}
             {resent && <p className="text-[11px] text-emerald-500">{t.newConfirmationSent}</p>}
+            {resendError && <p className="text-[11px] text-rose-400">{resendError}</p>}
           </div>
         )}
 

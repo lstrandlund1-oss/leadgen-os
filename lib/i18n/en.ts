@@ -503,6 +503,7 @@ export const en: TranslationSchema = {
       resending: "Sending…",
       resendConfirmation: "Resend confirmation email",
       newConfirmationSent: "✓ New confirmation email sent.",
+      typeEmailToResend: "Enter your email above, then tap to resend the confirmation.",
       emailLabel: "Email",
       emailPlaceholder: "you@example.com",
       passwordLabel: "Password",

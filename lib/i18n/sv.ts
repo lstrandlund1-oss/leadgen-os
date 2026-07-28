@@ -505,6 +505,7 @@ export const sv: TranslationSchema = {
       resending: "Skickar…",
       resendConfirmation: "Skicka bekräftelsemejlet igen",
       newConfirmationSent: "✓ Nytt bekräftelsemejl skickat.",
+      typeEmailToResend: "Ange din e-post ovan, tryck sedan för att skicka bekräftelsemejlet igen.",
       emailLabel: "E-post",
       emailPlaceholder: "du@exempel.se",
       passwordLabel: "Lösenord",
