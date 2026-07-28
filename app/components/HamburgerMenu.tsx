@@ -7,6 +7,9 @@ import { useRouter } from "next/navigation";
 import { getEffectivePlan, canUseOutreach } from "@/lib/plan";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { useBetaStatus } from "@/lib/beta/useBetaStatus";
+import { getStoredLanguage, setStoredLanguage } from "@/lib/languagePreference";
+import type { Language } from "@/lib/i18n/types";
+import LanguageToggle from "@/app/components/LanguageToggle";
 
 interface HamburgerMenuProps {
   userEmail?: string;
@@ -60,6 +63,22 @@ export default function HamburgerMenu({ userEmail }: HamburgerMenuProps) {
     return () => listener.subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Self-contained language state so the toggle works from any page that
+  // renders this menu, without every parent page needing to pass it down.
+  // Each page manages its own separate translation state (read once on
+  // mount), so a full reload after persisting is what actually makes the
+  // change visible on the current page, rather than a silent mismatch
+  // between "what's stored" and "what this page is currently showing."
+  const [menuLanguage, setMenuLanguage] = useState<Language>("sv");
+  useEffect(() => {
+    setMenuLanguage(getStoredLanguage());
+  }, []);
+  function handleLanguageChange(lang: Language) {
+    setMenuLanguage(lang);
+    setStoredLanguage(lang);
+    window.location.reload();
+  }
 
   function toggleMenu() {
     if (!open && buttonRef.current) {
@@ -343,8 +362,21 @@ export default function HamburgerMenu({ userEmail }: HamburgerMenuProps) {
                 </div>
               ))}
 
-              {/* Footer — sign out + version */}
+              {/* Language toggle */}
               <div style={{ height: 1, background: "#1a1a1a", marginTop: 4 }} />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "10px 16px",
+                }}>
+                <span style={{ fontSize: 13, color: "#444" }}>Language</span>
+                <LanguageToggle language={menuLanguage} onChange={handleLanguageChange} />
+              </div>
+
+              {/* Footer — sign out + version */}
+              <div style={{ height: 1, background: "#1a1a1a" }} />
               {hasSession ? (
                 <button
                   type="button"

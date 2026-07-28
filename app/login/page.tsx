@@ -6,19 +6,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { getTranslations } from "@/lib/i18n";
 import type { Language } from "@/lib/i18n/types";
+import { getStoredLanguage, setStoredLanguage } from "@/lib/languagePreference";
+import LanguageToggle from "@/app/components/LanguageToggle";
 
 type Mode = "signin" | "signup";
 
 function useLoginLanguage(): [Language, (l: Language) => void] {
-  const [language, setLanguage] = useState<Language>(() => {
-    if (typeof window === "undefined") return "sv";
-    try {
-      const p = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}");
-      return p.language === "en" || p.language === "sv" ? p.language : "sv";
-    } catch {
-      return "sv";
-    }
-  });
+  const [language, setLanguageState] = useState<Language>(() => getStoredLanguage());
+  function setLanguage(l: Language) {
+    setLanguageState(l);
+    setStoredLanguage(l);
+  }
   return [language, setLanguage];
 }
 
@@ -241,12 +239,7 @@ export default function LoginPage() {
           <Link href="/" className="text-[12px] text-[#666] hover:text-[#888] transition-colors">
             {t.backToHome}
           </Link>
-          <button
-            type="button"
-            onClick={() => setLanguage(language === "sv" ? "en" : "sv")}
-            className="text-[11px] text-[#555] hover:text-[#c9a84c] transition-colors uppercase tracking-wide">
-            {language === "sv" ? "en" : "sv"}
-          </button>
+          <LanguageToggle language={language} onChange={setLanguage} />
         </div>
       </nav>
 

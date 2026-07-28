@@ -7,6 +7,8 @@ import { PROFILE_TYPE_DEFINITIONS, PROFILE_TYPE_KEYS, type ProfileTypeKey } from
 import type { Capability } from "@/lib/fit/needs";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { getTranslations } from "@/lib/i18n";
+import { getStoredLanguage, setStoredLanguage } from "@/lib/languagePreference";
+import LanguageToggle from "@/app/components/LanguageToggle";
 import type { Language } from "@/lib/i18n/types";
 
 const ALL_CAPABILITIES: Capability[] = ["ads", "tracking", "funnel", "content", "website", "seo", "crm"];
@@ -35,15 +37,11 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
-  const [language, setLanguage] = useState<Language>(() => {
-    if (typeof window === "undefined") return "sv";
-    try {
-      const p = JSON.parse(localStorage.getItem("vantio_state_v1") ?? "{}");
-      return p.language === "en" || p.language === "sv" ? p.language : "sv";
-    } catch {
-      return "sv";
-    }
-  });
+  const [language, setLanguageState] = useState<Language>(() => getStoredLanguage());
+  function setLanguage(l: Language) {
+    setLanguageState(l);
+    setStoredLanguage(l);
+  }
   const t = getTranslations(language).ui.onboarding;
   const STEPS = t.stepLabels;
 
@@ -167,12 +165,7 @@ export default function OnboardingPage() {
           <p className="text-[12px] text-[#444] tracking-wide">
             {t.stepOf.replace("{current}", String(step + 1)).replace("{total}", String(STEPS.length))}
           </p>
-          <button
-            type="button"
-            onClick={() => setLanguage(language === "sv" ? "en" : "sv")}
-            className="text-[11px] text-[#555] hover:text-[#c9a84c] transition-colors uppercase tracking-wide">
-            {language === "sv" ? "en" : "sv"}
-          </button>
+          <LanguageToggle language={language} onChange={setLanguage} />
         </div>
       </div>
 
