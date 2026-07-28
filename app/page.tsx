@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import HamburgerMenu from "./components/HamburgerMenu";
+import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { MOBILE_NEBULA_ENABLED } from "@/lib/config/mobileVisuals";
 
@@ -3349,6 +3349,27 @@ export default function LandingPage() {
   const isMobile = useIsMobile();
   const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
   const [scrollY, setScrollY] = useState(0);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowser();
+    supabase.auth.getSession().then(({ data }) => {
+      setUserEmail(data.session?.user?.email ?? null);
+    });
+    // Keep this in sync live — e.g. if the account was just deleted or
+    // signed out in another tab, this page shouldn't keep showing a stale
+    // logged-in state.
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserEmail(session?.user?.email ?? null);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  async function handleLandingSignOut() {
+    const supabase = createSupabaseBrowser();
+    await supabase.auth.signOut();
+    setUserEmail(null);
+  }
 
   const [moteParticles] = useState(() =>
     Array.from({ length: 32 }, (_, i) => ({
@@ -3491,7 +3512,55 @@ export default function LandingPage() {
             }}>
             {isMobile ? "Early Access" : "Get Early Access"}
           </Link>
-          <HamburgerMenu hasProfile={false} />
+          {userEmail ? (
+            <>
+              <Link
+                href="/dashboard"
+                style={{
+                  fontSize: isMobile ? 12 : 13,
+                  padding: isMobile ? "7px 12px" : "8px 18px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(201,168,76,0.3)",
+                  color: "#c9a84c",
+                  textDecoration: "none",
+                  letterSpacing: "0.06em",
+                  whiteSpace: "nowrap",
+                }}>
+                Dashboard
+              </Link>
+              <button
+                type="button"
+                onClick={handleLandingSignOut}
+                style={{
+                  fontSize: isMobile ? 12 : 13,
+                  padding: isMobile ? "7px 12px" : "8px 18px",
+                  borderRadius: 8,
+                  border: "1px solid #252525",
+                  color: "#666",
+                  background: "none",
+                  cursor: "pointer",
+                  letterSpacing: "0.06em",
+                  whiteSpace: "nowrap",
+                }}>
+                Log out
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              style={{
+                fontSize: isMobile ? 12 : 13,
+                padding: isMobile ? "7px 12px" : "8px 18px",
+                borderRadius: 8,
+                border: "1px solid #252525",
+                color: "#888",
+                textDecoration: "none",
+                letterSpacing: "0.06em",
+                whiteSpace: "nowrap",
+              }}>
+              Log in
+            </Link>
+          )}
         </div>
       </nav>
 

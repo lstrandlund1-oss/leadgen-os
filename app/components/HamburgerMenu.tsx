@@ -45,6 +45,22 @@ export default function HamburgerMenu({ userEmail }: HamburgerMenuProps) {
   const outreachUnlocked = canUseOutreach(plan);
   const betaStatus = useBetaStatus();
 
+  // The userEmail prop is unreliable — several pages that render this menu
+  // don't pass it at all, which previously meant "Sign Out" showed
+  // unconditionally regardless of whether anyone was actually logged in
+  // (most visibly on public pages like the landing page and /contact).
+  // Checked independently here, live, so the menu reflects reality
+  // whichever page it's rendered from.
+  const [hasSession, setHasSession] = useState(!!userEmail);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setHasSession(!!data.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setHasSession(!!session);
+    });
+    return () => listener.subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function toggleMenu() {
     if (!open && buttonRef.current) {
       const r = buttonRef.current.getBoundingClientRect();
@@ -329,33 +345,60 @@ export default function HamburgerMenu({ userEmail }: HamburgerMenuProps) {
 
               {/* Footer — sign out + version */}
               <div style={{ height: 1, background: "#1a1a1a", marginTop: 4 }} />
-              <button
-                type="button"
-                onClick={handleSignOut}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "10px 16px",
-                  width: "100%",
-                  fontSize: 13,
-                  color: "#444",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  textAlign: "left",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "#161616";
-                  e.currentTarget.style.color = "#f87171";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "#444";
-                }}>
-                <span style={{ fontSize: 10, color: "#333", width: 14, textAlign: "center" }}>⎋</span>
-                <span>Sign Out</span>
-              </button>
+              {hasSession ? (
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "10px 16px",
+                    width: "100%",
+                    fontSize: 13,
+                    color: "#444",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#161616";
+                    e.currentTarget.style.color = "#f87171";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "#444";
+                  }}>
+                  <span style={{ fontSize: 10, color: "#333", width: 14, textAlign: "center" }}>⎋</span>
+                  <span>Sign Out</span>
+                </button>
+              ) : (
+                <Link
+                  href="/login"
+                  onClick={() => setOpen(false)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "10px 16px",
+                    width: "100%",
+                    fontSize: 13,
+                    color: "#444",
+                    textDecoration: "none",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#161616";
+                    e.currentTarget.style.color = "#c9a84c";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "#444";
+                  }}>
+                  <span style={{ fontSize: 10, color: "#333", width: 14, textAlign: "center" }}>⎋</span>
+                  <span>Sign In</span>
+                </Link>
+              )}
 
               <div style={{ height: 1, background: "#141414" }} />
               <div
