@@ -1,7 +1,6 @@
 // app/api/outcomes/route.ts
 import { NextResponse } from "next/server";
-import { getAuthUser } from "@/lib/supabaseServer";
-import { supabase } from "@/lib/supabaseClient";
+import { getAuthUser, createSupabaseServer } from "@/lib/supabaseServer";
 import { logEvent } from "@/lib/analytics/log";
 
 type OutcomePayload = {
@@ -25,8 +24,9 @@ export async function POST(request: Request) {
   const authUser = await getAuthUser();
   const userId = authUser?.id ?? null;
   try {
-    if (!supabase) {
-      return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
+    const supabase = await createSupabaseServer();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = (await request.json()) as OutcomePayload;
@@ -35,23 +35,57 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
+    // Fetch the existing row so this save can merge rather than overwrite.
+    // Previously, any field not included in this specific request body was
+    // defaulted to false/null — meaning a save that only toggled `closed`
+    // would silently reset `contacted`/`replied` back to false in the
+    // database, even though the client's own optimistic UI update correctly
+    // preserved them. This also doubles as the basis for transition
+    // detection below.
+    const { data: existing } = await supabase
+      .from("lead_outcomes")
+      .select("*")
+      .eq("run_id", body.runId)
+      .eq("lead_id", body.leadId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const merged = {
+      contacted: body.contacted !== undefined ? body.contacted : (existing?.contacted ?? false),
+      replied: body.replied !== undefined ? body.replied : (existing?.replied ?? false),
+      booked_call: body.bookedCall !== undefined ? body.bookedCall : (existing?.booked_call ?? false),
+      closed: body.closed !== undefined ? body.closed : (existing?.closed ?? false),
+      revenue: body.revenue !== undefined ? body.revenue : (existing?.revenue ?? null),
+      notes: body.notes !== undefined ? body.notes : (existing?.notes ?? null),
+      tonality: body.tonality !== undefined ? body.tonality : (existing?.tonality ?? null),
+      angle_type: body.angleType !== undefined ? body.angleType : (existing?.angle_type ?? null),
+      followup_date: body.followupDate !== undefined ? body.followupDate : (existing?.followup_date ?? null),
+      lost_reason: body.lostReason !== undefined ? body.lostReason : (existing?.lost_reason ?? null),
+      score_at_outreach:
+        body.scoreAtOutreach !== undefined ? body.scoreAtOutreach : (existing?.score_at_outreach ?? null),
+    };
+
+    // Transition detection: a stage's timestamp is set once, the first
+    // time it becomes true, and a specific event is logged for it — rather
+    // than one generic "outcome_recorded" on every save regardless of what
+    // actually changed. This is what makes "Contacted: Aug 12 -> Replied:
+    // Aug 14" reconstructable later instead of only ever knowing current
+    // state.
+    const now = new Date().toISOString();
+    const newlyContacted = merged.contacted && !existing?.contacted;
+    const newlyReplied = merged.replied && !existing?.replied;
+    const newlyBooked = merged.booked_call && !existing?.booked_call;
+    const newlyClosed = merged.closed && !existing?.closed;
+
     const payload = {
       run_id: body.runId,
       lead_id: body.leadId,
       user_id: userId,
-
-      contacted: body.contacted ?? false,
-      replied: body.replied ?? false,
-      booked_call: body.bookedCall ?? false,
-      closed: body.closed ?? false,
-
-      revenue: body.revenue ?? null,
-      notes: body.notes ?? null,
-      tonality: body.tonality ?? null,
-      angle_type: body.angleType ?? null,
-      followup_date: body.followupDate ?? null,
-      lost_reason: body.lostReason ?? null,
-      score_at_outreach: body.scoreAtOutreach ?? null,
+      ...merged,
+      contacted_at: newlyContacted ? now : (existing?.contacted_at ?? null),
+      replied_at: newlyReplied ? now : (existing?.replied_at ?? null),
+      booked_call_at: newlyBooked ? now : (existing?.booked_call_at ?? null),
+      closed_at: newlyClosed ? now : (existing?.closed_at ?? null),
     };
 
     const { data, error } = await supabase
@@ -64,7 +98,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    if (userId) await logEvent(userId, "outcome_recorded", { runId: body.runId, leadId: body.leadId });
+    const eventContext = { runId: body.runId, leadId: body.leadId };
+    if (newlyContacted) await logEvent(userId, "contacted", eventContext);
+    if (newlyReplied) await logEvent(userId, "replied", eventContext);
+    if (newlyBooked) await logEvent(userId, "meeting_booked", eventContext);
+    if (newlyClosed) {
+      const won = !merged.lost_reason;
+      await logEvent(userId, won ? "closed_won" : "closed_lost", {
+        ...eventContext,
+        revenue: won ? merged.revenue : undefined,
+      });
+      if (won && merged.revenue) {
+        await logEvent(userId, "revenue_recorded", { ...eventContext, revenue: merged.revenue });
+      }
+    }
+    // Always still logged, for anything that changed but isn't a stage
+    // transition (notes, follow-up date, etc.) — same generic event as
+    // before, just no longer the ONLY signal for actual pipeline movement.
+    await logEvent(userId, "outcome_recorded", eventContext);
 
     return NextResponse.json({ ok: true, outcome: data }, { status: 200 });
   } catch (err) {
@@ -75,10 +126,6 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    if (!supabase) {
-      return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
-    }
-
     const authUser = await getAuthUser();
     const userId = authUser?.id ?? null;
 
@@ -89,9 +136,15 @@ export async function GET(request: Request) {
     // at all, for anyone — meaning any visitor could enumerate run_id
     // values and read any user's private outcome data. Both are fixed by
     // requiring authentication up front and always filtering by user_id.
+    // Also fixed here: this previously used the anon-key client, which
+    // never carries a session — since lead_outcomes' RLS policy requires
+    // auth.uid() = user_id, and auth.uid() is always null for that client,
+    // the user_id filter alone was never actually sufficient; the query
+    // itself was being blocked by RLS regardless.
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const supabase = await createSupabaseServer();
 
     const { searchParams } = new URL(request.url);
     const runIdParam = searchParams.get("runId");
