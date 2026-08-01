@@ -369,7 +369,10 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     }
 
     const authUser = await getAuthUser();
-    const userId = authUser?.id ?? "user_v1";
+    if (!authUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = authUser.id;
 
     const [runIntent, userProfileData] = await Promise.all([
       fetchRunIntent(supabase, runId),
@@ -524,7 +527,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
             gapType: gap,
           });
 
-          const cachedEntry = await getCachedScore(rawId);
+          const cachedEntry = await getCachedScore(userId, rawId);
           let scored: ReturnType<typeof computeUniversalScore>;
 
           if (cachedEntry && cachedEntry.signalHash === signalHash) {
@@ -557,6 +560,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 
             // Persist the new score (fire-and-forget — don't block the response)
             setCachedScore(
+              userId,
               rawId,
               {
                 value: scored.value,

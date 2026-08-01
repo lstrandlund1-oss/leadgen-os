@@ -355,30 +355,49 @@ export function buildSignalHash(inputs: {
   return (h >>> 0).toString(16);
 }
 
-export async function getCachedScore(rawId: number): Promise<{ score: CachedScore; signalHash: string } | null> {
+// Per-user scoring cache. Previously this read/wrote a shared field on
+// companies_normalized, keyed only by signal_hash — but the score embeds
+// fitScore, which depends on the requesting user's own profile and
+// capabilities, so different users could see each other's cached scores.
+// See migration 0015 for the full explanation. Keyed by (user_id, raw_id),
+// still gated by signal_hash so a genuine change in the company's own
+// data (not the user's profile) correctly invalidates the cache.
+export async function getCachedScore(
+  userId: string,
+  rawId: number,
+): Promise<{ score: CachedScore; signalHash: string } | null> {
   const supabase = await getServiceClient();
   if (!supabase) return null;
   try {
     const { data } = await supabase
-      .from("companies_normalized")
-      .select("cached_score, signal_hash")
+      .from("company_intelligence")
+      .select("score, signal_hash")
+      .eq("user_id", userId)
       .eq("raw_id", rawId)
-      .single();
-    if (!data?.cached_score || !data?.signal_hash) return null;
-    return { score: data.cached_score as CachedScore, signalHash: data.signal_hash as string };
+      .maybeSingle();
+    if (!data?.score || !data?.signal_hash) return null;
+    return { score: data.score as CachedScore, signalHash: data.signal_hash as string };
   } catch {
     return null;
   }
 }
 
-export async function setCachedScore(rawId: number, score: CachedScore, signalHash: string): Promise<void> {
+export async function setCachedScore(
+  userId: string,
+  rawId: number,
+  score: CachedScore,
+  signalHash: string,
+): Promise<void> {
   const supabase = await getServiceClient();
   if (!supabase) return;
   try {
-    await supabase
-      .from("companies_normalized")
-      .update({ cached_score: score, signal_hash: signalHash })
-      .eq("raw_id", rawId);
+    const { error } = await supabase
+      .from("company_intelligence")
+      .upsert(
+        { user_id: userId, raw_id: rawId, score, signal_hash: signalHash, scored_at: new Date().toISOString() },
+        { onConflict: "user_id,raw_id" },
+      );
+    if (error) console.error("company_intelligence upsert error:", error.message);
   } catch (err) {
     console.error("setCachedScore error:", err);
   }
