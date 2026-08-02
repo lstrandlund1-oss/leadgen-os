@@ -83,8 +83,19 @@ export async function middleware(request: NextRequest) {
   }
 
   // ── Guard 2: Redirect authenticated users away from login ─────────────────
+  // Exception: if there's an explicit error on the URL (e.g.
+  // ?error=auth_callback_failed — the redirect target when a confirmation
+  // link's code exchange fails, most commonly because it was opened on a
+  // different device than the one that started signup, which is expected
+  // PKCE behaviour), don't silently bounce away from it just because this
+  // browser happens to have some OTHER, unrelated session already active.
+  // That previously meant a confirmation failure was invisible — the
+  // visitor would just land on their existing account's dashboard with no
+  // explanation, rather than seeing the actual error and a path to recover
+  // (see the login page's "already confirmed on another device" prompt).
   const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
-  if (isAuthRoute && user) {
+  const hasAuthError = request.nextUrl.searchParams.has("error");
+  if (isAuthRoute && user && !hasAuthError) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
