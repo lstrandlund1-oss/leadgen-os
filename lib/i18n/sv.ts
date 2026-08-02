@@ -405,6 +405,7 @@ export const sv: TranslationSchema = {
         businessNameLabel: "Namnet på din verksamhet eller byrå",
         businessNamePlaceholder: "t.ex. Spark Byrå",
         selectedBadge: "Vald",
+        businessNameRequired: "Ange ditt företagsnamn för att fortsätta.",
         continueButton: "Fortsätt →",
       },
       step1: {

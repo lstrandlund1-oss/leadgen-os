@@ -43,6 +43,10 @@ export default function OnboardingPage() {
     setStoredLanguage(l);
   }
   const t = getTranslations(language).ui.onboarding;
+  // Reused for capability depth-slider labels — already correctly built
+  // and translated for profile/settings; no reason to duplicate that
+  // content a third time here.
+  const tDepth = getTranslations(language).ui.profileSettings.profile;
   const STEPS = t.stepLabels;
 
   // Guard: if no session → login. If profile already exists → skip to dashboard.
@@ -272,10 +276,14 @@ export default function OnboardingPage() {
                 })}
               </div>
 
+              {businessName.trim() === "" && (
+                <p className="text-[11px] text-[#555] -mt-2">{t.step0.businessNameRequired}</p>
+              )}
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="w-full py-3.5 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] tracking-wide hover:bg-[#e8c97a] transition-colors">
+                disabled={businessName.trim() === ""}
+                className="w-full py-3.5 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] tracking-wide hover:bg-[#e8c97a] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                 {t.step0.continueButton}
               </button>
             </div>
@@ -296,26 +304,59 @@ export default function OnboardingPage() {
                 <p className="text-[13px] text-[#666]">{t.step1.body}</p>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="space-y-4">
                 {ALL_CAPABILITIES.map((cap) => {
-                  const active = (capabilities[cap] ?? 0) > 0;
+                  const depth = capabilities[cap] ?? 0;
+                  const isStrong = depth >= 70;
+                  const isActive = depth > 0;
+                  const depthLabel =
+                    depth === 0
+                      ? tDepth.depthLabels.notOffered
+                      : depth < 30
+                        ? tDepth.depthLabels.light
+                        : depth < 60
+                          ? tDepth.depthLabels.capable
+                          : depth < 80
+                            ? tDepth.depthLabels.strong
+                            : tDepth.depthLabels.specialist;
                   return (
-                    <button
-                      key={cap}
-                      type="button"
-                      onClick={() =>
-                        setCapabilities((c: Record<Capability, number>) => ({
-                          ...c,
-                          [cap]: !c[cap],
-                        }))
-                      }
-                      className={`flex items-center gap-2 px-3 py-3 rounded-lg border text-[12px] font-medium transition-all ${active ? "border-[#4ade80] bg-[rgba(74,222,128,0.05)] text-[#4ade80]" : "border-[#252525] bg-[#111] text-[#555] hover:border-[#444]"}`}>
-                      <span>{CAPABILITY_ICONS[cap]}</span>
-                      <span>{t.capabilities[cap]}</span>
-                    </button>
+                    <div key={cap} className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={
+                            "flex items-center gap-2 text-[12px] font-medium " +
+                            (isStrong ? "text-[#c9a84c]" : isActive ? "text-[#f5f0e8]" : "text-[#666]")
+                          }>
+                          <span>{CAPABILITY_ICONS[cap]}</span>
+                          <span>{t.capabilities[cap]}</span>
+                        </span>
+                        <span className="text-[11px] tabular-nums">
+                          {depth > 0 && <span className="text-[#555]">{depthLabel} · </span>}
+                          <span className={isStrong ? "text-[#c9a84c]" : "text-[#555]"}>{depth}%</span>
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={5}
+                        value={depth}
+                        onChange={(e) =>
+                          setCapabilities((c: Record<Capability, number>) => ({
+                            ...c,
+                            [cap]: Number(e.target.value),
+                          }))
+                        }
+                        className={
+                          "w-full h-1.5 rounded-full appearance-none bg-[#1a1a1a] cursor-pointer " +
+                          (isStrong ? "accent-[#c9a84c]" : isActive ? "accent-emerald-400" : "accent-[#333]")
+                        }
+                      />
+                    </div>
                   );
                 })}
               </div>
+              <p className="text-[11px] text-[#333]">{tDepth.capabilitiesTip}</p>
 
               <div className="flex gap-3">
                 <button

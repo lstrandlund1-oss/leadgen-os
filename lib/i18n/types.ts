@@ -260,6 +260,7 @@ export type TranslationSchema = {
         businessNameLabel: string;
         businessNamePlaceholder: string;
         selectedBadge: string;
+        businessNameRequired: string;
         continueButton: string;
       };
       step1: {

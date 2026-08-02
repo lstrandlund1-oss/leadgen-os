@@ -403,6 +403,7 @@ export const en: TranslationSchema = {
         businessNameLabel: "Your business or agency name",
         businessNamePlaceholder: "e.g. Spark Agency",
         selectedBadge: "Selected",
+        businessNameRequired: "Enter your business name to continue.",
         continueButton: "Continue →",
       },
       step1: {
