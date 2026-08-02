@@ -137,6 +137,23 @@ export const googlePlacesAdapter: ProviderAdapter = {
         ...(cursor ? { pageToken: cursor } : {}),
       };
 
+      // Geographic partitioning (Week 1 of the core rebuild): when the
+      // intent carries lat/lng/radius_m — set by the cell-based search
+      // orchestration, see lib/search/geoPartition.ts — restrict results
+      // to that specific circle. Uses locationRestriction (a hard filter)
+      // rather than locationBias (a soft nudge), since a search cell needs
+      // genuinely bounded results for partitioning to behave predictably —
+      // otherwise adjacent cells' result sets would overlap unpredictably
+      // rather than each cell covering its own distinct area.
+      if (typeof i.lat === "number" && typeof i.lng === "number" && typeof i.radius_m === "number") {
+        payload.locationRestriction = {
+          circle: {
+            center: { latitude: i.lat, longitude: i.lng },
+            radius: i.radius_m,
+          },
+        };
+      }
+
       const res = await fetch(PLACES_TEXT_SEARCH_URL, {
         method: "POST",
         headers: {

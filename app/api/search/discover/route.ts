@@ -15,6 +15,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
 import { ingestFromProvider } from "@/lib/ingest/ingest";
+import { runPartitionedSearch } from "@/lib/search/partitionedSearch";
 import { getEffectivePlan, deepSearchLimit } from "@/lib/plan";
 import { getAuthUser } from "@/lib/supabaseServer";
 import { recordUserSearchRuns } from "@/lib/userSearchRuns";
@@ -104,8 +105,14 @@ async function runQueries(queries: string[], city: string, socialPresence: strin
 
   await Promise.allSettled(
     queries.flatMap((query) => [
-      // Google Places
-      ingestFromProvider({
+      // Google Places — geographically partitioned (Week 1 of the core
+      // rebuild): instead of one query covering the whole city, this
+      // geocodes the area and searches a grid of smaller cells, so a
+      // niche+area search isn't silently capped by Google's per-request
+      // result ceiling. Falls back cleanly to a single query whenever
+      // geocoding fails or the area's too small to bother partitioning —
+      // see lib/search/partitionedSearch.ts.
+      runPartitionedSearch({
         provider: "google_places",
         query,
         location: city,
@@ -113,8 +120,8 @@ async function runQueries(queries: string[], city: string, socialPresence: strin
         socialPresence: socialPresence as "any",
         limit: 20,
       })
-        .then((s) => {
-          if (s.runId) runIds.push(s.runId);
+        .then((result) => {
+          runIds.push(...result.runIds);
         })
         .catch(() => {}),
 

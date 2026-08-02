@@ -52,7 +52,6 @@ export function planSearchCells(
   cellRadiusMeters: number = DEFAULT_CELL_RADIUS_METERS,
 ): SearchCell[] | null {
   const centerLat = (viewport.northeast.lat + viewport.southwest.lat) / 2;
-  const centerLng = (viewport.northeast.lng + viewport.southwest.lng) / 2;
 
   const heightMeters = Math.abs(viewport.northeast.lat - viewport.southwest.lat) * METERS_PER_DEGREE_LAT;
   const widthMeters = Math.abs(viewport.northeast.lng - viewport.southwest.lng) * metersPerDegreeLng(centerLat);
