@@ -16,6 +16,7 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
 import { ingestFromProvider } from "@/lib/ingest/ingest";
 import { runPartitionedSearch } from "@/lib/search/partitionedSearch";
+import { computeSearchYieldMetrics } from "@/lib/search/searchMetrics";
 import { getEffectivePlan, deepSearchLimit } from "@/lib/plan";
 import { getAuthUser } from "@/lib/supabaseServer";
 import { recordUserSearchRuns } from "@/lib/userSearchRuns";
@@ -102,17 +103,60 @@ Return ONLY: ["query1","query2",...] — raw JSON array, nothing else.`,
 
 async function runQueries(queries: string[], city: string, socialPresence: string): Promise<number[]> {
   const runIds: number[] = [];
+  // Only the primary query is geographically partitioned. The additional
+  // query variants (see the 4-variant construction in the caller) exist
+  // for a different reason — result diversity via different Google
+  // rankings for the same area — not geographic coverage. Partitioning
+  // every variant compounds multiplicatively with cell count (4 variants
+  // x ~16 cells = 64x baseline cost) rather than additively, which was a
+  // real, live cost mistake caught before deployment, not a hypothetical
+  // one — see the corrected numbers in the conversation that led to this.
+  const [primaryQuery, ...variantQueries] = queries;
 
-  await Promise.allSettled(
-    queries.flatMap((query) => [
-      // Google Places — geographically partitioned (Week 1 of the core
-      // rebuild): instead of one query covering the whole city, this
-      // geocodes the area and searches a grid of smaller cells, so a
-      // niche+area search isn't silently capped by Google's per-request
-      // result ceiling. Falls back cleanly to a single query whenever
-      // geocoding fails or the area's too small to bother partitioning —
-      // see lib/search/partitionedSearch.ts.
-      runPartitionedSearch({
+  await Promise.allSettled([
+    // Google Places — primary query, geographically partitioned (Week 1 of
+    // the core rebuild): instead of one query covering the whole city,
+    // this geocodes the area and searches a grid of smaller cells, so a
+    // niche+area search isn't silently capped by Google's per-request
+    // result ceiling. Falls back cleanly to a single query whenever
+    // geocoding fails or the area's too small to bother partitioning —
+    // see lib/search/partitionedSearch.ts.
+    runPartitionedSearch({
+      provider: "google_places",
+      query: primaryQuery,
+      location: city,
+      country: "Sweden",
+      socialPresence: socialPresence as "any",
+      limit: 20,
+    })
+      .then((result) => {
+        runIds.push(...result.runIds);
+      })
+      .catch(() => {}),
+
+    // SERP for the primary query — only if key is configured
+    ...(process.env.SERP_API_KEY
+      ? [
+          ingestFromProvider({
+            provider: "serp",
+            query: primaryQuery,
+            location: city,
+            country: "Sweden",
+            socialPresence: socialPresence as "any",
+            limit: 20,
+          })
+            .then((s) => {
+              if (s.runId) runIds.push(s.runId);
+            })
+            .catch(() => {}),
+        ]
+      : []),
+
+    // Additional query variants — single, unpartitioned calls per
+    // provider, same as before this change. Provides result diversity
+    // without compounding with geographic partitioning.
+    ...variantQueries.flatMap((query) => [
+      ingestFromProvider({
         provider: "google_places",
         query,
         location: city,
@@ -120,12 +164,11 @@ async function runQueries(queries: string[], city: string, socialPresence: strin
         socialPresence: socialPresence as "any",
         limit: 20,
       })
-        .then((result) => {
-          runIds.push(...result.runIds);
+        .then((s) => {
+          if (s.runId) runIds.push(s.runId);
         })
         .catch(() => {}),
 
-      // SERP (Google Maps via SerpApi) — only if key is configured
       ...(process.env.SERP_API_KEY
         ? [
             ingestFromProvider({
@@ -143,7 +186,7 @@ async function runQueries(queries: string[], city: string, socialPresence: strin
           ]
         : []),
     ]),
-  );
+  ]);
 
   return runIds;
 }
@@ -261,15 +304,12 @@ export async function POST(request: Request) {
         await abortBetaGatedAction(betaGate);
       }
 
-      if (userId) await logEvent(userId, "deep_search_completed", {});
-
       return NextResponse.json(await executeAndRespond(queries, city, socialPresence, searchMode, remaining, userId));
     } else {
       // Standard — fixed set of query variants, no AI cost
       queries = [niche, `${niche} ${city}`, `${niche} i ${city}`, `bästa ${niche} ${city}`];
 
       const authUser = await getAuthUser();
-      if (authUser) await logEvent(authUser.id, "search_completed", {});
 
       return NextResponse.json(
         await executeAndRespond(queries, city, socialPresence, searchMode, null, authUser?.id ?? null),
@@ -298,6 +338,18 @@ async function executeAndRespond(
   // (e.g. the outreach page's lead picker). See
   // docs/SEARCH_CACHING_ARCHITECTURE.md.
   await recordUserSearchRuns(userId, runIds);
+
+  // Cost/yield measurement (Week 1 of the core rebuild): previously this
+  // event logged empty properties, giving no way to measure discovery
+  // yield or cost per search. This is also exactly the kind of
+  // measurement that would have caught the query-multiplier cost mistake
+  // (4 variants x cells compounding instead of adding) empirically,
+  // rather than only by manual code tracing.
+  if (userId) {
+    const metrics = await computeSearchYieldMetrics(runIds);
+    const eventName = searchMode === "deep" ? "deep_search_completed" : "search_completed";
+    await logEvent(userId, eventName, metrics ? { ...metrics } : {});
+  }
 
   if (runIds.length === 0) {
     return { ok: false, runIds: [], primaryRunId: null, searchMode };
