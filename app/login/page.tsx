@@ -166,6 +166,15 @@ function LoginForm({ language }: { language: Language }) {
             )}
             {resent && <p className="text-[11px] text-emerald-500">{t.newConfirmationSent}</p>}
             {resendError && <p className="text-[11px] text-rose-400">{resendError}</p>}
+            <div className="pt-2 mt-1 border-t border-emerald-500/15">
+              <p className="text-[11px] text-[#888] mb-2">{t.confirmedElsewhereBody}</p>
+              <button
+                type="button"
+                onClick={() => switchMode("signin")}
+                className="w-full py-2 rounded-lg border border-[#c9a84c]/30 text-[12px] font-medium text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-all">
+                {t.confirmedElsewhereButton}
+              </button>
+            </div>
           </div>
         )}
 

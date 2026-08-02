@@ -504,6 +504,9 @@ export const en: TranslationSchema = {
       resendConfirmation: "Resend confirmation email",
       newConfirmationSent: "✓ New confirmation email sent.",
       typeEmailToResend: "Enter your email above, then tap to resend the confirmation.",
+      confirmedElsewhereBody:
+        "Opened the link on your phone or another device? That's completely fine — just sign in here with your new password to continue.",
+      confirmedElsewhereButton: "I've confirmed — sign in",
       emailLabel: "Email",
       emailPlaceholder: "you@example.com",
       passwordLabel: "Password",

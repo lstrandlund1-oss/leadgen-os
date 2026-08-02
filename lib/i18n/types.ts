@@ -317,6 +317,8 @@ export type TranslationSchema = {
       resendConfirmation: string;
       newConfirmationSent: string;
       typeEmailToResend: string;
+      confirmedElsewhereBody: string;
+      confirmedElsewhereButton: string;
       emailLabel: string;
       emailPlaceholder: string;
       passwordLabel: string;
