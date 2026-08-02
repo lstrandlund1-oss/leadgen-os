@@ -3,6 +3,7 @@ import { RawCompany, Classification } from "@/lib/types";
 import type { ProviderSearchIntent, ProviderName } from "@/lib/providers/types";
 
 import { detectOpportunitySignals, getPrimaryInsight } from "@/lib/scoring/opportunitySignals";
+import { normalizeDomain } from "@/lib/ingest/normalizeDomain";
 
 export async function createProviderRun(params: {
   provider: ProviderName;
@@ -235,6 +236,36 @@ export async function persistNormalizedCompany(rawId: number, raw: RawCompany): 
   const opportunitySignals = detectOpportunitySignals(normalizedForSignals);
   const primaryInsight = getPrimaryInsight(opportunitySignals);
 
+  // Deduplication upgrade: the same real business found via a different
+  // provider has a completely different (source, source_id), so the
+  // existing per-source dedup never catches it. Domain matching catches
+  // it here — the raw record itself is still kept untouched (provenance
+  // preserved), this only records which OTHER raw_id represents the same
+  // business, so the read side can collapse them for display.
+  //
+  // normalized_domain is stored as its own indexed column specifically so
+  // this is a direct, exact-match lookup — not a fetch-and-filter over an
+  // arbitrary subset of rows, which wouldn't scale and could silently miss
+  // real duplicates once the table grows past a couple hundred rows.
+  let duplicateOfRawId: number | null = null;
+  const normalizedWebsite = normalizeDomain(raw.website);
+  if (normalizedWebsite) {
+    const { data: match } = await supabase
+      .from("companies_normalized")
+      .select("raw_id, duplicate_of_raw_id")
+      .eq("normalized_domain", normalizedWebsite)
+      .neq("raw_id", rawId)
+      .limit(1)
+      .maybeSingle();
+
+    if (match) {
+      // Point at whatever that match's own canonical raw_id already is
+      // (in case it's itself already marked as a duplicate of something
+      // else), rather than chaining duplicate-of-a-duplicate pointers.
+      duplicateOfRawId = (match.duplicate_of_raw_id as number | null) ?? (match.raw_id as number);
+    }
+  }
+
   const { error } = await supabase.from("companies_normalized").upsert(
     {
       raw_id: rawId,
@@ -250,6 +281,8 @@ export async function persistNormalizedCompany(rawId: number, raw: RawCompany): 
       // 🔥 NEW FIELDS (requires jsonb columns)
       opportunity_signals: opportunitySignals,
       primary_insight: primaryInsight,
+      duplicate_of_raw_id: duplicateOfRawId,
+      normalized_domain: normalizedWebsite,
     },
     { onConflict: "raw_id" },
   );

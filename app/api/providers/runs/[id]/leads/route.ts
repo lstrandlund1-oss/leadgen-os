@@ -52,6 +52,7 @@ type NormalizedRow = {
   website: string | null;
   city: string | null;
   country: string | null;
+  duplicate_of_raw_id: number | null;
 
   // NOTE: these may exist in DB but are now considered legacy and may be stale.
   opportunity_signals: OpportunitySignal[] | null;
@@ -304,7 +305,7 @@ async function fetchNormalizedRowsByRawIds(client: SupabaseClient, ids: number[]
   for (const part of parts) {
     const { data, error } = await client
       .from("companies_normalized")
-      .select("raw_id, name, website, city, country, opportunity_signals, primary_insight")
+      .select("raw_id, name, website, city, country, duplicate_of_raw_id, opportunity_signals, primary_insight")
       .in("raw_id", part);
 
     if (error) throw new Error(`Failed to fetch normalized rows: ${error.message}`);
@@ -404,223 +405,238 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     const rawById = new Map<number, RawRow>();
     for (const r of rawRows) rawById.set(r.id, r);
 
+    const filteredRawRows = rawIds.map((rid) => rawById.get(rid)).filter((r): r is RawRow => !!r);
+
     const leadsRaw = await Promise.all(
-      rawIds
-        .map((rid) => rawById.get(rid))
-        .filter((r): r is RawRow => !!r)
-        .map(async (r) => {
-          const rawCompany = normalizeRawCompany(r);
-          const n = normByRawId.get(r.id);
-          const classification = normalizeClassification(clsByRawId.get(r.id) ?? null);
+      filteredRawRows.map(async (r) => {
+        const rawCompany = normalizeRawCompany(r);
+        const n = normByRawId.get(r.id);
+        const classification = normalizeClassification(clsByRawId.get(r.id) ?? null);
 
-          const website = n?.website ?? rawCompany.website ?? null;
-          const rating = rawCompany.rating ?? 0;
-          const reviews = rawCompany.review_count ?? 0;
+        const website = n?.website ?? rawCompany.website ?? null;
+        const rating = rawCompany.rating ?? 0;
+        const reviews = rawCompany.review_count ?? 0;
 
-          const computedPresence =
-            rawCompany.socialPresence ?? projectSocialPresence({ website, rating, reviewCount: reviews });
+        const computedPresence =
+          rawCompany.socialPresence ?? projectSocialPresence({ website, rating, reviewCount: reviews });
 
-          if (presenceFilter !== "any" && computedPresence !== presenceFilter) {
-            return null;
-          }
+        if (presenceFilter !== "any" && computedPresence !== presenceFilter) {
+          return null;
+        }
 
-          const normalized = {
-            name: n?.name ?? rawCompany.name,
-            website,
-            address: rawCompany.address ?? null,
-            city: n?.city ?? rawCompany.city ?? null,
-            country: n?.country ?? rawCompany.country ?? null,
+        const normalized = {
+          name: n?.name ?? rawCompany.name,
+          website,
+          address: rawCompany.address ?? null,
+          city: n?.city ?? rawCompany.city ?? null,
+          country: n?.country ?? rawCompany.country ?? null,
+        };
+
+        const rawWithPresence = {
+          ...rawCompany,
+          socialPresence: computedPresence,
+        };
+
+        const lead = mapToLead({
+          raw: rawWithPresence,
+          normalized,
+          classification,
+          runId: String(runId),
+        }) as LeadWithSignals;
+
+        // ── STEP 1: Signals ─────────────────────────────────────────────────
+        const hasWebsiteBool = !!(website && website.trim().length > 0);
+
+        const { workTypes, resistances } = detectSignalsV2({
+          rating,
+          reviews,
+          hasWebsite: hasWebsiteBool,
+          socialPresence: computedPresence,
+          categories: rawCompany.categories,
+        });
+
+        const primaryWork = getPrimaryWorkTypeInsight(workTypes);
+        const primaryRes = getPrimaryResistanceInsight(resistances);
+
+        lead.workTypeSignals = workTypes;
+        lead.resistanceSignals = resistances;
+        lead.primaryWorkTypeInsight = primaryWork;
+        lead.primaryResistanceInsight = primaryRes;
+        lead.opportunitySignals = toLegacySignals(workTypes, resistances);
+        lead.primaryInsight = toLegacyPrimaryInsightFromWorkType(primaryWork);
+
+        // ── STEP 2: Fit ──────────────────────────────────────────────────────
+        const { needs, reasons: needReasons } = deriveNeedsFromSignals({
+          workTypes,
+          resistances,
+        });
+
+        const fit = scoreFit(activeProfile, activeCapabilities, needs, {
+          city: lead.company.city,
+          country: lead.company.country,
+        });
+
+        lead.fit = {
+          fitScore: fit.fitScore,
+          matchedNeeds: fit.matchedNeeds,
+          missingNeeds: fit.missingNeeds,
+          partialNeeds: fit.partialNeeds ?? [],
+          geoMatch: fit.geoMatch,
+          reasons: [...fit.reasons, ...needReasons],
+          tooltip: fit.tooltip,
+        };
+
+        // ── STEP 3: Gap + outreach context ───────────────────────────────────
+        const pitchContext = {
+          hasWebsite: hasWebsiteBool,
+          socialPresence: computedPresence,
+          opportunity: 50, // placeholder — real value comes from universalScore below
+          risk: 50,
+          riskProfile: null as RiskProfile | null,
+          fitScore: fit.fitScore,
+          missingNeeds: fit.missingNeeds,
+        };
+
+        const sellerType = inferSellerType(activeProfile);
+        const gap = deriveGap(pitchContext);
+        const difficulty = deriveDifficulty(50, 50); // refined below
+
+        // ── STEP 4: Business classification ──────────────────────────────────
+        const businessProfile = classifyBusinessProfile({
+          reviews,
+          rating,
+          hasWebsite: hasWebsiteBool,
+          categories: rawCompany.categories,
+          businessName: lead.company.name,
+          socialPresence: computedPresence,
+        });
+
+        const dataLevel = getDataLevel(reviews, hasWebsiteBool);
+
+        // ── STEP 5: Single-pass composite score (with cache) ─────────────────
+        // Build a signal hash from the inputs that drive the score.
+        // If signals haven't changed since last time, use the cached score.
+        // If signals changed (new website, more reviews, etc.) recompute and save.
+        const rawId = r.id as number;
+        const signalHash = buildSignalHash({
+          reviews,
+          rating,
+          hasWebsite: hasWebsiteBool,
+          socialPresence: computedPresence,
+          fitScore: fit.fitScore,
+          gapType: gap,
+        });
+
+        const cachedEntry = await getCachedScore(userId, rawId);
+        let scored: ReturnType<typeof computeUniversalScore>;
+
+        if (cachedEntry && cachedEntry.signalHash === signalHash) {
+          // Signals unchanged — use cached score (fast path, no recompute)
+          const cs = cachedEntry.score;
+          scored = {
+            value: cs.value,
+            opportunity: cs.opportunity,
+            risk: cs.risk,
+            readiness: cs.readiness,
+            riskProfile: cs.riskProfile as ReturnType<typeof computeUniversalScore>["riskProfile"],
+            breakdown: cs.breakdown as ReturnType<typeof computeUniversalScore>["breakdown"],
+            tooltips: cs.tooltips as ReturnType<typeof computeUniversalScore>["tooltips"],
+            evidenceLevel: cs.evidenceLevel as ReturnType<typeof computeUniversalScore>["evidenceLevel"],
+            reasons: [],
           };
-
-          const rawWithPresence = {
-            ...rawCompany,
-            socialPresence: computedPresence,
-          };
-
-          const lead = mapToLead({
-            raw: rawWithPresence,
-            normalized,
-            classification,
-            runId: String(runId),
-          }) as LeadWithSignals;
-
-          // ── STEP 1: Signals ─────────────────────────────────────────────────
-          const hasWebsiteBool = !!(website && website.trim().length > 0);
-
-          const { workTypes, resistances } = detectSignalsV2({
-            rating,
+        } else {
+          // Signals changed or no cache — recompute
+          scored = computeUniversalScore({
             reviews,
-            hasWebsite: hasWebsiteBool,
-            socialPresence: computedPresence,
-            categories: rawCompany.categories,
-          });
-
-          const primaryWork = getPrimaryWorkTypeInsight(workTypes);
-          const primaryRes = getPrimaryResistanceInsight(resistances);
-
-          lead.workTypeSignals = workTypes;
-          lead.resistanceSignals = resistances;
-          lead.primaryWorkTypeInsight = primaryWork;
-          lead.primaryResistanceInsight = primaryRes;
-          lead.opportunitySignals = toLegacySignals(workTypes, resistances);
-          lead.primaryInsight = toLegacyPrimaryInsightFromWorkType(primaryWork);
-
-          // ── STEP 2: Fit ──────────────────────────────────────────────────────
-          const { needs, reasons: needReasons } = deriveNeedsFromSignals({
-            workTypes,
-            resistances,
-          });
-
-          const fit = scoreFit(activeProfile, activeCapabilities, needs, {
-            city: lead.company.city,
-            country: lead.company.country,
-          });
-
-          lead.fit = {
-            fitScore: fit.fitScore,
-            matchedNeeds: fit.matchedNeeds,
-            missingNeeds: fit.missingNeeds,
-            partialNeeds: fit.partialNeeds ?? [],
-            geoMatch: fit.geoMatch,
-            reasons: [...fit.reasons, ...needReasons],
-            tooltip: fit.tooltip,
-          };
-
-          // ── STEP 3: Gap + outreach context ───────────────────────────────────
-          const pitchContext = {
-            hasWebsite: hasWebsiteBool,
-            socialPresence: computedPresence,
-            opportunity: 50, // placeholder — real value comes from universalScore below
-            risk: 50,
-            riskProfile: null as RiskProfile | null,
-            fitScore: fit.fitScore,
-            missingNeeds: fit.missingNeeds,
-          };
-
-          const sellerType = inferSellerType(activeProfile);
-          const gap = deriveGap(pitchContext);
-          const difficulty = deriveDifficulty(50, 50); // refined below
-
-          // ── STEP 4: Business classification ──────────────────────────────────
-          const businessProfile = classifyBusinessProfile({
-            reviews,
-            rating,
-            hasWebsite: hasWebsiteBool,
-            categories: rawCompany.categories,
-            businessName: lead.company.name,
-            socialPresence: computedPresence,
-          });
-
-          const dataLevel = getDataLevel(reviews, hasWebsiteBool);
-
-          // ── STEP 5: Single-pass composite score (with cache) ─────────────────
-          // Build a signal hash from the inputs that drive the score.
-          // If signals haven't changed since last time, use the cached score.
-          // If signals changed (new website, more reviews, etc.) recompute and save.
-          const rawId = r.id as number;
-          const signalHash = buildSignalHash({
-            reviews,
             rating,
             hasWebsite: hasWebsiteBool,
             socialPresence: computedPresence,
-            fitScore: fit.fitScore,
-            gapType: gap,
-          });
-
-          const cachedEntry = await getCachedScore(userId, rawId);
-          let scored: ReturnType<typeof computeUniversalScore>;
-
-          if (cachedEntry && cachedEntry.signalHash === signalHash) {
-            // Signals unchanged — use cached score (fast path, no recompute)
-            const cs = cachedEntry.score;
-            scored = {
-              value: cs.value,
-              opportunity: cs.opportunity,
-              risk: cs.risk,
-              readiness: cs.readiness,
-              riskProfile: cs.riskProfile as ReturnType<typeof computeUniversalScore>["riskProfile"],
-              breakdown: cs.breakdown as ReturnType<typeof computeUniversalScore>["breakdown"],
-              tooltips: cs.tooltips as ReturnType<typeof computeUniversalScore>["tooltips"],
-              evidenceLevel: cs.evidenceLevel as ReturnType<typeof computeUniversalScore>["evidenceLevel"],
-              reasons: [],
-            };
-          } else {
-            // Signals changed or no cache — recompute
-            scored = computeUniversalScore({
-              reviews,
-              rating,
-              hasWebsite: hasWebsiteBool,
-              socialPresence: computedPresence,
-              riskProfile: businessProfile,
-              fitScore: fit.fitScore,
-              fitTooltip: fit.tooltip,
-              gapType: gap,
-              classificationConfidence: lead.classification.confidence ?? null,
-            });
-
-            // Persist the new score (fire-and-forget — don't block the response)
-            setCachedScore(
-              userId,
-              rawId,
-              {
-                value: scored.value,
-                opportunity: scored.opportunity,
-                risk: scored.risk,
-                readiness: scored.readiness,
-                riskProfile: businessProfile,
-                breakdown: scored.breakdown as Record<string, number>,
-                tooltips: scored.tooltips as Record<string, string>,
-                evidenceLevel: scored.evidenceLevel ?? "low",
-                scoredAt: new Date().toISOString(),
-              },
-              signalHash,
-            ).catch(() => {});
-          }
-
-          lead.score = {
-            ...scored,
             riskProfile: businessProfile,
-          };
+            fitScore: fit.fitScore,
+            fitTooltip: fit.tooltip,
+            gapType: gap,
+            classificationConfidence: lead.classification.confidence ?? null,
+          });
 
-          // ── STEP 6: Outreach script ───────────────────────────────────────────
-          const refinedDifficulty = deriveDifficulty(scored.opportunity, scored.risk);
-
-          const outreach = generateScript({
-            industry: niche ?? undefined,
-            city: locationStr ?? undefined,
-            sellerType,
-            gap,
-            difficulty: refinedDifficulty,
-            ctx: {
-              ...pitchContext,
+          // Persist the new score (fire-and-forget — don't block the response)
+          setCachedScore(
+            userId,
+            rawId,
+            {
+              value: scored.value,
               opportunity: scored.opportunity,
               risk: scored.risk,
+              readiness: scored.readiness,
               riskProfile: businessProfile,
+              breakdown: scored.breakdown as Record<string, number>,
+              tooltips: scored.tooltips as Record<string, string>,
+              evidenceLevel: scored.evidenceLevel ?? "low",
+              scoredAt: new Date().toISOString(),
             },
-          });
+            signalHash,
+          ).catch(() => {});
+        }
 
-          lead.metadata = {
-            ...lead.metadata,
-            outreach,
-            dataLevel,
-            opportunityMeta: {
-              confidence:
-                scored.evidenceLevel === "high"
-                  ? 0.9
-                  : scored.evidenceLevel === "medium"
-                    ? 0.7
-                    : scored.evidenceLevel === "low"
-                      ? 0.5
-                      : 0.3,
-              reasons: scored.reasons,
-              bucket: bucketOpportunity(scored.opportunity),
-            },
-          };
+        lead.score = {
+          ...scored,
+          riskProfile: businessProfile,
+        };
 
-          return lead;
-        }),
+        // ── STEP 6: Outreach script ───────────────────────────────────────────
+        const refinedDifficulty = deriveDifficulty(scored.opportunity, scored.risk);
+
+        const outreach = generateScript({
+          industry: niche ?? undefined,
+          city: locationStr ?? undefined,
+          sellerType,
+          gap,
+          difficulty: refinedDifficulty,
+          ctx: {
+            ...pitchContext,
+            opportunity: scored.opportunity,
+            risk: scored.risk,
+            riskProfile: businessProfile,
+          },
+        });
+
+        lead.metadata = {
+          ...lead.metadata,
+          outreach,
+          dataLevel,
+          opportunityMeta: {
+            confidence:
+              scored.evidenceLevel === "high"
+                ? 0.9
+                : scored.evidenceLevel === "medium"
+                  ? 0.7
+                  : scored.evidenceLevel === "low"
+                    ? 0.5
+                    : 0.3,
+            reasons: scored.reasons,
+            bucket: bucketOpportunity(scored.opportunity),
+          },
+        };
+
+        return lead;
+      }),
     );
-    const leads: LeadWithSignals[] = leadsRaw.filter((x): x is LeadWithSignals => x !== null && x !== undefined);
+    // Deduplication upgrade: collapse leads that were found via different
+    // providers but represent the same real business (matched by domain
+    // in persistNormalizedCompany — see migration 0016). Keeps the first
+    // occurrence of each canonical group; the underlying raw records for
+    // every provider are still intact in the database, this only affects
+    // what's shown in this specific results list.
+    const seenCanonical = new Set<number>();
+    const leads: LeadWithSignals[] = [];
+    for (let idx = 0; idx < leadsRaw.length; idx++) {
+      const lead = leadsRaw[idx];
+      if (lead === null || lead === undefined) continue;
+      const r = filteredRawRows[idx];
+      const canonicalId = normByRawId.get(r.id)?.duplicate_of_raw_id ?? r.id;
+      if (seenCanonical.has(canonicalId)) continue;
+      seenCanonical.add(canonicalId);
+      leads.push(lead);
+    }
 
     return NextResponse.json({ runId, count: leads.length, leads }, { status: 200 });
   } catch (err) {
