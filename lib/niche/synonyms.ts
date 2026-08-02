@@ -87,6 +87,99 @@ const SYNONYM_GROUPS: SynonymGroup[] = [
   { canonical: "cleaning", terms: ["cleaning", "städ", "städfirma", "städbolag", "cleaners", "rengöring"] },
   { canonical: "photography", terms: ["photography", "fotograf", "fotografi", "photographer", "foto"] },
   { canonical: "childcare", terms: ["childcare", "förskola", "dagis", "daycare", "kindergarten", "barnpassning"] },
+  {
+    canonical: "tattoo",
+    terms: [
+      "tattoo",
+      "tatuering",
+      "tatuerare",
+      "tattoo studio",
+      "tatueringsstudio",
+      "tattoo shop",
+      "tattoo parlor",
+      "piercing",
+    ],
+  },
+  {
+    canonical: "veterinary",
+    terms: ["veterinary", "vet", "veterinär", "djurklinik", "djursjukhus", "animal hospital", "djurvård"],
+  },
+  {
+    canonical: "plumbing",
+    terms: ["plumbing", "plumber", "rörmokare", "vvs", "vvs-firma", "rörläggare"],
+  },
+  {
+    canonical: "electrical",
+    terms: ["electrical", "electrician", "elektriker", "elfirma", "elinstallation"],
+  },
+  {
+    canonical: "hvac",
+    terms: ["hvac", "heating", "air conditioning", "värmepump", "ventilation", "kylanläggning"],
+  },
+  {
+    canonical: "it services",
+    terms: [
+      "it services",
+      "it support",
+      "it-konsult",
+      "it-support",
+      "webbyrå",
+      "web agency",
+      "software company",
+      "webbdesign",
+    ],
+  },
+  {
+    canonical: "financial services",
+    terms: [
+      "financial services",
+      "finansiell rådgivning",
+      "finansrådgivare",
+      "financial advisor",
+      "försäkringsmäklare",
+      "insurance broker",
+    ],
+  },
+  {
+    canonical: "insurance",
+    terms: ["insurance", "försäkring", "försäkringsbolag", "försäkringsförmedlare"],
+  },
+  {
+    canonical: "spa wellness",
+    terms: ["spa", "wellness", "massage", "massör", "spa och wellness", "wellnesscenter", "spa center"],
+  },
+  {
+    canonical: "event planning",
+    terms: ["event planning", "eventbyrå", "event agency", "eventplanerare", "wedding planner", "bröllopsfixare"],
+  },
+  {
+    canonical: "catering",
+    terms: ["catering", "cateringfirma", "catering service", "matleverans"],
+  },
+  {
+    canonical: "moving company",
+    terms: ["moving company", "flyttfirma", "movers", "flyttbolag", "flytthjälp"],
+  },
+  {
+    canonical: "interior design",
+    terms: ["interior design", "inredningsarkitekt", "inredning", "interior designer", "inredningsdesign"],
+  },
+  {
+    canonical: "landscaping",
+    terms: ["landscaping", "trädgårdsfirma", "trädgårdsarkitekt", "landscaper", "trädgårdsservice", "markarbeten"],
+  },
+  {
+    canonical: "recruitment",
+    terms: ["recruitment", "rekrytering", "bemanning", "bemanningsföretag", "staffing agency", "rekryteringsbyrå"],
+  },
+  {
+    canonical: "logistics",
+    terms: ["logistics", "logistik", "transportfirma", "åkeri", "freight", "spedition"],
+  },
+  {
+    canonical: "printing",
+    terms: ["printing", "tryckeri", "printer", "print shop", "digitaltryck"],
+  },
 ];
 
 const SYNONYM_MAP: Map<string, string> = new Map();
