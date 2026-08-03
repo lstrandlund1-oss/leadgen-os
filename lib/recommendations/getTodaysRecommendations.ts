@@ -24,6 +24,13 @@ export type RecommendedOpportunity = {
   isReplied: boolean;
   followupOverdue: boolean;
   scoredAt: string;
+  // The one genuinely available piece of "why this matters" text —
+  // companies_normalized.primary_insight is a real, computed signal
+  // (detectOpportunitySignals/getPrimaryInsight, no profile input, purely
+  // factual about the company itself). Null when no signal was strong
+  // enough to surface one — shown as no gap text at all rather than a
+  // fabricated placeholder.
+  detectedGap: string | null;
 };
 
 // Pool size fetched from company_intelligence before ranking — large
@@ -52,7 +59,7 @@ export async function getTodaysRecommendations(userId: string, limit: number = 5
     client.from("companies_raw").select("id, source, source_id").in("id", rawIds),
     client
       .from("companies_normalized")
-      .select("raw_id, name, city, country, website, duplicate_of_raw_id")
+      .select("raw_id, name, city, country, website, duplicate_of_raw_id, primary_insight")
       .in("raw_id", rawIds),
     client.from("provider_run_raws").select("run_id, raw_id").in("raw_id", rawIds),
   ]);
@@ -126,6 +133,8 @@ export async function getTodaysRecommendations(userId: string, limit: number = 5
 
     if (priorityScore === -Infinity) continue; // closed — never recommend
 
+    const insight = normalized?.primary_insight as { message?: string } | null;
+
     candidates.push({
       rawId,
       leadId,
@@ -140,6 +149,7 @@ export async function getTodaysRecommendations(userId: string, limit: number = 5
       isReplied,
       followupOverdue,
       scoredAt,
+      detectedGap: insight?.message ?? null,
     });
   }
 

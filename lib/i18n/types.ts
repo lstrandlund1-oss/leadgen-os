@@ -248,6 +248,28 @@ export type TranslationSchema = {
         backToDashboard: string;
       };
     };
+    home: {
+      greetingMorning: string;
+      greetingAfternoon: string;
+      greetingEvening: string;
+      subtitle: (count: number) => string;
+      sectionTitle: string;
+      viewAll: string;
+      prepareOutreach: string;
+      highFit: string;
+      goodFit: string;
+      lowRisk: string;
+      mediumRisk: string;
+      highRisk: string;
+      detectedGap: string;
+      whyNow: string;
+      lastSeen: string;
+      followupOverdueBadge: string;
+      emptyStateTitle: string;
+      emptyStateBody: string;
+      emptyStateCta: string;
+      loading: string;
+    };
     onboarding: {
       stepLabels: [string, string, string, string];
       stepOf: string; // "Step {current} of {total}"
