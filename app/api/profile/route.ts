@@ -69,6 +69,10 @@ export async function POST(request: Request) {
       targetLocation,
       capabilities: capOverrides,
       onboardingCompleted,
+      averageDealValue,
+      closeRatePercent,
+      hoursPerWeekProspecting,
+      peopleInvolvedInProspecting,
     }: {
       profileType?: string;
       businessName?: string;
@@ -79,6 +83,10 @@ export async function POST(request: Request) {
       targetLocation?: string;
       capabilities?: Partial<Record<Capability, number>>;
       onboardingCompleted?: boolean;
+      averageDealValue?: number;
+      closeRatePercent?: number;
+      hoursPerWeekProspecting?: number;
+      peopleInvolvedInProspecting?: number;
     } = body;
 
     const validKey = isValidProfileTypeKey(profileType ?? "")
@@ -93,6 +101,10 @@ export async function POST(request: Request) {
       ...(budgetPreference ? { budgetPreference } : {}),
       ...(targetLocation !== undefined ? { targetLocation } : {}),
       ...(onboardingCompleted !== undefined ? { onboardingCompleted } : {}),
+      ...(averageDealValue !== undefined ? { averageDealValue } : {}),
+      ...(closeRatePercent !== undefined ? { closeRatePercent } : {}),
+      ...(hoursPerWeekProspecting !== undefined ? { hoursPerWeekProspecting } : {}),
+      ...(peopleInvolvedInProspecting !== undefined ? { peopleInvolvedInProspecting } : {}),
       profileType: validKey,
     });
 

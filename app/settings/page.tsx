@@ -27,6 +27,14 @@ export default function SettingsPage() {
   // Profile fields
   const [businessName, setBusinessName] = useState("");
   const [targetLocation, setTargetLocation] = useState("");
+  // Economic profile (Week 3 of the rebuild) — all optional, stored as
+  // empty-string in the input (easier to bind to a text input than
+  // number|undefined) and converted to a real number or omitted entirely
+  // on save.
+  const [averageDealValue, setAverageDealValue] = useState("");
+  const [closeRatePercent, setCloseRatePercent] = useState("");
+  const [hoursPerWeekProspecting, setHoursPerWeekProspecting] = useState("");
+  const [peopleInvolvedInProspecting, setPeopleInvolvedInProspecting] = useState("");
   const [yourOffer, setYourOffer] = useState("");
   const [experienceLevel, setExperienceLevel] = useState<"beginner" | "intermediate" | "advanced">("intermediate");
   const [acquisitionStyle, setAcquisitionStyle] = useState<"volume" | "balanced" | "selective">("balanced");
@@ -81,6 +89,10 @@ export default function SettingsPage() {
             acquisitionStyle?: string;
             targetBusinessSize?: string;
             language?: string;
+            averageDealValue?: number;
+            closeRatePercent?: number;
+            hoursPerWeekProspecting?: number;
+            peopleInvolvedInProspecting?: number;
           };
         }) => {
           if (d.profile) {
@@ -91,6 +103,14 @@ export default function SettingsPage() {
             setAcquisitionStyle((d.profile.acquisitionStyle as typeof acquisitionStyle) ?? "balanced");
             setTargetBusinessSize((d.profile.targetBusinessSize as typeof targetBusinessSize) ?? "any");
             setLanguage((d.profile.language as typeof language) ?? "en");
+            setAverageDealValue(d.profile.averageDealValue != null ? String(d.profile.averageDealValue) : "");
+            setCloseRatePercent(d.profile.closeRatePercent != null ? String(d.profile.closeRatePercent) : "");
+            setHoursPerWeekProspecting(
+              d.profile.hoursPerWeekProspecting != null ? String(d.profile.hoursPerWeekProspecting) : "",
+            );
+            setPeopleInvolvedInProspecting(
+              d.profile.peopleInvolvedInProspecting != null ? String(d.profile.peopleInvolvedInProspecting) : "",
+            );
           }
         },
       )
@@ -121,6 +141,16 @@ export default function SettingsPage() {
           acquisitionStyle,
           targetBusinessSize,
           language,
+          // Always sent (as null when blank, not omitted) — buildUserProfile
+          // rebuilds the profile from scratch on every save rather than
+          // merging with what's already stored, so omitting a field here
+          // would mean a user could never actually clear a previously-set
+          // value, not just "leave it unset."
+          averageDealValue: averageDealValue.trim() !== "" ? Number(averageDealValue) : null,
+          closeRatePercent: closeRatePercent.trim() !== "" ? Number(closeRatePercent) : null,
+          hoursPerWeekProspecting: hoursPerWeekProspecting.trim() !== "" ? Number(hoursPerWeekProspecting) : null,
+          peopleInvolvedInProspecting:
+            peopleInvolvedInProspecting.trim() !== "" ? Number(peopleInvolvedInProspecting) : null,
         }),
       });
       // The database profile is only reachable once logged in — but the
@@ -570,6 +600,64 @@ export default function SettingsPage() {
                           </div>
                         </div>
                       )}
+                    </div>
+
+                    <div className="pt-2">
+                      <p className="text-[11px] uppercase tracking-widest text-[#666] mb-1">
+                        {t.profile.economicEyebrow}
+                      </p>
+                      <h3 className="text-[15px] font-medium text-[#f5f0e8] mb-2">{t.profile.economicTitle}</h3>
+                      <p className="text-[12px] text-[#777] mb-4">{t.profile.economicBody}</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] uppercase tracking-widest text-[#666]">
+                            {t.profile.averageDealValueLabel}
+                          </label>
+                          <input
+                            type="number"
+                            value={averageDealValue}
+                            onChange={(e) => setAverageDealValue(e.target.value)}
+                            className="w-full px-3 py-2.5 rounded-lg bg-[#0d0d0d] border border-[#252525] text-[13px] text-[#f5f0e8]"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] uppercase tracking-widest text-[#666]">
+                            {t.profile.closeRatePercentLabel}
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={closeRatePercent}
+                            onChange={(e) => setCloseRatePercent(e.target.value)}
+                            className="w-full px-3 py-2.5 rounded-lg bg-[#0d0d0d] border border-[#252525] text-[13px] text-[#f5f0e8]"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] uppercase tracking-widest text-[#666]">
+                            {t.profile.hoursPerWeekProspectingLabel}
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={hoursPerWeekProspecting}
+                            onChange={(e) => setHoursPerWeekProspecting(e.target.value)}
+                            className="w-full px-3 py-2.5 rounded-lg bg-[#0d0d0d] border border-[#252525] text-[13px] text-[#f5f0e8]"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] uppercase tracking-widest text-[#666]">
+                            {t.profile.peopleInvolvedInProspectingLabel}
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={peopleInvolvedInProspecting}
+                            onChange={(e) => setPeopleInvolvedInProspecting(e.target.value)}
+                            className="w-full px-3 py-2.5 rounded-lg bg-[#0d0d0d] border border-[#252525] text-[13px] text-[#f5f0e8]"
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     <button

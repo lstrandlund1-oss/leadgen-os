@@ -655,6 +655,14 @@ export const en: TranslationSchema = {
           medium: { label: "Medium", desc: "20–200 employees, regional presence" },
           large: { label: "Large", desc: "200+ employees, national or multi-site" },
         },
+        economicEyebrow: "Economic profile",
+        economicTitle: "Optional — helps show real impact",
+        economicBody:
+          "Entirely optional. Adding these lets Vantio show real economic context, like how many months of subscription one new customer covers, using your own numbers instead of generic estimates.",
+        averageDealValueLabel: "Average deal value",
+        closeRatePercentLabel: "Close rate (%)",
+        hoursPerWeekProspectingLabel: "Hours per week spent prospecting",
+        peopleInvolvedInProspectingLabel: "People involved in prospecting",
         dataEyebrow: "Data",
         dataTitle: "Local Data",
         dataBody:

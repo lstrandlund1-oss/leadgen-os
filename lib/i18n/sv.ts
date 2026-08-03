@@ -658,6 +658,14 @@ export const sv: TranslationSchema = {
           medium: { label: "Medelstort", desc: "20–200 anställda, regional närvaro" },
           large: { label: "Stort", desc: "200+ anställda, nationellt eller flera orter" },
         },
+        economicEyebrow: "Ekonomisk profil",
+        economicTitle: "Valfritt — visar verklig påverkan",
+        economicBody:
+          "Helt valfritt. Genom att lägga till detta kan Vantio visa verklig ekonomisk kontext, som hur många månaders prenumeration en ny kund täcker, baserat på dina egna siffror istället för generella uppskattningar.",
+        averageDealValueLabel: "Genomsnittligt affärsvärde",
+        closeRatePercentLabel: "Avslutsfrekvens (%)",
+        hoursPerWeekProspectingLabel: "Timmar per vecka med prospektering",
+        peopleInvolvedInProspectingLabel: "Personer involverade i prospektering",
         dataEyebrow: "Data",
         dataTitle: "Lokal data",
         dataBody:

@@ -458,6 +458,13 @@ export type TranslationSchema = {
           medium: { label: string; desc: string };
           large: { label: string; desc: string };
         };
+        economicEyebrow: string;
+        economicTitle: string;
+        economicBody: string;
+        averageDealValueLabel: string;
+        closeRatePercentLabel: string;
+        hoursPerWeekProspectingLabel: string;
+        peopleInvolvedInProspectingLabel: string;
         dataEyebrow: string;
         dataTitle: string;
         dataBody: string;
