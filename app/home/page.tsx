@@ -9,6 +9,9 @@ import ScoreRing from "@/app/components/ScoreRing";
 import type { RecommendedOpportunity } from "@/lib/recommendations/getTodaysRecommendations";
 import type { PipelineOverview, PipelineStage } from "@/lib/pipeline/getPipelineOverview";
 import type { MonthlyPerformance } from "@/lib/stats/getMonthlyPerformance";
+import DonutChart from "@/app/components/DonutChart";
+import type { Market } from "@/lib/markets/markets";
+import type { MarketSnapshot } from "@/lib/markets/getMarketSnapshot";
 
 function getFitLabel(value: number, t: ReturnType<typeof getTranslations>["ui"]["home"]): string {
   return value >= 80 ? t.highFit : t.goodFit;
@@ -28,11 +31,15 @@ export default function HomePage() {
   const [language] = useState(() => getStoredLanguage());
   const t = getTranslations(language).ui.home;
   const tPipeline = getTranslations(language).ui.pipeline;
+  const tMarkets = getTranslations(language).ui.markets;
 
   const [recommendations, setRecommendations] = useState<RecommendedOpportunity[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [pipeline, setPipeline] = useState<PipelineOverview | null>(null);
   const [performance, setPerformance] = useState<MonthlyPerformance | null>(null);
+  const [markets, setMarkets] = useState<Market[] | null>(null);
+  const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
+  const [marketSnapshot, setMarketSnapshot] = useState<MarketSnapshot | null>(null);
   const [greeting, setGreeting] = useState(t.greetingMorning);
 
   useEffect(() => {
@@ -72,6 +79,25 @@ export default function HomePage() {
       .then((data) => setPerformance(data))
       .catch(() => setPerformance(null));
   }, []);
+
+  useEffect(() => {
+    fetch("/api/markets")
+      .then((res) => (res.ok ? res.json() : { markets: [] }))
+      .then((data) => {
+        const list: Market[] = data.markets ?? [];
+        setMarkets(list);
+        if (list.length > 0) setSelectedMarketId(list[0].id);
+      })
+      .catch(() => setMarkets([]));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedMarketId) return;
+    fetch(`/api/markets/${selectedMarketId}/snapshot`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setMarketSnapshot(data))
+      .catch(() => setMarketSnapshot(null));
+  }, [selectedMarketId]);
 
   return (
     <div className="min-h-screen bg-[#080808] text-[#f5f0e8]">
@@ -219,6 +245,69 @@ export default function HomePage() {
             </div>
           </section>
         )}
+
+        <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-[15px] font-medium text-[#f5f0e8]">{t.marketSnapshotTitle}</h3>
+            {markets && markets.length > 1 && (
+              <select
+                value={selectedMarketId ?? ""}
+                onChange={(e) => setSelectedMarketId(e.target.value)}
+                className="bg-[#0d0d0d] border border-[#252525] rounded-lg text-[12px] text-[#f5f0e8] px-2 py-1">
+                {markets.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {markets && markets.length === 0 && (
+            <p className="text-[13px] text-[#666] py-4 text-center">
+              {t.noMarketsYetHome}{" "}
+              <Link href="/markets" className="text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
+                {t.createMarketLink}
+              </Link>
+            </p>
+          )}
+
+          {marketSnapshot && (
+            <div className="flex items-center gap-6">
+              <DonutChart
+                total={marketSnapshot.totalCompanies}
+                segments={[
+                  { value: marketSnapshot.highOpportunityCount, color: "#c9a84c" },
+                  { value: marketSnapshot.goodOpportunityCount, color: "#8a8a6e" },
+                  { value: marketSnapshot.lowOpportunityCount, color: "#333" },
+                  { value: marketSnapshot.contactedCount, color: "#555" },
+                ]}
+              />
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[12px]">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#c9a84c]" />
+                  <span className="text-[#999]">{tMarkets.highOpportunity}</span>
+                  <span className="text-[#f5f0e8] font-medium ml-auto">{marketSnapshot.highOpportunityCount}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#8a8a6e]" />
+                  <span className="text-[#999]">{tMarkets.goodOpportunity}</span>
+                  <span className="text-[#f5f0e8] font-medium ml-auto">{marketSnapshot.goodOpportunityCount}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#333]" />
+                  <span className="text-[#999]">{tMarkets.lowOpportunity}</span>
+                  <span className="text-[#f5f0e8] font-medium ml-auto">{marketSnapshot.lowOpportunityCount}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#555]" />
+                  <span className="text-[#999]">{tMarkets.contacted}</span>
+                  <span className="text-[#f5f0e8] font-medium ml-auto">{marketSnapshot.contactedCount}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
       </main>
     </div>
   );

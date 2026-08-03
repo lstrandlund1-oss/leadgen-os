@@ -477,6 +477,9 @@ export const en: TranslationSchema = {
       meetingsLabel: "Meetings",
       wonLabel: "Won",
       revenueWonLabel: "Revenue won",
+      marketSnapshotTitle: "Market snapshot",
+      noMarketsYetHome: "No markets saved yet.",
+      createMarketLink: "Create one",
     },
     onboarding: {
       stepLabels: ["Service Type", "Capabilities", "Preferences", "Done"],

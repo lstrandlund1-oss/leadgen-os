@@ -331,6 +331,9 @@ export type TranslationSchema = {
       meetingsLabel: string;
       wonLabel: string;
       revenueWonLabel: string;
+      marketSnapshotTitle: string;
+      noMarketsYetHome: string;
+      createMarketLink: string;
     };
     onboarding: {
       stepLabels: [string, string, string, string];

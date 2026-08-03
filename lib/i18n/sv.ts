@@ -479,6 +479,9 @@ export const sv: TranslationSchema = {
       meetingsLabel: "Möten",
       wonLabel: "Vunna",
       revenueWonLabel: "Vunnen intäkt",
+      marketSnapshotTitle: "Marknadsöversikt",
+      noMarketsYetHome: "Inga marknader sparade än.",
+      createMarketLink: "Skapa en",
     },
     onboarding: {
       stepLabels: ["Tjänstetyp", "Kompetenser", "Inställningar", "Klart"],
