@@ -12,13 +12,21 @@
 
 import { getServiceClient } from "@/lib/supabaseServiceClient";
 
-export async function recordUserSearchRuns(userId: string | null, runIds: number[]): Promise<void> {
+export async function recordUserSearchRuns(
+  userId: string | null,
+  runIds: number[],
+  marketId?: string | null,
+): Promise<void> {
   if (!userId || runIds.length === 0) return;
 
   const client = await getServiceClient();
   if (!client) return;
 
-  const rows = runIds.map((runId) => ({ user_id: userId, run_id: runId }));
+  const rows = runIds.map((runId) => ({
+    user_id: userId,
+    run_id: runId,
+    ...(marketId ? { market_id: marketId } : {}),
+  }));
 
   const { error } = await client.from("user_search_runs").upsert(rows, { onConflict: "user_id,run_id" });
 
