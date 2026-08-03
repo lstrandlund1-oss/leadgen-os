@@ -12,6 +12,8 @@ import type { MonthlyPerformance } from "@/lib/stats/getMonthlyPerformance";
 import DonutChart from "@/app/components/DonutChart";
 import type { Market } from "@/lib/markets/markets";
 import type { MarketSnapshot } from "@/lib/markets/getMarketSnapshot";
+import type { DailySummary } from "@/lib/stats/getDailySummary";
+import { formatPrice } from "@/lib/pricing";
 
 function getFitLabel(value: number, t: ReturnType<typeof getTranslations>["ui"]["home"]): string {
   return value >= 80 ? t.highFit : t.goodFit;
@@ -40,6 +42,7 @@ export default function HomePage() {
   const [markets, setMarkets] = useState<Market[] | null>(null);
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
   const [marketSnapshot, setMarketSnapshot] = useState<MarketSnapshot | null>(null);
+  const [dailySummary, setDailySummary] = useState<DailySummary | null>(null);
   const [greeting, setGreeting] = useState(t.greetingMorning);
 
   useEffect(() => {
@@ -64,6 +67,13 @@ export default function HomePage() {
       .then((data) => setRecommendations(data.recommendations ?? []))
       .catch(() => setRecommendations([]))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/stats/daily-summary")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setDailySummary(data))
+      .catch(() => setDailySummary(null));
   }, []);
 
   useEffect(() => {
@@ -186,6 +196,52 @@ export default function HomePage() {
             </div>
           )}
         </section>
+
+        {dailySummary && (
+          <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 mt-6">
+            <h3 className="text-[15px] font-medium text-[#f5f0e8] mb-4">{t.todaysRecapTitle}</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <div>
+                <p className="text-[11px] text-[#666]">{t.contactedToday}</p>
+                <p className="text-[18px] font-semibold text-[#f5f0e8]">{dailySummary.today.contacted}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#666]">{t.repliedToday}</p>
+                <p className="text-[18px] font-semibold text-[#f5f0e8]">{dailySummary.today.replied}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#666]">{t.meetingsToday}</p>
+                <p className="text-[18px] font-semibold text-[#f5f0e8]">{dailySummary.today.meetings}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#666]">{t.wonToday}</p>
+                <p className="text-[18px] font-semibold text-[#4ade80]">{dailySummary.today.won}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-[#1e1e1e]">
+              <div>
+                <p className="text-[11px] text-[#666]">{t.activePipeline}</p>
+                <p className="text-[16px] font-medium text-[#f5f0e8]">{dailySummary.pipeline.activeCount}</p>
+              </div>
+              {dailySummary.pipeline.estimatedPipelineValueSek !== null && (
+                <div>
+                  <p className="text-[11px] text-[#666]">{t.estimatedPipelineValue}</p>
+                  <p className="text-[16px] font-medium text-[#f5f0e8]">
+                    {formatPrice(dailySummary.pipeline.estimatedPipelineValueSek, "sek")}
+                  </p>
+                </div>
+              )}
+              <div>
+                <p className="text-[11px] text-[#666]">{t.followUpsDueTomorrow}</p>
+                <p className="text-[16px] font-medium text-[#f5f0e8]">{dailySummary.tomorrow.followUpsDue}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#666]">{t.newRecommendedTomorrow}</p>
+                <p className="text-[16px] font-medium text-[#f5f0e8]">{dailySummary.tomorrow.newRecommended}</p>
+              </div>
+            </div>
+          </section>
+        )}
 
         {pipeline && (
           <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 mt-6">

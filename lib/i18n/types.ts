@@ -339,6 +339,15 @@ export type TranslationSchema = {
       marketSnapshotTitle: string;
       noMarketsYetHome: string;
       createMarketLink: string;
+      todaysRecapTitle: string;
+      contactedToday: string;
+      repliedToday: string;
+      meetingsToday: string;
+      wonToday: string;
+      activePipeline: string;
+      estimatedPipelineValue: string;
+      followUpsDueTomorrow: string;
+      newRecommendedTomorrow: string;
     };
     onboarding: {
       stepLabels: [string, string, string, string];
