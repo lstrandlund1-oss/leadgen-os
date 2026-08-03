@@ -14,20 +14,16 @@
 
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
-import { ingestFromProvider } from "@/lib/ingest/ingest";
-import { runPartitionedSearch } from "@/lib/search/partitionedSearch";
-import { computeSearchYieldMetrics } from "@/lib/search/searchMetrics";
 import { getEffectivePlan, deepSearchLimit } from "@/lib/plan";
 import { getAuthUser } from "@/lib/supabaseServer";
-import { recordUserSearchRuns } from "@/lib/userSearchRuns";
 import {
   beginBetaGatedAction,
   finishBetaGatedAction,
   abortBetaGatedAction,
   betaBlockedResponseBody,
 } from "@/lib/beta/gate";
-import { logEvent } from "@/lib/analytics/log";
 import { isAiGenerationEnabled, AI_DISABLED_RESPONSE } from "@/lib/killSwitch";
+import { executeAndRespond } from "@/lib/search/executeSearch";
 import { computeRealCostMicroUsd } from "@/lib/ai/cost";
 
 // ── Haiku query planner (deep search only) ────────────────────────────────────
@@ -97,98 +93,6 @@ Return ONLY: ["query1","query2",...] — raw JSON array, nothing else.`,
     console.error("[discover] Haiku query generation failed:", err);
     return fallback;
   }
-}
-
-// ── Multi-provider search ─────────────────────────────────────────────────────
-
-async function runQueries(queries: string[], city: string, socialPresence: string): Promise<number[]> {
-  const runIds: number[] = [];
-  // Only the primary query is geographically partitioned. The additional
-  // query variants (see the 4-variant construction in the caller) exist
-  // for a different reason — result diversity via different Google
-  // rankings for the same area — not geographic coverage. Partitioning
-  // every variant compounds multiplicatively with cell count (4 variants
-  // x ~16 cells = 64x baseline cost) rather than additively, which was a
-  // real, live cost mistake caught before deployment, not a hypothetical
-  // one — see the corrected numbers in the conversation that led to this.
-  const [primaryQuery, ...variantQueries] = queries;
-
-  await Promise.allSettled([
-    // Google Places — primary query, geographically partitioned (Week 1 of
-    // the core rebuild): instead of one query covering the whole city,
-    // this geocodes the area and searches a grid of smaller cells, so a
-    // niche+area search isn't silently capped by Google's per-request
-    // result ceiling. Falls back cleanly to a single query whenever
-    // geocoding fails or the area's too small to bother partitioning —
-    // see lib/search/partitionedSearch.ts.
-    runPartitionedSearch({
-      provider: "google_places",
-      query: primaryQuery,
-      location: city,
-      country: "Sweden",
-      socialPresence: socialPresence as "any",
-      limit: 20,
-    })
-      .then((result) => {
-        runIds.push(...result.runIds);
-      })
-      .catch(() => {}),
-
-    // SERP for the primary query — only if key is configured
-    ...(process.env.SERP_API_KEY
-      ? [
-          ingestFromProvider({
-            provider: "serp",
-            query: primaryQuery,
-            location: city,
-            country: "Sweden",
-            socialPresence: socialPresence as "any",
-            limit: 20,
-          })
-            .then((s) => {
-              if (s.runId) runIds.push(s.runId);
-            })
-            .catch(() => {}),
-        ]
-      : []),
-
-    // Additional query variants — single, unpartitioned calls per
-    // provider, same as before this change. Provides result diversity
-    // without compounding with geographic partitioning.
-    ...variantQueries.flatMap((query) => [
-      ingestFromProvider({
-        provider: "google_places",
-        query,
-        location: city,
-        country: "Sweden",
-        socialPresence: socialPresence as "any",
-        limit: 20,
-      })
-        .then((s) => {
-          if (s.runId) runIds.push(s.runId);
-        })
-        .catch(() => {}),
-
-      ...(process.env.SERP_API_KEY
-        ? [
-            ingestFromProvider({
-              provider: "serp",
-              query,
-              location: city,
-              country: "Sweden",
-              socialPresence: socialPresence as "any",
-              limit: 20,
-            })
-              .then((s) => {
-                if (s.runId) runIds.push(s.runId);
-              })
-              .catch(() => {}),
-          ]
-        : []),
-    ]),
-  ]);
-
-  return runIds;
 }
 
 // ── Deep search usage check ───────────────────────────────────────────────────
@@ -319,48 +223,4 @@ export async function POST(request: Request) {
     console.error("[/api/search/discover]", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
-}
-
-async function executeAndRespond(
-  queries: string[],
-  city: string,
-  socialPresence: string,
-  searchMode: string,
-  deepRemaining: number | null,
-  userId: string | null,
-) {
-  const runIds = await runQueries(queries, city, socialPresence);
-  console.log(`[discover] ${queries.length} queries → ${runIds.length} runs`);
-
-  // Record which user used these (shared) runs — provider_runs itself
-  // stays a shared cache across all users; this is a separate, additive
-  // ownership record used only by features that need "my saved leads"
-  // (e.g. the outreach page's lead picker). See
-  // docs/SEARCH_CACHING_ARCHITECTURE.md.
-  await recordUserSearchRuns(userId, runIds);
-
-  // Cost/yield measurement (Week 1 of the core rebuild): previously this
-  // event logged empty properties, giving no way to measure discovery
-  // yield or cost per search. This is also exactly the kind of
-  // measurement that would have caught the query-multiplier cost mistake
-  // (4 variants x cells compounding instead of adding) empirically,
-  // rather than only by manual code tracing.
-  if (userId) {
-    const metrics = await computeSearchYieldMetrics(runIds);
-    const eventName = searchMode === "deep" ? "deep_search_completed" : "search_completed";
-    await logEvent(userId, eventName, metrics ? { ...metrics } : {});
-  }
-
-  if (runIds.length === 0) {
-    return { ok: false, runIds: [], primaryRunId: null, searchMode };
-  }
-
-  return {
-    ok: true,
-    runIds,
-    primaryRunId: runIds[0],
-    queryCount: queries.length,
-    searchMode,
-    ...(deepRemaining !== null ? { deepSearchesRemaining: deepRemaining } : {}),
-  };
 }
