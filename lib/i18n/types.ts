@@ -286,6 +286,11 @@ export type TranslationSchema = {
       meetingToWon: string;
       noDataYet: string;
       loading: string;
+      economicImpactTitle: string;
+      economicImpactBody: (deal: string, months: string, cost: string) => string;
+      economicImpactDisclaimer: string;
+      economicImpactEmptyBody: string;
+      economicImpactEmptyCta: string;
     };
     pipeline: {
       title: string;

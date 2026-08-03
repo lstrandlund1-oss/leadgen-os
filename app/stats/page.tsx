@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { getTranslations } from "@/lib/i18n";
 import { getStoredLanguage } from "@/lib/languagePreference";
 import HamburgerMenu from "@/app/components/HamburgerMenu";
 import type { ConversionFunnel } from "@/lib/stats/getConversionFunnel";
+import type { EconomicImpact } from "@/lib/stats/economicImpact";
+import { formatPrice } from "@/lib/pricing";
 
 function FunnelRow({ label, rate }: { label: string; rate: number | null }) {
   const pct = rate !== null ? Math.round(rate * 100) : null;
@@ -26,6 +29,7 @@ export default function StatsPage() {
   const t = getTranslations(language).ui.stats;
 
   const [funnel, setFunnel] = useState<ConversionFunnel | null>(null);
+  const [impact, setImpact] = useState<EconomicImpact | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -34,6 +38,13 @@ export default function StatsPage() {
       .then((data) => setFunnel(data))
       .catch(() => setFunnel(null))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/stats/economic-impact")
+      .then((res) => (res.ok ? res.json() : { impact: null }))
+      .then((data) => setImpact(data.impact ?? null))
+      .catch(() => setImpact(null));
   }, []);
 
   const hasAnyData =
@@ -70,6 +81,31 @@ export default function StatsPage() {
                 <FunnelRow label={t.contactToReply} rate={funnel!.contactToReplyRate} />
                 <FunnelRow label={t.replyToMeeting} rate={funnel!.replyToMeetingRate} />
                 <FunnelRow label={t.meetingToWon} rate={funnel!.meetingToWonRate} />
+              </div>
+            )}
+          </section>
+        )}
+
+        {impact !== undefined && (
+          <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 mt-6">
+            <h3 className="text-[15px] font-medium mb-3">{t.economicImpactTitle}</h3>
+            {impact === null ? (
+              <div className="space-y-2">
+                <p className="text-[13px] text-[#666]">{t.economicImpactEmptyBody}</p>
+                <Link href="/settings" className="text-[12px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
+                  {t.economicImpactEmptyCta} →
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-[14px] text-[#f5f0e8]">
+                  {t.economicImpactBody(
+                    formatPrice(impact.averageDealValue, "sek"),
+                    impact.monthsOfSubscriptionCovered.toFixed(1),
+                    formatPrice(impact.vantioMonthlyCostSek, "sek"),
+                  )}
+                </p>
+                <p className="text-[11px] text-[#555]">{t.economicImpactDisclaimer}</p>
               </div>
             )}
           </section>

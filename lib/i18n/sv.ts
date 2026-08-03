@@ -432,6 +432,14 @@ export const sv: TranslationSchema = {
       meetingToWon: "Möte → Vunnen",
       noDataYet: "Inte tillräckligt med data än",
       loading: "Laddar din statistik…",
+      economicImpactTitle: "Vantio som en investering",
+      economicImpactBody: (deal, months, cost) =>
+        `Din genomsnittliga affär (${deal}) täcker ${months} månader av Vantio på din nuvarande plan (${cost}/mån).`,
+      economicImpactDisclaimer:
+        "Detta visar ekonomisk skala, inte en garanti — Vantio lovar inte denna kund eller något specifikt resultat.",
+      economicImpactEmptyBody:
+        "Lägg till ditt genomsnittliga affärsvärde i Inställningar för att se denna jämförelse med dina egna siffror.",
+      economicImpactEmptyCta: "Gå till inställningar",
     },
     pipeline: {
       title: "Pipeline",

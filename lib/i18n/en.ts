@@ -430,6 +430,13 @@ export const en: TranslationSchema = {
       meetingToWon: "Meeting → Won",
       noDataYet: "Not enough data yet",
       loading: "Loading your stats…",
+      economicImpactTitle: "Vantio as an investment",
+      economicImpactBody: (deal, months, cost) =>
+        `Your average deal (${deal}) covers ${months} months of Vantio at your current plan (${cost}/mo).`,
+      economicImpactDisclaimer:
+        "This shows economic scale, not a guarantee — Vantio doesn't promise you this customer or any specific outcome.",
+      economicImpactEmptyBody: "Add your average deal value in Settings to see this comparison using your own numbers.",
+      economicImpactEmptyCta: "Go to Settings",
     },
     pipeline: {
       title: "Pipeline",
