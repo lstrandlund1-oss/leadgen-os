@@ -390,6 +390,16 @@ export const en: TranslationSchema = {
         backToDashboard: "Back to dashboard →",
       },
     },
+    stats: {
+      title: "Stats",
+      conversionFunnelTitle: "Conversion funnel",
+      recommendedToContacted: "Recommended → Contacted",
+      contactToReply: "Contact → Reply",
+      replyToMeeting: "Reply → Meeting",
+      meetingToWon: "Meeting → Won",
+      noDataYet: "Not enough data yet",
+      loading: "Loading your stats…",
+    },
     pipeline: {
       title: "Pipeline",
       activeOpportunities: "Active opportunities",

@@ -248,6 +248,16 @@ export type TranslationSchema = {
         backToDashboard: string;
       };
     };
+    stats: {
+      title: string;
+      conversionFunnelTitle: string;
+      recommendedToContacted: string;
+      contactToReply: string;
+      replyToMeeting: string;
+      meetingToWon: string;
+      noDataYet: string;
+      loading: string;
+    };
     pipeline: {
       title: string;
       activeOpportunities: string;

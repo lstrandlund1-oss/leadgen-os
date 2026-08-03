@@ -392,6 +392,16 @@ export const sv: TranslationSchema = {
         backToDashboard: "Tillbaka till instrumentpanelen →",
       },
     },
+    stats: {
+      title: "Statistik",
+      conversionFunnelTitle: "Konverteringstratt",
+      recommendedToContacted: "Rekommenderad → Kontaktad",
+      contactToReply: "Kontakt → Svar",
+      replyToMeeting: "Svar → Möte",
+      meetingToWon: "Möte → Vunnen",
+      noDataYet: "Inte tillräckligt med data än",
+      loading: "Laddar din statistik…",
+    },
     pipeline: {
       title: "Pipeline",
       activeOpportunities: "Aktiva möjligheter",
