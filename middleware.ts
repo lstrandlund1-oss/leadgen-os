@@ -7,11 +7,29 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PROTECTED_ROUTES = ["/dashboard", "/home", "/pipeline", "/stats", "/profile", "/onboarding", "/plans"];
+const PROTECTED_ROUTES = [
+  "/dashboard",
+  "/home",
+  "/pipeline",
+  "/stats",
+  "/markets",
+  "/profile",
+  "/onboarding",
+  "/plans",
+];
 const AUTH_ROUTES = ["/login"];
 
 // Routes that require a completed profile
-const PROFILE_GATED_ROUTES = ["/dashboard", "/home", "/pipeline", "/stats", "/outreach", "/collections", "/analytics"];
+const PROFILE_GATED_ROUTES = [
+  "/dashboard",
+  "/home",
+  "/pipeline",
+  "/stats",
+  "/markets",
+  "/outreach",
+  "/collections",
+  "/analytics",
+];
 
 // Middleware runs on every navigation site-wide. Without a timeout, a slow
 // or hanging Supabase call (auth check or profile lookup) blocks the whole

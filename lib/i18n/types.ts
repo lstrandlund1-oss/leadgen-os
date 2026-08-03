@@ -248,6 +248,35 @@ export type TranslationSchema = {
         backToDashboard: string;
       };
     };
+    markets: {
+      title: string;
+      createButton: string;
+      createTitle: string;
+      nameLabel: string;
+      namePlaceholder: string;
+      nicheLabel: string;
+      nichePlaceholder: string;
+      locationLabel: string;
+      locationPlaceholder: string;
+      save: string;
+      cancel: string;
+      emptyStateTitle: string;
+      emptyStateBody: string;
+      totalCompanies: string;
+      highOpportunity: string;
+      goodOpportunity: string;
+      lowOpportunity: string;
+      contacted: string;
+      lostNotFit: string;
+      newThisMonth: string;
+      estimatedCoverage: string;
+      coverageTooltip: string;
+      refresh: string;
+      refreshing: string;
+      lastRefreshed: string;
+      neverRefreshed: string;
+      loading: string;
+    };
     stats: {
       title: string;
       conversionFunnelTitle: string;
