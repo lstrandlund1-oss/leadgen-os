@@ -248,6 +248,21 @@ export type TranslationSchema = {
         backToDashboard: string;
       };
     };
+    pipeline: {
+      title: string;
+      activeOpportunities: string;
+      wonRevenue: string;
+      stageRecommended: string;
+      stageContacted: string;
+      stageReplied: string;
+      stageMeeting: string;
+      stageWon: string;
+      stageLost: string;
+      emptyStateTitle: string;
+      emptyStateBody: string;
+      loading: string;
+      moreCount: (count: number) => string;
+    };
     home: {
       greetingMorning: string;
       greetingAfternoon: string;
