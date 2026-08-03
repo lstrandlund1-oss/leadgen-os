@@ -31,7 +31,18 @@ export default function HomePage() {
   const [greeting, setGreeting] = useState(t.greetingMorning);
 
   useEffect(() => {
+    // Deliberately not computed directly during render: this is a client
+    // component, but Next.js still server-renders it first. Computing
+    // new Date().getHours() directly during render would run on the
+    // server's clock (potentially a different timezone, or a moment
+    // that crosses an hour boundary before client hydration completes),
+    // risking a hydration mismatch between server and client output.
+    // Rendering a safe, fixed default first and updating only after
+    // mount (guaranteed client-side) avoids that entirely — this is the
+    // documented exception to "don't setState in an effect for a pure
+    // derivation," not an oversight of that rule.
     const hour = new Date().getHours();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setGreeting(hour < 12 ? t.greetingMorning : hour < 18 ? t.greetingAfternoon : t.greetingEvening);
   }, [t]);
 
