@@ -294,6 +294,14 @@ export type TranslationSchema = {
       emptyStateBody: string;
       emptyStateCta: string;
       loading: string;
+      pipelineOverviewTitle: string;
+      viewPipeline: string;
+      performanceTitle: string;
+      contactsMade: string;
+      repliesLabel: string;
+      meetingsLabel: string;
+      wonLabel: string;
+      revenueWonLabel: string;
     };
     onboarding: {
       stepLabels: [string, string, string, string];

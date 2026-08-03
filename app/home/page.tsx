@@ -7,6 +7,8 @@ import { getStoredLanguage } from "@/lib/languagePreference";
 import HamburgerMenu from "@/app/components/HamburgerMenu";
 import ScoreRing from "@/app/components/ScoreRing";
 import type { RecommendedOpportunity } from "@/lib/recommendations/getTodaysRecommendations";
+import type { PipelineOverview, PipelineStage } from "@/lib/pipeline/getPipelineOverview";
+import type { MonthlyPerformance } from "@/lib/stats/getMonthlyPerformance";
 
 function getFitLabel(value: number, t: ReturnType<typeof getTranslations>["ui"]["home"]): string {
   return value >= 80 ? t.highFit : t.goodFit;
@@ -25,9 +27,12 @@ function getRiskLabel(value: number, t: ReturnType<typeof getTranslations>["ui"]
 export default function HomePage() {
   const [language] = useState(() => getStoredLanguage());
   const t = getTranslations(language).ui.home;
+  const tPipeline = getTranslations(language).ui.pipeline;
 
   const [recommendations, setRecommendations] = useState<RecommendedOpportunity[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pipeline, setPipeline] = useState<PipelineOverview | null>(null);
+  const [performance, setPerformance] = useState<MonthlyPerformance | null>(null);
   const [greeting, setGreeting] = useState(t.greetingMorning);
 
   useEffect(() => {
@@ -52,6 +57,20 @@ export default function HomePage() {
       .then((data) => setRecommendations(data.recommendations ?? []))
       .catch(() => setRecommendations([]))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/pipeline/overview")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setPipeline(data))
+      .catch(() => setPipeline(null));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/stats/monthly")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setPerformance(data))
+      .catch(() => setPerformance(null));
   }, []);
 
   return (
@@ -141,6 +160,65 @@ export default function HomePage() {
             </div>
           )}
         </section>
+
+        {pipeline && (
+          <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 mt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[15px] font-medium text-[#f5f0e8]">{t.pipelineOverviewTitle}</h3>
+              <Link href="/pipeline" className="text-[12px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
+                {t.viewPipeline} →
+              </Link>
+            </div>
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+              {(["recommended", "contacted", "replied", "meeting", "won", "lost"] as PipelineStage[]).map((stage) => {
+                const stageLabel: Record<PipelineStage, string> = {
+                  recommended: tPipeline.stageRecommended,
+                  contacted: tPipeline.stageContacted,
+                  replied: tPipeline.stageReplied,
+                  meeting: tPipeline.stageMeeting,
+                  won: tPipeline.stageWon,
+                  lost: tPipeline.stageLost,
+                };
+                return (
+                  <div key={stage} className="bg-[#0d0d0d] border border-[#1e1e1e] rounded-xl p-3 text-center">
+                    <p className="text-[18px] font-semibold text-[#f5f0e8]">{pipeline.stages[stage].length}</p>
+                    <p className="text-[10px] text-[#666] mt-0.5">{stageLabel[stage]}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {performance && (
+          <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 mt-6">
+            <h3 className="text-[15px] font-medium text-[#f5f0e8] mb-4">{t.performanceTitle}</h3>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div>
+                <p className="text-[11px] text-[#666]">{t.contactsMade}</p>
+                <p className="text-[18px] font-semibold text-[#f5f0e8]">{performance.contactsMade}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#666]">{t.repliesLabel}</p>
+                <p className="text-[18px] font-semibold text-[#f5f0e8]">{performance.replies}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#666]">{t.meetingsLabel}</p>
+                <p className="text-[18px] font-semibold text-[#f5f0e8]">{performance.meetings}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#666]">{t.wonLabel}</p>
+                <p className="text-[18px] font-semibold text-[#4ade80]">{performance.won}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#666]">{t.revenueWonLabel}</p>
+                <p className="text-[18px] font-semibold text-[#4ade80]">
+                  {performance.revenueWon.toLocaleString(language === "sv" ? "sv-SE" : "en-US")}
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
       </main>
     </div>
   );
