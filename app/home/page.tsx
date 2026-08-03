@@ -117,7 +117,11 @@ export default function HomePage() {
                   </div>
 
                   <Link
-                    href="/dashboard"
+                    href={
+                      rec.runId
+                        ? `/dashboard?runId=${rec.runId}&leadId=${encodeURIComponent(rec.leadId)}`
+                        : "/dashboard"
+                    }
                     className="shrink-0 px-4 py-2 rounded-lg bg-[#c9a84c] text-[#080808] text-[12px] font-semibold hover:bg-[#e8c97a] transition-colors whitespace-nowrap">
                     {t.prepareOutreach}
                   </Link>

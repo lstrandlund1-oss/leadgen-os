@@ -1078,6 +1078,52 @@ export default function Home() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [exhausted, setExhausted] = useState(false);
 
+  // Deep-linking: opens a specific run/lead directly when the page loads
+  // with ?runId=&leadId= in the URL — e.g. from the Home page's "Prepare
+  // outreach" link (see app/home/page.tsx). Reads window.location directly
+  // rather than Next.js's useSearchParams(), since that hook requires a
+  // Suspense boundary around whatever uses it, and this file isn't
+  // currently wrapped in one — reading the URL directly in an effect
+  // avoids that requirement entirely for this narrow, client-only need.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const deepLinkRunId = params.get("runId");
+    const deepLinkLeadId = params.get("leadId");
+    if (!deepLinkRunId) return;
+
+    const parsedRunId = Number(deepLinkRunId);
+    if (!Number.isFinite(parsedRunId)) return;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/providers/runs/${parsedRunId}/leads`);
+        if (!res.ok) return;
+        const data = (await res.json().catch(() => ({}))) as {
+          leads?: LeadUI[];
+          nextCursor?: string | null;
+          exhausted?: boolean;
+        };
+        const fetchedLeads = Array.isArray(data.leads) ? data.leads : [];
+        if (fetchedLeads.length === 0) return;
+
+        setLeads(fetchedLeads);
+        setRunId(parsedRunId);
+        setNextCursor(data.nextCursor ?? null);
+        setExhausted(data.exhausted ?? true);
+
+        if (deepLinkLeadId) {
+          const match = fetchedLeads.find((l) => l.id === deepLinkLeadId);
+          if (match) setSelectedLead(match);
+        }
+      } catch {
+        // Deep link failed to resolve — fall through to the normal empty
+        // dashboard state rather than blocking the page.
+      }
+    })();
+    // Intentionally runs once on mount only — this is a one-time entry
+    // action, not something that should re-fire on other state changes.
+  }, []);
+
   async function handleLoadMore(): Promise<void> {
     if (isLoading || exhausted || nextCursor == null || runId == null) return;
 
