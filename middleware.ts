@@ -114,7 +114,7 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
   const hasAuthError = request.nextUrl.searchParams.has("error");
   if (isAuthRoute && user && !hasAuthError) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(new URL("/home", request.url));
   }
 
   // ── Guard 3: Onboarding gate — no profile → /onboarding ──────────────────

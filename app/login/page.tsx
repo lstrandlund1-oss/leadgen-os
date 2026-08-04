@@ -23,7 +23,7 @@ function useLoginLanguage(): [Language, (l: Language) => void] {
 function LoginForm({ language }: { language: Language }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = searchParams.get("next") ?? "/home";
   const errorParam = searchParams.get("error");
   const t = getTranslations(language).ui.login;
 

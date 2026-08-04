@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getTranslations } from "@/lib/i18n";
 import { getStoredLanguage } from "@/lib/languagePreference";
+import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import Sidebar from "@/app/components/Sidebar";
 import ScoreRing from "@/app/components/ScoreRing";
 import DonutChart from "@/app/components/DonutChart";
@@ -199,6 +200,23 @@ const DEMO_SUMMARY: DailySummary = {
   tomorrow: { followUpsDue: 3, newRecommended: 5 },
 };
 
+function getFitLabel(value: number, t: ReturnType<typeof getTranslations>["ui"]["home"]): string {
+  return value >= 80 ? t.highFit : t.goodFit;
+}
+
+function getRiskLabel(value: number, t: ReturnType<typeof getTranslations>["ui"]["home"]): string {
+  if (value >= 75) return t.lowRisk;
+  if (value >= 50) return t.mediumRisk;
+  return t.highRisk;
+}
+
+function daysAgoLabel(scoredAt: string, language: "en" | "sv"): string {
+  const days = Math.floor((Date.now() - new Date(scoredAt).getTime()) / (1000 * 60 * 60 * 24));
+  if (days <= 0) return language === "sv" ? "idag" : "today";
+  if (days === 1) return language === "sv" ? "1 dag sedan" : "1 day ago";
+  return language === "sv" ? `${days} dagar sedan` : `${days} days ago`;
+}
+
 export default function HomePage() {
   const [language] = useState(() => getStoredLanguage());
   const t = getTranslations(language).ui.home;
@@ -206,6 +224,7 @@ export default function HomePage() {
   const tMarkets = getTranslations(language).ui.markets;
 
   const [demoMode, setDemoMode] = useState(false);
+  const [displayName, setDisplayName] = useState<string | null>(null);
 
   const [recommendations, setRecommendations] = useState<RecommendedOpportunity[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -222,6 +241,22 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setGreeting(hour < 12 ? t.greetingMorning : hour < 18 ? t.greetingAfternoon : t.greetingEvening);
   }, [t]);
+
+  useEffect(() => {
+    // No dedicated first-name field exists in the profile — only
+    // businessName (a company name, not a personal one) and email. The
+    // email's local part is the most reasonable available source for a
+    // personal greeting; a real "your name" field would be a better fix
+    // but doesn't exist in onboarding today.
+    const supabase = createSupabaseBrowser();
+    supabase.auth.getSession().then(({ data }) => {
+      const email = data.session?.user?.email;
+      if (email) {
+        const local = email.split("@")[0].split(/[._-]/)[0];
+        setDisplayName(local.charAt(0).toUpperCase() + local.slice(1));
+      }
+    });
+  }, []);
 
   useEffect(() => {
     fetch("/api/recommendations/today")
@@ -278,6 +313,7 @@ export default function HomePage() {
   const shownMarketSnapshot = demoMode ? DEMO_MARKET_SNAPSHOT : marketSnapshot;
   const shownSummary = demoMode ? DEMO_SUMMARY : dailySummary;
   const shownLoading = demoMode ? false : loading;
+  const shownDisplayName = demoMode ? "Alex" : displayName;
 
   return (
     <div className="min-h-screen bg-[#080808] text-[#f5f0e8] flex">
@@ -287,7 +323,8 @@ export default function HomePage() {
         <nav className="flex items-center justify-between px-8 py-5 border-b border-[#1a1a1a]">
           <div>
             <h2 className="text-[22px] font-light" style={{ fontFamily: "var(--font-display), serif" }}>
-              {greeting} 👋
+              {greeting}
+              {shownDisplayName ? `, ${shownDisplayName}` : ""} 👋
             </h2>
             {shownRecommendations && shownRecommendations.length > 0 && (
               <p className="text-[13px] text-[#888] mt-0.5">{t.subtitle(shownRecommendations.length)}</p>
@@ -349,23 +386,33 @@ export default function HomePage() {
                         <p className="text-[12px] text-[#666] mt-0.5">
                           {[rec.city, rec.country].filter(Boolean).join(", ")}
                         </p>
+                        <p className="text-[11px] text-[#555] mt-1">
+                          <span className="text-[#8a8a6e]">{getFitLabel(rec.opportunityValue, t)}</span>
+                          {" · "}
+                          <span className="text-[#8a8a6e]">{getRiskLabel(rec.opportunityValue, t)}</span>
+                        </p>
                         {rec.detectedGap && (
                           <p className="text-[12px] text-[#999] mt-1.5">
                             <span className="text-[#666]">{t.detectedGap}:</span> {rec.detectedGap}
                           </p>
                         )}
                       </div>
-                      <Link
-                        href={
-                          demoMode
-                            ? "/dashboard"
-                            : rec.runId
-                              ? `/dashboard?runId=${rec.runId}&leadId=${encodeURIComponent(rec.leadId)}`
-                              : "/dashboard"
-                        }
-                        className="shrink-0 px-4 py-2 rounded-lg bg-[#c9a84c] text-[#080808] text-[12px] font-semibold hover:bg-[#e8c97a] transition-colors whitespace-nowrap">
-                        {t.prepareOutreach}
-                      </Link>
+                      <div className="text-right shrink-0">
+                        <Link
+                          href={
+                            demoMode
+                              ? "/dashboard"
+                              : rec.runId
+                                ? `/dashboard?runId=${rec.runId}&leadId=${encodeURIComponent(rec.leadId)}`
+                                : "/dashboard"
+                          }
+                          className="inline-block px-4 py-2 rounded-lg bg-[#c9a84c] text-[#080808] text-[12px] font-semibold hover:bg-[#e8c97a] transition-colors whitespace-nowrap">
+                          {t.prepareOutreach}
+                        </Link>
+                        <p className="text-[10px] text-[#555] mt-1.5">
+                          {t.lastSeen}: {daysAgoLabel(rec.scoredAt, language)}
+                        </p>
+                      </div>
                     </div>
                   ))}
                 </div>

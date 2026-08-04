@@ -74,7 +74,7 @@ export default function OnboardingPage() {
             const json = await res.json();
             if (json.profile?.businessName) {
               clearTimeout(deadline);
-              router.replace("/dashboard");
+              router.replace("/home");
               return;
             }
           }
@@ -507,7 +507,7 @@ export default function OnboardingPage() {
               </div>
               <button
                 type="button"
-                onClick={() => router.push("/dashboard")}
+                onClick={() => router.push("/home")}
                 className="inline-block px-10 py-4 rounded-lg bg-[#c9a84c] text-[#080808] font-semibold text-[14px] tracking-wide hover:bg-[#e8c97a] transition-all shadow-lg shadow-[rgba(201,168,76,0.15)]">
                 {t.step3.findLeads}
               </button>
