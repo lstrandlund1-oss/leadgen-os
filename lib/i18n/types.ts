@@ -319,6 +319,12 @@ export type TranslationSchema = {
       sectionTitle: string;
       viewAll: string;
       showMore: string;
+      insightPrefix: string;
+      insightBody: (message: string, lift: string) => string;
+      seeSimilarOpportunities: string;
+      goalTitle: string;
+      goalProgress: (current: number, target: number) => string;
+      goalBasedOn: (months: string) => string;
       prepareOutreach: string;
       highFit: string;
       goodFit: string;

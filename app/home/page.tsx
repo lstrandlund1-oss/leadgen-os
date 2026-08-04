@@ -16,6 +16,8 @@ import type { MonthlyPerformance } from "@/lib/stats/getMonthlyPerformance";
 import type { Market } from "@/lib/markets/markets";
 import type { MarketSnapshot } from "@/lib/markets/getMarketSnapshot";
 import type { DailySummary } from "@/lib/stats/getDailySummary";
+import type { Insight } from "@/lib/stats/insightEngine";
+import type { SuggestedGoal } from "@/lib/stats/goalEngine";
 
 // ── Demo data ────────────────────────────────────────────────────────────
 // Shown only when the user explicitly opts into demo mode - never mixed
@@ -201,6 +203,15 @@ const DEMO_SUMMARY: DailySummary = {
   tomorrow: { followUpsDue: 3, newRecommended: 5 },
 };
 
+const DEMO_INSIGHT: Insight = {
+  gapType: "content_gap_low_social",
+  gapMessage: "Companies with 10-50 employees in Stockholm that have not posted on LinkedIn for 30+ days",
+  liftMultiplier: 2.3,
+  sampleSize: 12,
+};
+
+const DEMO_GOAL: SuggestedGoal = { targetWins: 3, basedOnMonths: 4 };
+
 function getFitLabel(value: number, t: ReturnType<typeof getTranslations>["ui"]["home"]): string {
   return value >= 80 ? t.highFit : t.goodFit;
 }
@@ -237,6 +248,8 @@ export default function HomePage() {
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
   const [marketSnapshot, setMarketSnapshot] = useState<MarketSnapshot | null>(null);
   const [dailySummary, setDailySummary] = useState<DailySummary | null>(null);
+  const [insight, setInsight] = useState<Insight | null | undefined>(undefined);
+  const [goal, setGoal] = useState<SuggestedGoal | null | undefined>(undefined);
   const [greeting, setGreeting] = useState(t.greetingMorning);
 
   useEffect(() => {
@@ -274,6 +287,20 @@ export default function HomePage() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => setDailySummary(data))
       .catch(() => setDailySummary(null));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/stats/insight")
+      .then((res) => (res.ok ? res.json() : { insight: null }))
+      .then((data) => setInsight(data.insight ?? null))
+      .catch(() => setInsight(null));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/stats/goal")
+      .then((res) => (res.ok ? res.json() : { goal: null }))
+      .then((data) => setGoal(data.goal ?? null))
+      .catch(() => setGoal(null));
   }, []);
 
   useEffect(() => {
@@ -315,6 +342,8 @@ export default function HomePage() {
   const shownMarkets = demoMode ? [DEMO_MARKET] : markets;
   const shownMarketSnapshot = demoMode ? DEMO_MARKET_SNAPSHOT : marketSnapshot;
   const shownSummary = demoMode ? DEMO_SUMMARY : dailySummary;
+  const shownInsight = demoMode ? DEMO_INSIGHT : insight;
+  const shownGoal = demoMode ? DEMO_GOAL : goal;
   const shownLoading = demoMode ? false : loading;
   const shownDisplayName = demoMode ? "Alex" : displayName;
 
@@ -569,6 +598,23 @@ export default function HomePage() {
                 </div>
               </section>
             )}
+
+            {shownInsight && (
+              <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 flex items-center gap-4 flex-wrap">
+                <span className="text-[20px] text-[#c9a84c] shrink-0">◢</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] uppercase tracking-widest text-[#666] mb-1">{t.insightPrefix}</p>
+                  <p className="text-[13px] text-[#f5f0e8]">
+                    {t.insightBody(shownInsight.gapMessage, shownInsight.liftMultiplier.toFixed(1))}
+                  </p>
+                </div>
+                <Link
+                  href="/markets"
+                  className="shrink-0 px-4 py-2 rounded-lg border border-[#c9a84c]/30 text-[#c9a84c] text-[12px] font-medium hover:bg-[rgba(201,168,76,0.08)] transition-colors whitespace-nowrap">
+                  {t.seeSimilarOpportunities}
+                </Link>
+              </section>
+            )}
           </div>
 
           <div className="space-y-6 min-w-0">
@@ -668,6 +714,27 @@ export default function HomePage() {
                     </p>
                   </div>
                 </div>
+              </section>
+            )}
+
+            {shownGoal && shownPerformance && (
+              <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[16px] text-[#c9a84c]">◆</span>
+                  <h3 className="text-[13px] font-medium text-[#f5f0e8]">{t.goalTitle}</h3>
+                </div>
+                <p className="text-[18px] font-semibold text-[#f5f0e8] mb-1">
+                  {t.goalProgress(shownPerformance.won, shownGoal.targetWins)}
+                </p>
+                <div className="h-1.5 rounded-full bg-[#1a1a1a] overflow-hidden mb-2">
+                  <div
+                    className="h-full rounded-full bg-[#c9a84c]"
+                    style={{
+                      width: `${Math.min(100, (shownPerformance.won / shownGoal.targetWins) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <p className="text-[11px] text-[#666]">{t.goalBasedOn(String(shownGoal.basedOnMonths))}</p>
               </section>
             )}
           </div>
