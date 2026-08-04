@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getTranslations } from "@/lib/i18n";
 import { getStoredLanguage } from "@/lib/languagePreference";
-import HamburgerMenu from "@/app/components/HamburgerMenu";
+import Sidebar from "@/app/components/Sidebar";
 import type { ConversionFunnel } from "@/lib/stats/getConversionFunnel";
 import type { EconomicImpact } from "@/lib/stats/economicImpact";
 import { formatPrice } from "@/lib/pricing";
@@ -52,65 +52,61 @@ export default function StatsPage() {
     funnel.contactedCount + funnel.repliedCount + funnel.meetingCount + funnel.wonCount + funnel.lostCount > 0;
 
   return (
-    <div className="min-h-screen bg-[#080808] text-[#f5f0e8]">
-      <nav className="flex items-center justify-between px-6 py-5 border-b border-[#1a1a1a]">
-        <h1 className="text-[18px] tracking-wide" style={{ fontFamily: "var(--font-display), serif" }}>
-          Vantio
-        </h1>
-        <HamburgerMenu hasProfile={true} />
-      </nav>
+    <div className="min-h-screen bg-[#080808] text-[#f5f0e8] flex">
+      <Sidebar />
+      <div className="flex-1 min-w-0">
+        <main className="max-w-2xl mx-auto px-6 py-10">
+          <header className="mb-6">
+            <h2 className="text-[26px] font-light" style={{ fontFamily: "var(--font-display), serif" }}>
+              {t.title}
+            </h2>
+          </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-10">
-        <header className="mb-6">
-          <h2 className="text-[26px] font-light" style={{ fontFamily: "var(--font-display), serif" }}>
-            {t.title}
-          </h2>
-        </header>
+          {loading && <p className="text-[13px] text-[#666] py-10 text-center">{t.loading}</p>}
 
-        {loading && <p className="text-[13px] text-[#666] py-10 text-center">{t.loading}</p>}
+          {!loading && (
+            <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5">
+              <h3 className="text-[15px] font-medium mb-4">{t.conversionFunnelTitle}</h3>
 
-        {!loading && (
-          <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5">
-            <h3 className="text-[15px] font-medium mb-4">{t.conversionFunnelTitle}</h3>
+              {!hasAnyData ? (
+                <p className="text-[13px] text-[#666] py-6 text-center">{t.noDataYet}</p>
+              ) : (
+                <div className="space-y-4">
+                  <FunnelRow label={t.recommendedToContacted} rate={funnel!.recommendedToContactRate} />
+                  <FunnelRow label={t.contactToReply} rate={funnel!.contactToReplyRate} />
+                  <FunnelRow label={t.replyToMeeting} rate={funnel!.replyToMeetingRate} />
+                  <FunnelRow label={t.meetingToWon} rate={funnel!.meetingToWonRate} />
+                </div>
+              )}
+            </section>
+          )}
 
-            {!hasAnyData ? (
-              <p className="text-[13px] text-[#666] py-6 text-center">{t.noDataYet}</p>
-            ) : (
-              <div className="space-y-4">
-                <FunnelRow label={t.recommendedToContacted} rate={funnel!.recommendedToContactRate} />
-                <FunnelRow label={t.contactToReply} rate={funnel!.contactToReplyRate} />
-                <FunnelRow label={t.replyToMeeting} rate={funnel!.replyToMeetingRate} />
-                <FunnelRow label={t.meetingToWon} rate={funnel!.meetingToWonRate} />
-              </div>
-            )}
-          </section>
-        )}
-
-        {impact !== undefined && (
-          <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 mt-6">
-            <h3 className="text-[15px] font-medium mb-3">{t.economicImpactTitle}</h3>
-            {impact === null ? (
-              <div className="space-y-2">
-                <p className="text-[13px] text-[#666]">{t.economicImpactEmptyBody}</p>
-                <Link href="/settings" className="text-[12px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
-                  {t.economicImpactEmptyCta} →
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-[14px] text-[#f5f0e8]">
-                  {t.economicImpactBody(
-                    formatPrice(impact.averageDealValue, "sek"),
-                    impact.monthsOfSubscriptionCovered.toFixed(1),
-                    formatPrice(impact.vantioMonthlyCostSek, "sek"),
-                  )}
-                </p>
-                <p className="text-[11px] text-[#555]">{t.economicImpactDisclaimer}</p>
-              </div>
-            )}
-          </section>
-        )}
-      </main>
+          {impact !== undefined && (
+            <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 mt-6">
+              <h3 className="text-[15px] font-medium mb-3">{t.economicImpactTitle}</h3>
+              {impact === null ? (
+                <div className="space-y-2">
+                  <p className="text-[13px] text-[#666]">{t.economicImpactEmptyBody}</p>
+                  <Link href="/settings" className="text-[12px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
+                    {t.economicImpactEmptyCta} →
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-[14px] text-[#f5f0e8]">
+                    {t.economicImpactBody(
+                      formatPrice(impact.averageDealValue, "sek"),
+                      impact.monthsOfSubscriptionCovered.toFixed(1),
+                      formatPrice(impact.vantioMonthlyCostSek, "sek"),
+                    )}
+                  </p>
+                  <p className="text-[11px] text-[#555]">{t.economicImpactDisclaimer}</p>
+                </div>
+              )}
+            </section>
+          )}
+        </main>
+      </div>
     </div>
   );
 }

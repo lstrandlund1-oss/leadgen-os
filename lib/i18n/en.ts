@@ -496,6 +496,8 @@ export const en: TranslationSchema = {
       estimatedPipelineValue: "Est. pipeline value",
       followUpsDueTomorrow: "Follow-ups due tomorrow",
       newRecommendedTomorrow: "New opportunities to review",
+      showDemoData: "Show demo data",
+      viewingDemoData: "Viewing demo data — click to exit",
     },
     onboarding: {
       stepLabels: ["Service Type", "Capabilities", "Preferences", "Done"],

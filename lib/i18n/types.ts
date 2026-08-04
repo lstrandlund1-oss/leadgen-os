@@ -348,6 +348,8 @@ export type TranslationSchema = {
       estimatedPipelineValue: string;
       followUpsDueTomorrow: string;
       newRecommendedTomorrow: string;
+      showDemoData: string;
+      viewingDemoData: string;
     };
     onboarding: {
       stepLabels: [string, string, string, string];

@@ -4,123 +4,556 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getTranslations } from "@/lib/i18n";
 import { getStoredLanguage } from "@/lib/languagePreference";
-import HamburgerMenu from "@/app/components/HamburgerMenu";
+import Sidebar from "@/app/components/Sidebar";
+import ScoreRing from "@/app/components/ScoreRing";
+import DonutChart from "@/app/components/DonutChart";
+import { formatPrice } from "@/lib/pricing";
+import type { RecommendedOpportunity } from "@/lib/recommendations/getTodaysRecommendations";
 import type { PipelineOverview, PipelineStage } from "@/lib/pipeline/getPipelineOverview";
+import type { MonthlyPerformance } from "@/lib/stats/getMonthlyPerformance";
+import type { Market } from "@/lib/markets/markets";
+import type { MarketSnapshot } from "@/lib/markets/getMarketSnapshot";
+import type { DailySummary } from "@/lib/stats/getDailySummary";
 
-const STAGE_ORDER: PipelineStage[] = ["recommended", "contacted", "replied", "meeting", "won", "lost"];
+// ── Demo data ────────────────────────────────────────────────────────────
+// Shown only when the user explicitly opts into demo mode - never mixed
+// into real data, and always clearly labeled on screen when active.
 
-const STAGE_COLORS: Record<PipelineStage, string> = {
-  recommended: "#555",
-  contacted: "#7a8bb0",
-  replied: "#c9a84c",
-  meeting: "#c9a84c",
-  won: "#4ade80",
-  lost: "#f87171",
+const DEMO_RECOMMENDATIONS: RecommendedOpportunity[] = [
+  {
+    rawId: -1,
+    leadId: "demo:1",
+    runId: null,
+    name: "Nordic Scale AB",
+    city: "Stockholm",
+    country: "Sweden",
+    website: null,
+    opportunityValue: 91,
+    priorityScore: 91,
+    isContacted: false,
+    isReplied: false,
+    followupOverdue: false,
+    scoredAt: new Date().toISOString(),
+    detectedGap: "Weak outbound acquisition",
+  },
+  {
+    rawId: -2,
+    leadId: "demo:2",
+    runId: null,
+    name: "Webstrap Agency",
+    city: "Gothenburg",
+    country: "Sweden",
+    website: null,
+    opportunityValue: 87,
+    priorityScore: 87,
+    isContacted: false,
+    isReplied: false,
+    followupOverdue: false,
+    scoredAt: new Date().toISOString(),
+    detectedGap: "Visibility gap",
+  },
+  {
+    rawId: -3,
+    leadId: "demo:3",
+    runId: null,
+    name: "Inkognito Studios",
+    city: "Malmö",
+    country: "Sweden",
+    website: null,
+    opportunityValue: 83,
+    priorityScore: 83,
+    isContacted: false,
+    isReplied: false,
+    followupOverdue: false,
+    scoredAt: new Date().toISOString(),
+    detectedGap: "Conversion gap",
+  },
+  {
+    rawId: -4,
+    leadId: "demo:4",
+    runId: null,
+    name: "BrightCom Solutions",
+    city: "Uppsala",
+    country: "Sweden",
+    website: null,
+    opportunityValue: 78,
+    priorityScore: 78,
+    isContacted: false,
+    isReplied: false,
+    followupOverdue: false,
+    scoredAt: new Date().toISOString(),
+    detectedGap: "Positioning gap",
+  },
+  {
+    rawId: -5,
+    leadId: "demo:5",
+    runId: null,
+    name: "Avento Logistics AB",
+    city: "Stockholm",
+    country: "Sweden",
+    website: null,
+    opportunityValue: 74,
+    priorityScore: 74,
+    isContacted: false,
+    isReplied: false,
+    followupOverdue: false,
+    scoredAt: new Date().toISOString(),
+    detectedGap: "Process gap",
+  },
+];
+
+const DEMO_PIPELINE: PipelineOverview = {
+  stages: {
+    recommended: Array.from({ length: 61 }, (_, i) => ({
+      rawId: -100 - i,
+      leadId: `demo:r${i}`,
+      runId: null,
+      name: `Company ${i}`,
+      city: null,
+      stage: "recommended",
+      revenue: null,
+    })),
+    contacted: Array.from({ length: 37 }, (_, i) => ({
+      rawId: -200 - i,
+      leadId: `demo:c${i}`,
+      runId: null,
+      name: `Company ${i}`,
+      city: null,
+      stage: "contacted",
+      revenue: null,
+    })),
+    replied: Array.from({ length: 18 }, (_, i) => ({
+      rawId: -300 - i,
+      leadId: `demo:re${i}`,
+      runId: null,
+      name: `Company ${i}`,
+      city: null,
+      stage: "replied",
+      revenue: null,
+    })),
+    meeting: Array.from({ length: 5 }, (_, i) => ({
+      rawId: -400 - i,
+      leadId: `demo:m${i}`,
+      runId: null,
+      name: `Company ${i}`,
+      city: null,
+      stage: "meeting",
+      revenue: null,
+    })),
+    won: Array.from({ length: 2 }, (_, i) => ({
+      rawId: -500 - i,
+      leadId: `demo:w${i}`,
+      runId: null,
+      name: `Company ${i}`,
+      city: null,
+      stage: "won",
+      revenue: 47_500,
+    })),
+    lost: Array.from({ length: 4 }, (_, i) => ({
+      rawId: -600 - i,
+      leadId: `demo:l${i}`,
+      runId: null,
+      name: `Company ${i}`,
+      city: null,
+      stage: "lost",
+      revenue: null,
+    })),
+  },
+  totalActiveCount: 61 + 37 + 18 + 5,
+  totalWonRevenue: 95_000,
 };
 
-export default function PipelinePage() {
-  const [language] = useState(() => getStoredLanguage());
-  const t = getTranslations(language).ui.pipeline;
+const DEMO_PERFORMANCE: MonthlyPerformance = {
+  contactsMade: 156,
+  replies: 42,
+  meetings: 12,
+  won: 2,
+  revenueWon: 95_000,
+};
 
-  const [overview, setOverview] = useState<PipelineOverview | null>(null);
+const DEMO_MARKET: Market = {
+  id: "demo",
+  name: "Web Agencies in Sweden",
+  niche: "web agency",
+  location: "Sweden",
+  createdAt: new Date().toISOString(),
+  lastRefreshedAt: new Date().toISOString(),
+};
+
+const DEMO_MARKET_SNAPSHOT: MarketSnapshot = {
+  marketId: "demo",
+  totalCompanies: 842,
+  highOpportunityCount: 127,
+  goodOpportunityCount: 215,
+  lowOpportunityCount: 288,
+  contactedCount: 164,
+  lostOrNotFitCount: 48,
+  newThisMonth: 23,
+  newThisMonthVsLastMonthPct: 0.18,
+  estimatedCoveragePct: 0.76,
+};
+
+const DEMO_SUMMARY: DailySummary = {
+  today: { contacted: 5, replied: 2, meetings: 1, won: 0 },
+  pipeline: { activeCount: 121, estimatedPipelineValueSek: 240_000 },
+  tomorrow: { followUpsDue: 3, newRecommended: 5 },
+};
+
+export default function HomePage() {
+  const [language] = useState(() => getStoredLanguage());
+  const t = getTranslations(language).ui.home;
+  const tPipeline = getTranslations(language).ui.pipeline;
+  const tMarkets = getTranslations(language).ui.markets;
+
+  const [demoMode, setDemoMode] = useState(false);
+
+  const [recommendations, setRecommendations] = useState<RecommendedOpportunity[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pipeline, setPipeline] = useState<PipelineOverview | null>(null);
+  const [performance, setPerformance] = useState<MonthlyPerformance | null>(null);
+  const [markets, setMarkets] = useState<Market[] | null>(null);
+  const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
+  const [marketSnapshot, setMarketSnapshot] = useState<MarketSnapshot | null>(null);
+  const [dailySummary, setDailySummary] = useState<DailySummary | null>(null);
+  const [greeting, setGreeting] = useState(t.greetingMorning);
+
+  useEffect(() => {
+    const hour = new Date().getHours();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setGreeting(hour < 12 ? t.greetingMorning : hour < 18 ? t.greetingAfternoon : t.greetingEvening);
+  }, [t]);
+
+  useEffect(() => {
+    fetch("/api/recommendations/today")
+      .then((res) => (res.ok ? res.json() : { recommendations: [] }))
+      .then((data) => setRecommendations(data.recommendations ?? []))
+      .catch(() => setRecommendations([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/stats/daily-summary")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setDailySummary(data))
+      .catch(() => setDailySummary(null));
+  }, []);
 
   useEffect(() => {
     fetch("/api/pipeline/overview")
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => setOverview(data))
-      .catch(() => setOverview(null))
-      .finally(() => setLoading(false));
+      .then((data) => setPipeline(data))
+      .catch(() => setPipeline(null));
   }, []);
 
-  const stageLabel: Record<PipelineStage, string> = {
-    recommended: t.stageRecommended,
-    contacted: t.stageContacted,
-    replied: t.stageReplied,
-    meeting: t.stageMeeting,
-    won: t.stageWon,
-    lost: t.stageLost,
-  };
+  useEffect(() => {
+    fetch("/api/stats/monthly")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setPerformance(data))
+      .catch(() => setPerformance(null));
+  }, []);
 
-  const isEmpty = overview && STAGE_ORDER.every((stage) => overview.stages[stage].length === 0);
+  useEffect(() => {
+    fetch("/api/markets")
+      .then((res) => (res.ok ? res.json() : { markets: [] }))
+      .then((data) => {
+        const list: Market[] = data.markets ?? [];
+        setMarkets(list);
+        if (list.length > 0) setSelectedMarketId(list[0].id);
+      })
+      .catch(() => setMarkets([]));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedMarketId) return;
+    fetch(`/api/markets/${selectedMarketId}/snapshot`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setMarketSnapshot(data))
+      .catch(() => setMarketSnapshot(null));
+  }, [selectedMarketId]);
+
+  const shownRecommendations = demoMode ? DEMO_RECOMMENDATIONS : recommendations;
+  const shownPipeline = demoMode ? DEMO_PIPELINE : pipeline;
+  const shownPerformance = demoMode ? DEMO_PERFORMANCE : performance;
+  const shownMarkets = demoMode ? [DEMO_MARKET] : markets;
+  const shownMarketSnapshot = demoMode ? DEMO_MARKET_SNAPSHOT : marketSnapshot;
+  const shownSummary = demoMode ? DEMO_SUMMARY : dailySummary;
+  const shownLoading = demoMode ? false : loading;
 
   return (
-    <div className="min-h-screen bg-[#080808] text-[#f5f0e8]">
-      <nav className="flex items-center justify-between px-6 py-5 border-b border-[#1a1a1a]">
-        <h1 className="text-[18px] tracking-wide" style={{ fontFamily: "var(--font-display), serif" }}>
-          Vantio
-        </h1>
-        <HamburgerMenu hasProfile={true} />
-      </nav>
+    <div className="min-h-screen bg-[#080808] text-[#f5f0e8] flex">
+      <Sidebar />
 
-      <main className="max-w-4xl mx-auto px-6 py-10">
-        <header className="mb-6">
-          <h2 className="text-[26px] font-light" style={{ fontFamily: "var(--font-display), serif" }}>
-            {t.title}
-          </h2>
-        </header>
+      <div className="flex-1 min-w-0">
+        <nav className="flex items-center justify-between px-8 py-5 border-b border-[#1a1a1a]">
+          <div>
+            <h2 className="text-[22px] font-light" style={{ fontFamily: "var(--font-display), serif" }}>
+              {greeting} 👋
+            </h2>
+            {shownRecommendations && shownRecommendations.length > 0 && (
+              <p className="text-[13px] text-[#888] mt-0.5">{t.subtitle(shownRecommendations.length)}</p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setDemoMode((v) => !v)}
+            className={
+              "px-3 py-1.5 rounded-lg border text-[11px] font-medium transition-colors " +
+              (demoMode
+                ? "border-[#c9a84c] text-[#c9a84c] bg-[rgba(201,168,76,0.08)]"
+                : "border-[#252525] text-[#888] hover:border-[#444]")
+            }>
+            {demoMode ? t.viewingDemoData : t.showDemoData}
+          </button>
+        </nav>
 
-        {loading && <p className="text-[13px] text-[#666] py-10 text-center">{t.loading}</p>}
-
-        {!loading && overview && (
-          <>
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              <div className="bg-[#111111] border border-[#252525] rounded-2xl p-4">
-                <p className="text-[11px] text-[#666] mb-1">{t.activeOpportunities}</p>
-                <p className="text-[22px] font-semibold text-[#f5f0e8]">{overview.totalActiveCount}</p>
+        <main className="px-8 py-8 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 items-start">
+          <div className="space-y-6 min-w-0">
+            <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 shadow-xl shadow-black/40">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[15px] font-medium text-[#f5f0e8]">{t.sectionTitle}</h3>
+                <Link href="/dashboard" className="text-[12px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
+                  {t.viewAll} →
+                </Link>
               </div>
-              <div className="bg-[#111111] border border-[#252525] rounded-2xl p-4">
-                <p className="text-[11px] text-[#666] mb-1">{t.wonRevenue}</p>
-                <p className="text-[22px] font-semibold text-[#4ade80]">
-                  {overview.totalWonRevenue.toLocaleString(language === "sv" ? "sv-SE" : "en-US")}
-                </p>
-              </div>
-            </div>
 
-            {isEmpty ? (
-              <div className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 text-center py-12 space-y-2">
-                <p className="text-[14px] text-[#f5f0e8]">{t.emptyStateTitle}</p>
-                <p className="text-[13px] text-[#666] max-w-sm mx-auto">{t.emptyStateBody}</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                {STAGE_ORDER.map((stage) => {
-                  const opportunities = overview.stages[stage];
-                  return (
+              {shownLoading && <p className="text-[13px] text-[#666] py-8 text-center">{t.loading}</p>}
+
+              {!shownLoading && shownRecommendations && shownRecommendations.length === 0 && (
+                <div className="text-center py-10 space-y-3">
+                  <p className="text-[14px] text-[#f5f0e8]">{t.emptyStateTitle}</p>
+                  <p className="text-[13px] text-[#666] max-w-sm mx-auto">{t.emptyStateBody}</p>
+                  <Link
+                    href="/dashboard"
+                    className="inline-block mt-2 px-5 py-2.5 rounded-lg bg-[#c9a84c] text-[#080808] text-[13px] font-semibold hover:bg-[#e8c97a] transition-colors">
+                    {t.emptyStateCta}
+                  </Link>
+                </div>
+              )}
+
+              {!shownLoading && shownRecommendations && shownRecommendations.length > 0 && (
+                <div className="space-y-3">
+                  {shownRecommendations.map((rec) => (
                     <div
-                      key={stage}
-                      className="bg-[#111111] border border-[#252525] rounded-2xl p-4 space-y-3 min-h-[160px]">
-                      <div>
-                        <p className="text-[12px] text-[#888] mb-1">{stageLabel[stage]}</p>
-                        <p className="text-[20px] font-semibold" style={{ color: STAGE_COLORS[stage] }}>
-                          {opportunities.length}
+                      key={rec.rawId}
+                      className="flex items-center gap-4 p-4 rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] hover:border-[#333] transition-colors">
+                      <ScoreRing value={rec.opportunityValue} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[14px] font-medium text-[#f5f0e8] truncate">{rec.name}</span>
+                          {rec.followupOverdue && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded border border-amber-500/30 text-amber-400 bg-amber-500/5">
+                              {t.followupOverdueBadge}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[12px] text-[#666] mt-0.5">
+                          {[rec.city, rec.country].filter(Boolean).join(", ")}
                         </p>
-                      </div>
-                      <div className="space-y-1.5">
-                        {opportunities.slice(0, 4).map((opp) => (
-                          <Link
-                            key={opp.rawId}
-                            href={
-                              opp.runId
-                                ? `/dashboard?runId=${opp.runId}&leadId=${encodeURIComponent(opp.leadId)}`
-                                : "/dashboard"
-                            }
-                            className="block text-[11px] text-[#999] hover:text-[#f5f0e8] truncate transition-colors">
-                            {opp.name}
-                          </Link>
-                        ))}
-                        {opportunities.length > 4 && (
-                          <p className="text-[10px] text-[#555]">{t.moreCount(opportunities.length - 4)}</p>
+                        {rec.detectedGap && (
+                          <p className="text-[12px] text-[#999] mt-1.5">
+                            <span className="text-[#666]">{t.detectedGap}:</span> {rec.detectedGap}
+                          </p>
                         )}
                       </div>
+                      <Link
+                        href={
+                          demoMode
+                            ? "/dashboard"
+                            : rec.runId
+                              ? `/dashboard?runId=${rec.runId}&leadId=${encodeURIComponent(rec.leadId)}`
+                              : "/dashboard"
+                        }
+                        className="shrink-0 px-4 py-2 rounded-lg bg-[#c9a84c] text-[#080808] text-[12px] font-semibold hover:bg-[#e8c97a] transition-colors whitespace-nowrap">
+                        {t.prepareOutreach}
+                      </Link>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {shownSummary && (
+              <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5">
+                <h3 className="text-[15px] font-medium text-[#f5f0e8] mb-4">{t.todaysRecapTitle}</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                  <div>
+                    <p className="text-[11px] text-[#666]">{t.contactedToday}</p>
+                    <p className="text-[18px] font-semibold text-[#f5f0e8]">{shownSummary.today.contacted}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-[#666]">{t.repliedToday}</p>
+                    <p className="text-[18px] font-semibold text-[#f5f0e8]">{shownSummary.today.replied}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-[#666]">{t.meetingsToday}</p>
+                    <p className="text-[18px] font-semibold text-[#f5f0e8]">{shownSummary.today.meetings}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-[#666]">{t.wonToday}</p>
+                    <p className="text-[18px] font-semibold text-[#4ade80]">{shownSummary.today.won}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-[#1e1e1e]">
+                  <div>
+                    <p className="text-[11px] text-[#666]">{t.activePipeline}</p>
+                    <p className="text-[16px] font-medium text-[#f5f0e8]">{shownSummary.pipeline.activeCount}</p>
+                  </div>
+                  {shownSummary.pipeline.estimatedPipelineValueSek !== null && (
+                    <div>
+                      <p className="text-[11px] text-[#666]">{t.estimatedPipelineValue}</p>
+                      <p className="text-[16px] font-medium text-[#f5f0e8]">
+                        {formatPrice(shownSummary.pipeline.estimatedPipelineValueSek, "sek")}
+                      </p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-[11px] text-[#666]">{t.followUpsDueTomorrow}</p>
+                    <p className="text-[16px] font-medium text-[#f5f0e8]">{shownSummary.tomorrow.followUpsDue}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-[#666]">{t.newRecommendedTomorrow}</p>
+                    <p className="text-[16px] font-medium text-[#f5f0e8]">{shownSummary.tomorrow.newRecommended}</p>
+                  </div>
+                </div>
+              </section>
             )}
-          </>
-        )}
-      </main>
+
+            {shownPipeline && (
+              <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-[15px] font-medium text-[#f5f0e8]">{t.pipelineOverviewTitle}</h3>
+                  <Link href="/pipeline" className="text-[12px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
+                    {t.viewPipeline} →
+                  </Link>
+                </div>
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                  {(["recommended", "contacted", "replied", "meeting", "won", "lost"] as PipelineStage[]).map(
+                    (stage) => {
+                      const stageLabel: Record<PipelineStage, string> = {
+                        recommended: tPipeline.stageRecommended,
+                        contacted: tPipeline.stageContacted,
+                        replied: tPipeline.stageReplied,
+                        meeting: tPipeline.stageMeeting,
+                        won: tPipeline.stageWon,
+                        lost: tPipeline.stageLost,
+                      };
+                      return (
+                        <div key={stage} className="bg-[#0d0d0d] border border-[#1e1e1e] rounded-xl p-3 text-center">
+                          <p className="text-[18px] font-semibold text-[#f5f0e8]">
+                            {shownPipeline.stages[stage].length}
+                          </p>
+                          <p className="text-[10px] text-[#666] mt-0.5">{stageLabel[stage]}</p>
+                        </div>
+                      );
+                    },
+                  )}
+                </div>
+              </section>
+            )}
+          </div>
+
+          <div className="space-y-6 min-w-0">
+            <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[15px] font-medium text-[#f5f0e8]">{t.marketSnapshotTitle}</h3>
+                {shownMarkets && shownMarkets.length > 1 && (
+                  <select
+                    value={selectedMarketId ?? ""}
+                    onChange={(e) => setSelectedMarketId(e.target.value)}
+                    className="bg-[#0d0d0d] border border-[#252525] rounded-lg text-[12px] text-[#f5f0e8] px-2 py-1">
+                    {shownMarkets.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {shownMarkets && shownMarkets.length === 0 && (
+                <p className="text-[13px] text-[#666] py-4 text-center">
+                  {t.noMarketsYetHome}{" "}
+                  <Link href="/markets" className="text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
+                    {t.createMarketLink}
+                  </Link>
+                </p>
+              )}
+
+              {shownMarketSnapshot && (
+                <div className="flex items-center gap-6 flex-wrap">
+                  <DonutChart
+                    total={shownMarketSnapshot.totalCompanies}
+                    segments={[
+                      { value: shownMarketSnapshot.highOpportunityCount, color: "#c9a84c" },
+                      { value: shownMarketSnapshot.goodOpportunityCount, color: "#8a8a6e" },
+                      { value: shownMarketSnapshot.lowOpportunityCount, color: "#333" },
+                      { value: shownMarketSnapshot.contactedCount, color: "#555" },
+                    ]}
+                  />
+                  <div className="grid grid-cols-1 gap-y-2 text-[12px]">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#c9a84c]" />
+                      <span className="text-[#999]">{tMarkets.highOpportunity}</span>
+                      <span className="text-[#f5f0e8] font-medium ml-auto">
+                        {shownMarketSnapshot.highOpportunityCount}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#8a8a6e]" />
+                      <span className="text-[#999]">{tMarkets.goodOpportunity}</span>
+                      <span className="text-[#f5f0e8] font-medium ml-auto">
+                        {shownMarketSnapshot.goodOpportunityCount}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#333]" />
+                      <span className="text-[#999]">{tMarkets.lowOpportunity}</span>
+                      <span className="text-[#f5f0e8] font-medium ml-auto">
+                        {shownMarketSnapshot.lowOpportunityCount}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#555]" />
+                      <span className="text-[#999]">{tMarkets.contacted}</span>
+                      <span className="text-[#f5f0e8] font-medium ml-auto">{shownMarketSnapshot.contactedCount}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {shownPerformance && (
+              <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5">
+                <h3 className="text-[15px] font-medium text-[#f5f0e8] mb-4">{t.performanceTitle}</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-[11px] text-[#666]">{t.contactsMade}</p>
+                    <p className="text-[18px] font-semibold text-[#f5f0e8]">{shownPerformance.contactsMade}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-[#666]">{t.repliesLabel}</p>
+                    <p className="text-[18px] font-semibold text-[#f5f0e8]">{shownPerformance.replies}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-[#666]">{t.meetingsLabel}</p>
+                    <p className="text-[18px] font-semibold text-[#f5f0e8]">{shownPerformance.meetings}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-[#666]">{t.wonLabel}</p>
+                    <p className="text-[18px] font-semibold text-[#4ade80]">{shownPerformance.won}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-[11px] text-[#666]">{t.revenueWonLabel}</p>
+                    <p className="text-[18px] font-semibold text-[#4ade80]">
+                      {shownPerformance.revenueWon.toLocaleString(language === "sv" ? "sv-SE" : "en-US")}
+                    </p>
+                  </div>
+                </div>
+              </section>
+            )}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

@@ -499,6 +499,8 @@ export const sv: TranslationSchema = {
       estimatedPipelineValue: "Uppskattat pipelinevärde",
       followUpsDueTomorrow: "Uppföljningar imorgon",
       newRecommendedTomorrow: "Nya möjligheter att granska",
+      showDemoData: "Visa demodata",
+      viewingDemoData: "Visar demodata — klicka för att avsluta",
     },
     onboarding: {
       stepLabels: ["Tjänstetyp", "Kompetenser", "Inställningar", "Klart"],
