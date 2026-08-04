@@ -276,6 +276,10 @@ export type TranslationSchema = {
       lastRefreshed: string;
       neverRefreshed: string;
       loading: string;
+      bestOpportunitiesTitle: string;
+      bestOpportunitiesBody: string;
+      bestOpportunitiesEmpty: string;
+      scoredDaysAgo: (days: string) => string;
     };
     stats: {
       title: string;
@@ -314,6 +318,7 @@ export type TranslationSchema = {
       subtitle: (count: number) => string;
       sectionTitle: string;
       viewAll: string;
+      showMore: string;
       prepareOutreach: string;
       highFit: string;
       goodFit: string;
@@ -350,6 +355,8 @@ export type TranslationSchema = {
       newRecommendedTomorrow: string;
       showDemoData: string;
       viewingDemoData: string;
+      saveLeadLabel: string;
+      savedLabel: string;
     };
     onboarding: {
       stepLabels: [string, string, string, string];

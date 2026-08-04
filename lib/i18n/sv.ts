@@ -422,6 +422,10 @@ export const sv: TranslationSchema = {
       lastRefreshed: "Senast uppdaterad",
       neverRefreshed: "Aldrig uppdaterad",
       loading: "Laddar dina marknader…",
+      bestOpportunitiesTitle: "Bästa möjligheterna du inte agerat på",
+      bestOpportunitiesBody: "Dina högst poängsatta företag från de senaste 30 dagarna som du inte har kontaktat än.",
+      bestOpportunitiesEmpty: "Inget okontaktat från de senaste 30 dagarna — du är ikapp.",
+      scoredDaysAgo: (days) => `Poängsatt ${days}`,
     },
     stats: {
       title: "Statistik",
@@ -464,6 +468,7 @@ export const sv: TranslationSchema = {
         `Här är de ${count} möjlighet${count === 1 ? "en" : "erna"} som är mest värda din tid idag.`,
       sectionTitle: "Dagens bästa möjligheter",
       viewAll: "Visa alla möjligheter",
+      showMore: "Visa fler",
       prepareOutreach: "Förbered utskick",
       highFit: "Hög passform",
       goodFit: "Bra passform",
@@ -501,6 +506,8 @@ export const sv: TranslationSchema = {
       newRecommendedTomorrow: "Nya möjligheter att granska",
       showDemoData: "Visa demodata",
       viewingDemoData: "Visar demodata — klicka för att avsluta",
+      saveLeadLabel: "Spara lead",
+      savedLabel: "Sparad",
     },
     onboarding: {
       stepLabels: ["Tjänstetyp", "Kompetenser", "Inställningar", "Klart"],

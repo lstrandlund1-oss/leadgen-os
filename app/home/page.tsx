@@ -7,6 +7,7 @@ import { getStoredLanguage } from "@/lib/languagePreference";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import Sidebar from "@/app/components/Sidebar";
 import ScoreRing from "@/app/components/ScoreRing";
+import CompanyAvatar from "@/app/components/CompanyAvatar";
 import DonutChart from "@/app/components/DonutChart";
 import { formatPrice } from "@/lib/pricing";
 import type { RecommendedOpportunity } from "@/lib/recommendations/getTodaysRecommendations";
@@ -225,6 +226,8 @@ export default function HomePage() {
 
   const [demoMode, setDemoMode] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [savedLeadIds, setSavedLeadIds] = useState<Set<string>>(new Set());
+  const [savingLeadId, setSavingLeadId] = useState<string | null>(null);
 
   const [recommendations, setRecommendations] = useState<RecommendedOpportunity[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -315,6 +318,31 @@ export default function HomePage() {
   const shownLoading = demoMode ? false : loading;
   const shownDisplayName = demoMode ? "Alex" : displayName;
 
+  async function handleSaveLead(rec: RecommendedOpportunity) {
+    if (demoMode || savingLeadId || savedLeadIds.has(rec.leadId)) return;
+    setSavingLeadId(rec.leadId);
+    try {
+      const collectionRes = await fetch("/api/collections/default");
+      if (!collectionRes.ok) return;
+      const { collectionId } = await collectionRes.json();
+      const saveRes = await fetch("/api/collections/items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          collection_id: collectionId,
+          lead_id: rec.leadId,
+          run_id: rec.runId,
+          company_name: rec.name,
+        }),
+      });
+      if (saveRes.ok) {
+        setSavedLeadIds((prev) => new Set(prev).add(rec.leadId));
+      }
+    } finally {
+      setSavingLeadId(null);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#080808] text-[#f5f0e8] flex">
       <Sidebar />
@@ -348,7 +376,7 @@ export default function HomePage() {
             <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 shadow-xl shadow-black/40">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-[15px] font-medium text-[#f5f0e8]">{t.sectionTitle}</h3>
-                <Link href="/dashboard" className="text-[12px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
+                <Link href="/markets" className="text-[12px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
                   {t.viewAll} →
                 </Link>
               </div>
@@ -373,48 +401,77 @@ export default function HomePage() {
                     <div
                       key={rec.rawId}
                       className="flex items-center gap-4 p-4 rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] hover:border-[#333] transition-colors">
-                      <ScoreRing value={rec.opportunityValue} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[14px] font-medium text-[#f5f0e8] truncate">{rec.name}</span>
-                          {rec.followupOverdue && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded border border-amber-500/30 text-amber-400 bg-amber-500/5">
-                              {t.followupOverdueBadge}
-                            </span>
+                      <CompanyAvatar name={rec.name} />
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[14px] font-medium text-[#f5f0e8] truncate">{rec.name}</span>
+                            {rec.followupOverdue && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded border border-amber-500/30 text-amber-400 bg-amber-500/5">
+                                {t.followupOverdueBadge}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[12px] text-[#666] mt-0.5">
+                            {[rec.city, rec.country].filter(Boolean).join(", ")}
+                          </p>
+                        </div>
+                        <ScoreRing value={rec.opportunityValue} size={48} />
+                        <div className="w-[220px] shrink-0 hidden md:block">
+                          <p className="text-[11px] text-[#555]">
+                            <span className="text-[#8a8a6e]">{getFitLabel(rec.opportunityValue, t)}</span>
+                            {" · "}
+                            <span className="text-[#8a8a6e]">{getRiskLabel(rec.opportunityValue, t)}</span>
+                          </p>
+                          {rec.detectedGap && (
+                            <p className="text-[12px] text-[#999] mt-1">
+                              <span className="text-[#666]">{t.detectedGap}:</span> {rec.detectedGap}
+                            </p>
                           )}
                         </div>
-                        <p className="text-[12px] text-[#666] mt-0.5">
-                          {[rec.city, rec.country].filter(Boolean).join(", ")}
-                        </p>
-                        <p className="text-[11px] text-[#555] mt-1">
-                          <span className="text-[#8a8a6e]">{getFitLabel(rec.opportunityValue, t)}</span>
-                          {" · "}
-                          <span className="text-[#8a8a6e]">{getRiskLabel(rec.opportunityValue, t)}</span>
-                        </p>
-                        {rec.detectedGap && (
-                          <p className="text-[12px] text-[#999] mt-1.5">
-                            <span className="text-[#666]">{t.detectedGap}:</span> {rec.detectedGap}
-                          </p>
-                        )}
                       </div>
-                      <div className="text-right shrink-0">
-                        <Link
-                          href={
-                            demoMode
-                              ? "/dashboard"
-                              : rec.runId
-                                ? `/dashboard?runId=${rec.runId}&leadId=${encodeURIComponent(rec.leadId)}`
-                                : "/dashboard"
-                          }
-                          className="inline-block px-4 py-2 rounded-lg bg-[#c9a84c] text-[#080808] text-[12px] font-semibold hover:bg-[#e8c97a] transition-colors whitespace-nowrap">
-                          {t.prepareOutreach}
-                        </Link>
-                        <p className="text-[10px] text-[#555] mt-1.5">
-                          {t.lastSeen}: {daysAgoLabel(rec.scoredAt, language)}
-                        </p>
+                      <div className="text-right shrink-0 flex items-center gap-2">
+                        <div>
+                          <Link
+                            href={
+                              demoMode
+                                ? "/dashboard"
+                                : rec.runId
+                                  ? `/dashboard?runId=${rec.runId}&leadId=${encodeURIComponent(rec.leadId)}`
+                                  : "/dashboard"
+                            }
+                            className="inline-block px-4 py-2 rounded-lg bg-[#c9a84c] text-[#080808] text-[12px] font-semibold hover:bg-[#e8c97a] transition-colors whitespace-nowrap">
+                            {t.prepareOutreach}
+                          </Link>
+                          <p className="text-[10px] text-[#555] mt-1.5">
+                            {t.lastSeen}: {daysAgoLabel(rec.scoredAt, language)}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveLead(rec)}
+                          disabled={savingLeadId === rec.leadId}
+                          title={savedLeadIds.has(rec.leadId) ? t.savedLabel : t.saveLeadLabel}
+                          className={
+                            "w-9 h-9 rounded-lg border flex items-center justify-center text-[14px] shrink-0 transition-colors " +
+                            (savedLeadIds.has(rec.leadId)
+                              ? "border-[#c9a84c] text-[#c9a84c] bg-[rgba(201,168,76,0.08)]"
+                              : "border-[#252525] text-[#666] hover:border-[#444] hover:text-[#999]")
+                          }>
+                          {savedLeadIds.has(rec.leadId) ? "★" : "☆"}
+                        </button>
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+              {!shownLoading && shownRecommendations && shownRecommendations.length > 0 && (
+                <div className="text-center mt-4 pt-3 border-t border-[#1a1a1a]">
+                  <Link
+                    href="/markets"
+                    className="inline-flex items-center gap-1 text-[12px] text-[#888] hover:text-[#f5f0e8] transition-colors">
+                    {t.showMore} ⌄
+                  </Link>
                 </div>
               )}
             </section>
@@ -484,8 +541,23 @@ export default function HomePage() {
                         won: tPipeline.stageWon,
                         lost: tPipeline.stageLost,
                       };
+                      // Color graduates left-to-right through the funnel,
+                      // gray -> gold -> green/red at the outcome stages -
+                      // gives the same "progress" read as a connector line
+                      // without needing SVG positioning between boxes.
+                      const stageColor: Record<PipelineStage, string> = {
+                        recommended: "#3a3a3a",
+                        contacted: "#5a5a4a",
+                        replied: "#8a7a4a",
+                        meeting: "#c9a84c",
+                        won: "#4ade80",
+                        lost: "#f87171",
+                      };
                       return (
-                        <div key={stage} className="bg-[#0d0d0d] border border-[#1e1e1e] rounded-xl p-3 text-center">
+                        <div
+                          key={stage}
+                          className="bg-[#0d0d0d] border border-[#1e1e1e] rounded-xl p-3 text-center"
+                          style={{ borderTop: `3px solid ${stageColor[stage]}` }}>
                           <p className="text-[18px] font-semibold text-[#f5f0e8]">
                             {shownPipeline.stages[stage].length}
                           </p>

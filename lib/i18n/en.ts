@@ -420,6 +420,10 @@ export const en: TranslationSchema = {
       lastRefreshed: "Last updated",
       neverRefreshed: "Never refreshed",
       loading: "Loading your markets…",
+      bestOpportunitiesTitle: "Best opportunities you haven't acted on",
+      bestOpportunitiesBody: "Your highest-scored companies from the last 30 days that you haven't contacted yet.",
+      bestOpportunitiesEmpty: "Nothing uncontacted from the last 30 days — you're caught up.",
+      scoredDaysAgo: (days) => `Scored ${days}`,
     },
     stats: {
       title: "Stats",
@@ -461,6 +465,7 @@ export const en: TranslationSchema = {
         `Here ${count === 1 ? "is" : "are"} the ${count} opportunit${count === 1 ? "y" : "ies"} most worth your time today.`,
       sectionTitle: "Today's top opportunities",
       viewAll: "View all opportunities",
+      showMore: "Show more",
       prepareOutreach: "Prepare outreach",
       highFit: "High fit",
       goodFit: "Good fit",
@@ -498,6 +503,8 @@ export const en: TranslationSchema = {
       newRecommendedTomorrow: "New opportunities to review",
       showDemoData: "Show demo data",
       viewingDemoData: "Viewing demo data — click to exit",
+      saveLeadLabel: "Save lead",
+      savedLabel: "Saved",
     },
     onboarding: {
       stepLabels: ["Service Type", "Capabilities", "Preferences", "Done"],

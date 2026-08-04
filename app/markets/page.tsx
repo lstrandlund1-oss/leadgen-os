@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { getTranslations } from "@/lib/i18n";
 import { getStoredLanguage } from "@/lib/languagePreference";
 import Sidebar from "@/app/components/Sidebar";
 import type { Market } from "@/lib/markets/markets";
 import type { MarketSnapshot } from "@/lib/markets/getMarketSnapshot";
+import type { UncontactedOpportunity } from "@/lib/markets/getBestUncontactedOpportunities";
 
 export default function MarketsPage() {
   const [language] = useState(() => getStoredLanguage());
@@ -14,6 +16,7 @@ export default function MarketsPage() {
   const [markets, setMarkets] = useState<Market[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<MarketSnapshot | null>(null);
+  const [bestOpportunities, setBestOpportunities] = useState<UncontactedOpportunity[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -35,6 +38,13 @@ export default function MarketsPage() {
 
   useEffect(() => {
     loadMarkets().finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/markets/best-opportunities")
+      .then((res) => (res.ok ? res.json() : { opportunities: [] }))
+      .then((data) => setBestOpportunities(data.opportunities ?? []))
+      .catch(() => setBestOpportunities([]));
   }, []);
 
   useEffect(() => {
@@ -148,6 +158,40 @@ export default function MarketsPage() {
                   {t.cancel}
                 </button>
               </div>
+            </section>
+          )}
+
+          {bestOpportunities && bestOpportunities.length > 0 && (
+            <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 mb-6">
+              <h3 className="text-[15px] font-medium mb-1">{t.bestOpportunitiesTitle}</h3>
+              <p className="text-[12px] text-[#666] mb-4">{t.bestOpportunitiesBody}</p>
+              <div className="space-y-2">
+                {bestOpportunities.map((opp) => (
+                  <Link
+                    key={opp.rawId}
+                    href={
+                      opp.runId
+                        ? `/dashboard?runId=${opp.runId}&leadId=${encodeURIComponent(opp.leadId)}`
+                        : "/dashboard"
+                    }
+                    className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-[#0d0d0d] transition-colors">
+                    <div className="min-w-0">
+                      <p className="text-[13px] text-[#f5f0e8] truncate">{opp.name}</p>
+                      <p className="text-[11px] text-[#666]">{[opp.city, opp.country].filter(Boolean).join(", ")}</p>
+                    </div>
+                    <span className="text-[13px] font-semibold text-[#c9a84c] shrink-0 ml-3">
+                      {opp.opportunityValue}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {bestOpportunities && bestOpportunities.length === 0 && (
+            <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 mb-6">
+              <h3 className="text-[15px] font-medium mb-1">{t.bestOpportunitiesTitle}</h3>
+              <p className="text-[12px] text-[#666]">{t.bestOpportunitiesEmpty}</p>
             </section>
           )}
 
