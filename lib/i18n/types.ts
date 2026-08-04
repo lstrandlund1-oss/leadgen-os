@@ -248,6 +248,25 @@ export type TranslationSchema = {
         backToDashboard: string;
       };
     };
+    members: {
+      title: string;
+      inviteButton: string;
+      inviteEmailLabel: string;
+      inviteEmailPlaceholder: string;
+      sendInvite: string;
+      cancel: string;
+      inviteSent: string;
+      roleOwner: string;
+      roleMember: string;
+      pendingInvitations: string;
+      noPendingInvitations: string;
+      joined: string;
+      loading: string;
+      noWorkspace: string;
+      joiningWorkspace: string;
+      acceptSuccess: string;
+      acceptError: string;
+    };
     templates: {
       title: string;
       createButton: string;

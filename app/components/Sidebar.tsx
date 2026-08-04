@@ -24,6 +24,7 @@ const WORKSPACE_NAV: NavItem[] = [
   { href: "/markets", label: "Markets", icon: "◐" },
   { href: "/outreach", label: "Outreach", icon: "➤" },
   { href: "/templates", label: "Templates", icon: "▦" },
+  { href: "/members", label: "Members", icon: "◉" },
 ];
 
 export default function Sidebar() {

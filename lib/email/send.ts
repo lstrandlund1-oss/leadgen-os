@@ -79,10 +79,7 @@ export async function sendEmail(opts: {
 }
 
 // ── Template: Waitlist confirmation ───────────────────────────────────────────
-export async function sendWaitlistConfirmation(opts: {
-  to: string;
-  plan: string;
-}): Promise<EmailResult> {
+export async function sendWaitlistConfirmation(opts: { to: string; plan: string }): Promise<EmailResult> {
   const planLabel = opts.plan === "operator" ? "Operator" : opts.plan === "agency" ? "Agency" : "Scout";
   return sendEmail({
     to: opts.to,
@@ -158,16 +155,40 @@ export async function sendSupportTicketConfirmation(opts: {
           <p>Your request has been passed to a human. Here's what you reported:</p>
           <p style="color:#c8c0b0;font-style:italic;">"${opts.summary}"</p>
           <p>We'll get back to you as soon as possible.</p>
-        `
+        `,
     ),
     text: opts.resolved
       ? `Your question was answered.\n\nYou asked: "${opts.summary}"\n\nIf you need more help, open the chat widget anytime.`
       : `We've received your support request.\n\nYou reported: "${opts.summary}"\n\nA human will follow up shortly.`,
   });
 }
-// ── Onboarding email sequence ──────────────────────────────────────────────
+// ── Template: Workspace invite ─────────────────────────────────────────────
 
-export async function sendOnboardingDay1(opts: { to: string; firstName?: string; name?: string }): Promise<EmailResult> {
+export async function sendWorkspaceInvite(opts: {
+  to: string;
+  workspaceName: string;
+  invitedByEmail: string;
+  acceptUrl: string;
+}): Promise<EmailResult> {
+  return sendEmail({
+    to: opts.to,
+    subject: `${opts.invitedByEmail} invited you to join ${opts.workspaceName} on Vantio`,
+    html: baseHtml(`
+      <h1>You've been invited.</h1>
+      <p><strong style="color:#c8c0b0">${opts.invitedByEmail}</strong> has invited you to join <strong style="color:#c9a84c">${opts.workspaceName}</strong> on Vantio.</p>
+      <a href="${opts.acceptUrl}" class="btn">Accept invitation →</a>
+      <hr class="divider" />
+      <p style="font-size:12px;color:#444;">If you don't have a Vantio account yet, you'll be able to create one before joining.</p>
+    `),
+    text: `${opts.invitedByEmail} has invited you to join ${opts.workspaceName} on Vantio.\n\nAccept: ${opts.acceptUrl}`,
+  });
+}
+
+export async function sendOnboardingDay1(opts: {
+  to: string;
+  firstName?: string;
+  name?: string;
+}): Promise<EmailResult> {
   const name = opts.name ?? opts.firstName ?? "there";
   return sendEmail({
     to: opts.to,
