@@ -23,18 +23,27 @@ const MAIN_NAV: NavItem[] = [
 const WORKSPACE_NAV: NavItem[] = [
   { href: "/markets", label: "Markets", icon: "◐" },
   { href: "/outreach", label: "Outreach", icon: "➤" },
+  { href: "/templates", label: "Templates", icon: "▦" },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
+  const [workspace, setWorkspace] = useState<{ name: string; role: string } | null>(null);
 
   useEffect(() => {
     const supabase = createSupabaseBrowser();
     supabase.auth.getSession().then(({ data }) => {
       setEmail(data.session?.user?.email ?? null);
     });
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/workspace/me")
+      .then((res) => (res.ok ? res.json() : { workspace: null }))
+      .then((data) => setWorkspace(data.workspace))
+      .catch(() => setWorkspace(null));
   }, []);
 
   async function handleSignOut() {
@@ -76,15 +85,24 @@ export default function Sidebar() {
         </Link>
       </nav>
 
-      <div className="pt-4 border-t border-[#1a1a1a] px-2">
-        <p className="text-[12px] text-[#999] truncate">{email ?? "…"}</p>
-        <button
-          type="button"
-          onClick={handleSignOut}
-          className="text-[11px] text-[#555] hover:text-[#f87171] transition-colors mt-1">
-          Sign out
-        </button>
-      </div>
+      <Link
+        href="/settings"
+        className="pt-4 border-t border-[#1a1a1a] px-2 py-2 -mx-1 rounded-lg hover:bg-[#111] transition-colors block">
+        {workspace ? (
+          <>
+            <p className="text-[12px] text-[#f5f0e8] truncate font-medium">{workspace.name}</p>
+            <p className="text-[10px] text-[#666] capitalize">{workspace.role}</p>
+          </>
+        ) : (
+          <p className="text-[12px] text-[#999] truncate">{email ?? "…"}</p>
+        )}
+      </Link>
+      <button
+        type="button"
+        onClick={handleSignOut}
+        className="text-[11px] text-[#555] hover:text-[#f87171] transition-colors mt-1 px-2">
+        Sign out
+      </button>
     </aside>
   );
 }

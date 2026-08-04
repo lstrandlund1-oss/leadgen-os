@@ -248,6 +248,27 @@ export type TranslationSchema = {
         backToDashboard: string;
       };
     };
+    templates: {
+      title: string;
+      createButton: string;
+      nameLabel: string;
+      namePlaceholder: string;
+      channelLabel: string;
+      subjectLabel: string;
+      subjectPlaceholder: string;
+      bodyLabel: string;
+      bodyPlaceholder: string;
+      toneLabel: string;
+      save: string;
+      cancel: string;
+      delete: string;
+      emptyStateTitle: string;
+      emptyStateBody: string;
+      loading: string;
+      channelEmail: string;
+      channelLinkedin: string;
+      channelCold: string;
+    };
     markets: {
       title: string;
       createButton: string;
