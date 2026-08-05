@@ -11,6 +11,7 @@ function opp(overrides: Partial<PipelineOpportunity> = {}): PipelineOpportunity 
     city: null,
     stage: "recommended",
     revenue: null,
+    opportunityValue: 70,
     ...overrides,
   };
 }

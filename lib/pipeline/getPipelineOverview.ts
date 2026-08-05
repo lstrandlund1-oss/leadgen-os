@@ -24,6 +24,7 @@ export type PipelineOpportunity = {
   city: string | null;
   stage: PipelineStage;
   revenue: number | null;
+  opportunityValue: number;
 };
 
 export type PipelineOverview = {
@@ -45,13 +46,24 @@ export async function getPipelineOverview(userId: string): Promise<PipelineOverv
   const client = await getServiceClient();
   if (!client) return { stages: EMPTY_STAGES, totalActiveCount: 0, totalWonRevenue: 0 };
 
-  const { data: intelligence } = await client.from("company_intelligence").select("raw_id").eq("user_id", userId);
+  const { data: intelligence } = await client
+    .from("company_intelligence")
+    .select("raw_id, score")
+    .eq("user_id", userId);
 
   if (!intelligence || intelligence.length === 0) {
     return { stages: EMPTY_STAGES, totalActiveCount: 0, totalWonRevenue: 0 };
   }
 
   const rawIds = intelligence.map((i) => i.raw_id as number);
+  const scoreByRawId = new Map(
+    intelligence.map((i) => [
+      i.raw_id as number,
+      ((i.score as { value?: number; opportunity?: number } | null)?.value ??
+        (i.score as { value?: number; opportunity?: number } | null)?.opportunity ??
+        0) as number,
+    ]),
+  );
 
   const [{ data: rawRows }, { data: normalizedRows }, { data: runRaws }] = await Promise.all([
     client.from("companies_raw").select("id, source, source_id").in("id", rawIds),
@@ -113,6 +125,7 @@ export async function getPipelineOverview(userId: string): Promise<PipelineOverv
       city: normalized?.city ?? null,
       stage,
       revenue: (outcome?.revenue as number | null) ?? null,
+      opportunityValue: scoreByRawId.get(rawId) ?? 0,
     };
 
     stages[stage].push(opportunity);
