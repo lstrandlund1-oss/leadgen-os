@@ -2436,7 +2436,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         color: "#4ade80",
                         fontFamily: "monospace",
                       }}>
-                      AI-Powered
+                      Live
                     </span>
                   </div>
                   <form onSubmit={handleSubmit} className="space-y-4">
@@ -2536,37 +2536,13 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         )}
                       </div>
                     </div>
-                    {/* Search mode toggle + submit */}
+                    {/* Search mode toggle removed — standard search now does
+                    broad, geographically-partitioned discovery by default.
+                    Deep search (AI-generated query variants) is reserved
+                    for AI Mode, not exposed here as a manual toggle. The
+                    backend route still supports searchMode: "deep" — left
+                    intact for AI Mode to use once it ships, not deleted. */}
                     <div className="flex flex-col gap-3">
-                      <div className="flex items-center gap-2 p-1 rounded-lg bg-[#0d0d0d] border border-[#1e1e1e] self-start">
-                        <button
-                          type="button"
-                          onClick={() => setSearchMode("standard")}
-                          className="transition-all text-[11px] px-3 py-1.5 rounded-md font-medium"
-                          style={{
-                            background: searchMode === "standard" ? "#1a1a1a" : "transparent",
-                            color: searchMode === "standard" ? "#f5f0e8" : "#616161",
-                            border: searchMode === "standard" ? "1px solid #2a2a2a" : "1px solid transparent",
-                          }}>
-                          Standard
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSearchMode("deep")}
-                          className="transition-all text-[11px] px-3 py-1.5 rounded-md font-medium flex items-center gap-1.5"
-                          style={{
-                            background: searchMode === "deep" ? "rgba(201,168,76,0.12)" : "transparent",
-                            color: searchMode === "deep" ? "#c9a84c" : "#616161",
-                            border: searchMode === "deep" ? "1px solid rgba(201,168,76,0.3)" : "1px solid transparent",
-                          }}>
-                          <span>◈</span> Deep
-                        </button>
-                      </div>
-                      {searchMode === "deep" && (
-                        <p className="text-[10px] text-[#8a6e30]">
-                          AI generates targeted query variants · Uses 1 deep search credit
-                        </p>
-                      )}
                       <button
                         type="submit"
                         disabled={isLoading}
@@ -2582,11 +2558,11 @@ Light enrichment: ${addendumParts.join(", ")}.`
                           letterSpacing: "0.04em",
                           cursor: isLoading ? "not-allowed" : "pointer",
                         }}>
-                        {isLoading ? "Scanning…" : searchMode === "deep" ? "Deep Scan Market →" : "Scan Market →"}
+                        {isLoading ? "Scanning…" : "Scan Market →"}
                       </button>
                     </div>
                     <p style={{ fontSize: 10, color: "#4a4a4a", fontFamily: "monospace", letterSpacing: "0.05em" }}>
-                      Multi-source AI discovery · Google Maps · Business directories · Review platforms
+                      Multi-source discovery · Google Maps · Business directories · Review platforms
                     </p>
                   </form>
                 </div>
