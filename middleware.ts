@@ -16,6 +16,9 @@ const PROTECTED_ROUTES = [
   "/templates",
   "/members",
   "/workspace",
+  "/outreach",
+  "/collections",
+  "/followups",
   "/profile",
   "/onboarding",
   "/plans",
@@ -33,6 +36,7 @@ const PROFILE_GATED_ROUTES = [
   "/members",
   "/outreach",
   "/collections",
+  "/followups",
   "/analytics",
 ];
 

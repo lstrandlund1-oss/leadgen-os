@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import HamburgerMenu from "@/app/components/HamburgerMenu";
+import Sidebar from "@/app/components/Sidebar";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { getTranslations } from "@/lib/i18n";
 import type { Language } from "@/lib/i18n/types";
@@ -209,318 +209,322 @@ export default function FollowupsPage() {
   }, {});
 
   return (
-    <div className="min-h-screen bg-[#080808] text-[#f5f0e8] overflow-x-hidden">
-      <nav className="w-full border-b border-[#151515] bg-[#080808]/90 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-3xl mx-auto px-5 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="text-[#c9a84c]">◈</span>
-            <Link
-              href="/"
-              className="text-[17px] font-light tracking-wide hover:opacity-80 transition-opacity"
-              style={{ fontFamily: "var(--font-display), serif" }}>
-              Van
-              <span
-                style={{
-                  background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                }}>
-                tio
+    <div className="min-h-screen bg-[#080808] text-[#f5f0e8] flex">
+      <Sidebar />
+      <div className="flex-1 min-w-0 overflow-x-hidden">
+        <nav className="w-full border-b border-[#151515] bg-[#080808]/90 backdrop-blur-md sticky top-0 z-40">
+          <div className="max-w-3xl mx-auto px-5 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="text-[#c9a84c]">◈</span>
+              <Link
+                href="/"
+                className="text-[17px] font-light tracking-wide hover:opacity-80 transition-opacity"
+                style={{ fontFamily: "var(--font-display), serif" }}>
+                Van
+                <span
+                  style={{
+                    background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                  }}>
+                  tio
+                </span>
+              </Link>
+              <span className="text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full border border-[rgba(201,168,76,0.25)] text-[#8a6e30]">
+                {tShared.betaBadge}
               </span>
-            </Link>
-            <span className="text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full border border-[rgba(201,168,76,0.25)] text-[#8a6e30]">
-              {tShared.betaBadge}
-            </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link href="/dashboard" className="text-[12px] text-[#555] hover:text-[#888] transition-colors">
+                ← Dashboard
+              </Link>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="text-[12px] text-[#555] hover:text-[#888] transition-colors">
-              ← Dashboard
-            </Link>
-            <HamburgerMenu userEmail={userEmail} />
-          </div>
-        </div>
-      </nav>
+        </nav>
 
-      <div className="max-w-3xl mx-auto px-5 py-10 space-y-6">
-        {/* Header */}
-        <div className="flex items-end justify-between">
-          <div>
-            <p className="text-[10px] tracking-[0.2em] uppercase text-[#8a6e30] mb-1">{t.pipelineEyebrow}</p>
-            <h1 className="text-3xl md:text-4xl font-light" style={{ fontFamily: "var(--font-display), serif" }}>
-              {t.headerTitleStart}{" "}
-              <span className="italic" style={{ color: "#c9a84c" }}>
-                {t.headerTitleItalic}
-              </span>
-            </h1>
-            <p className="text-[12px] text-[#444] mt-1.5">{t.headerSubtitle}</p>
+        <div className="max-w-3xl mx-auto px-5 py-10 space-y-6">
+          {/* Header */}
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-[10px] tracking-[0.2em] uppercase text-[#8a6e30] mb-1">{t.pipelineEyebrow}</p>
+              <h1 className="text-3xl md:text-4xl font-light" style={{ fontFamily: "var(--font-display), serif" }}>
+                {t.headerTitleStart}{" "}
+                <span className="italic" style={{ color: "#c9a84c" }}>
+                  {t.headerTitleItalic}
+                </span>
+              </h1>
+              <p className="text-[12px] text-[#444] mt-1.5">{t.headerSubtitle}</p>
+            </div>
+            {/* Stats */}
+            <div className="flex items-center gap-3">
+              {overdueCount > 0 && (
+                <div className="rounded-xl border border-[#f87171]/25 bg-[#f87171]/06 px-4 py-2 text-center">
+                  <p className="text-[18px] font-bold text-[#f87171]">{overdueCount}</p>
+                  <p className="text-[10px] text-[#f87171]/60 uppercase tracking-widest">{t.overdueLabel}</p>
+                </div>
+              )}
+              {todayCount > 0 && (
+                <div className="rounded-xl border border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.04)] px-4 py-2 text-center">
+                  <p className="text-[18px] font-bold text-[#c9a84c]">{todayCount}</p>
+                  <p className="text-[10px] text-[#8a6e30] uppercase tracking-widest">{t.todayLabel}</p>
+                </div>
+              )}
+            </div>
           </div>
-          {/* Stats */}
-          <div className="flex items-center gap-3">
-            {overdueCount > 0 && (
-              <div className="rounded-xl border border-[#f87171]/25 bg-[#f87171]/06 px-4 py-2 text-center">
-                <p className="text-[18px] font-bold text-[#f87171]">{overdueCount}</p>
-                <p className="text-[10px] text-[#f87171]/60 uppercase tracking-widest">{t.overdueLabel}</p>
-              </div>
-            )}
-            {todayCount > 0 && (
-              <div className="rounded-xl border border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.04)] px-4 py-2 text-center">
-                <p className="text-[18px] font-bold text-[#c9a84c]">{todayCount}</p>
-                <p className="text-[10px] text-[#8a6e30] uppercase tracking-widest">{t.todayLabel}</p>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Filter tabs */}
-        <div className="flex gap-2 flex-wrap">
-          {(
-            [
-              { key: "today", label: t.filterToday.replace("{count}", String(todayCount)) },
-              { key: "overdue", label: t.filterOverdue.replace("{count}", String(overdueCount)) },
-              { key: "upcoming", label: t.filterUpcoming.replace("{count}", String(upcomingCount)) },
-              { key: "all", label: t.filterAll.replace("{count}", String(steps.length)) },
-            ] as const
-          ).map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setFilter(key)}
-              className={
-                "px-3 py-1.5 rounded-lg border text-[11px] font-medium transition-all " +
-                (filter === key
-                  ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)] text-[#c9a84c]"
-                  : "border-[#252525] text-[#555] hover:border-[#333]")
-              }>
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {loading ? (
-          <div className="py-20 text-center text-[#444] text-sm animate-pulse">{t.loadingSequences}</div>
-        ) : steps.length === 0 && legacyFollowups.length === 0 ? (
-          <div className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-12 text-center space-y-3">
-            <p className="text-3xl text-[#1a1a1a]">⇉</p>
-            <p className="text-[14px] text-[#444]">{t.noActiveSequences}</p>
-            <p className="text-[12px] text-[#2a2a2a] leading-relaxed max-w-xs mx-auto">
-              {t.noActiveSequencesBodyStart} <span className="text-[#c9a84c]">{t.buildSequenceHighlight}</span>{" "}
-              {t.noActiveSequencesBodyEnd}
-            </p>
-            <Link
-              href="/dashboard"
-              className="inline-block mt-2 text-[12px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
-              {t.goToDashboard}
-            </Link>
+          {/* Filter tabs */}
+          <div className="flex gap-2 flex-wrap">
+            {(
+              [
+                { key: "today", label: t.filterToday.replace("{count}", String(todayCount)) },
+                { key: "overdue", label: t.filterOverdue.replace("{count}", String(overdueCount)) },
+                { key: "upcoming", label: t.filterUpcoming.replace("{count}", String(upcomingCount)) },
+                { key: "all", label: t.filterAll.replace("{count}", String(steps.length)) },
+              ] as const
+            ).map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setFilter(key)}
+                className={
+                  "px-3 py-1.5 rounded-lg border text-[11px] font-medium transition-all " +
+                  (filter === key
+                    ? "border-[#c9a84c] bg-[rgba(201,168,76,0.08)] text-[#c9a84c]"
+                    : "border-[#252525] text-[#555] hover:border-[#333]")
+                }>
+                {label}
+              </button>
+            ))}
           </div>
-        ) : filteredSteps.length === 0 ? (
-          <div className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-8 text-center">
-            <p className="text-[13px] text-[#444]">{filter === "today" ? t.noStepsToday : t.noStepsFilter}</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {Object.entries(stepsByLead).map(([leadId, leadSteps]) => {
-              const company = leadSteps[0].company_name ?? `Lead ${leadId.slice(0, 8)}`;
-              const cadence = leadSteps[0].cadence_type;
-              const cadenceColor = CADENCE_COLORS[cadence] ?? "#888";
 
-              return (
-                <div key={leadId} className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] overflow-hidden">
-                  {/* Lead header */}
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-[#141414]">
-                    <div className="flex items-center gap-3">
-                      <span className="text-[13px] font-medium text-[#c8c0b0]">{company}</span>
-                      <span
-                        className="text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded border"
-                        style={{
-                          color: cadenceColor,
-                          borderColor: `${cadenceColor}30`,
-                          background: `${cadenceColor}08`,
-                        }}>
-                        {CADENCE_LABELS[cadence]} {t.cadenceSuffix}
-                      </span>
+          {loading ? (
+            <div className="py-20 text-center text-[#444] text-sm animate-pulse">{t.loadingSequences}</div>
+          ) : steps.length === 0 && legacyFollowups.length === 0 ? (
+            <div className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-12 text-center space-y-3">
+              <p className="text-3xl text-[#1a1a1a]">⇉</p>
+              <p className="text-[14px] text-[#444]">{t.noActiveSequences}</p>
+              <p className="text-[12px] text-[#2a2a2a] leading-relaxed max-w-xs mx-auto">
+                {t.noActiveSequencesBodyStart} <span className="text-[#c9a84c]">{t.buildSequenceHighlight}</span>{" "}
+                {t.noActiveSequencesBodyEnd}
+              </p>
+              <Link
+                href="/dashboard"
+                className="inline-block mt-2 text-[12px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
+                {t.goToDashboard}
+              </Link>
+            </div>
+          ) : filteredSteps.length === 0 ? (
+            <div className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-8 text-center">
+              <p className="text-[13px] text-[#444]">{filter === "today" ? t.noStepsToday : t.noStepsFilter}</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {Object.entries(stepsByLead).map(([leadId, leadSteps]) => {
+                const company = leadSteps[0].company_name ?? `Lead ${leadId.slice(0, 8)}`;
+                const cadence = leadSteps[0].cadence_type;
+                const cadenceColor = CADENCE_COLORS[cadence] ?? "#888";
+
+                return (
+                  <div key={leadId} className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] overflow-hidden">
+                    {/* Lead header */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-[#141414]">
+                      <div className="flex items-center gap-3">
+                        <span className="text-[13px] font-medium text-[#c8c0b0]">{company}</span>
+                        <span
+                          className="text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded border"
+                          style={{
+                            color: cadenceColor,
+                            borderColor: `${cadenceColor}30`,
+                            background: `${cadenceColor}08`,
+                          }}>
+                          {CADENCE_LABELS[cadence]} {t.cadenceSuffix}
+                        </span>
+                      </div>
+                      <Link
+                        href="/dashboard"
+                        className="text-[11px] text-[#444] hover:text-[#c9a84c] transition-colors">
+                        {t.viewLead}
+                      </Link>
                     </div>
-                    <Link href="/dashboard" className="text-[11px] text-[#444] hover:text-[#c9a84c] transition-colors">
-                      {t.viewLead}
+
+                    {/* Steps */}
+                    {leadSteps.map((step) => {
+                      const days = daysUntil(step.scheduled_date);
+                      const color = dateColor(days);
+                      const isExpanded = expandedStep === step.id;
+                      const statusStyle = STATUS_STYLES[step.status];
+
+                      return (
+                        <div key={step.id} className="border-b border-[#0f0f0f] last:border-0">
+                          {/* Step row */}
+                          <div
+                            className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[#111] transition-colors"
+                            onClick={() => setExpandedStep(isExpanded ? null : step.id)}>
+                            {/* Step number */}
+                            <div className="flex-shrink-0 w-6 h-6 rounded-full border border-[#252525] flex items-center justify-center">
+                              <span className="text-[10px] text-[#555]">{step.step}</span>
+                            </div>
+
+                            {/* Date badge */}
+                            <div className="flex-shrink-0 w-[72px] text-right">
+                              <p className="text-[11px] font-medium" style={{ color }}>
+                                {dateLabel(days)}
+                              </p>
+                              <p className="text-[9px]" style={{ color: `${color}70` }}>
+                                {new Date(step.scheduled_date).toLocaleDateString(dateLocale, {
+                                  day: "numeric",
+                                  month: "short",
+                                })}
+                              </p>
+                            </div>
+
+                            {/* Channel */}
+                            <div className="flex-shrink-0 w-[52px] flex items-center gap-1">
+                              <span className="text-[12px] text-[#555]">{CHANNEL_ICONS[step.channel]}</span>
+                              <span className="text-[10px] text-[#444]">{CHANNEL_LABELS[step.channel]}</span>
+                            </div>
+
+                            {/* Objective */}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[12px] text-[#888] truncate">{step.objective}</p>
+                            </div>
+
+                            {/* Status */}
+                            <div className="flex-shrink-0 flex items-center gap-2">
+                              <span className="text-[10px]" style={{ color: statusStyle.color }}>
+                                {statusStyle.label}
+                              </span>
+                              <span className="text-[#333] text-[10px]">{isExpanded ? "▲" : "▼"}</span>
+                            </div>
+                          </div>
+
+                          {/* Expanded message */}
+                          {isExpanded && (
+                            <div className="px-4 pb-4 space-y-3 bg-[#0a0a0a]">
+                              {step.subject && (
+                                <div>
+                                  <p className="text-[9px] uppercase tracking-widest text-[#333] mb-1">
+                                    {t.subjectLabel}
+                                  </p>
+                                  <p className="text-[12px] text-[#888]">{step.subject}</p>
+                                </div>
+                              )}
+                              <div>
+                                <p className="text-[9px] uppercase tracking-widest text-[#333] mb-1.5">
+                                  {t.messageLabel}
+                                </p>
+                                <p className="text-[12px] text-[#c8c0b0] leading-relaxed whitespace-pre-wrap">
+                                  {step.message}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[9px] uppercase tracking-widests text-[#333] mb-1">{t.ctaLabel}</p>
+                                <p className="text-[11px] text-[#666]">{step.cta}</p>
+                              </div>
+
+                              {/* Actions */}
+                              <div className="flex items-center gap-2 pt-1 flex-wrap">
+                                {step.status === "pending" && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateStepStatus(step.id, "sent")}
+                                      disabled={updatingId === step.id}
+                                      className="px-3 py-1.5 rounded-lg border border-[#3b82f6]/30 text-[11px] text-[#3b82f6] hover:bg-[#3b82f6]/08 disabled:opacity-40 transition-all">
+                                      {updatingId === step.id ? "…" : t.markSent}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateStepStatus(step.id, "skipped")}
+                                      disabled={updatingId === step.id}
+                                      className="px-3 py-1.5 rounded-lg border border-[#252525] text-[11px] text-[#444] hover:border-[#333] hover:text-[#666] disabled:opacity-40 transition-all">
+                                      {t.skip}
+                                    </button>
+                                  </>
+                                )}
+                                {step.status === "sent" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => updateStepStatus(step.id, "replied")}
+                                    disabled={updatingId === step.id}
+                                    className="px-3 py-1.5 rounded-lg border border-[#4ade80]/30 text-[11px] text-[#4ade80] hover:bg-[#4ade80]/08 disabled:opacity-40 transition-all">
+                                    {updatingId === step.id ? "…" : t.gotReply}
+                                  </button>
+                                )}
+                                {(step.status === "sent" || step.status === "replied") && (
+                                  <span className="text-[10px] text-[#333]">
+                                    {step.status === "replied" ? t.repliedCelebration : t.sentAwaitingReply}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Legacy follow-ups section — shown if any exist */}
+          {legacyFollowups.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <p className="text-[10px] uppercase tracking-widest text-[#333]">{t.legacyFollowupsLabel}</p>
+                <div className="flex-1 h-px bg-[#1a1a1a]" />
+              </div>
+              {legacyFollowups.map((lead) => {
+                const color = lead.days_until !== null ? dateColor(lead.days_until) : "#3b82f6";
+                return (
+                  <div
+                    key={lead.lead_id}
+                    className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-4 flex items-start gap-4">
+                    <div
+                      className="flex-shrink-0 rounded-xl border px-3 py-2.5 text-center min-w-[72px]"
+                      style={{ borderColor: `${color}35`, backgroundColor: `${color}0a` }}>
+                      {lead.days_until !== null && lead.followup_date ? (
+                        <>
+                          <p className="text-[11px] font-bold" style={{ color }}>
+                            {dateLabel(lead.days_until)}
+                          </p>
+                          <p className="text-[9px] mt-0.5" style={{ color: `${color}80` }}>
+                            {new Date(lead.followup_date).toLocaleDateString(dateLocale, {
+                              day: "numeric",
+                              month: "short",
+                            })}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-[11px] font-bold" style={{ color }}>
+                          {t.contactedStatusLabel}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium text-[#888] truncate">
+                        {lead.company_name ?? t.leadFallback.replace("{id}", lead.lead_id.slice(0, 8))}
+                      </p>
+                      <div className="flex items-center gap-3 mt-1">
+                        {lead.contacted && <span className="text-[10px] text-[#3b82f6]">{t.contactedBadge}</span>}
+                        {lead.replied && <span className="text-[10px] text-[#c9a84c]">{t.repliedBadge}</span>}
+                        {!lead.contacted && <span className="text-[10px] text-[#333]">{t.notContactedYet}</span>}
+                      </div>
+                      {lead.notes && <p className="text-[11px] text-[#444] mt-1.5 line-clamp-2">{lead.notes}</p>}
+                    </div>
+                    <Link
+                      href="/dashboard"
+                      className="flex-shrink-0 px-3 py-2 rounded-xl border border-[#1a1a1a] text-[11px] text-[#444] hover:border-[rgba(201,168,76,0.3)] hover:text-[#c9a84c] transition-all whitespace-nowrap">
+                      {t.open}
                     </Link>
                   </div>
-
-                  {/* Steps */}
-                  {leadSteps.map((step) => {
-                    const days = daysUntil(step.scheduled_date);
-                    const color = dateColor(days);
-                    const isExpanded = expandedStep === step.id;
-                    const statusStyle = STATUS_STYLES[step.status];
-
-                    return (
-                      <div key={step.id} className="border-b border-[#0f0f0f] last:border-0">
-                        {/* Step row */}
-                        <div
-                          className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[#111] transition-colors"
-                          onClick={() => setExpandedStep(isExpanded ? null : step.id)}>
-                          {/* Step number */}
-                          <div className="flex-shrink-0 w-6 h-6 rounded-full border border-[#252525] flex items-center justify-center">
-                            <span className="text-[10px] text-[#555]">{step.step}</span>
-                          </div>
-
-                          {/* Date badge */}
-                          <div className="flex-shrink-0 w-[72px] text-right">
-                            <p className="text-[11px] font-medium" style={{ color }}>
-                              {dateLabel(days)}
-                            </p>
-                            <p className="text-[9px]" style={{ color: `${color}70` }}>
-                              {new Date(step.scheduled_date).toLocaleDateString(dateLocale, {
-                                day: "numeric",
-                                month: "short",
-                              })}
-                            </p>
-                          </div>
-
-                          {/* Channel */}
-                          <div className="flex-shrink-0 w-[52px] flex items-center gap-1">
-                            <span className="text-[12px] text-[#555]">{CHANNEL_ICONS[step.channel]}</span>
-                            <span className="text-[10px] text-[#444]">{CHANNEL_LABELS[step.channel]}</span>
-                          </div>
-
-                          {/* Objective */}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[12px] text-[#888] truncate">{step.objective}</p>
-                          </div>
-
-                          {/* Status */}
-                          <div className="flex-shrink-0 flex items-center gap-2">
-                            <span className="text-[10px]" style={{ color: statusStyle.color }}>
-                              {statusStyle.label}
-                            </span>
-                            <span className="text-[#333] text-[10px]">{isExpanded ? "▲" : "▼"}</span>
-                          </div>
-                        </div>
-
-                        {/* Expanded message */}
-                        {isExpanded && (
-                          <div className="px-4 pb-4 space-y-3 bg-[#0a0a0a]">
-                            {step.subject && (
-                              <div>
-                                <p className="text-[9px] uppercase tracking-widest text-[#333] mb-1">
-                                  {t.subjectLabel}
-                                </p>
-                                <p className="text-[12px] text-[#888]">{step.subject}</p>
-                              </div>
-                            )}
-                            <div>
-                              <p className="text-[9px] uppercase tracking-widest text-[#333] mb-1.5">
-                                {t.messageLabel}
-                              </p>
-                              <p className="text-[12px] text-[#c8c0b0] leading-relaxed whitespace-pre-wrap">
-                                {step.message}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[9px] uppercase tracking-widests text-[#333] mb-1">{t.ctaLabel}</p>
-                              <p className="text-[11px] text-[#666]">{step.cta}</p>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex items-center gap-2 pt-1 flex-wrap">
-                              {step.status === "pending" && (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={() => updateStepStatus(step.id, "sent")}
-                                    disabled={updatingId === step.id}
-                                    className="px-3 py-1.5 rounded-lg border border-[#3b82f6]/30 text-[11px] text-[#3b82f6] hover:bg-[#3b82f6]/08 disabled:opacity-40 transition-all">
-                                    {updatingId === step.id ? "…" : t.markSent}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => updateStepStatus(step.id, "skipped")}
-                                    disabled={updatingId === step.id}
-                                    className="px-3 py-1.5 rounded-lg border border-[#252525] text-[11px] text-[#444] hover:border-[#333] hover:text-[#666] disabled:opacity-40 transition-all">
-                                    {t.skip}
-                                  </button>
-                                </>
-                              )}
-                              {step.status === "sent" && (
-                                <button
-                                  type="button"
-                                  onClick={() => updateStepStatus(step.id, "replied")}
-                                  disabled={updatingId === step.id}
-                                  className="px-3 py-1.5 rounded-lg border border-[#4ade80]/30 text-[11px] text-[#4ade80] hover:bg-[#4ade80]/08 disabled:opacity-40 transition-all">
-                                  {updatingId === step.id ? "…" : t.gotReply}
-                                </button>
-                              )}
-                              {(step.status === "sent" || step.status === "replied") && (
-                                <span className="text-[10px] text-[#333]">
-                                  {step.status === "replied" ? t.repliedCelebration : t.sentAwaitingReply}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Legacy follow-ups section — shown if any exist */}
-        {legacyFollowups.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <p className="text-[10px] uppercase tracking-widest text-[#333]">{t.legacyFollowupsLabel}</p>
-              <div className="flex-1 h-px bg-[#1a1a1a]" />
+                );
+              })}
             </div>
-            {legacyFollowups.map((lead) => {
-              const color = lead.days_until !== null ? dateColor(lead.days_until) : "#3b82f6";
-              return (
-                <div
-                  key={lead.lead_id}
-                  className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-4 flex items-start gap-4">
-                  <div
-                    className="flex-shrink-0 rounded-xl border px-3 py-2.5 text-center min-w-[72px]"
-                    style={{ borderColor: `${color}35`, backgroundColor: `${color}0a` }}>
-                    {lead.days_until !== null && lead.followup_date ? (
-                      <>
-                        <p className="text-[11px] font-bold" style={{ color }}>
-                          {dateLabel(lead.days_until)}
-                        </p>
-                        <p className="text-[9px] mt-0.5" style={{ color: `${color}80` }}>
-                          {new Date(lead.followup_date).toLocaleDateString(dateLocale, {
-                            day: "numeric",
-                            month: "short",
-                          })}
-                        </p>
-                      </>
-                    ) : (
-                      <p className="text-[11px] font-bold" style={{ color }}>
-                        {t.contactedStatusLabel}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-[#888] truncate">
-                      {lead.company_name ?? t.leadFallback.replace("{id}", lead.lead_id.slice(0, 8))}
-                    </p>
-                    <div className="flex items-center gap-3 mt-1">
-                      {lead.contacted && <span className="text-[10px] text-[#3b82f6]">{t.contactedBadge}</span>}
-                      {lead.replied && <span className="text-[10px] text-[#c9a84c]">{t.repliedBadge}</span>}
-                      {!lead.contacted && <span className="text-[10px] text-[#333]">{t.notContactedYet}</span>}
-                    </div>
-                    {lead.notes && <p className="text-[11px] text-[#444] mt-1.5 line-clamp-2">{lead.notes}</p>}
-                  </div>
-                  <Link
-                    href="/dashboard"
-                    className="flex-shrink-0 px-3 py-2 rounded-xl border border-[#1a1a1a] text-[11px] text-[#444] hover:border-[rgba(201,168,76,0.3)] hover:text-[#c9a84c] transition-all whitespace-nowrap">
-                    {t.open}
-                  </Link>
-                </div>
-              );
-            })}
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
