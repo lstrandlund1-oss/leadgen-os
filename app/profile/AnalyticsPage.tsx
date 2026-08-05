@@ -12,7 +12,15 @@ type Outcome = {
   replied: boolean;
   booked_call: boolean;
   closed: boolean;
-  lost_reason: "no_response" | "not_interested" | "has_provider" | "wrong_timing" | "price_too_high" | "chose_competitor" | "other" | null;
+  lost_reason:
+    | "no_response"
+    | "not_interested"
+    | "has_provider"
+    | "wrong_timing"
+    | "price_too_high"
+    | "chose_competitor"
+    | "other"
+    | null;
   revenue: number | null;
   notes: string | null;
   tonality: "soft" | "direct" | "consultative" | "bold" | null;
@@ -51,25 +59,39 @@ type WeeklyPoint = {
 };
 
 const LOST_REASON_LABELS: Record<string, string> = {
-  no_response:     "No response",
-  not_interested:  "Not interested",
-  has_provider:    "Has provider",
-  wrong_timing:    "Wrong timing",
-  price_too_high:  "Price too high",
-  chose_competitor:"Chose competitor",
-  other:           "Other",
+  no_response: "No response",
+  not_interested: "Not interested",
+  has_provider: "Has provider",
+  wrong_timing: "Wrong timing",
+  price_too_high: "Price too high",
+  chose_competitor: "Chose competitor",
+  other: "Other",
 };
 
 const TONALITIES = [
-  { key: "soft" as const,         label: "Soft",         color: "#8b5cf6" },
+  { key: "soft" as const, label: "Soft", color: "#8b5cf6" },
   { key: "consultative" as const, label: "Consultative", color: "#3b82f6" },
-  { key: "direct" as const,       label: "Direct",       color: "#c9a84c" },
-  { key: "bold" as const,         label: "Bold",         color: "#f97316" },
+  { key: "direct" as const, label: "Direct", color: "#c9a84c" },
+  { key: "bold" as const, label: "Bold", color: "#f97316" },
 ];
 
-const MOCK_ANGLES = ["Conversion system upgrade", "Visibility + demand capture", "Foundation-first fix", "Value-first teardown", "Direct growth system"];
+const MOCK_ANGLES = [
+  "Conversion system upgrade",
+  "Visibility + demand capture",
+  "Foundation-first fix",
+  "Value-first teardown",
+  "Direct growth system",
+];
 const MOCK_TONALITIES: ("soft" | "direct" | "consultative" | "bold")[] = ["soft", "consultative", "direct", "bold"];
-const MOCK_LOST_REASONS = ["no_response", "not_interested", "has_provider", "wrong_timing", "price_too_high", "chose_competitor", "other"] as const;
+const MOCK_LOST_REASONS = [
+  "no_response",
+  "not_interested",
+  "has_provider",
+  "wrong_timing",
+  "price_too_high",
+  "chose_competitor",
+  "other",
+] as const;
 
 export default function AnalyticsPage() {
   const [outcomes, setOutcomes] = useState<Outcome[]>([]);
@@ -121,7 +143,7 @@ export default function AnalyticsPage() {
       }
     }
     return rows;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const activeData = demoMode ? mockOutcomes : outcomes;
@@ -146,10 +168,14 @@ export default function AnalyticsPage() {
   const winCount = closed; // reuse already-computed closed count
   const totalRevenue = filtered.reduce((sum, o) => sum + (o.revenue ?? 0), 0);
   const avgDeal = closed > 0 && totalRevenue > 0 ? Math.round(totalRevenue / closed) : 0;
-  const lostReasonBreakdown = Object.entries(LOST_REASON_LABELS).map(([key, label]) => ({
-    key, label,
-    count: lostLeads.filter((o) => o.lost_reason === key).length,
-  })).filter((r) => r.count > 0).sort((a, b) => b.count - a.count);
+  const lostReasonBreakdown = Object.entries(LOST_REASON_LABELS)
+    .map(([key, label]) => ({
+      key,
+      label,
+      count: lostLeads.filter((o) => o.lost_reason === key).length,
+    }))
+    .filter((r) => r.count > 0)
+    .sort((a, b) => b.count - a.count);
   const topLostReason = lostReasonBreakdown[0] ?? null;
 
   // ── Tonality breakdown (all 4) ──
@@ -162,15 +188,16 @@ export default function AnalyticsPage() {
   });
 
   const tonalityWithData = tonalityStats.filter((t) => t.contacted > 0);
-  const bestTonality = tonalityWithData.length > 1
-    ? tonalityWithData.reduce((best, t) => t.replyRate > best.replyRate ? t : best)
-    : null;
+  const bestTonality =
+    tonalityWithData.length > 1
+      ? tonalityWithData.reduce((best, t) => (t.replyRate > best.replyRate ? t : best))
+      : null;
 
   // Legacy vars for insight engine
-  const softContacted = tonalityStats.find(t => t.key === "soft")?.contacted ?? 0;
-  const softReplied = tonalityStats.find(t => t.key === "soft")?.replied ?? 0;
-  const directContacted = tonalityStats.find(t => t.key === "direct")?.contacted ?? 0;
-  const directReplied = tonalityStats.find(t => t.key === "direct")?.replied ?? 0;
+  const softContacted = tonalityStats.find((t) => t.key === "soft")?.contacted ?? 0;
+  const softReplied = tonalityStats.find((t) => t.key === "soft")?.replied ?? 0;
+  const directContacted = tonalityStats.find((t) => t.key === "direct")?.contacted ?? 0;
+  const directReplied = tonalityStats.find((t) => t.key === "direct")?.replied ?? 0;
 
   // ── Angle type breakdown ──
   const angleMap = new Map<string, { contacted: number; replied: number; closed: number }>();
@@ -191,7 +218,15 @@ export default function AnalyticsPage() {
   const weeklyMap = new Map<string, WeeklyPoint>();
   filtered.forEach((o) => {
     const week = getWeekKey(o.created_at);
-    const existing = weeklyMap.get(week) ?? { week, contacted: 0, replied: 0, booked: 0, closed: 0, replyRate: 0, closeRate: 0 };
+    const existing = weeklyMap.get(week) ?? {
+      week,
+      contacted: 0,
+      replied: 0,
+      booked: 0,
+      closed: 0,
+      replyRate: 0,
+      closeRate: 0,
+    };
     weeklyMap.set(week, {
       ...existing,
       contacted: existing.contacted + (o.contacted ? 1 : 0),
@@ -221,43 +256,69 @@ export default function AnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-[#080808] text-[#f5f0e8]">
-
       {/* Nav */}
       <nav className="w-full border-b border-[#151515] bg-[#080808]/90 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <span className="text-[#c9a84c]">◈</span>
-            <Link href="/" className="text-[17px] font-light tracking-wide hover:opacity-80 transition-opacity" style={{ fontFamily: "var(--font-display), serif" }}>
-              Van<span style={{ background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>tio</span>
+            <Link
+              href="/"
+              className="text-[17px] font-light tracking-wide hover:opacity-80 transition-opacity"
+              style={{ fontFamily: "var(--font-display), serif" }}>
+              Van
+              <span
+                style={{
+                  background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                }}>
+                tio
+              </span>
             </Link>
-            <span className="text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full border border-[rgba(201,168,76,0.25)] text-[#8a6e30]">Beta</span>
+            <span className="text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full border border-[rgba(201,168,76,0.25)] text-[#8a6e30]">
+              Beta
+            </span>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/profile" className="text-[12px] text-[#555] hover:text-[#888] transition-colors tracking-wide">← Profile</Link>
-            <Link href="/dashboard" className="text-[12px] text-[#555] hover:text-[#888] transition-colors tracking-wide">Dashboard</Link>
+            <Link
+              href="/settings"
+              className="text-[12px] text-[#555] hover:text-[#888] transition-colors tracking-wide">
+              ← Settings
+            </Link>
+            <Link
+              href="/dashboard"
+              className="text-[12px] text-[#555] hover:text-[#888] transition-colors tracking-wide">
+              Dashboard
+            </Link>
             <HamburgerMenu hasProfile={true} />
           </div>
         </div>
       </nav>
 
       <div className="max-w-5xl mx-auto px-5 py-10 space-y-8">
-
         {/* Header + time range */}
         <div className="flex items-end justify-between">
           <div>
             <p className="text-[10px] tracking-[0.2em] uppercase text-[#8a6e30] mb-1">Performance</p>
             <h1 className="text-3xl md:text-4xl font-light" style={{ fontFamily: "var(--font-display), serif" }}>
-              Your <span className="italic" style={{ color: "#c9a84c" }}>Analytics</span>
+              Your{" "}
+              <span className="italic" style={{ color: "#c9a84c" }}>
+                Analytics
+              </span>
             </h1>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => setDemoMode(!demoMode)}
+            <button
+              onClick={() => setDemoMode(!demoMode)}
               className={`text-[11px] px-3 py-1.5 rounded-lg border transition-all ${demoMode ? "border-[#c9a84c]/40 bg-[rgba(201,168,76,0.08)] text-[#c9a84c]" : "border-[#252525] text-[#444] hover:text-[#666]"}`}>
               {demoMode ? "◉ Demo on" : "◎ Preview"}
             </button>
             <div className="flex items-center gap-1 rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] p-1">
               {(["30d", "90d", "all"] as const).map((r) => (
-                <button key={r} onClick={() => setTimeRange(r)}
+                <button
+                  key={r}
+                  onClick={() => setTimeRange(r)}
                   className={`text-[11px] px-3 py-1.5 rounded-lg transition-all ${timeRange === r ? "bg-[#1a1a1a] text-[#f5f0e8]" : "text-[#555] hover:text-[#888]"}`}>
                   {r === "all" ? "All time" : r === "30d" ? "30 days" : "90 days"}
                 </button>
@@ -269,7 +330,9 @@ export default function AnalyticsPage() {
         {demoMode && (
           <div className="rounded-xl border border-[rgba(201,168,76,0.2)] bg-[rgba(201,168,76,0.04)] px-4 py-2.5 flex items-center gap-2">
             <span className="text-[#c9a84c] text-sm">◉</span>
-            <p className="text-[11px] text-[#8a6e30]">Demo mode — showing sample data so you can preview what analytics look like with real usage.</p>
+            <p className="text-[11px] text-[#8a6e30]">
+              Demo mode — showing sample data so you can preview what analytics look like with real usage.
+            </p>
           </div>
         )}
 
@@ -281,25 +344,44 @@ export default function AnalyticsPage() {
           <div className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-16 text-center space-y-3">
             <p className="text-4xl">📊</p>
             <p className="text-[15px] text-[#555]">No data yet.</p>
-            <p className="text-[12px] text-[#333]">Start contacting leads from the dashboard and mark their outcomes. Your analytics will appear here.</p>
+            <p className="text-[12px] text-[#333]">
+              Start contacting leads from the dashboard and mark their outcomes. Your analytics will appear here.
+            </p>
             <div className="flex items-center justify-center gap-3 mt-3">
-              <Link href="/dashboard" className="text-[12px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors">Go to Dashboard →</Link>
+              <Link href="/dashboard" className="text-[12px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
+                Go to Dashboard →
+              </Link>
               <span className="text-[#333]">or</span>
-              <button onClick={() => setDemoMode(true)} className="text-[12px] text-[#555] hover:text-[#888] transition-colors underline underline-offset-2">Preview with demo data</button>
+              <button
+                onClick={() => setDemoMode(true)}
+                className="text-[12px] text-[#555] hover:text-[#888] transition-colors underline underline-offset-2">
+                Preview with demo data
+              </button>
             </div>
           </div>
         ) : (
           <>
-
             {/* ── KPI row ── */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {[
                 { label: "Leads Contacted", value: contacted.toString(), sub: `${total} total tracked` },
                 { label: "Reply Rate", value: `${pct(replied, contacted)}%`, sub: `${replied} replied` },
                 { label: "Close Rate", value: `${pct(closed, contacted)}%`, sub: `${closed} deals closed` },
-                { label: "Win / Lost", value: `${winCount} / ${lostCount}`, sub: lostCount > 0 ? `${pct(winCount, winCount + lostCount)}% win rate` : "No lost leads yet" },
-                { label: "Total Revenue", value: totalRevenue > 0 ? `$${totalRevenue.toLocaleString()}` : "—", sub: `${closed} deal${closed !== 1 ? "s" : ""} closed` },
-                { label: "Avg Deal Size", value: avgDeal > 0 ? `$${avgDeal.toLocaleString()}` : "—", sub: "per closed deal" },
+                {
+                  label: "Win / Lost",
+                  value: `${winCount} / ${lostCount}`,
+                  sub: lostCount > 0 ? `${pct(winCount, winCount + lostCount)}% win rate` : "No lost leads yet",
+                },
+                {
+                  label: "Total Revenue",
+                  value: totalRevenue > 0 ? `$${totalRevenue.toLocaleString()}` : "—",
+                  sub: `${closed} deal${closed !== 1 ? "s" : ""} closed`,
+                },
+                {
+                  label: "Avg Deal Size",
+                  value: avgDeal > 0 ? `$${avgDeal.toLocaleString()}` : "—",
+                  sub: "per closed deal",
+                },
               ].map((kpi) => (
                 <div key={kpi.label} className="rounded-2xl border border-[#1a1a1a] bg-[#0d0d0d] p-4 space-y-1">
                   <p className="text-[9px] uppercase tracking-widest text-[#444]">{kpi.label}</p>
@@ -338,8 +420,10 @@ export default function AnalyticsPage() {
                         </div>
                       </div>
                       <div className="w-full bg-[#141414] rounded-full h-2">
-                        <div className="h-2 rounded-full transition-all duration-700"
-                          style={{ width: `${i === 0 ? 100 : p}%`, backgroundColor: row.color }} />
+                        <div
+                          className="h-2 rounded-full transition-all duration-700"
+                          style={{ width: `${i === 0 ? 100 : p}%`, backgroundColor: row.color }}
+                        />
                       </div>
                     </div>
                   );
@@ -356,9 +440,13 @@ export default function AnalyticsPage() {
                   const status = value >= bench * 1.2 ? "strong" : value >= bench * 0.7 ? "ok" : "weak";
                   const color = status === "strong" ? "#4ade80" : status === "ok" ? "#c9a84c" : "#f87171";
                   return (
-                    <div key={label} className="rounded-xl border border-[#151515] bg-[#080808] p-3 text-center space-y-1">
+                    <div
+                      key={label}
+                      className="rounded-xl border border-[#151515] bg-[#080808] p-3 text-center space-y-1">
                       <p className="text-[9px] uppercase tracking-wide text-[#444]">{label}</p>
-                      <p className="text-xl font-bold" style={{ color }}>{value}%</p>
+                      <p className="text-xl font-bold" style={{ color }}>
+                        {value}%
+                      </p>
                       <p className="text-[10px]" style={{ color: `${color}80` }}>
                         {status === "strong" ? "Above avg" : status === "ok" ? "On track" : "Below avg"}
                       </p>
@@ -379,7 +467,9 @@ export default function AnalyticsPage() {
                   {bestReplyWeek && (
                     <div className="text-right">
                       <p className="text-[10px] text-[#444]">Best reply week</p>
-                      <p className="text-[13px] font-bold text-[#c9a84c]">{getWeekLabel(bestReplyWeek.week)} — {bestReplyWeek.replyRate}%</p>
+                      <p className="text-[13px] font-bold text-[#c9a84c]">
+                        {getWeekLabel(bestReplyWeek.week)} — {bestReplyWeek.replyRate}%
+                      </p>
                     </div>
                   )}
                 </div>
@@ -392,7 +482,10 @@ export default function AnalyticsPage() {
                       const h = Math.max(4, Math.round((w.contacted / maxContacted) * 96));
                       return (
                         <div key={w.week} className="flex-1 flex flex-col items-center gap-1 group relative">
-                          <div className="w-full rounded-t-sm bg-[#3b82f6]/40 hover:bg-[#3b82f6]/70 transition-colors cursor-default" style={{ height: `${h}px` }} />
+                          <div
+                            className="w-full rounded-t-sm bg-[#3b82f6]/40 hover:bg-[#3b82f6]/70 transition-colors cursor-default"
+                            style={{ height: `${h}px` }}
+                          />
                           <p className="text-[9px] text-[#333] group-hover:text-[#555]">{getWeekLabel(w.week)}</p>
                           {/* Tooltip */}
                           <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block z-10 bg-[#111] border border-[#252525] rounded-lg px-2 py-1.5 text-[10px] whitespace-nowrap space-y-0.5">
@@ -410,27 +503,56 @@ export default function AnalyticsPage() {
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-[#444] mb-3">Reply rate % per week</p>
                   <div className="relative h-28">
-                    <svg viewBox={`0 0 ${Math.max(weeklyData.length * 40, 200)} 80`} className="w-full h-full" preserveAspectRatio="none">
+                    <svg
+                      viewBox={`0 0 ${Math.max(weeklyData.length * 40, 200)} 80`}
+                      className="w-full h-full"
+                      preserveAspectRatio="none">
                       {/* Grid lines */}
                       {[0, 25, 50, 75, 100].map((g) => (
-                        <line key={g} x1="0" y1={80 - (g / maxRate) * 80} x2="10000" y2={80 - (g / maxRate) * 80}
-                          stroke="#1a1a1a" strokeWidth="0.5" />
+                        <line
+                          key={g}
+                          x1="0"
+                          y1={80 - (g / maxRate) * 80}
+                          x2="10000"
+                          y2={80 - (g / maxRate) * 80}
+                          stroke="#1a1a1a"
+                          strokeWidth="0.5"
+                        />
                       ))}
                       {/* Reply rate line */}
                       {weeklyData.length > 1 && (
                         <polyline
-                          points={weeklyData.map((w, i) => `${i * 40 + 20},${80 - (w.replyRate / maxRate) * 76}`).join(" ")}
-                          fill="none" stroke="#c9a84c" strokeWidth="1.5" strokeLinejoin="round" />
+                          points={weeklyData
+                            .map((w, i) => `${i * 40 + 20},${80 - (w.replyRate / maxRate) * 76}`)
+                            .join(" ")}
+                          fill="none"
+                          stroke="#c9a84c"
+                          strokeWidth="1.5"
+                          strokeLinejoin="round"
+                        />
                       )}
                       {/* Close rate line */}
                       {weeklyData.length > 1 && (
                         <polyline
-                          points={weeklyData.map((w, i) => `${i * 40 + 20},${80 - (w.closeRate / maxRate) * 76}`).join(" ")}
-                          fill="none" stroke="#4ade80" strokeWidth="1.5" strokeLinejoin="round" strokeDasharray="4 2" />
+                          points={weeklyData
+                            .map((w, i) => `${i * 40 + 20},${80 - (w.closeRate / maxRate) * 76}`)
+                            .join(" ")}
+                          fill="none"
+                          stroke="#4ade80"
+                          strokeWidth="1.5"
+                          strokeLinejoin="round"
+                          strokeDasharray="4 2"
+                        />
                       )}
                       {/* Dots */}
                       {weeklyData.map((w, i) => (
-                        <circle key={w.week} cx={i * 40 + 20} cy={80 - (w.replyRate / maxRate) * 76} r="3" fill="#c9a84c" />
+                        <circle
+                          key={w.week}
+                          cx={i * 40 + 20}
+                          cy={80 - (w.replyRate / maxRate) * 76}
+                          r="3"
+                          fill="#c9a84c"
+                        />
                       ))}
                     </svg>
                     {/* Legend */}
@@ -440,7 +562,10 @@ export default function AnalyticsPage() {
                         <p className="text-[9px] text-[#555]">Reply rate</p>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <div className="w-4 h-0.5 bg-[#4ade80] border-dashed" style={{ borderTop: "1.5px dashed #4ade80", background: "none" }} />
+                        <div
+                          className="w-4 h-0.5 bg-[#4ade80] border-dashed"
+                          style={{ borderTop: "1.5px dashed #4ade80", background: "none" }}
+                        />
                         <p className="text-[9px] text-[#555]">Close rate</p>
                       </div>
                     </div>
@@ -462,17 +587,25 @@ export default function AnalyticsPage() {
                     const isWinner = bestTonality?.key === t.key;
                     const noData = t.contacted === 0;
                     return (
-                      <div key={t.key} className={`rounded-xl border p-4 space-y-3 ${
-                        noData ? "border-[#111] bg-[#080808] opacity-40"
-                        : isWinner ? "border-[rgba(201,168,76,0.3)] bg-[rgba(201,168,76,0.03)]"
-                        : "border-[#1a1a1a] bg-[#080808]"
-                      }`}>
+                      <div
+                        key={t.key}
+                        className={`rounded-xl border p-4 space-y-3 ${
+                          noData
+                            ? "border-[#111] bg-[#080808] opacity-40"
+                            : isWinner
+                              ? "border-[rgba(201,168,76,0.3)] bg-[rgba(201,168,76,0.03)]"
+                              : "border-[#1a1a1a] bg-[#080808]"
+                        }`}>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full" style={{ background: t.color }} />
                             <p className="text-[13px] font-semibold text-[#f5f0e8]">{t.label}</p>
                           </div>
-                          {isWinner && <span className="text-[9px] px-1.5 py-0.5 rounded-full border border-[#c9a84c]/30 text-[#c9a84c]">Best</span>}
+                          {isWinner && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full border border-[#c9a84c]/30 text-[#c9a84c]">
+                              Best
+                            </span>
+                          )}
                         </div>
                         {noData ? (
                           <p className="text-[10px] text-[#333]">No data yet</p>
@@ -485,7 +618,9 @@ export default function AnalyticsPage() {
                               </div>
                               <div className="flex justify-between text-[11px]">
                                 <span className="text-[#555]">Reply rate</span>
-                                <span className="font-bold" style={{ color: t.color }}>{t.replyRate}%</span>
+                                <span className="font-bold" style={{ color: t.color }}>
+                                  {t.replyRate}%
+                                </span>
                               </div>
                               <div className="flex justify-between text-[11px]">
                                 <span className="text-[#555]">Close rate</span>
@@ -493,7 +628,10 @@ export default function AnalyticsPage() {
                               </div>
                             </div>
                             <div className="w-full bg-[#141414] rounded-full h-1.5">
-                              <div className="h-1.5 rounded-full transition-all duration-700" style={{ width: `${t.replyRate}%`, backgroundColor: t.color }} />
+                              <div
+                                className="h-1.5 rounded-full transition-all duration-700"
+                                style={{ width: `${t.replyRate}%`, backgroundColor: t.color }}
+                              />
                             </div>
                           </>
                         )}
@@ -505,9 +643,15 @@ export default function AnalyticsPage() {
                   <div className="rounded-xl border border-[#151515] bg-[#080808] px-4 py-3 flex items-center gap-3">
                     <span style={{ color: bestTonality.color }}>★</span>
                     <p className="text-[12px] text-[#888]">
-                      <span className="font-semibold" style={{ color: bestTonality.color }}>{bestTonality.label}</span> is your top-performing tone at {bestTonality.replyRate}% reply rate{bestTonality.replyRate > 0 && tonalityWithData.filter(t => t.key !== bestTonality.key && t.contacted > 0).length > 0
-                        ? ` — ${bestTonality.replyRate - Math.max(...tonalityWithData.filter(t => t.key !== bestTonality.key).map(t => t.replyRate))} points ahead of the next best`
-                        : ""}.
+                      <span className="font-semibold" style={{ color: bestTonality.color }}>
+                        {bestTonality.label}
+                      </span>{" "}
+                      is your top-performing tone at {bestTonality.replyRate}% reply rate
+                      {bestTonality.replyRate > 0 &&
+                      tonalityWithData.filter((t) => t.key !== bestTonality.key && t.contacted > 0).length > 0
+                        ? ` — ${bestTonality.replyRate - Math.max(...tonalityWithData.filter((t) => t.key !== bestTonality.key).map((t) => t.replyRate))} points ahead of the next best`
+                        : ""}
+                      .
                     </p>
                   </div>
                 )}
@@ -520,7 +664,9 @@ export default function AnalyticsPage() {
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.15em] text-[#8a6e30] mb-1">Messaging</p>
                   <h2 className="text-[15px] font-semibold text-[#c8c0b0]">Angle Performance</h2>
-                  <p className="text-[11px] text-[#444] mt-1">Which angles are generating the most replies and closes.</p>
+                  <p className="text-[11px] text-[#444] mt-1">
+                    Which angles are generating the most replies and closes.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   {/* Header */}
@@ -535,7 +681,9 @@ export default function AnalyticsPage() {
                     .map((row, i) => {
                       const isTop = i === 0;
                       return (
-                        <div key={row.name} className={`grid grid-cols-10 gap-2 rounded-xl border px-3 py-3 items-center ${isTop ? "border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.03)]" : "border-[#151515] bg-[#080808]"}`}>
+                        <div
+                          key={row.name}
+                          className={`grid grid-cols-10 gap-2 rounded-xl border px-3 py-3 items-center ${isTop ? "border-[rgba(201,168,76,0.25)] bg-[rgba(201,168,76,0.03)]" : "border-[#151515] bg-[#080808]"}`}>
                           <div className="col-span-4 flex items-center gap-2">
                             {isTop && <span className="text-[10px] text-[#c9a84c]">★</span>}
                             <p className="text-[12px] text-[#c8c0b0] truncate">{row.name}</p>
@@ -544,7 +692,11 @@ export default function AnalyticsPage() {
                             <p className="text-[12px] text-[#666]">{row.contacted}</p>
                           </div>
                           <div className="col-span-2 text-right">
-                            <p className="text-[12px] font-bold" style={{ color: row.replyRate >= 25 ? "#4ade80" : row.replyRate >= 15 ? "#c9a84c" : "#f87171" }}>
+                            <p
+                              className="text-[12px] font-bold"
+                              style={{
+                                color: row.replyRate >= 25 ? "#4ade80" : row.replyRate >= 15 ? "#c9a84c" : "#f87171",
+                              }}>
                               {row.replyRate}%
                             </p>
                           </div>
@@ -573,7 +725,9 @@ export default function AnalyticsPage() {
                   ].map((s) => (
                     <div key={s.label} className="rounded-xl border border-[#151515] bg-[#080808] p-3 text-center">
                       <p className="text-[9px] uppercase tracking-widest text-[#444]">{s.label}</p>
-                      <p className="text-xl font-bold mt-1" style={{ color: s.color }}>{s.value}</p>
+                      <p className="text-xl font-bold mt-1" style={{ color: s.color }}>
+                        {s.value}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -586,20 +740,23 @@ export default function AnalyticsPage() {
                       const hasActivity = w.contacted > 0;
                       return (
                         <div key={w.week} className="flex-1 flex flex-col items-center gap-1 group relative">
-                          <div className="w-full rounded-t-sm transition-colors cursor-default"
-                            style={{ height: `${h}px`, backgroundColor: hasActivity ? "#4ade8040" : "#1a1a1a" }} />
+                          <div
+                            className="w-full rounded-t-sm transition-colors cursor-default"
+                            style={{ height: `${h}px`, backgroundColor: hasActivity ? "#4ade8040" : "#1a1a1a" }}
+                          />
                           <p className="text-[9px] text-[#333]">{getWeekLabel(w.week)}</p>
                           {hasActivity && (
                             <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block z-10 bg-[#111] border border-[#252525] rounded-lg px-2 py-1.5 text-[10px] whitespace-nowrap space-y-0.5">
                               <p className="text-[#4ade80] font-bold">{w.closeRate}% close rate</p>
-                              <p className="text-[#555]">{w.closed} closed / {w.contacted} contacted</p>
+                              <p className="text-[#555]">
+                                {w.closed} closed / {w.contacted} contacted
+                              </p>
                             </div>
                           )}
                         </div>
                       );
                     })}
                   </div>
-
                 </div>
               </section>
             )}
@@ -611,14 +768,27 @@ export default function AnalyticsPage() {
                   <div>
                     <p className="text-[10px] uppercase tracking-[0.15em] text-[#f87171]/70 mb-1">Lost Leads</p>
                     <h2 className="text-[15px] font-semibold text-[#c8c0b0]">Why Deals Are Being Lost</h2>
-                    <p className="text-[11px] text-[#444] mt-1">Patterns in your lost leads help you avoid the same mistakes.</p>
+                    <p className="text-[11px] text-[#444] mt-1">
+                      Patterns in your lost leads help you avoid the same mistakes.
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] text-[#444]">Win rate</p>
-                    <p className="text-[18px] font-bold" style={{ color: pct(winCount, winCount + lostCount) >= 50 ? "#4ade80" : pct(winCount, winCount + lostCount) >= 30 ? "#c9a84c" : "#f87171" }}>
+                    <p
+                      className="text-[18px] font-bold"
+                      style={{
+                        color:
+                          pct(winCount, winCount + lostCount) >= 50
+                            ? "#4ade80"
+                            : pct(winCount, winCount + lostCount) >= 30
+                              ? "#c9a84c"
+                              : "#f87171",
+                      }}>
                       {pct(winCount, winCount + lostCount)}%
                     </p>
-                    <p className="text-[10px] text-[#333]">{winCount}W / {lostCount}L</p>
+                    <p className="text-[10px] text-[#333]">
+                      {winCount}W / {lostCount}L
+                    </p>
                   </div>
                 </div>
 
@@ -640,8 +810,10 @@ export default function AnalyticsPage() {
                           </div>
                         </div>
                         <div className="w-full bg-[#141414] rounded-full h-1.5">
-                          <div className="h-1.5 rounded-full transition-all duration-700 bg-[#f87171]/60"
-                            style={{ width: `${pctOfLost}%` }} />
+                          <div
+                            className="h-1.5 rounded-full transition-all duration-700 bg-[#f87171]/60"
+                            style={{ width: `${pctOfLost}%` }}
+                          />
                         </div>
                       </div>
                     );
@@ -653,14 +825,22 @@ export default function AnalyticsPage() {
                   <div className="rounded-xl border border-[#f87171]/20 bg-[#f87171]/05 px-4 py-3 flex items-start gap-3">
                     <span className="text-[#f87171] mt-0.5 shrink-0">→</span>
                     <p className="text-[12px] text-[#888] leading-relaxed">
-                      <span className="font-semibold text-[#f87171]">{topLostReason.label}</span> is your most common loss reason at {pct(topLostReason.count, lostCount)}% of lost leads.
-                      {topLostReason.key === "no_response" && " Try a follow-up sequence — most deals need 3–5 touches before a reply."}
-                      {topLostReason.key === "price_too_high" && " Consider leading with ROI framing before discussing price on your next calls."}
-                      {topLostReason.key === "chose_competitor" && " Focus on differentiation — make your unique advantage clear earlier in the conversation."}
-                      {topLostReason.key === "wrong_timing" && " Add these leads to a 90-day re-approach queue — timing issues often resolve themselves."}
-                      {topLostReason.key === "has_provider" && " Ask why they're staying — dissatisfied clients of competitors are still viable leads."}
-                      {topLostReason.key === "not_interested" && " Review your targeting — not_interested at high volume may signal a fit or angle mismatch."}
-                      {topLostReason.key === "other" && " Log more specific reasons over time to build a clearer picture."}
+                      <span className="font-semibold text-[#f87171]">{topLostReason.label}</span> is your most common
+                      loss reason at {pct(topLostReason.count, lostCount)}% of lost leads.
+                      {topLostReason.key === "no_response" &&
+                        " Try a follow-up sequence — most deals need 3–5 touches before a reply."}
+                      {topLostReason.key === "price_too_high" &&
+                        " Consider leading with ROI framing before discussing price on your next calls."}
+                      {topLostReason.key === "chose_competitor" &&
+                        " Focus on differentiation — make your unique advantage clear earlier in the conversation."}
+                      {topLostReason.key === "wrong_timing" &&
+                        " Add these leads to a 90-day re-approach queue — timing issues often resolve themselves."}
+                      {topLostReason.key === "has_provider" &&
+                        " Ask why they're staying — dissatisfied clients of competitors are still viable leads."}
+                      {topLostReason.key === "not_interested" &&
+                        " Review your targeting — not_interested at high volume may signal a fit or angle mismatch."}
+                      {topLostReason.key === "other" &&
+                        " Log more specific reasons over time to build a clearer picture."}
                     </p>
                   </div>
                 )}
@@ -681,67 +861,101 @@ export default function AnalyticsPage() {
 
               if (contacted >= 5) {
                 if (replyRate >= 25) {
-                  insights.push(`Strong reply rate of ${replyRate}%. Your messaging is landing — focus on booking more calls from those replies.`);
+                  insights.push(
+                    `Strong reply rate of ${replyRate}%. Your messaging is landing — focus on booking more calls from those replies.`,
+                  );
                 } else if (replyRate >= 15) {
-                  insights.push(`Reply rate of ${replyRate}% is on track. To push past 25%, test a different angle or tighten your opening line.`);
+                  insights.push(
+                    `Reply rate of ${replyRate}% is on track. To push past 25%, test a different angle or tighten your opening line.`,
+                  );
                 } else {
                   if (winningTonality && bestTonality) {
-                    insights.push(`Reply rate is ${replyRate}% — below benchmark. Your data shows ${bestTonality.label} tonality performing best at ${bestTonality.replyRate}%. Lean into it for new outreach.`);
+                    insights.push(
+                      `Reply rate is ${replyRate}% — below benchmark. Your data shows ${bestTonality.label} tonality performing best at ${bestTonality.replyRate}%. Lean into it for new outreach.`,
+                    );
                   } else {
-                    insights.push(`Reply rate is ${replyRate}% — below the 15% benchmark. Try a different angle or tonality to find what resonates.`);
+                    insights.push(
+                      `Reply rate is ${replyRate}% — below the 15% benchmark. Try a different angle or tonality to find what resonates.`,
+                    );
                   }
                 }
               }
 
               if (replied >= 3) {
                 if (bookRate >= 50) {
-                  insights.push(`Solid booking rate of ${bookRate}% from replies. You are converting conversations into calls effectively.`);
+                  insights.push(
+                    `Solid booking rate of ${bookRate}% from replies. You are converting conversations into calls effectively.`,
+                  );
                 } else if (bookRate < 30) {
-                  insights.push(`Low booking rate of ${bookRate}% from replies. Add a direct ask with a specific time slot — open-ended follow-ups rarely convert.`);
+                  insights.push(
+                    `Low booking rate of ${bookRate}% from replies. Add a direct ask with a specific time slot — open-ended follow-ups rarely convert.`,
+                  );
                 }
               }
 
               if (booked >= 2) {
                 if (closeRate >= 70) {
-                  insights.push(`Close rate of ${closeRate}% from booked calls is strong. Focus on scaling volume — your offer is working.`);
+                  insights.push(
+                    `Close rate of ${closeRate}% from booked calls is strong. Focus on scaling volume — your offer is working.`,
+                  );
                 } else if (closeRate < 50) {
-                  insights.push(`Close rate of ${closeRate}% from calls needs attention. Review where objections come up — usually price framing or unclear ROI.`);
+                  insights.push(
+                    `Close rate of ${closeRate}% from calls needs attention. Review where objections come up — usually price framing or unclear ROI.`,
+                  );
                 }
               }
 
               if (bothTonalities && bestTonality && tonalityWithData.length > 1) {
-                const secondBest = tonalityWithData.filter(t => t.key !== bestTonality.key).reduce((b, t) => t.replyRate > b.replyRate ? t : b);
+                const secondBest = tonalityWithData
+                  .filter((t) => t.key !== bestTonality.key)
+                  .reduce((b, t) => (t.replyRate > b.replyRate ? t : b));
                 const diff = bestTonality.replyRate - secondBest.replyRate;
                 if (diff >= 3) {
-                  insights.push(`${bestTonality.label} tonality is leading with a ${bestTonality.replyRate}% reply rate — ${diff} points ahead of ${secondBest.label} (${secondBest.replyRate}%). Prioritise it for new outreach.`);
+                  insights.push(
+                    `${bestTonality.label} tonality is leading with a ${bestTonality.replyRate}% reply rate — ${diff} points ahead of ${secondBest.label} (${secondBest.replyRate}%). Prioritise it for new outreach.`,
+                  );
                 } else if (diff >= 0) {
-                  insights.push(`Tonalities are closely matched — ${bestTonality.label} leads at ${bestTonality.replyRate}% but keep testing to build a clearer signal.`);
+                  insights.push(
+                    `Tonalities are closely matched — ${bestTonality.label} leads at ${bestTonality.replyRate}% but keep testing to build a clearer signal.`,
+                  );
                 }
               }
 
               if (angleRows.length > 1 && angleRows[0].contacted >= 2 && angleRows[0].name !== "Unknown") {
                 const diff = angleRows[0].replyRate - (angleRows[1]?.replyRate ?? 0);
                 if (diff >= 5) {
-                  insights.push(`"${angleRows[0].name}" is your best angle at ${angleRows[0].replyRate}% reply rate — ${diff} points ahead of the next best. Use it more.`);
+                  insights.push(
+                    `"${angleRows[0].name}" is your best angle at ${angleRows[0].replyRate}% reply rate — ${diff} points ahead of the next best. Use it more.`,
+                  );
                 } else {
-                  insights.push(`Top angles are closely matched. "${angleRows[0].name}" leads at ${angleRows[0].replyRate}% but keep testing to find a clear winner.`);
+                  insights.push(
+                    `Top angles are closely matched. "${angleRows[0].name}" leads at ${angleRows[0].replyRate}% but keep testing to find a clear winner.`,
+                  );
                 }
               }
 
               if (bestReplyWeek && weeklyData.length > 2) {
-                insights.push(`Best week: ${getWeekLabel(bestReplyWeek.week)} with a ${bestReplyWeek.replyRate}% reply rate and ${bestReplyWeek.contacted} contacts. What did you do differently that week?`);
+                insights.push(
+                  `Best week: ${getWeekLabel(bestReplyWeek.week)} with a ${bestReplyWeek.replyRate}% reply rate and ${bestReplyWeek.contacted} contacts. What did you do differently that week?`,
+                );
               }
 
               if (contacted >= 10 && closed === 0) {
-                insights.push(`You have ${contacted} contacts but no closed deals yet. Getting on calls is where deals happen — focus on improving your booking rate.`);
+                insights.push(
+                  `You have ${contacted} contacts but no closed deals yet. Getting on calls is where deals happen — focus on improving your booking rate.`,
+                );
               }
 
               if (lostCount >= 3 && topLostReason) {
                 const winRate = pct(winCount, winCount + lostCount);
                 if (winRate < 40) {
-                  insights.push(`Win rate is ${winRate}% with ${lostCount} lost leads. The biggest drop-off is "${topLostReason.label}" — addressing this one reason could meaningfully shift your results.`);
+                  insights.push(
+                    `Win rate is ${winRate}% with ${lostCount} lost leads. The biggest drop-off is "${topLostReason.label}" — addressing this one reason could meaningfully shift your results.`,
+                  );
                 } else if (winRate >= 60) {
-                  insights.push(`Strong win rate of ${winRate}% across ${winCount + lostCount} resolved leads. Keep logging outcomes to maintain visibility on what's working.`);
+                  insights.push(
+                    `Strong win rate of ${winRate}% across ${winCount + lostCount} resolved leads. Keep logging outcomes to maintain visibility on what's working.`,
+                  );
                 }
               }
 
@@ -755,19 +969,24 @@ export default function AnalyticsPage() {
                     {insights.length === 0 ? (
                       <div className="flex items-start gap-3 rounded-lg border border-[#1a1a1a] bg-[#0d0d0d] px-3 py-2.5">
                         <span className="text-[#555] mt-0.5 shrink-0">→</span>
-                        <p className="text-[12px] text-[#555] leading-relaxed">Contact at least 5 leads to start seeing meaningful insights here.</p>
+                        <p className="text-[12px] text-[#555] leading-relaxed">
+                          Contact at least 5 leads to start seeing meaningful insights here.
+                        </p>
                       </div>
-                    ) : insights.map((insight, i) => (
-                      <div key={i} className="flex items-start gap-3 rounded-lg border border-[#1a1a1a] bg-[#0d0d0d] px-3 py-2.5">
-                        <span className="text-[#c9a84c] mt-0.5 shrink-0">→</span>
-                        <p className="text-[12px] text-[#888] leading-relaxed">{insight}</p>
-                      </div>
-                    ))}
+                    ) : (
+                      insights.map((insight, i) => (
+                        <div
+                          key={i}
+                          className="flex items-start gap-3 rounded-lg border border-[#1a1a1a] bg-[#0d0d0d] px-3 py-2.5">
+                          <span className="text-[#c9a84c] mt-0.5 shrink-0">→</span>
+                          <p className="text-[12px] text-[#888] leading-relaxed">{insight}</p>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </section>
               );
             })()}
-
           </>
         )}
       </div>
