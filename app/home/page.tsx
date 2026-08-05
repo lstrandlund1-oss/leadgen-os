@@ -106,6 +106,12 @@ const DEMO_RECOMMENDATIONS: RecommendedOpportunity[] = [
   },
 ];
 
+function daysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString();
+}
+
 const DEMO_PIPELINE: PipelineOverview = {
   stages: {
     recommended: Array.from({ length: 61 }, (_, i) => ({
@@ -117,6 +123,7 @@ const DEMO_PIPELINE: PipelineOverview = {
       stage: "recommended",
       revenue: null,
       opportunityValue: 50 + ((i * 7) % 45),
+      stageEnteredAt: daysAgo(i % 20),
     })),
     contacted: Array.from({ length: 37 }, (_, i) => ({
       rawId: -200 - i,
@@ -127,6 +134,7 @@ const DEMO_PIPELINE: PipelineOverview = {
       stage: "contacted",
       revenue: null,
       opportunityValue: 55 + ((i * 5) % 40),
+      stageEnteredAt: daysAgo(i % 15),
     })),
     replied: Array.from({ length: 18 }, (_, i) => ({
       rawId: -300 - i,
@@ -137,6 +145,7 @@ const DEMO_PIPELINE: PipelineOverview = {
       stage: "replied",
       revenue: null,
       opportunityValue: 60 + ((i * 6) % 35),
+      stageEnteredAt: daysAgo(i % 12),
     })),
     meeting: Array.from({ length: 5 }, (_, i) => ({
       rawId: -400 - i,
@@ -147,6 +156,7 @@ const DEMO_PIPELINE: PipelineOverview = {
       stage: "meeting",
       revenue: null,
       opportunityValue: 70 + ((i * 4) % 25),
+      stageEnteredAt: daysAgo(i * 2),
     })),
     won: Array.from({ length: 2 }, (_, i) => ({
       rawId: -500 - i,
@@ -157,6 +167,7 @@ const DEMO_PIPELINE: PipelineOverview = {
       stage: "won",
       revenue: 47_500,
       opportunityValue: 85 + i,
+      stageEnteredAt: daysAgo(i + 1),
     })),
     lost: Array.from({ length: 4 }, (_, i) => ({
       rawId: -600 - i,
@@ -167,6 +178,7 @@ const DEMO_PIPELINE: PipelineOverview = {
       stage: "lost",
       revenue: null,
       opportunityValue: 40 + ((i * 3) % 30),
+      stageEnteredAt: daysAgo(i + 3),
     })),
   },
   totalActiveCount: 61 + 37 + 18 + 5,

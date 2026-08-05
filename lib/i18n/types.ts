@@ -359,6 +359,10 @@ export type TranslationSchema = {
       emptyStateBody: string;
       loading: string;
       moreCount: (count: number) => string;
+      needsAttentionTitle: string;
+      needsAttentionEmpty: string;
+      daysStuck: (days: number) => string;
+      rateToNext: (percent: number) => string;
     };
     home: {
       greetingMorning: string;

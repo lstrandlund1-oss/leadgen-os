@@ -505,6 +505,10 @@ export const en: TranslationSchema = {
       emptyStateBody: "Once you start contacting scored opportunities, they'll move through your pipeline here.",
       loading: "Loading your pipeline…",
       moreCount: (count: number) => `+${count} more`,
+      needsAttentionTitle: "Needs attention",
+      needsAttentionEmpty: "Nothing stuck right now — every active lead has moved recently.",
+      daysStuck: (days: number) => `${days}d stuck`,
+      rateToNext: (percent: number) => `${percent}%`,
     },
     home: {
       greetingMorning: "Good morning",

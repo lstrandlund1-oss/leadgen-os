@@ -5,7 +5,8 @@ import Link from "next/link";
 import { getTranslations } from "@/lib/i18n";
 import { getStoredLanguage } from "@/lib/languagePreference";
 import Sidebar from "@/app/components/Sidebar";
-import type { PipelineOverview, PipelineStage } from "@/lib/pipeline/getPipelineOverview";
+import type { PipelineOverview, PipelineStage, PipelineOpportunity } from "@/lib/pipeline/getPipelineOverview";
+import { findStaleLeads } from "@/lib/pipeline/staleLeads";
 
 const STAGE_ORDER: PipelineStage[] = ["recommended", "contacted", "replied", "meeting", "won", "lost"];
 
@@ -24,9 +25,15 @@ function scoreColor(value: number): string {
   return "#555";
 }
 
-// Demo data — same shape and sample companies as Home's demo mode, for a
-// consistent story when someone toggles both on. Never shown unless the
-// user explicitly opts in via the toggle below.
+function daysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString();
+}
+
+// Demo data — never shown unless the user explicitly opts in via the
+// toggle below. Varying stageEnteredAt values so the demo actually shows
+// the "Needs attention" section working, not just an always-empty state.
 const DEMO_OVERVIEW: PipelineOverview = {
   stages: {
     recommended: [
@@ -39,6 +46,7 @@ const DEMO_OVERVIEW: PipelineOverview = {
         stage: "recommended",
         revenue: null,
         opportunityValue: 91,
+        stageEnteredAt: daysAgo(0),
       },
       {
         rawId: -2,
@@ -49,6 +57,7 @@ const DEMO_OVERVIEW: PipelineOverview = {
         stage: "recommended",
         revenue: null,
         opportunityValue: 87,
+        stageEnteredAt: daysAgo(1),
       },
       ...Array.from({ length: 59 }, (_, i) => ({
         rawId: -100 - i,
@@ -59,28 +68,57 @@ const DEMO_OVERVIEW: PipelineOverview = {
         stage: "recommended" as const,
         revenue: null,
         opportunityValue: 50 + ((i * 7) % 45),
+        stageEnteredAt: daysAgo(i % 20),
       })),
     ],
-    contacted: Array.from({ length: 37 }, (_, i) => ({
-      rawId: -200 - i,
-      leadId: `demo:c${i}`,
-      runId: null,
-      name: `Company ${i}`,
-      city: null,
-      stage: "contacted" as const,
-      revenue: null,
-      opportunityValue: 55 + ((i * 5) % 40),
-    })),
-    replied: Array.from({ length: 18 }, (_, i) => ({
-      rawId: -300 - i,
-      leadId: `demo:re${i}`,
-      runId: null,
-      name: `Company ${i}`,
-      city: null,
-      stage: "replied" as const,
-      revenue: null,
-      opportunityValue: 60 + ((i * 6) % 35),
-    })),
+    contacted: [
+      {
+        rawId: -250,
+        leadId: "demo:c-stale1",
+        runId: null,
+        name: "Flowbite AB",
+        city: "Malmö",
+        stage: "contacted",
+        revenue: null,
+        opportunityValue: 72,
+        stageEnteredAt: daysAgo(11),
+      },
+      ...Array.from({ length: 36 }, (_, i) => ({
+        rawId: -200 - i,
+        leadId: `demo:c${i}`,
+        runId: null,
+        name: `Company ${i}`,
+        city: null,
+        stage: "contacted" as const,
+        revenue: null,
+        opportunityValue: 55 + ((i * 5) % 40),
+        stageEnteredAt: daysAgo(i % 6),
+      })),
+    ],
+    replied: [
+      {
+        rawId: -350,
+        leadId: "demo:re-stale1",
+        runId: null,
+        name: "Nordvik Consulting",
+        city: "Uppsala",
+        stage: "replied",
+        revenue: null,
+        opportunityValue: 68,
+        stageEnteredAt: daysAgo(9),
+      },
+      ...Array.from({ length: 17 }, (_, i) => ({
+        rawId: -300 - i,
+        leadId: `demo:re${i}`,
+        runId: null,
+        name: `Company ${i}`,
+        city: null,
+        stage: "replied" as const,
+        revenue: null,
+        opportunityValue: 60 + ((i * 6) % 35),
+        stageEnteredAt: daysAgo(i % 5),
+      })),
+    ],
     meeting: Array.from({ length: 5 }, (_, i) => ({
       rawId: -400 - i,
       leadId: `demo:m${i}`,
@@ -90,6 +128,7 @@ const DEMO_OVERVIEW: PipelineOverview = {
       stage: "meeting" as const,
       revenue: null,
       opportunityValue: 70 + ((i * 4) % 25),
+      stageEnteredAt: daysAgo(i),
     })),
     won: [
       {
@@ -98,9 +137,10 @@ const DEMO_OVERVIEW: PipelineOverview = {
         runId: null,
         name: "Studio Vertex",
         city: "Malmö",
-        stage: "won" as const,
+        stage: "won",
         revenue: 95_000,
         opportunityValue: 86,
+        stageEnteredAt: daysAgo(2),
       },
       {
         rawId: -502,
@@ -108,9 +148,10 @@ const DEMO_OVERVIEW: PipelineOverview = {
         runId: null,
         name: "Creative Mill",
         city: "Uppsala",
-        stage: "won" as const,
+        stage: "won",
         revenue: 50_000,
         opportunityValue: 88,
+        stageEnteredAt: daysAgo(6),
       },
     ],
     lost: Array.from({ length: 4 }, (_, i) => ({
@@ -122,20 +163,26 @@ const DEMO_OVERVIEW: PipelineOverview = {
       stage: "lost" as const,
       revenue: null,
       opportunityValue: 40 + ((i * 3) % 30),
+      stageEnteredAt: daysAgo(i + 3),
     })),
   },
   totalActiveCount: 61 + 37 + 18 + 5,
   totalWonRevenue: 145_000,
 };
 
+function rate(from: number, to: number): number | null {
+  if (from === 0) return null;
+  return Math.round((to / from) * 100);
+}
+
 export default function PipelinePage() {
   const [language] = useState(() => getStoredLanguage());
   const t = getTranslations(language).ui.pipeline;
+  const tHome = getTranslations(language).ui.home;
 
   const [overview, setOverview] = useState<PipelineOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
-  const tHome = getTranslations(language).ui.home;
 
   useEffect(() => {
     fetch("/api/pipeline/overview")
@@ -159,6 +206,27 @@ export default function PipelinePage() {
   const shownOverview = demoMode ? DEMO_OVERVIEW : overview;
   const shownLoading = demoMode ? false : loading;
   const shownIsEmpty = demoMode ? false : isEmpty;
+
+  const allActiveOpportunities: PipelineOpportunity[] = shownOverview
+    ? [
+        ...shownOverview.stages.recommended,
+        ...shownOverview.stages.contacted,
+        ...shownOverview.stages.replied,
+        ...shownOverview.stages.meeting,
+      ]
+    : [];
+  const staleLeads = findStaleLeads(allActiveOpportunities).slice(0, 5);
+
+  // Conversion rates between adjacent columns, reusing the same counts
+  // shown in the header — no separate computation from Stats needed.
+  const rates = shownOverview
+    ? [
+        rate(shownOverview.stages.recommended.length, shownOverview.stages.contacted.length),
+        rate(shownOverview.stages.contacted.length, shownOverview.stages.replied.length),
+        rate(shownOverview.stages.replied.length, shownOverview.stages.meeting.length),
+        rate(shownOverview.stages.meeting.length, shownOverview.stages.won.length),
+      ]
+    : [];
 
   return (
     <div className="min-h-screen bg-[#080808] text-[#f5f0e8] flex">
@@ -198,6 +266,39 @@ export default function PipelinePage() {
               </button>
             </div>
           </div>
+
+          {!shownLoading && !shownIsEmpty && staleLeads.length >= 0 && (
+            <div className="bg-[#111111] border border-[#252525] rounded-2xl p-4">
+              <h3 className="text-[13px] font-medium text-[#f5f0e8] mb-3">{t.needsAttentionTitle}</h3>
+              {staleLeads.length === 0 ? (
+                <p className="text-[12px] text-[#666]">{t.needsAttentionEmpty}</p>
+              ) : (
+                <div className="flex gap-3 overflow-x-auto">
+                  {staleLeads.map((lead) => (
+                    <Link
+                      key={lead.rawId}
+                      href={
+                        lead.runId
+                          ? `/dashboard?runId=${lead.runId}&leadId=${encodeURIComponent(lead.leadId)}`
+                          : "/dashboard"
+                      }
+                      className="shrink-0 w-[180px] bg-[#0d0d0d] border border-[#1e1e1e] hover:border-[#f87171]/40 rounded-xl px-3 py-2.5 transition-colors">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <p className="text-[12px] text-[#f5f0e8] truncate">{lead.name}</p>
+                        <span
+                          className="text-[11px] font-semibold shrink-0"
+                          style={{ color: scoreColor(lead.opportunityValue) }}>
+                          {lead.opportunityValue}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-[#666]">{stageLabel[lead.stage]}</p>
+                      <p className="text-[10px] text-[#f87171] mt-1">{t.daysStuck(lead.daysStale)}</p>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </header>
 
         {shownLoading && <p className="text-[13px] text-[#666] py-10 text-center">{t.loading}</p>}
@@ -211,50 +312,60 @@ export default function PipelinePage() {
 
         {!shownLoading && shownOverview && !shownIsEmpty && (
           <div className="flex-1 overflow-x-auto px-8 pb-8">
-            <div className="flex gap-4 h-full min-w-max">
-              {STAGE_ORDER.map((stage) => {
+            <div className="flex items-start gap-1 h-full min-w-max">
+              {STAGE_ORDER.map((stage, idx) => {
                 const opportunities = shownOverview.stages[stage];
+                const rateIntoThisStage = idx > 0 && idx <= 4 ? rates[idx - 1] : null;
                 return (
-                  <div
-                    key={stage}
-                    className="w-[280px] shrink-0 bg-[#0d0d0d] border border-[#1e1e1e] rounded-2xl flex flex-col max-h-full"
-                    style={{ borderTop: `3px solid ${STAGE_COLORS[stage]}` }}>
-                    <div className="px-4 py-3.5 border-b border-[#1a1a1a] flex items-center justify-between shrink-0">
-                      <p className="text-[13px] font-medium text-[#f5f0e8]">{stageLabel[stage]}</p>
-                      <span
-                        className="text-[12px] font-semibold px-2 py-0.5 rounded-full"
-                        style={{ color: STAGE_COLORS[stage], background: `${STAGE_COLORS[stage]}1a` }}>
-                        {opportunities.length}
-                      </span>
-                    </div>
+                  <div key={stage} className="flex items-start">
+                    {idx > 0 && idx <= 4 && (
+                      <div className="flex flex-col items-center justify-center h-14 w-9 shrink-0 mt-2">
+                        {rateIntoThisStage !== null && (
+                          <span className="text-[10px] text-[#8a8a6e]">{t.rateToNext(rateIntoThisStage)}</span>
+                        )}
+                        <span className="text-[13px] text-[#333]">→</span>
+                      </div>
+                    )}
+                    <div
+                      className="w-[260px] shrink-0 bg-[#0d0d0d] border border-[#1e1e1e] rounded-2xl flex flex-col max-h-full"
+                      style={{ borderTop: `3px solid ${STAGE_COLORS[stage]}` }}>
+                      <div className="px-4 py-3.5 border-b border-[#1a1a1a] flex items-center justify-between shrink-0">
+                        <p className="text-[13px] font-medium text-[#f5f0e8]">{stageLabel[stage]}</p>
+                        <span
+                          className="text-[12px] font-semibold px-2 py-0.5 rounded-full"
+                          style={{ color: STAGE_COLORS[stage], background: `${STAGE_COLORS[stage]}1a` }}>
+                          {opportunities.length}
+                        </span>
+                      </div>
 
-                    <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 min-h-[120px]">
-                      {opportunities.length === 0 && <p className="text-[11px] text-[#444] text-center py-6">—</p>}
-                      {opportunities.map((opp) => (
-                        <Link
-                          key={opp.rawId}
-                          href={
-                            opp.runId
-                              ? `/dashboard?runId=${opp.runId}&leadId=${encodeURIComponent(opp.leadId)}`
-                              : "/dashboard"
-                          }
-                          className="block bg-[#111111] border border-[#1e1e1e] hover:border-[#333] rounded-xl px-3 py-2.5 transition-colors">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-[12px] text-[#f5f0e8] truncate">{opp.name}</p>
-                            <span
-                              className="text-[11px] font-semibold shrink-0"
-                              style={{ color: scoreColor(opp.opportunityValue) }}>
-                              {opp.opportunityValue}
-                            </span>
-                          </div>
-                          {opp.city && <p className="text-[10px] text-[#666] mt-0.5 truncate">{opp.city}</p>}
-                          {stage === "won" && opp.revenue !== null && (
-                            <p className="text-[10px] text-[#4ade80] mt-1">
-                              {opp.revenue.toLocaleString(language === "sv" ? "sv-SE" : "en-US")}
-                            </p>
-                          )}
-                        </Link>
-                      ))}
+                      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 min-h-[120px] max-h-[520px]">
+                        {opportunities.length === 0 && <p className="text-[11px] text-[#444] text-center py-6">—</p>}
+                        {opportunities.map((opp) => (
+                          <Link
+                            key={opp.rawId}
+                            href={
+                              opp.runId
+                                ? `/dashboard?runId=${opp.runId}&leadId=${encodeURIComponent(opp.leadId)}`
+                                : "/dashboard"
+                            }
+                            className="block bg-[#111111] border border-[#1e1e1e] hover:border-[#333] rounded-xl px-3 py-2.5 transition-colors">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-[12px] text-[#f5f0e8] truncate">{opp.name}</p>
+                              <span
+                                className="text-[11px] font-semibold shrink-0"
+                                style={{ color: scoreColor(opp.opportunityValue) }}>
+                                {opp.opportunityValue}
+                              </span>
+                            </div>
+                            {opp.city && <p className="text-[10px] text-[#666] mt-0.5 truncate">{opp.city}</p>}
+                            {stage === "won" && opp.revenue !== null && (
+                              <p className="text-[10px] text-[#4ade80] mt-1">
+                                {opp.revenue.toLocaleString(language === "sv" ? "sv-SE" : "en-US")}
+                              </p>
+                            )}
+                          </Link>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 );

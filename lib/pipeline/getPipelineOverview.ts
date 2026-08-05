@@ -25,6 +25,12 @@ export type PipelineOpportunity = {
   stage: PipelineStage;
   revenue: number | null;
   opportunityValue: number;
+  // When the lead entered its current stage — scored_at for
+  // "recommended" (nothing has happened yet), the matching transition
+  // timestamp otherwise. Used to flag stale leads sitting too long
+  // without progressing, using timestamps already tracked since Week 1,
+  // not a new tracking system.
+  stageEnteredAt: string;
 };
 
 export type PipelineOverview = {
@@ -48,7 +54,7 @@ export async function getPipelineOverview(userId: string): Promise<PipelineOverv
 
   const { data: intelligence } = await client
     .from("company_intelligence")
-    .select("raw_id, score")
+    .select("raw_id, score, scored_at")
     .eq("user_id", userId);
 
   if (!intelligence || intelligence.length === 0) {
@@ -64,6 +70,7 @@ export async function getPipelineOverview(userId: string): Promise<PipelineOverv
         0) as number,
     ]),
   );
+  const scoredAtByRawId = new Map(intelligence.map((i) => [i.raw_id as number, i.scored_at as string]));
 
   const [{ data: rawRows }, { data: normalizedRows }, { data: runRaws }] = await Promise.all([
     client.from("companies_raw").select("id, source, source_id").in("id", rawIds),
@@ -126,6 +133,7 @@ export async function getPipelineOverview(userId: string): Promise<PipelineOverv
       stage,
       revenue: (outcome?.revenue as number | null) ?? null,
       opportunityValue: scoreByRawId.get(rawId) ?? 0,
+      stageEnteredAt: stageEnteredAt(stage, outcome, scoredAtByRawId.get(rawId)),
     };
 
     stages[stage].push(opportunity);
@@ -136,6 +144,32 @@ export async function getPipelineOverview(userId: string): Promise<PipelineOverv
     stages.recommended.length + stages.contacted.length + stages.replied.length + stages.meeting.length;
 
   return { stages, totalActiveCount, totalWonRevenue };
+}
+
+// Which timestamp marks "entered the current stage" — the matching
+// transition timestamp for that stage, or scored_at for "recommended"
+// (nothing has happened yet, so the lead has been sitting since it was
+// first discovered). Falls back to now() if genuinely nothing is
+// available, so a lead is never incorrectly flagged as ancient/stale
+// due to missing data rather than genuine inactivity.
+function stageEnteredAt(
+  stage: PipelineStage,
+  outcome: { contacted_at?: string | null; replied_at?: string | null; booked_call_at?: string | null } | undefined,
+  scoredAt: string | undefined,
+): string {
+  const now = new Date().toISOString();
+  switch (stage) {
+    case "recommended":
+      return scoredAt ?? now;
+    case "contacted":
+      return outcome?.contacted_at ?? scoredAt ?? now;
+    case "replied":
+      return outcome?.replied_at ?? scoredAt ?? now;
+    case "meeting":
+      return outcome?.booked_call_at ?? scoredAt ?? now;
+    default:
+      return scoredAt ?? now;
+  }
 }
 
 export function classifyStage(

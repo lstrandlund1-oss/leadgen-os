@@ -508,6 +508,10 @@ export const sv: TranslationSchema = {
       emptyStateBody: "När du börjar kontakta poängsatta möjligheter rör de sig genom din pipeline här.",
       loading: "Laddar din pipeline…",
       moreCount: (count: number) => `+${count} till`,
+      needsAttentionTitle: "Behöver uppmärksamhet",
+      needsAttentionEmpty: "Inget fastnat just nu — alla aktiva möjligheter har rört sig nyligen.",
+      daysStuck: (days: number) => `${days}d fast`,
+      rateToNext: (percent: number) => `${percent}%`,
     },
     home: {
       greetingMorning: "God morgon",
