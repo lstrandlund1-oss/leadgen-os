@@ -484,6 +484,15 @@ export const sv: TranslationSchema = {
       economicImpactEmptyBody:
         "Lägg till ditt genomsnittliga affärsvärde i Inställningar för att se denna jämförelse med dina egna siffror.",
       economicImpactEmptyCta: "Gå till inställningar",
+      lostReasonsTitle: "Varför affärer går förlorade",
+      lostReasonsEmpty: "Inga förlorade affärer registrerade än.",
+      lostReasonNoResponse: "Inget svar",
+      lostReasonNotInterested: "Inte intresserad",
+      lostReasonHasProvider: "Har redan en leverantör",
+      lostReasonWrongTiming: "Fel timing",
+      lostReasonPriceTooHigh: "För dyrt",
+      lostReasonChoseCompetitor: "Valde en konkurrent",
+      lostReasonOther: "Annat",
     },
     pipeline: {
       title: "Pipeline",

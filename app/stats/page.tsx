@@ -7,6 +7,7 @@ import { getStoredLanguage } from "@/lib/languagePreference";
 import Sidebar from "@/app/components/Sidebar";
 import type { ConversionFunnel } from "@/lib/stats/getConversionFunnel";
 import type { EconomicImpact } from "@/lib/stats/economicImpact";
+import { computeLostReasonBreakdown, type LostReason } from "@/lib/stats/lostReasons";
 import { formatPrice } from "@/lib/pricing";
 
 function FunnelRow({ label, rate }: { label: string; rate: number | null }) {
@@ -30,6 +31,7 @@ export default function StatsPage() {
 
   const [funnel, setFunnel] = useState<ConversionFunnel | null>(null);
   const [impact, setImpact] = useState<EconomicImpact | null | undefined>(undefined);
+  const [lostReasons, setLostReasons] = useState<ReturnType<typeof computeLostReasonBreakdown> | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -45,6 +47,19 @@ export default function StatsPage() {
       .then((res) => (res.ok ? res.json() : { impact: null }))
       .then((data) => setImpact(data.impact ?? null))
       .catch(() => setImpact(null));
+  }, []);
+
+  useEffect(() => {
+    // Reuses the existing outcomes API directly rather than a new route —
+    // ported from the old Analytics page's approach, which already fetched
+    // exactly this data.
+    fetch("/api/outcomes?all=true")
+      .then((res) => (res.ok ? res.json() : { outcomes: [] }))
+      .then((data) => {
+        const reasons = (data.outcomes ?? []).map((o: { lost_reason: string | null }) => o.lost_reason);
+        setLostReasons(computeLostReasonBreakdown(reasons));
+      })
+      .catch(() => setLostReasons([]));
   }, []);
 
   const hasAnyData =
@@ -101,6 +116,42 @@ export default function StatsPage() {
                     )}
                   </p>
                   <p className="text-[11px] text-[#555]">{t.economicImpactDisclaimer}</p>
+                </div>
+              )}
+            </section>
+          )}
+
+          {lostReasons && (
+            <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 mt-6">
+              <h3 className="text-[15px] font-medium mb-4">{t.lostReasonsTitle}</h3>
+              {lostReasons.length === 0 ? (
+                <p className="text-[13px] text-[#666] py-6 text-center">{t.lostReasonsEmpty}</p>
+              ) : (
+                <div className="space-y-3">
+                  {lostReasons.map((r) => {
+                    const reasonLabel: Record<LostReason, string> = {
+                      no_response: t.lostReasonNoResponse,
+                      not_interested: t.lostReasonNotInterested,
+                      has_provider: t.lostReasonHasProvider,
+                      wrong_timing: t.lostReasonWrongTiming,
+                      price_too_high: t.lostReasonPriceTooHigh,
+                      chose_competitor: t.lostReasonChoseCompetitor,
+                      other: t.lostReasonOther,
+                    };
+                    return (
+                      <div key={r.reason} className="space-y-1.5">
+                        <div className="flex items-center justify-between text-[12px]">
+                          <span className="text-[#999]">{reasonLabel[r.reason]}</span>
+                          <span className="text-[#f5f0e8] font-medium tabular-nums">
+                            {r.count} · {r.percentOfLost}%
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-[#1a1a1a] overflow-hidden">
+                          <div className="h-full rounded-full bg-[#f87171]" style={{ width: `${r.percentOfLost}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </section>

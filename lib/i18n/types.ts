@@ -335,6 +335,15 @@ export type TranslationSchema = {
       economicImpactDisclaimer: string;
       economicImpactEmptyBody: string;
       economicImpactEmptyCta: string;
+      lostReasonsTitle: string;
+      lostReasonsEmpty: string;
+      lostReasonNoResponse: string;
+      lostReasonNotInterested: string;
+      lostReasonHasProvider: string;
+      lostReasonWrongTiming: string;
+      lostReasonPriceTooHigh: string;
+      lostReasonChoseCompetitor: string;
+      lostReasonOther: string;
     };
     pipeline: {
       title: string;
