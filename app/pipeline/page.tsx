@@ -273,7 +273,7 @@ export default function PipelinePage() {
               {staleLeads.length === 0 ? (
                 <p className="text-[12px] text-[#666]">{t.needsAttentionEmpty}</p>
               ) : (
-                <div className="flex gap-3 overflow-x-auto">
+                <div className="flex gap-3 overflow-x-auto themed-scrollbar">
                   {staleLeads.map((lead) => (
                     <Link
                       key={lead.rawId}
@@ -311,65 +311,73 @@ export default function PipelinePage() {
         )}
 
         {!shownLoading && shownOverview && !shownIsEmpty && (
-          <div className="flex-1 overflow-x-auto px-8 pb-8">
-            <div className="flex items-start gap-1 h-full min-w-max">
-              {STAGE_ORDER.map((stage, idx) => {
-                const opportunities = shownOverview.stages[stage];
-                const rateIntoThisStage = idx > 0 && idx <= 4 ? rates[idx - 1] : null;
-                return (
-                  <div key={stage} className="flex items-start">
-                    {idx > 0 && idx <= 4 && (
-                      <div className="flex flex-col items-center justify-center h-14 w-9 shrink-0 mt-2">
-                        {rateIntoThisStage !== null && (
-                          <span className="text-[10px] text-[#8a8a6e]">{t.rateToNext(rateIntoThisStage)}</span>
-                        )}
-                        <span className="text-[13px] text-[#333]">→</span>
-                      </div>
-                    )}
-                    <div
-                      className="w-[260px] shrink-0 bg-[#0d0d0d] border border-[#1e1e1e] rounded-2xl flex flex-col max-h-full"
-                      style={{ borderTop: `3px solid ${STAGE_COLORS[stage]}` }}>
-                      <div className="px-4 py-3.5 border-b border-[#1a1a1a] flex items-center justify-between shrink-0">
-                        <p className="text-[13px] font-medium text-[#f5f0e8]">{stageLabel[stage]}</p>
-                        <span
-                          className="text-[12px] font-semibold px-2 py-0.5 rounded-full"
-                          style={{ color: STAGE_COLORS[stage], background: `${STAGE_COLORS[stage]}1a` }}>
-                          {opportunities.length}
-                        </span>
-                      </div>
-
-                      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 min-h-[120px] max-h-[520px]">
-                        {opportunities.length === 0 && <p className="text-[11px] text-[#444] text-center py-6">—</p>}
-                        {opportunities.map((opp) => (
-                          <Link
-                            key={opp.rawId}
-                            href={
-                              opp.runId
-                                ? `/dashboard?runId=${opp.runId}&leadId=${encodeURIComponent(opp.leadId)}`
-                                : "/dashboard"
-                            }
-                            className="block bg-[#111111] border border-[#1e1e1e] hover:border-[#333] rounded-xl px-3 py-2.5 transition-colors">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="text-[12px] text-[#f5f0e8] truncate">{opp.name}</p>
-                              <span
-                                className="text-[11px] font-semibold shrink-0"
-                                style={{ color: scoreColor(opp.opportunityValue) }}>
-                                {opp.opportunityValue}
-                              </span>
-                            </div>
-                            {opp.city && <p className="text-[10px] text-[#666] mt-0.5 truncate">{opp.city}</p>}
-                            {stage === "won" && opp.revenue !== null && (
-                              <p className="text-[10px] text-[#4ade80] mt-1">
-                                {opp.revenue.toLocaleString(language === "sv" ? "sv-SE" : "en-US")}
-                              </p>
-                            )}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
+          <div className="flex-1 overflow-x-auto px-8 pb-8 themed-scrollbar">
+            <div className="min-w-max">
+              <div className="flex">
+                {STAGE_ORDER.map((stage, idx) => (
+                  <div
+                    key={stage}
+                    className="w-[190px] shrink-0 h-9 flex items-center justify-center relative"
+                    style={{
+                      background: STAGE_COLORS[stage],
+                      clipPath:
+                        idx === 0
+                          ? "polygon(0% 0%, 92% 0%, 100% 50%, 92% 100%, 0% 100%)"
+                          : idx === STAGE_ORDER.length - 1
+                            ? "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 8% 50%)"
+                            : "polygon(0% 0%, 92% 0%, 100% 50%, 92% 100%, 0% 100%, 8% 50%)",
+                      marginLeft: idx === 0 ? 0 : -16,
+                    }}>
+                    <span className="text-[11px] font-semibold" style={{ color: "#080808" }}>
+                      {stageLabel[stage]} · {shownOverview.stages[stage].length}
+                    </span>
                   </div>
-                );
-              })}
+                ))}
+              </div>
+
+              <div className="flex mt-1.5">
+                {STAGE_ORDER.map((stage, idx) => {
+                  const rateIntoThisStage = idx > 0 && idx <= 4 ? rates[idx - 1] : null;
+                  return (
+                    <div key={stage} className="w-[190px] shrink-0 text-center">
+                      {rateIntoThisStage !== null && (
+                        <span className="text-[10px] text-[#8a8a6e]">{t.rateToNext(rateIntoThisStage)}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex mt-2">
+                {STAGE_ORDER.map((stage) => {
+                  const opportunities = shownOverview.stages[stage];
+                  const visible = opportunities.slice(0, 4);
+                  const remaining = opportunities.length - visible.length;
+                  return (
+                    <div key={stage} className="w-[190px] shrink-0 pr-4 space-y-2">
+                      {visible.length === 0 && <p className="text-[11px] text-[#444] py-2">—</p>}
+                      {visible.map((opp) => (
+                        <Link
+                          key={opp.rawId}
+                          href={
+                            opp.runId
+                              ? `/dashboard?runId=${opp.runId}&leadId=${encodeURIComponent(opp.leadId)}`
+                              : "/dashboard"
+                          }
+                          className="flex items-center justify-between gap-2 hover:opacity-80 transition-opacity">
+                          <span className="text-[12px] text-[#999] truncate">{opp.name}</span>
+                          <span
+                            className="text-[11px] font-semibold shrink-0"
+                            style={{ color: scoreColor(opp.opportunityValue) }}>
+                            {opp.opportunityValue}
+                          </span>
+                        </Link>
+                      ))}
+                      {remaining > 0 && <p className="text-[10px] text-[#555] pt-1">{t.moreCount(remaining)}</p>}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}

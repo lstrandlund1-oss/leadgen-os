@@ -1097,14 +1097,20 @@ export default function Home() {
     (async () => {
       try {
         const res = await fetch(`/api/providers/runs/${parsedRunId}/leads`);
-        if (!res.ok) return;
+        if (!res.ok) {
+          console.error(`[deep-link] runs/${parsedRunId}/leads returned ${res.status}`);
+          return;
+        }
         const data = (await res.json().catch(() => ({}))) as {
           leads?: LeadUI[];
           nextCursor?: string | null;
           exhausted?: boolean;
         };
         const fetchedLeads = Array.isArray(data.leads) ? data.leads : [];
-        if (fetchedLeads.length === 0) return;
+        if (fetchedLeads.length === 0) {
+          console.error(`[deep-link] runs/${parsedRunId}/leads returned zero leads`);
+          return;
+        }
 
         setLeads(fetchedLeads);
         setRunId(parsedRunId);
@@ -1113,7 +1119,14 @@ export default function Home() {
 
         if (deepLinkLeadId) {
           const match = fetchedLeads.find((l) => l.id === deepLinkLeadId);
-          if (match) setSelectedLead(match);
+          if (match) {
+            setSelectedLead(match);
+          } else {
+            console.error(
+              `[deep-link] leadId "${deepLinkLeadId}" not found among ${fetchedLeads.length} fetched leads. First few ids:`,
+              fetchedLeads.slice(0, 5).map((l) => l.id),
+            );
+          }
         }
       } catch {
         // Deep link failed to resolve — fall through to the normal empty
