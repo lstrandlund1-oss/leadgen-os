@@ -23,6 +23,8 @@ const MAIN_NAV: NavItem[] = [
 const WORKSPACE_NAV: NavItem[] = [
   { href: "/markets", label: "Markets", icon: "◐" },
   { href: "/outreach", label: "Outreach", icon: "➤" },
+  { href: "/followups", label: "Follow-ups", icon: "↩" },
+  { href: "/collections", label: "Collections", icon: "◇" },
   { href: "/templates", label: "Templates", icon: "▦" },
   { href: "/members", label: "Members", icon: "◉" },
 ];
@@ -74,16 +76,6 @@ export default function Sidebar() {
         {WORKSPACE_NAV.map((item) => (
           <NavLink key={item.href} item={item} active={isActive(item.href)} />
         ))}
-
-        <Link
-          href="/settings"
-          className={
-            "flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors " +
-            (isActive("/settings") ? "bg-[rgba(201,168,76,0.08)] text-[#c9a84c]" : "text-[#888] hover:text-[#f5f0e8]")
-          }>
-          <span className="w-4 text-center text-[13px]">⚙</span>
-          Settings
-        </Link>
       </nav>
 
       <Link
