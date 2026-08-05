@@ -20,14 +20,18 @@ const MAIN_NAV: NavItem[] = [
   { href: "/ai-mode", label: "AI Mode", icon: "✦", disabled: true },
 ];
 
-const WORKSPACE_NAV: NavItem[] = [
+// Daily workflow tools — finding and working opportunities. Distinct from
+// WORKSPACE_NAV below, which is genuinely administrative (who's in the
+// workspace, plan/billing), not something used moment-to-moment.
+const ENGAGEMENT_NAV: NavItem[] = [
   { href: "/markets", label: "Markets", icon: "◐" },
   { href: "/outreach", label: "Outreach", icon: "➤" },
   { href: "/followups", label: "Follow-ups", icon: "↩" },
-  { href: "/collections", label: "Collections", icon: "◇" },
   { href: "/templates", label: "Templates", icon: "▦" },
-  { href: "/members", label: "Members", icon: "◉" },
+  { href: "/collections", label: "Collections", icon: "◇" },
 ];
+
+const WORKSPACE_NAV: NavItem[] = [{ href: "/members", label: "Members", icon: "◉" }];
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -69,6 +73,11 @@ export default function Sidebar() {
 
       <nav className="flex-1 space-y-0.5">
         {MAIN_NAV.map((item) => (
+          <NavLink key={item.href} item={item} active={isActive(item.href)} />
+        ))}
+
+        <p className="px-3 pt-6 pb-2 text-[10px] uppercase tracking-widest text-[#444]">Engagement</p>
+        {ENGAGEMENT_NAV.map((item) => (
           <NavLink key={item.href} item={item} active={isActive(item.href)} />
         ))}
 
