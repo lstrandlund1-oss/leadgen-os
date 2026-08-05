@@ -610,7 +610,7 @@ function GettingStartedPanel({
       done: checklistState.hasProfile,
       label: "Set up your profile",
       sub: "Tell us your business type and target market",
-      href: "/profile/settings",
+      href: "/settings",
     },
     {
       done: checklistState.hasSearched,
@@ -2261,7 +2261,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         </div>
                       </div>
                       <a
-                        href="/profile/settings"
+                        href="/settings"
                         className="flex-shrink-0 text-[11px] px-3 py-1.5 rounded-lg border border-[rgba(201,168,76,0.3)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-all whitespace-nowrap">
                         {t.ui.profileBanner.cta}
                       </a>
@@ -2385,7 +2385,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                     </div>
                   </div>
                   <a
-                    href="/profile/settings"
+                    href="/settings"
                     className="flex-shrink-0 text-[11px] px-3 py-1.5 rounded-lg border border-[rgba(201,168,76,0.3)] text-[#c9a84c] hover:bg-[rgba(201,168,76,0.08)] transition-all whitespace-nowrap">
                     {t.ui.profileBanner.cta}
                   </a>

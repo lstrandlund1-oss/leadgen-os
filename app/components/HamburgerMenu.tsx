@@ -174,7 +174,7 @@ export default function HamburgerMenu({ userEmail }: HamburgerMenuProps) {
         { label: "Import Leads", href: "/import", icon: "↑", locked: false },
         ...(betaStatus.active ? [] : [{ label: "Pricing", href: "/plans", icon: "◈", locked: false } as const]),
         { label: "Profile", href: "/profile", icon: "◈", locked: false },
-        { label: "Settings", href: "/profile/settings", icon: "⚙", locked: false },
+        { label: "Settings", href: "/settings", icon: "⚙", locked: false },
         { label: "Contact & Support", href: "/contact", icon: "✉", locked: false },
       ],
     },
