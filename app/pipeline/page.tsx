@@ -24,12 +24,118 @@ function scoreColor(value: number): string {
   return "#555";
 }
 
+// Demo data — same shape and sample companies as Home's demo mode, for a
+// consistent story when someone toggles both on. Never shown unless the
+// user explicitly opts in via the toggle below.
+const DEMO_OVERVIEW: PipelineOverview = {
+  stages: {
+    recommended: [
+      {
+        rawId: -1,
+        leadId: "demo:1",
+        runId: null,
+        name: "Nordic Scale AB",
+        city: "Stockholm",
+        stage: "recommended",
+        revenue: null,
+        opportunityValue: 91,
+      },
+      {
+        rawId: -2,
+        leadId: "demo:2",
+        runId: null,
+        name: "Webstrap Agency",
+        city: "Gothenburg",
+        stage: "recommended",
+        revenue: null,
+        opportunityValue: 87,
+      },
+      ...Array.from({ length: 59 }, (_, i) => ({
+        rawId: -100 - i,
+        leadId: `demo:r${i}`,
+        runId: null,
+        name: `Company ${i}`,
+        city: null,
+        stage: "recommended" as const,
+        revenue: null,
+        opportunityValue: 50 + ((i * 7) % 45),
+      })),
+    ],
+    contacted: Array.from({ length: 37 }, (_, i) => ({
+      rawId: -200 - i,
+      leadId: `demo:c${i}`,
+      runId: null,
+      name: `Company ${i}`,
+      city: null,
+      stage: "contacted" as const,
+      revenue: null,
+      opportunityValue: 55 + ((i * 5) % 40),
+    })),
+    replied: Array.from({ length: 18 }, (_, i) => ({
+      rawId: -300 - i,
+      leadId: `demo:re${i}`,
+      runId: null,
+      name: `Company ${i}`,
+      city: null,
+      stage: "replied" as const,
+      revenue: null,
+      opportunityValue: 60 + ((i * 6) % 35),
+    })),
+    meeting: Array.from({ length: 5 }, (_, i) => ({
+      rawId: -400 - i,
+      leadId: `demo:m${i}`,
+      runId: null,
+      name: `Company ${i}`,
+      city: null,
+      stage: "meeting" as const,
+      revenue: null,
+      opportunityValue: 70 + ((i * 4) % 25),
+    })),
+    won: [
+      {
+        rawId: -501,
+        leadId: "demo:w1",
+        runId: null,
+        name: "Studio Vertex",
+        city: "Malmö",
+        stage: "won" as const,
+        revenue: 95_000,
+        opportunityValue: 86,
+      },
+      {
+        rawId: -502,
+        leadId: "demo:w2",
+        runId: null,
+        name: "Creative Mill",
+        city: "Uppsala",
+        stage: "won" as const,
+        revenue: 50_000,
+        opportunityValue: 88,
+      },
+    ],
+    lost: Array.from({ length: 4 }, (_, i) => ({
+      rawId: -600 - i,
+      leadId: `demo:l${i}`,
+      runId: null,
+      name: `Company ${i}`,
+      city: null,
+      stage: "lost" as const,
+      revenue: null,
+      opportunityValue: 40 + ((i * 3) % 30),
+    })),
+  },
+  totalActiveCount: 61 + 37 + 18 + 5,
+  totalWonRevenue: 145_000,
+};
+
 export default function PipelinePage() {
   const [language] = useState(() => getStoredLanguage());
   const t = getTranslations(language).ui.pipeline;
 
   const [overview, setOverview] = useState<PipelineOverview | null>(null);
   const [loading, setLoading] = useState(true);
+  const [demoMode, setDemoMode] = useState(false);
+  const tHome = getTranslations(language).ui.home;
 
   useEffect(() => {
     fetch("/api/pipeline/overview")
@@ -50,6 +156,10 @@ export default function PipelinePage() {
 
   const isEmpty = overview && STAGE_ORDER.every((stage) => overview.stages[stage].length === 0);
 
+  const shownOverview = demoMode ? DEMO_OVERVIEW : overview;
+  const shownLoading = demoMode ? false : loading;
+  const shownIsEmpty = demoMode ? false : isEmpty;
+
   return (
     <div className="min-h-screen bg-[#080808] text-[#f5f0e8] flex">
       <Sidebar />
@@ -59,38 +169,51 @@ export default function PipelinePage() {
             <h2 className="text-[26px] font-light" style={{ fontFamily: "var(--font-display), serif" }}>
               {t.title}
             </h2>
-            {overview && (
-              <div className="flex items-center gap-6">
-                <div className="text-right">
-                  <p className="text-[10px] text-[#666] uppercase tracking-wide">{t.activeOpportunities}</p>
-                  <p className="text-[20px] font-semibold text-[#f5f0e8]">{overview.totalActiveCount}</p>
-                </div>
-                <div className="w-px h-8 bg-[#1e1e1e]" />
-                <div className="text-right">
-                  <p className="text-[10px] text-[#666] uppercase tracking-wide">{t.wonRevenue}</p>
-                  <p className="text-[20px] font-semibold text-[#4ade80]">
-                    {overview.totalWonRevenue.toLocaleString(language === "sv" ? "sv-SE" : "en-US")}
-                  </p>
-                </div>
-              </div>
-            )}
+            <div className="flex items-center gap-6">
+              {shownOverview && (
+                <>
+                  <div className="text-right">
+                    <p className="text-[10px] text-[#666] uppercase tracking-wide">{t.activeOpportunities}</p>
+                    <p className="text-[20px] font-semibold text-[#f5f0e8]">{shownOverview.totalActiveCount}</p>
+                  </div>
+                  <div className="w-px h-8 bg-[#1e1e1e]" />
+                  <div className="text-right">
+                    <p className="text-[10px] text-[#666] uppercase tracking-wide">{t.wonRevenue}</p>
+                    <p className="text-[20px] font-semibold text-[#4ade80]">
+                      {shownOverview.totalWonRevenue.toLocaleString(language === "sv" ? "sv-SE" : "en-US")}
+                    </p>
+                  </div>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => setDemoMode((v) => !v)}
+                className={
+                  "px-3 py-1.5 rounded-lg border text-[11px] font-medium transition-colors " +
+                  (demoMode
+                    ? "border-[#c9a84c] text-[#c9a84c] bg-[rgba(201,168,76,0.08)]"
+                    : "border-[#252525] text-[#888] hover:border-[#444]")
+                }>
+                {demoMode ? tHome.viewingDemoData : tHome.showDemoData}
+              </button>
+            </div>
           </div>
         </header>
 
-        {loading && <p className="text-[13px] text-[#666] py-10 text-center">{t.loading}</p>}
+        {shownLoading && <p className="text-[13px] text-[#666] py-10 text-center">{t.loading}</p>}
 
-        {!loading && isEmpty && (
+        {!shownLoading && shownIsEmpty && (
           <div className="mx-8 bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 text-center py-16 space-y-2">
             <p className="text-[14px] text-[#f5f0e8]">{t.emptyStateTitle}</p>
             <p className="text-[13px] text-[#666] max-w-sm mx-auto">{t.emptyStateBody}</p>
           </div>
         )}
 
-        {!loading && overview && !isEmpty && (
+        {!shownLoading && shownOverview && !shownIsEmpty && (
           <div className="flex-1 overflow-x-auto px-8 pb-8">
             <div className="flex gap-4 h-full min-w-max">
               {STAGE_ORDER.map((stage) => {
-                const opportunities = overview.stages[stage];
+                const opportunities = shownOverview.stages[stage];
                 return (
                   <div
                     key={stage}

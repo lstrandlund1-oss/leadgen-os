@@ -10,6 +10,35 @@ import type { EconomicImpact } from "@/lib/stats/economicImpact";
 import { computeLostReasonBreakdown, type LostReason } from "@/lib/stats/lostReasons";
 import { formatPrice } from "@/lib/pricing";
 
+// Demo data — never shown unless the user explicitly opts in via the
+// toggle below. Numbers chosen to look like a real, moderately active
+// account, not an idealized best case.
+const DEMO_FUNNEL: ConversionFunnel = {
+  contactedCount: 37,
+  repliedCount: 18,
+  meetingCount: 5,
+  wonCount: 2,
+  lostCount: 4,
+  recommendedCount: 61,
+  recommendedToContactRate: 0.27,
+  contactToReplyRate: 0.28,
+  replyToMeetingRate: 0.5,
+  meetingToWonRate: 0.33,
+};
+
+const DEMO_IMPACT: EconomicImpact = {
+  averageDealValue: 42_000,
+  vantioMonthlyCostSek: 1_023,
+  monthsOfSubscriptionCovered: 41.1,
+};
+
+const DEMO_LOST_REASONS = computeLostReasonBreakdown([
+  "no_response",
+  "no_response",
+  "not_interested",
+  "price_too_high",
+]);
+
 function FunnelRow({ label, rate }: { label: string; rate: number | null }) {
   const pct = rate !== null ? Math.round(rate * 100) : null;
   return (
@@ -33,6 +62,8 @@ export default function StatsPage() {
   const [impact, setImpact] = useState<EconomicImpact | null | undefined>(undefined);
   const [lostReasons, setLostReasons] = useState<ReturnType<typeof computeLostReasonBreakdown> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [demoMode, setDemoMode] = useState(false);
+  const tHome = getTranslations(language).ui.home;
 
   useEffect(() => {
     fetch("/api/stats/conversion")
@@ -66,40 +97,57 @@ export default function StatsPage() {
     funnel &&
     funnel.contactedCount + funnel.repliedCount + funnel.meetingCount + funnel.wonCount + funnel.lostCount > 0;
 
+  const shownFunnel = demoMode ? DEMO_FUNNEL : funnel;
+  const shownImpact = demoMode ? DEMO_IMPACT : impact;
+  const shownLostReasons = demoMode ? DEMO_LOST_REASONS : lostReasons;
+  const shownLoading = demoMode ? false : loading;
+  const shownHasAnyData = demoMode ? true : hasAnyData;
+
   return (
     <div className="min-h-screen bg-[#080808] text-[#f5f0e8] flex">
       <Sidebar />
       <div className="flex-1 min-w-0">
         <main className="max-w-2xl mx-auto px-6 py-10">
-          <header className="mb-6">
+          <header className="mb-6 flex items-center justify-between">
             <h2 className="text-[26px] font-light" style={{ fontFamily: "var(--font-display), serif" }}>
               {t.title}
             </h2>
+            <button
+              type="button"
+              onClick={() => setDemoMode((v) => !v)}
+              className={
+                "px-3 py-1.5 rounded-lg border text-[11px] font-medium transition-colors " +
+                (demoMode
+                  ? "border-[#c9a84c] text-[#c9a84c] bg-[rgba(201,168,76,0.08)]"
+                  : "border-[#252525] text-[#888] hover:border-[#444]")
+              }>
+              {demoMode ? tHome.viewingDemoData : tHome.showDemoData}
+            </button>
           </header>
 
-          {loading && <p className="text-[13px] text-[#666] py-10 text-center">{t.loading}</p>}
+          {shownLoading && <p className="text-[13px] text-[#666] py-10 text-center">{t.loading}</p>}
 
-          {!loading && (
+          {!shownLoading && (
             <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5">
               <h3 className="text-[15px] font-medium mb-4">{t.conversionFunnelTitle}</h3>
 
-              {!hasAnyData ? (
+              {!shownHasAnyData ? (
                 <p className="text-[13px] text-[#666] py-6 text-center">{t.noDataYet}</p>
               ) : (
                 <div className="space-y-4">
-                  <FunnelRow label={t.recommendedToContacted} rate={funnel!.recommendedToContactRate} />
-                  <FunnelRow label={t.contactToReply} rate={funnel!.contactToReplyRate} />
-                  <FunnelRow label={t.replyToMeeting} rate={funnel!.replyToMeetingRate} />
-                  <FunnelRow label={t.meetingToWon} rate={funnel!.meetingToWonRate} />
+                  <FunnelRow label={t.recommendedToContacted} rate={shownFunnel!.recommendedToContactRate} />
+                  <FunnelRow label={t.contactToReply} rate={shownFunnel!.contactToReplyRate} />
+                  <FunnelRow label={t.replyToMeeting} rate={shownFunnel!.replyToMeetingRate} />
+                  <FunnelRow label={t.meetingToWon} rate={shownFunnel!.meetingToWonRate} />
                 </div>
               )}
             </section>
           )}
 
-          {impact !== undefined && (
+          {shownImpact !== undefined && (
             <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 mt-6">
               <h3 className="text-[15px] font-medium mb-3">{t.economicImpactTitle}</h3>
-              {impact === null ? (
+              {shownImpact === null ? (
                 <div className="space-y-2">
                   <p className="text-[13px] text-[#666]">{t.economicImpactEmptyBody}</p>
                   <Link href="/settings" className="text-[12px] text-[#c9a84c] hover:text-[#e8c97a] transition-colors">
@@ -110,9 +158,9 @@ export default function StatsPage() {
                 <div className="space-y-2">
                   <p className="text-[14px] text-[#f5f0e8]">
                     {t.economicImpactBody(
-                      formatPrice(impact.averageDealValue, "sek"),
-                      impact.monthsOfSubscriptionCovered.toFixed(1),
-                      formatPrice(impact.vantioMonthlyCostSek, "sek"),
+                      formatPrice(shownImpact.averageDealValue, "sek"),
+                      shownImpact.monthsOfSubscriptionCovered.toFixed(1),
+                      formatPrice(shownImpact.vantioMonthlyCostSek, "sek"),
                     )}
                   </p>
                   <p className="text-[11px] text-[#555]">{t.economicImpactDisclaimer}</p>
@@ -121,14 +169,14 @@ export default function StatsPage() {
             </section>
           )}
 
-          {lostReasons && (
+          {shownLostReasons && (
             <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 mt-6">
               <h3 className="text-[15px] font-medium mb-4">{t.lostReasonsTitle}</h3>
-              {lostReasons.length === 0 ? (
+              {shownLostReasons.length === 0 ? (
                 <p className="text-[13px] text-[#666] py-6 text-center">{t.lostReasonsEmpty}</p>
               ) : (
                 <div className="space-y-3">
-                  {lostReasons.map((r) => {
+                  {shownLostReasons.map((r) => {
                     const reasonLabel: Record<LostReason, string> = {
                       no_response: t.lostReasonNoResponse,
                       not_interested: t.lostReasonNotInterested,
