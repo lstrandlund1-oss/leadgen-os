@@ -55,6 +55,8 @@ type FitUI = {
   geoMatch?: "exact" | "partial" | "none" | "unset";
 };
 
+export type OutreachVariant = "soft" | "consultative" | "direct" | "bold";
+
 export type DetailTabKey = "overview" | "signals" | "outreach" | "tracking" | "followup";
 
 export type LeadUI = Lead & {
@@ -1088,7 +1090,6 @@ export default function Home() {
   } | null>(null);
 
   // Variant for outcome tracking
-  type OutreachVariant = "soft" | "consultative" | "direct" | "bold";
   const [outreachVariant, setOutreachVariant] = useState<OutreachVariant>("consultative");
 
   const [outcomesByLeadId, setOutcomesByLeadId] = useState<Record<string, LeadOutcomeUI>>({});
