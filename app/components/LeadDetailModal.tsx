@@ -30,8 +30,6 @@ import {
   type LeadUI,
   type DetailTabKey,
   type LeadOutcomeUI,
-  type OutcomeKey,
-  type StructuredAngle,
 } from "@/app/dashboard/page";
 
 export type SequenceStep = {

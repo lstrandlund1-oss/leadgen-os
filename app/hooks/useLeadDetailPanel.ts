@@ -71,7 +71,7 @@ function deriveDeepSignals(data: { pageReachable: boolean; website: { scores: Re
   };
 }
 
-function applyDeepScanToLead(
+export function applyDeepScanToLead(
   lead: LeadUI,
   deepData: DeepEnrichmentData,
   derivedSignals: ReturnType<typeof deriveDeepSignals>,
@@ -165,7 +165,7 @@ export function useLeadDetailPanel(opts: {
   const [isRescoring, setIsRescoring] = useState(false);
   const [deepEnrichmentLoading, setDeepScanLoading] = useState(false);
   const [deepEnrichmentData, setDeepScanData] = useState<DeepEnrichmentData>(null);
-  const [outreachVariant] = useState<OutreachVariant>("consultative");
+  const [outreachVariant, setOutreachVariant] = useState<OutreachVariant>("consultative");
   const [outcomesByLeadId, setOutcomesByLeadId] = useState<Record<string, LeadOutcomeUI>>({});
   const [isSavingOutcome, setIsSavingOutcome] = useState(false);
 
@@ -419,6 +419,9 @@ export function useLeadDetailPanel(opts: {
     savedLeadIds,
     setSavedLeadIds,
     runDeepScan,
+    outreachVariant,
+    setOutreachVariant,
     outcomesByLeadId,
+    setOutcomesByLeadId,
   };
 }
