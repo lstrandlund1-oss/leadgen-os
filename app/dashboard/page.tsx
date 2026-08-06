@@ -962,15 +962,33 @@ export default function Home() {
   const [showSaveSearchInput, setShowSaveSearchInput] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-  const [savedLeadIds, setSavedLeadIds] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") return new Set();
-    try {
-      const raw = JSON.parse(localStorage.getItem("vantio_saved_leads_v1") ?? "[]") as { id: string }[];
-      return new Set(raw.map((l) => l.id));
-    } catch {
-      return new Set();
-    }
-  });
+  const [savedLeadIds, setSavedLeadIds] = useState<Set<string>>(new Set());
+  // Maps leadId -> lead_collection_items row id, needed for DELETE (the
+  // API deletes by row id, not leadId). Populated alongside savedLeadIds
+  // when the real saved-items list loads.
+  const [savedLeadItemIds, setSavedLeadItemIds] = useState<Map<string, string>>(new Map());
+
+  // Load real saved leads from the database on mount — this used to read
+  // from a disconnected localStorage key (vantio_saved_leads_v1) that
+  // never agreed with Collections or Home's "Save lead" button, which
+  // both use the real lead_collection_items table. Fixed to match.
+  useEffect(() => {
+    (async () => {
+      try {
+        const collectionRes = await fetch("/api/collections/default");
+        if (!collectionRes.ok) return;
+        const { collectionId } = await collectionRes.json();
+        const itemsRes = await fetch(`/api/collections/items?collection_id=${collectionId}`);
+        if (!itemsRes.ok) return;
+        const { items } = (await itemsRes.json()) as { items: { id: string; lead_id: string }[] };
+        setSavedLeadIds(new Set(items.map((i) => i.lead_id)));
+        setSavedLeadItemIds(new Map(items.map((i) => [i.lead_id, i.id])));
+      } catch {
+        // Leave saved-lead state empty rather than block the page — the
+        // save button will just show as "not saved" until this succeeds.
+      }
+    })();
+  }, []);
 
   const [selectedLead, setSelectedLead] = useState<LeadUI | null>(null);
 
@@ -1503,46 +1521,56 @@ Deep scan: ${deepAddendumParts.join(", ")}.`
     return Number.isFinite(v) && v > 0 ? v : 0;
   }, [sortedLeads]);
 
-  const toggleSaveLead = (lead: LeadUI) => {
-    const oppInsight = getLocalizedOpportunityInsight(lead, language);
+  const toggleSaveLead = async (lead: LeadUI) => {
     const isSaved = savedLeadIds.has(lead.id);
-    try {
-      const existing = JSON.parse(localStorage.getItem("vantio_saved_leads_v1") ?? "[]") as { id: string }[];
-      let updated: { id: string }[];
-      if (isSaved) {
-        updated = existing.filter((l) => l.id !== lead.id);
-      } else {
-        const entry = {
-          id: lead.id,
-          name: lead.company.name,
-          industry: lead.classification.primaryIndustry,
-          city: lead.company.city,
-          country: lead.company.country,
-          score: lead.score.value ?? 0,
-          opportunity: lead.score.opportunity ?? 0,
-          risk: lead.score.risk ?? 0,
-          riskProfile: lead.score.riskProfile ?? "unknown",
-          reputation: lead.score.breakdown?.reputation ?? 0,
-          digitalPresence: lead.score.breakdown?.digitalPresence ?? 0,
-          businessStrength: lead.score.breakdown?.businessStrength ?? 0,
-          rating: lead.metrics?.rating ?? null,
-          reviewCount: lead.metrics?.reviewCount ?? null,
-          website: lead.company.website ?? null,
-          opportunityMessage: oppInsight?.message ?? null,
-          opportunityType: oppInsight?.type ?? null,
-          fitScore: lead.fit?.fitScore ?? null,
-          matchedNeeds: lead.fit?.matchedNeeds ?? [],
-          hasBookingCta: null,
-          hasClearOffer: null,
-          isMobileFriendly: null,
-          socialPresence: lead.metrics?.socialPresence ?? null,
-        };
-        updated = [entry, ...existing.filter((l) => l.id !== lead.id)].slice(0, 100);
+
+    if (isSaved) {
+      const itemId = savedLeadItemIds.get(lead.id);
+      if (!itemId) return; // shouldn't happen if state is in sync, but avoid a broken DELETE call
+      const res = await fetch("/api/collections/items", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: itemId }),
+      });
+      if (res.ok) {
+        setSavedLeadIds((prev) => {
+          const next = new Set(prev);
+          next.delete(lead.id);
+          return next;
+        });
+        setSavedLeadItemIds((prev) => {
+          const next = new Map(prev);
+          next.delete(lead.id);
+          return next;
+        });
       }
-      localStorage.setItem("vantio_saved_leads_v1", JSON.stringify(updated));
-      setSavedLeadIds(new Set(updated.map((l) => l.id)));
+      return;
+    }
+
+    try {
+      const collectionRes = await fetch("/api/collections/default");
+      if (!collectionRes.ok) return;
+      const { collectionId } = await collectionRes.json();
+      const runIdForLead = Number(lead.metadata?.runId ?? 0) || null;
+      const saveRes = await fetch("/api/collections/items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          collection_id: collectionId,
+          lead_id: lead.id,
+          run_id: runIdForLead,
+          company_name: lead.company.name,
+        }),
+      });
+      if (saveRes.ok) {
+        const { item } = (await saveRes.json().catch(() => ({}))) as { item?: { id: string } };
+        setSavedLeadIds((prev) => new Set(prev).add(lead.id));
+        if (item?.id) {
+          setSavedLeadItemIds((prev) => new Map(prev).set(lead.id, item.id));
+        }
+      }
     } catch {
-      /* ignore */
+      // Save failed — leave state unchanged rather than show a false "saved" state.
     }
   };
 

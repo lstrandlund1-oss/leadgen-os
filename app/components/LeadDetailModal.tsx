@@ -88,7 +88,7 @@ export type LeadDetailModalProps = {
       >
     >;
   }) => Promise<void>;
-  toggleSaveLead: (lead: LeadUI) => void;
+  toggleSaveLead: (lead: LeadUI) => void | Promise<void>;
   language: Language;
   t: Translations;
   location: string;
