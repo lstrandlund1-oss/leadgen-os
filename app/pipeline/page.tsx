@@ -6,6 +6,7 @@ import { getTranslations } from "@/lib/i18n";
 import { getStoredLanguage } from "@/lib/languagePreference";
 import Sidebar from "@/app/components/Sidebar";
 import type { PipelineOverview, PipelineStage, PipelineOpportunity } from "@/lib/pipeline/getPipelineOverview";
+import { stageConversionRate } from "@/lib/pipeline/getPipelineOverview";
 import { findStaleLeads } from "@/lib/pipeline/staleLeads";
 
 const STAGE_ORDER: PipelineStage[] = ["recommended", "contacted", "replied", "meeting", "won", "lost"];
@@ -170,11 +171,6 @@ const DEMO_OVERVIEW: PipelineOverview = {
   totalWonRevenue: 145_000,
 };
 
-function rate(from: number, to: number): number | null {
-  if (from === 0) return null;
-  return Math.round((to / from) * 100);
-}
-
 export default function PipelinePage() {
   const [language] = useState(() => getStoredLanguage());
   const t = getTranslations(language).ui.pipeline;
@@ -228,23 +224,23 @@ export default function PipelinePage() {
   const stageRates: Partial<Record<PipelineStage, { percent: number | null; fromStage: PipelineStage }>> = shownOverview
     ? {
         contacted: {
-          percent: rate(shownOverview.stages.recommended.length, shownOverview.stages.contacted.length),
+          percent: stageConversionRate(shownOverview.stages.recommended.length, shownOverview.stages.contacted.length),
           fromStage: "recommended",
         },
         replied: {
-          percent: rate(shownOverview.stages.contacted.length, shownOverview.stages.replied.length),
+          percent: stageConversionRate(shownOverview.stages.contacted.length, shownOverview.stages.replied.length),
           fromStage: "contacted",
         },
         meeting: {
-          percent: rate(shownOverview.stages.replied.length, shownOverview.stages.meeting.length),
+          percent: stageConversionRate(shownOverview.stages.replied.length, shownOverview.stages.meeting.length),
           fromStage: "replied",
         },
         won: {
-          percent: rate(shownOverview.stages.meeting.length, shownOverview.stages.won.length),
+          percent: stageConversionRate(shownOverview.stages.meeting.length, shownOverview.stages.won.length),
           fromStage: "meeting",
         },
         lost: {
-          percent: rate(shownOverview.stages.meeting.length, shownOverview.stages.lost.length),
+          percent: stageConversionRate(shownOverview.stages.meeting.length, shownOverview.stages.lost.length),
           fromStage: "meeting",
         },
       }

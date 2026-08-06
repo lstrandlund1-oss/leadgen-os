@@ -12,6 +12,7 @@ import DonutChart from "@/app/components/DonutChart";
 import { formatPrice } from "@/lib/pricing";
 import type { RecommendedOpportunity } from "@/lib/recommendations/getTodaysRecommendations";
 import type { PipelineOverview, PipelineStage } from "@/lib/pipeline/getPipelineOverview";
+import { stageConversionRate } from "@/lib/pipeline/getPipelineOverview";
 import type { MonthlyPerformance } from "@/lib/stats/getMonthlyPerformance";
 import type { Market } from "@/lib/markets/markets";
 import type { MarketSnapshot } from "@/lib/markets/getMarketSnapshot";
@@ -588,27 +589,49 @@ export default function HomePage() {
                         won: tPipeline.stageWon,
                         lost: tPipeline.stageLost,
                       };
-                      // Color graduates left-to-right through the funnel,
-                      // gray -> gold -> green/red at the outcome stages -
-                      // gives the same "progress" read as a connector line
-                      // without needing SVG positioning between boxes.
+                      // Same palette as the Pipeline page itself — blue to
+                      // green through the active funnel, vibrant green for
+                      // Won, a distinct red for Lost, rather than the old
+                      // gray-to-gold scheme this widget still had.
                       const stageColor: Record<PipelineStage, string> = {
-                        recommended: "#3a3a3a",
-                        contacted: "#5a5a4a",
-                        replied: "#8a7a4a",
-                        meeting: "#c9a84c",
-                        won: "#4ade80",
-                        lost: "#f87171",
+                        recommended: "#4a7ba6",
+                        contacted: "#4a93a6",
+                        replied: "#4aa695",
+                        meeting: "#4aa66e",
+                        won: "#2dd478",
+                        lost: "#ef4444",
                       };
+                      const fromStage: Partial<Record<PipelineStage, PipelineStage>> = {
+                        contacted: "recommended",
+                        replied: "contacted",
+                        meeting: "replied",
+                        won: "meeting",
+                        lost: "meeting",
+                      };
+                      const source = fromStage[stage];
+                      const percent = source
+                        ? stageConversionRate(shownPipeline.stages[source].length, shownPipeline.stages[stage].length)
+                        : null;
+                      const color = stageColor[stage];
                       return (
                         <div
                           key={stage}
-                          className="bg-[#0d0d0d] border border-[#1e1e1e] rounded-xl p-3 text-center"
-                          style={{ borderTop: `3px solid ${stageColor[stage]}` }}>
+                          className="rounded-xl p-3 text-center overflow-hidden"
+                          style={{
+                            background: `linear-gradient(180deg, ${color}14 0%, #0d0d0d 60px)`,
+                            border: `1px solid ${color}33`,
+                          }}>
                           <p className="text-[18px] font-semibold text-[#f5f0e8]">
                             {shownPipeline.stages[stage].length}
                           </p>
                           <p className="text-[10px] text-[#666] mt-0.5">{stageLabel[stage]}</p>
+                          {percent !== null && source && (
+                            <p
+                              className="text-[9px] text-[#666] mt-1 cursor-help"
+                              title={tPipeline.conversionTooltip(percent, stageLabel[source], stageLabel[stage])}>
+                              {tPipeline.conversionLabel(percent, stageLabel[source])}
+                            </p>
+                          )}
                         </div>
                       );
                     },

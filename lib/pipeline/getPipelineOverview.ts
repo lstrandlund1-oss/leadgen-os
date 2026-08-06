@@ -146,6 +146,15 @@ export async function getPipelineOverview(userId: string): Promise<PipelineOverv
   return { stages, totalActiveCount, totalWonRevenue };
 }
 
+// Simple stage-to-stage conversion rate — shared by both the Pipeline
+// page and Home's pipeline overview widget, so both compute conversion
+// the exact same way rather than maintaining two separate copies that
+// could drift.
+export function stageConversionRate(from: number, to: number): number | null {
+  if (from === 0) return null;
+  return Math.round((to / from) * 100);
+}
+
 // Which timestamp marks "entered the current stage" — the matching
 // transition timestamp for that stage, or scored_at for "recommended"
 // (nothing has happened yet, so the lead has been sitting since it was
