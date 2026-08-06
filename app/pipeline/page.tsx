@@ -11,12 +11,12 @@ import { findStaleLeads } from "@/lib/pipeline/staleLeads";
 const STAGE_ORDER: PipelineStage[] = ["recommended", "contacted", "replied", "meeting", "won", "lost"];
 
 const STAGE_COLORS: Record<PipelineStage, string> = {
-  recommended: "#555",
-  contacted: "#7a8bb0",
-  replied: "#8a7a4a",
-  meeting: "#c9a84c",
-  won: "#4ade80",
-  lost: "#f87171",
+  recommended: "#4a7ba6",
+  contacted: "#4a93a6",
+  replied: "#4aa695",
+  meeting: "#4aa66e",
+  won: "#2dd478",
+  lost: "#ef4444",
 };
 
 function scoreColor(value: number): string {
@@ -312,50 +312,41 @@ export default function PipelinePage() {
 
         {!shownLoading && shownOverview && !shownIsEmpty && (
           <div className="flex-1 overflow-x-auto px-8 pb-8 themed-scrollbar">
-            <div className="min-w-max">
-              <div className="flex">
-                {STAGE_ORDER.map((stage, idx) => (
+            <div className="flex gap-3 min-w-max">
+              {STAGE_ORDER.map((stage, idx) => {
+                const opportunities = shownOverview.stages[stage];
+                const visible = opportunities.slice(0, 5);
+                const remaining = opportunities.length - visible.length;
+                const rateIntoThisStage = idx > 0 && idx <= 4 ? rates[idx - 1] : null;
+                const color = STAGE_COLORS[stage];
+                return (
                   <div
                     key={stage}
-                    className="w-[190px] shrink-0 h-9 flex items-center justify-center relative"
+                    className="w-[210px] shrink-0 rounded-2xl overflow-hidden"
                     style={{
-                      background: STAGE_COLORS[stage],
-                      clipPath:
-                        idx === 0
-                          ? "polygon(0% 0%, 92% 0%, 100% 50%, 92% 100%, 0% 100%)"
-                          : idx === STAGE_ORDER.length - 1
-                            ? "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 8% 50%)"
-                            : "polygon(0% 0%, 92% 0%, 100% 50%, 92% 100%, 0% 100%, 8% 50%)",
-                      marginLeft: idx === 0 ? 0 : -16,
+                      background: `linear-gradient(180deg, ${color}14 0%, #0d0d0d 140px)`,
+                      border: `1px solid ${color}33`,
                     }}>
-                    <span className="text-[11px] font-semibold" style={{ color: "#080808" }}>
-                      {stageLabel[stage]} · {shownOverview.stages[stage].length}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex mt-1.5">
-                {STAGE_ORDER.map((stage, idx) => {
-                  const rateIntoThisStage = idx > 0 && idx <= 4 ? rates[idx - 1] : null;
-                  return (
-                    <div key={stage} className="w-[190px] shrink-0 text-center">
-                      {rateIntoThisStage !== null && (
-                        <span className="text-[10px] text-[#8a8a6e]">{t.rateToNext(rateIntoThisStage)}</span>
-                      )}
+                    <div className="px-4 pt-4 pb-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span
+                          className="w-2 h-2 rounded-full"
+                          style={{ background: color, boxShadow: `0 0 8px ${color}99` }}
+                        />
+                        <p className="text-[12px] font-medium tracking-wide" style={{ color }}>
+                          {stageLabel[stage]}
+                        </p>
+                      </div>
+                      <div className="flex items-baseline gap-2">
+                        <p className="text-[26px] font-semibold text-[#f5f0e8]">{opportunities.length}</p>
+                        {rateIntoThisStage !== null && (
+                          <span className="text-[11px] text-[#666]">{t.rateToNext(rateIntoThisStage)} in</span>
+                        )}
+                      </div>
                     </div>
-                  );
-                })}
-              </div>
 
-              <div className="flex mt-2">
-                {STAGE_ORDER.map((stage) => {
-                  const opportunities = shownOverview.stages[stage];
-                  const visible = opportunities.slice(0, 4);
-                  const remaining = opportunities.length - visible.length;
-                  return (
-                    <div key={stage} className="w-[190px] shrink-0 pr-4 space-y-2">
-                      {visible.length === 0 && <p className="text-[11px] text-[#444] py-2">—</p>}
+                    <div className="px-3 pb-4 space-y-1.5">
+                      {visible.length === 0 && <p className="text-[11px] text-[#3a3a3a] px-1 py-2">—</p>}
                       {visible.map((opp) => (
                         <Link
                           key={opp.rawId}
@@ -364,20 +355,27 @@ export default function PipelinePage() {
                               ? `/dashboard?runId=${opp.runId}&leadId=${encodeURIComponent(opp.leadId)}`
                               : "/dashboard"
                           }
-                          className="flex items-center justify-between gap-2 hover:opacity-80 transition-opacity">
-                          <span className="text-[12px] text-[#999] truncate">{opp.name}</span>
-                          <span
-                            className="text-[11px] font-semibold shrink-0"
-                            style={{ color: scoreColor(opp.opportunityValue) }}>
-                            {opp.opportunityValue}
-                          </span>
+                          className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-[#111111] hover:bg-[#161616] border-l-2 transition-colors"
+                          style={{ borderLeftColor: `${color}88` }}>
+                          <span className="text-[12px] text-[#ccc] truncate flex-1">{opp.name}</span>
+                          {stage === "won" && opp.revenue !== null ? (
+                            <span className="text-[11px] font-semibold shrink-0 text-[#2dd478]">
+                              {opp.revenue.toLocaleString(language === "sv" ? "sv-SE" : "en-US")}
+                            </span>
+                          ) : (
+                            <span
+                              className="text-[11px] font-semibold shrink-0"
+                              style={{ color: scoreColor(opp.opportunityValue) }}>
+                              {opp.opportunityValue}
+                            </span>
+                          )}
                         </Link>
                       ))}
-                      {remaining > 0 && <p className="text-[10px] text-[#555] pt-1">{t.moreCount(remaining)}</p>}
+                      {remaining > 0 && <p className="text-[10px] text-[#555] px-2.5 pt-1">{t.moreCount(remaining)}</p>}
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
