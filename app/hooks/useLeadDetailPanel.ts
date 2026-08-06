@@ -172,6 +172,26 @@ export function useLeadDetailPanel(opts: {
   const [savedLeadIds, setSavedLeadIds] = useState<Set<string>>(new Set());
   const [savedLeadItemIds, setSavedLeadItemIds] = useState<Map<string, string>>(new Map());
 
+  // Fetches a run's leads and selects the matching one — the same fetch
+  // pattern Dashboard's own deep-link effect uses, extracted here so
+  // Pipeline's "full breakdown" button can open the real lead detail
+  // without a second, separately-maintained copy of this logic. Returns
+  // whether it succeeded, so the caller can show an error state if not.
+  async function loadAndSelectLead(runId: number, leadId: string): Promise<boolean> {
+    try {
+      const res = await fetch(`/api/providers/runs/${runId}/leads`);
+      if (!res.ok) return false;
+      const data = (await res.json().catch(() => ({}))) as { leads?: LeadUI[] };
+      const fetchedLeads = Array.isArray(data.leads) ? data.leads : [];
+      const match = fetchedLeads.find((l) => l.id === leadId);
+      if (!match) return false;
+      setSelectedLead(match);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async function runDeepScan(lead: LeadUI): Promise<void> {
     if (deepEnrichmentLoading) return;
     setDeepScanLoading(true);
@@ -419,6 +439,7 @@ export function useLeadDetailPanel(opts: {
     savedLeadIds,
     setSavedLeadIds,
     runDeepScan,
+    loadAndSelectLead,
     outreachVariant,
     setOutreachVariant,
     outcomesByLeadId,

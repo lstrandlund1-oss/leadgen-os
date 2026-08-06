@@ -1,13 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { getTranslations } from "@/lib/i18n";
 import { getStoredLanguage } from "@/lib/languagePreference";
 import Sidebar from "@/app/components/Sidebar";
 import type { PipelineOverview, PipelineStage, PipelineOpportunity } from "@/lib/pipeline/getPipelineOverview";
 import { stageConversionRate } from "@/lib/pipeline/getPipelineOverview";
 import { findStaleLeads } from "@/lib/pipeline/staleLeads";
+import { getEffectivePlan, canUseDeepEnrichment } from "@/lib/plan";
+import { useLeadDetailPanel } from "@/app/hooks/useLeadDetailPanel";
+import { computeLeadDetailDerivedProps } from "@/app/hooks/leadDetailDerivedProps";
+import LeadDetailModal from "@/app/components/LeadDetailModal";
+import PipelineLeadPanel from "@/app/components/PipelineLeadPanel";
 
 const STAGE_ORDER: PipelineStage[] = ["recommended", "contacted", "replied", "meeting", "won", "lost"];
 
@@ -175,10 +179,26 @@ export default function PipelinePage() {
   const [language] = useState(() => getStoredLanguage());
   const t = getTranslations(language).ui.pipeline;
   const tHome = getTranslations(language).ui.home;
+  const fullT = getTranslations(language); // full schema — LeadDetailModal expects this shape, matching what Dashboard passes
 
   const [overview, setOverview] = useState<PipelineOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
+
+  // Quick panel — opens on Pipeline itself when a lead card is clicked,
+  // instead of redirecting to Dashboard. "View full breakdown" inside it
+  // renders the exact same LeadDetailModal Dashboard uses, via this
+  // page's own instance of the shared hook.
+  const [quickPanelOpp, setQuickPanelOpp] = useState<PipelineOpportunity | null>(null);
+  const panel = useLeadDetailPanel({ language });
+  const deepEnrichmentUnlocked = canUseDeepEnrichment(getEffectivePlan());
+  const derivedProps = computeLeadDetailDerivedProps({
+    selectedLead: panel.selectedLead,
+    outcomesByLeadId: panel.outcomesByLeadId,
+    enrichmentData: panel.enrichmentData,
+    outreachVariant: panel.outreachVariant,
+    language,
+  });
 
   useEffect(() => {
     fetch("/api/pipeline/overview")
@@ -293,14 +313,11 @@ export default function PipelinePage() {
               ) : (
                 <div className="flex gap-3 overflow-x-auto themed-scrollbar">
                   {staleLeads.map((lead) => (
-                    <Link
+                    <button
                       key={lead.rawId}
-                      href={
-                        lead.runId
-                          ? `/dashboard?runId=${lead.runId}&leadId=${encodeURIComponent(lead.leadId)}`
-                          : "/dashboard"
-                      }
-                      className="shrink-0 w-[180px] bg-[#0d0d0d] border border-[#1e1e1e] hover:border-[#f87171]/40 rounded-xl px-3 py-2.5 transition-colors">
+                      type="button"
+                      onClick={() => setQuickPanelOpp(lead)}
+                      className="text-left shrink-0 w-[180px] bg-[#0d0d0d] border border-[#1e1e1e] hover:border-[#f87171]/40 rounded-xl px-3 py-2.5 transition-colors">
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <p className="text-[12px] text-[#f5f0e8] truncate">{lead.name}</p>
                         <span
@@ -311,7 +328,7 @@ export default function PipelinePage() {
                       </div>
                       <p className="text-[10px] text-[#666]">{stageLabel[lead.stage]}</p>
                       <p className="text-[10px] text-[#f87171] mt-1">{t.daysStuck(lead.daysStale)}</p>
-                    </Link>
+                    </button>
                   ))}
                 </div>
               )}
@@ -374,14 +391,11 @@ export default function PipelinePage() {
                     <div className="px-3 pb-4 space-y-1.5">
                       {visible.length === 0 && <p className="text-[11px] text-[#3a3a3a] px-1 py-2">—</p>}
                       {visible.map((opp) => (
-                        <Link
+                        <button
                           key={opp.rawId}
-                          href={
-                            opp.runId
-                              ? `/dashboard?runId=${opp.runId}&leadId=${encodeURIComponent(opp.leadId)}`
-                              : "/dashboard"
-                          }
-                          className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-[#111111] hover:bg-[#161616] border-l-2 transition-colors"
+                          type="button"
+                          onClick={() => setQuickPanelOpp(opp)}
+                          className="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-lg bg-[#111111] hover:bg-[#161616] border-l-2 transition-colors"
                           style={{ borderLeftColor: `${color}88` }}>
                           <span className="text-[12px] text-[#ccc] truncate flex-1">{opp.name}</span>
                           {stage === "won" && opp.revenue !== null ? (
@@ -395,7 +409,7 @@ export default function PipelinePage() {
                               {opp.opportunityValue}
                             </span>
                           )}
-                        </Link>
+                        </button>
                       ))}
                       {remaining > 0 && <p className="text-[10px] text-[#555] px-2.5 pt-1">{t.moreCount(remaining)}</p>}
                     </div>
@@ -406,6 +420,77 @@ export default function PipelinePage() {
           </div>
         )}
       </div>
+
+      {quickPanelOpp && (
+        <PipelineLeadPanel
+          opportunity={quickPanelOpp}
+          language={language}
+          onClose={() => setQuickPanelOpp(null)}
+          onViewFullBreakdown={async () => {
+            if (!quickPanelOpp.runId) return;
+            const ok = await panel.loadAndSelectLead(quickPanelOpp.runId, quickPanelOpp.leadId);
+            if (ok) setQuickPanelOpp(null);
+          }}
+        />
+      )}
+
+      <LeadDetailModal
+        selectedLead={panel.selectedLead}
+        setSelectedLead={panel.setSelectedLead}
+        detailTab={panel.detailTab}
+        setDetailTab={panel.setDetailTab}
+        activeTabUI={panel.activeTabUI}
+        setActiveTabUI={panel.setActiveTabUI}
+        isTabPending={panel.isTabPending}
+        snapshot={panel.snapshot}
+        setSnapshot={panel.setSnapshot}
+        snapshotLoading={panel.snapshotLoading}
+        setSnapshotLoading={panel.setSnapshotLoading}
+        sequenceSteps={panel.sequenceSteps}
+        setSequenceSteps={panel.setSequenceSteps}
+        sequenceLoading={panel.sequenceLoading}
+        setSequenceLoading={panel.setSequenceLoading}
+        sequenceGenerating={panel.sequenceGenerating}
+        setSequenceGenerating={panel.setSequenceGenerating}
+        sequenceExpandedStep={panel.sequenceExpandedStep}
+        setSequenceExpandedStep={panel.setSequenceExpandedStep}
+        saveOutcome={panel.saveOutcome}
+        toggleSaveLead={panel.toggleSaveLead}
+        language={language}
+        t={fullT}
+        location="Sweden"
+        deepEnrichmentData={panel.deepEnrichmentData}
+        setDeepScanData={panel.setDeepScanData}
+        deepEnrichmentLoading={panel.deepEnrichmentLoading}
+        setDeepScanLoading={panel.setDeepScanLoading}
+        deepEnrichmentUnlocked={deepEnrichmentUnlocked}
+        enrichmentData={panel.enrichmentData}
+        setEnrichmentData={panel.setEnrichmentData}
+        enrichmentLoading={panel.enrichmentLoading}
+        setEnrichmentLoading={panel.setEnrichmentLoading}
+        isRescoring={panel.isRescoring}
+        setIsRescoring={panel.setIsRescoring}
+        isSavingOutcome={panel.isSavingOutcome}
+        setIsSavingOutcome={panel.setIsSavingOutcome}
+        savedLeadIds={panel.savedLeadIds}
+        setSavedLeadIds={panel.setSavedLeadIds}
+        runDeepScan={panel.runDeepScan}
+        selectedOutcome={derivedProps.selectedOutcome}
+        safeOutreach={derivedProps.safeOutreach}
+        safeEnrichment={derivedProps.safeEnrichment}
+        runIdNum={derivedProps.runIdNum}
+        contacted={derivedProps.contacted}
+        replied={derivedProps.replied}
+        bookedCall={derivedProps.bookedCall}
+        detailInsight={derivedProps.detailInsight}
+        detailWebsiteUrl={derivedProps.detailWebsiteUrl}
+        enrichmentSignals={derivedProps.enrichmentSignals}
+        isReachable={derivedProps.isReachable}
+        detectedPlatforms={derivedProps.detectedPlatforms}
+        angleTitle={derivedProps.angleTitle}
+        angleWhy={derivedProps.angleWhy}
+        scriptText={derivedProps.scriptText}
+      />
     </div>
   );
 }
