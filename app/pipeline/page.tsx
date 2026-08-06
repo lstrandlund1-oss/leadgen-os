@@ -426,6 +426,10 @@ export default function PipelinePage() {
           opportunity={quickPanelOpp}
           language={language}
           onClose={() => setQuickPanelOpp(null)}
+          saveOutcome={panel.saveOutcome}
+          loadAndSelectLead={panel.loadAndSelectLead}
+          selectedLead={panel.selectedLead}
+          scriptText={derivedProps.scriptText}
           onViewFullBreakdown={async () => {
             if (!quickPanelOpp.runId) return;
             const ok = await panel.loadAndSelectLead(quickPanelOpp.runId, quickPanelOpp.leadId);
