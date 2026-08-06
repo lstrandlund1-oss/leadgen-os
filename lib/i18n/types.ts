@@ -362,7 +362,8 @@ export type TranslationSchema = {
       needsAttentionTitle: string;
       needsAttentionEmpty: string;
       daysStuck: (days: number) => string;
-      rateToNext: (percent: number) => string;
+      conversionLabel: (percent: number, fromStageLabel: string) => string;
+      conversionTooltip: (percent: number, fromStageLabel: string, toStageLabel: string) => string;
     };
     home: {
       greetingMorning: string;

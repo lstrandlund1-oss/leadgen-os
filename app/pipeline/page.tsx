@@ -219,14 +219,36 @@ export default function PipelinePage() {
 
   // Conversion rates between adjacent columns, reusing the same counts
   // shown in the header — no separate computation from Stats needed.
-  const rates = shownOverview
-    ? [
-        rate(shownOverview.stages.recommended.length, shownOverview.stages.contacted.length),
-        rate(shownOverview.stages.contacted.length, shownOverview.stages.replied.length),
-        rate(shownOverview.stages.replied.length, shownOverview.stages.meeting.length),
-        rate(shownOverview.stages.meeting.length, shownOverview.stages.won.length),
-      ]
-    : [];
+  // Each stage's conversion rate, computed against the stage it came
+  // from — explicit about the source stage so the percentage is
+  // self-explanatory rather than a floating, ambiguous number. Meeting
+  // has two real outcomes (Won or Lost), so both get their own rate
+  // against Meeting specifically, rather than only ever showing the
+  // Won path and leaving Lost unaccounted for.
+  const stageRates: Partial<Record<PipelineStage, { percent: number | null; fromStage: PipelineStage }>> = shownOverview
+    ? {
+        contacted: {
+          percent: rate(shownOverview.stages.recommended.length, shownOverview.stages.contacted.length),
+          fromStage: "recommended",
+        },
+        replied: {
+          percent: rate(shownOverview.stages.contacted.length, shownOverview.stages.replied.length),
+          fromStage: "contacted",
+        },
+        meeting: {
+          percent: rate(shownOverview.stages.replied.length, shownOverview.stages.meeting.length),
+          fromStage: "replied",
+        },
+        won: {
+          percent: rate(shownOverview.stages.meeting.length, shownOverview.stages.won.length),
+          fromStage: "meeting",
+        },
+        lost: {
+          percent: rate(shownOverview.stages.meeting.length, shownOverview.stages.lost.length),
+          fromStage: "meeting",
+        },
+      }
+    : {};
 
   return (
     <div className="min-h-screen bg-[#080808] text-[#f5f0e8] flex">
@@ -313,11 +335,11 @@ export default function PipelinePage() {
         {!shownLoading && shownOverview && !shownIsEmpty && (
           <div className="flex-1 overflow-x-auto px-8 pb-8 themed-scrollbar">
             <div className="flex gap-3 min-w-max">
-              {STAGE_ORDER.map((stage, idx) => {
+              {STAGE_ORDER.map((stage) => {
                 const opportunities = shownOverview.stages[stage];
                 const visible = opportunities.slice(0, 5);
                 const remaining = opportunities.length - visible.length;
-                const rateIntoThisStage = idx > 0 && idx <= 4 ? rates[idx - 1] : null;
+                const stageRate = stageRates[stage];
                 const color = STAGE_COLORS[stage];
                 return (
                   <div
@@ -339,8 +361,16 @@ export default function PipelinePage() {
                       </div>
                       <div className="flex items-baseline gap-2">
                         <p className="text-[26px] font-semibold text-[#f5f0e8]">{opportunities.length}</p>
-                        {rateIntoThisStage !== null && (
-                          <span className="text-[11px] text-[#666]">{t.rateToNext(rateIntoThisStage)} in</span>
+                        {stageRate && stageRate.percent !== null && (
+                          <span
+                            className="text-[11px] text-[#666] cursor-help"
+                            title={t.conversionTooltip(
+                              stageRate.percent,
+                              stageLabel[stageRate.fromStage],
+                              stageLabel[stage],
+                            )}>
+                            {t.conversionLabel(stageRate.percent, stageLabel[stageRate.fromStage])}
+                          </span>
                         )}
                       </div>
                     </div>

@@ -508,7 +508,9 @@ export const en: TranslationSchema = {
       needsAttentionTitle: "Needs attention",
       needsAttentionEmpty: "Nothing stuck right now — every active lead has moved recently.",
       daysStuck: (days: number) => `${days}d stuck`,
-      rateToNext: (percent: number) => `${percent}%`,
+      conversionLabel: (percent, fromStageLabel) => `${percent}% of ${fromStageLabel}`,
+      conversionTooltip: (percent, fromStageLabel, toStageLabel) =>
+        `${percent}% of ${fromStageLabel} leads moved to ${toStageLabel}.`,
     },
     home: {
       greetingMorning: "Good morning",

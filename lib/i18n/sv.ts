@@ -511,7 +511,9 @@ export const sv: TranslationSchema = {
       needsAttentionTitle: "Behöver uppmärksamhet",
       needsAttentionEmpty: "Inget fastnat just nu — alla aktiva möjligheter har rört sig nyligen.",
       daysStuck: (days: number) => `${days}d fast`,
-      rateToNext: (percent: number) => `${percent}%`,
+      conversionLabel: (percent, fromStageLabel) => `${percent}% av ${fromStageLabel}`,
+      conversionTooltip: (percent, fromStageLabel, toStageLabel) =>
+        `${percent}% av ${fromStageLabel} gick vidare till ${toStageLabel}.`,
     },
     home: {
       greetingMorning: "God morgon",

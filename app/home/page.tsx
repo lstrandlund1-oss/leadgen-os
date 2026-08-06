@@ -477,7 +477,7 @@ export default function HomePage() {
                           )}
                         </div>
                       </div>
-                      <div className="text-right shrink-0 flex items-center gap-2">
+                      <div className="text-right shrink-0 flex items-start gap-2">
                         <div>
                           <Link
                             href={
