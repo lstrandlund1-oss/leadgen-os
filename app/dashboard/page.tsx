@@ -261,6 +261,29 @@ export function riskMessage(language: Language, lead: Lead): string {
 }
 
 // ---------------------
+// Gap label — the short "why this lead" line shown on both the mobile
+// card view and the desktop table row. Extracted here so both use the
+// exact same reasoning rather than two separately-maintained copies.
+// ---------------------
+export function getGapLabel(lead: LeadUI, insight: OpportunitySignal | null, t: Translations): string {
+  return insight?.type === "conversion_gap"
+    ? t.ui.detail.whyNoBookingFlow
+    : insight?.type === "visibility_gap"
+      ? t.ui.detail.whyLowDigital
+      : insight?.type === "foundation_gap"
+        ? t.ui.detail.whyMissingInfra
+        : insight?.type === "mature_competitor"
+          ? t.ui.detail.whyAlreadyEstablished
+          : lead.score.riskProfile === "early_stage" || lead.score.riskProfile === "limited_data"
+            ? t.ui.detail.whyUnstableSignals
+            : (lead.score.value ?? 0) >= 80
+              ? t.ui.detail.whyTopTier
+              : (lead.score.value ?? 0) >= 60
+                ? t.ui.detail.whyGoodValueFit
+                : t.ui.detail.whyLowPriority;
+}
+
+// ---------------------
 // Score explanation
 // ---------------------
 export function getScoreReason(lead: Lead, language: Language): string {
@@ -2491,23 +2514,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                         {visibleLeads.map((lead) => {
                           const isSelected = selectedLead?.id === lead.id;
                           const insight = getLocalizedOpportunityInsight(lead, language);
-                          const gapLabel =
-                            insight?.type === "conversion_gap"
-                              ? t.ui.detail.whyNoBookingFlow
-                              : insight?.type === "visibility_gap"
-                                ? t.ui.detail.whyLowDigital
-                                : insight?.type === "foundation_gap"
-                                  ? t.ui.detail.whyMissingInfra
-                                  : insight?.type === "mature_competitor"
-                                    ? t.ui.detail.whyAlreadyEstablished
-                                    : lead.score.riskProfile === "early_stage" ||
-                                        lead.score.riskProfile === "limited_data"
-                                      ? t.ui.detail.whyUnstableSignals
-                                      : (lead.score.value ?? 0) >= 80
-                                        ? t.ui.detail.whyTopTier
-                                        : (lead.score.value ?? 0) >= 60
-                                          ? t.ui.detail.whyGoodValueFit
-                                          : t.ui.detail.whyLowPriority;
+                          const gapLabel = getGapLabel(lead, insight, t);
                           const scoreColor =
                             (lead.score.value ?? 0) >= 80
                               ? "#4ade80"
@@ -2597,6 +2604,7 @@ Light enrichment: ${addendumParts.join(", ")}.`
                           <tbody>
                             {visibleLeads.map((lead: LeadUI) => {
                               const isSelected = selectedLead?.id === lead.id;
+                              const gapLabel = getGapLabel(lead, getLocalizedOpportunityInsight(lead, language), t);
 
                               return (
                                 <Fragment key={lead.id}>
@@ -2667,6 +2675,9 @@ Light enrichment: ${addendumParts.join(", ")}.`
                                             </a>
                                           )}
                                         </div>
+                                        <p className="text-[10px] text-[#8a8a8a] mt-0.5 leading-snug max-w-[220px]">
+                                          ⚡ {gapLabel}
+                                        </p>
                                       </div>
                                     </td>
 
