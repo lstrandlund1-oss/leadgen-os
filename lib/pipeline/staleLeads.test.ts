@@ -15,6 +15,7 @@ function opp(overrides: Partial<PipelineOpportunity> = {}): PipelineOpportunity 
     revenue: null,
     opportunityValue: 70,
     stageEnteredAt: NOW.toISOString(),
+    reasons: [],
     ...overrides,
   };
 }

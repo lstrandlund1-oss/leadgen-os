@@ -130,6 +130,7 @@ const DEMO_PIPELINE: PipelineOverview = {
       revenue: null,
       opportunityValue: 50 + ((i * 7) % 45),
       stageEnteredAt: daysAgo(i % 20),
+      reasons: [],
     })),
     contacted: Array.from({ length: 37 }, (_, i) => ({
       rawId: -200 - i,
@@ -141,6 +142,7 @@ const DEMO_PIPELINE: PipelineOverview = {
       revenue: null,
       opportunityValue: 55 + ((i * 5) % 40),
       stageEnteredAt: daysAgo(i % 15),
+      reasons: [],
     })),
     replied: Array.from({ length: 18 }, (_, i) => ({
       rawId: -300 - i,
@@ -152,6 +154,7 @@ const DEMO_PIPELINE: PipelineOverview = {
       revenue: null,
       opportunityValue: 60 + ((i * 6) % 35),
       stageEnteredAt: daysAgo(i % 12),
+      reasons: [],
     })),
     meeting: Array.from({ length: 5 }, (_, i) => ({
       rawId: -400 - i,
@@ -163,6 +166,7 @@ const DEMO_PIPELINE: PipelineOverview = {
       revenue: null,
       opportunityValue: 70 + ((i * 4) % 25),
       stageEnteredAt: daysAgo(i * 2),
+      reasons: [],
     })),
     won: Array.from({ length: 2 }, (_, i) => ({
       rawId: -500 - i,
@@ -174,6 +178,7 @@ const DEMO_PIPELINE: PipelineOverview = {
       revenue: 47_500,
       opportunityValue: 85 + i,
       stageEnteredAt: daysAgo(i + 1),
+      reasons: [],
     })),
     lost: Array.from({ length: 4 }, (_, i) => ({
       rawId: -600 - i,
@@ -185,6 +190,7 @@ const DEMO_PIPELINE: PipelineOverview = {
       revenue: null,
       opportunityValue: 40 + ((i * 3) % 30),
       stageEnteredAt: daysAgo(i + 3),
+      reasons: [],
     })),
   },
   totalActiveCount: 61 + 37 + 18 + 5,

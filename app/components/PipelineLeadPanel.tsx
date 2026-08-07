@@ -218,6 +218,21 @@ export default function PipelineLeadPanel({
                   </p>
                 </div>
               )}
+              {opportunity.reasons.length > 0 && (
+                <div className="bg-[#111111] border border-[#1e1e1e] rounded-xl p-3">
+                  <p className="text-[10px] text-[#666] uppercase tracking-wide mb-1.5">
+                    {language === "sv" ? "Eftersom" : "Because"}
+                  </p>
+                  <ul className="space-y-1">
+                    {opportunity.reasons.map((reason, i) => (
+                      <li key={i} className="text-[12px] text-[#ccc] flex gap-1.5">
+                        <span className="text-[#555] shrink-0">•</span>
+                        <span>{reason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 

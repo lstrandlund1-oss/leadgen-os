@@ -52,6 +52,7 @@ const DEMO_OVERVIEW: PipelineOverview = {
         revenue: null,
         opportunityValue: 91,
         stageEnteredAt: daysAgo(0),
+        reasons: ["Weak outbound acquisition", "Strong market demand"],
       },
       {
         rawId: -2,
@@ -63,6 +64,7 @@ const DEMO_OVERVIEW: PipelineOverview = {
         revenue: null,
         opportunityValue: 87,
         stageEnteredAt: daysAgo(1),
+        reasons: ["Visibility gap", "High traffic, low brand presence"],
       },
       ...Array.from({ length: 59 }, (_, i) => ({
         rawId: -100 - i,
@@ -74,6 +76,7 @@ const DEMO_OVERVIEW: PipelineOverview = {
         revenue: null,
         opportunityValue: 50 + ((i * 7) % 45),
         stageEnteredAt: daysAgo(i % 20),
+        reasons: [] as string[],
       })),
     ],
     contacted: [
@@ -87,6 +90,7 @@ const DEMO_OVERVIEW: PipelineOverview = {
         revenue: null,
         opportunityValue: 72,
         stageEnteredAt: daysAgo(11),
+        reasons: ["Conversion gap", "Good traffic, weak conversions"],
       },
       ...Array.from({ length: 36 }, (_, i) => ({
         rawId: -200 - i,
@@ -98,6 +102,7 @@ const DEMO_OVERVIEW: PipelineOverview = {
         revenue: null,
         opportunityValue: 55 + ((i * 5) % 40),
         stageEnteredAt: daysAgo(i % 6),
+        reasons: [] as string[],
       })),
     ],
     replied: [
@@ -111,6 +116,7 @@ const DEMO_OVERVIEW: PipelineOverview = {
         revenue: null,
         opportunityValue: 68,
         stageEnteredAt: daysAgo(9),
+        reasons: ["Positioning gap", "Expanding team, unclear positioning"],
       },
       ...Array.from({ length: 17 }, (_, i) => ({
         rawId: -300 - i,
@@ -122,6 +128,7 @@ const DEMO_OVERVIEW: PipelineOverview = {
         revenue: null,
         opportunityValue: 60 + ((i * 6) % 35),
         stageEnteredAt: daysAgo(i % 5),
+        reasons: [] as string[],
       })),
     ],
     meeting: Array.from({ length: 5 }, (_, i) => ({
@@ -134,6 +141,7 @@ const DEMO_OVERVIEW: PipelineOverview = {
       revenue: null,
       opportunityValue: 70 + ((i * 4) % 25),
       stageEnteredAt: daysAgo(i),
+      reasons: [] as string[],
     })),
     won: [
       {
@@ -146,6 +154,7 @@ const DEMO_OVERVIEW: PipelineOverview = {
         revenue: 95_000,
         opportunityValue: 86,
         stageEnteredAt: daysAgo(2),
+        reasons: ["Scaling operations, manual processes"],
       },
       {
         rawId: -502,
@@ -157,6 +166,7 @@ const DEMO_OVERVIEW: PipelineOverview = {
         revenue: 50_000,
         opportunityValue: 88,
         stageEnteredAt: daysAgo(6),
+        reasons: ["Process gap", "Ready to scale outreach"],
       },
     ],
     lost: Array.from({ length: 4 }, (_, i) => ({
@@ -169,6 +179,7 @@ const DEMO_OVERVIEW: PipelineOverview = {
       revenue: null,
       opportunityValue: 40 + ((i * 3) % 30),
       stageEnteredAt: daysAgo(i + 3),
+      reasons: [] as string[],
     })),
   },
   totalActiveCount: 61 + 37 + 18 + 5,
@@ -395,6 +406,11 @@ export default function PipelinePage() {
                           key={opp.rawId}
                           type="button"
                           onClick={() => setQuickPanelOpp(opp)}
+                          title={
+                            opp.reasons.length > 0
+                              ? `${tHome.becauseLabel}: ${opp.reasons.map((r) => `• ${r}`).join("  ")}`
+                              : undefined
+                          }
                           className="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-lg bg-[#111111] hover:bg-[#161616] border-l-2 transition-colors"
                           style={{ borderLeftColor: `${color}88` }}>
                           <span className="text-[12px] text-[#ccc] truncate flex-1">{opp.name}</span>

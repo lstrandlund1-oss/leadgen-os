@@ -31,6 +31,11 @@ export type PipelineOpportunity = {
   // without progressing, using timestamps already tracked since Week 1,
   // not a new tracking system.
   stageEnteredAt: string;
+  // Same underlying data as Home's "Because:" breakdown — real, computed
+  // signals (opportunity_signals) already stored per company, sorted
+  // strongest first, capped at 3. Empty array when nothing was strong
+  // enough to surface.
+  reasons: string[];
 };
 
 export type PipelineOverview = {
@@ -74,7 +79,10 @@ export async function getPipelineOverview(userId: string): Promise<PipelineOverv
 
   const [{ data: rawRows }, { data: normalizedRows }, { data: runRaws }] = await Promise.all([
     client.from("companies_raw").select("id, source, source_id").in("id", rawIds),
-    client.from("companies_normalized").select("raw_id, name, city, duplicate_of_raw_id").in("raw_id", rawIds),
+    client
+      .from("companies_normalized")
+      .select("raw_id, name, city, duplicate_of_raw_id, opportunity_signals")
+      .in("raw_id", rawIds),
     client.from("provider_run_raws").select("run_id, raw_id").in("raw_id", rawIds),
   ]);
 
@@ -124,6 +132,14 @@ export async function getPipelineOverview(userId: string): Promise<PipelineOverv
     const outcome = outcomeByLeadId.get(leadId);
     const stage = classifyStage(outcome);
 
+    const allSignals = (normalized?.opportunity_signals as { message?: string; strength?: string }[] | null) ?? [];
+    const strengthRank: Record<string, number> = { high: 3, medium: 2, low: 1 };
+    const reasons = allSignals
+      .filter((s) => !!s.message)
+      .sort((a, b) => (strengthRank[b.strength ?? ""] ?? 0) - (strengthRank[a.strength ?? ""] ?? 0))
+      .slice(0, 3)
+      .map((s) => s.message as string);
+
     const opportunity: PipelineOpportunity = {
       rawId,
       leadId,
@@ -134,6 +150,7 @@ export async function getPipelineOverview(userId: string): Promise<PipelineOverv
       revenue: (outcome?.revenue as number | null) ?? null,
       opportunityValue: scoreByRawId.get(rawId) ?? 0,
       stageEnteredAt: stageEnteredAt(stage, outcome, scoredAtByRawId.get(rawId)),
+      reasons,
     };
 
     stages[stage].push(opportunity);
