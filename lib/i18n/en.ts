@@ -534,6 +534,7 @@ export const en: TranslationSchema = {
       mediumRisk: "Medium risk",
       highRisk: "High risk",
       detectedGap: "Detected gap",
+      becauseLabel: "Because",
       whyNow: "Why now",
       lastSeen: "Last seen",
       followupOverdueBadge: "Follow-up due",

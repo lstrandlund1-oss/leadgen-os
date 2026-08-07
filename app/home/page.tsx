@@ -40,6 +40,7 @@ const DEMO_RECOMMENDATIONS: RecommendedOpportunity[] = [
     followupOverdue: false,
     scoredAt: new Date().toISOString(),
     detectedGap: "Weak outbound acquisition",
+    reasons: ["Weak outbound acquisition", "Strong market demand in this category", "No active content strategy"],
   },
   {
     rawId: -2,
@@ -56,6 +57,7 @@ const DEMO_RECOMMENDATIONS: RecommendedOpportunity[] = [
     followupOverdue: false,
     scoredAt: new Date().toISOString(),
     detectedGap: "Visibility gap",
+    reasons: ["Visibility gap", "High traffic, low brand presence"],
   },
   {
     rawId: -3,
@@ -72,6 +74,7 @@ const DEMO_RECOMMENDATIONS: RecommendedOpportunity[] = [
     followupOverdue: false,
     scoredAt: new Date().toISOString(),
     detectedGap: "Conversion gap",
+    reasons: ["Conversion gap", "Good traffic, weak conversions"],
   },
   {
     rawId: -4,
@@ -88,6 +91,7 @@ const DEMO_RECOMMENDATIONS: RecommendedOpportunity[] = [
     followupOverdue: false,
     scoredAt: new Date().toISOString(),
     detectedGap: "Positioning gap",
+    reasons: ["Positioning gap", "Expanding team, unclear positioning"],
   },
   {
     rawId: -5,
@@ -104,6 +108,7 @@ const DEMO_RECOMMENDATIONS: RecommendedOpportunity[] = [
     followupOverdue: false,
     scoredAt: new Date().toISOString(),
     detectedGap: "Process gap",
+    reasons: ["Process gap", "Scaling operations, manual processes"],
   },
 ];
 
@@ -471,10 +476,18 @@ export default function HomePage() {
                             {" · "}
                             <span className="text-[#8a8a6e]">{getRiskLabel(rec.opportunityValue, t)}</span>
                           </p>
-                          {rec.detectedGap && (
-                            <p className="text-[12px] text-[#999] mt-1">
-                              <span className="text-[#666]">{t.detectedGap}:</span> {rec.detectedGap}
-                            </p>
+                          {rec.reasons.length > 0 && (
+                            <div className="mt-1">
+                              <span className="text-[11px] text-[#666]">{t.becauseLabel}:</span>
+                              <ul className="mt-0.5 space-y-0.5">
+                                {rec.reasons.map((reason, i) => (
+                                  <li key={i} className="text-[12px] text-[#999] flex gap-1.5">
+                                    <span className="text-[#555] shrink-0">•</span>
+                                    <span>{reason}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
                           )}
                         </div>
                       </div>

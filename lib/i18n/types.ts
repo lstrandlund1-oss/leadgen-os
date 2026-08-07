@@ -386,6 +386,7 @@ export type TranslationSchema = {
       mediumRisk: string;
       highRisk: string;
       detectedGap: string;
+      becauseLabel: string;
       whyNow: string;
       lastSeen: string;
       followupOverdueBadge: string;

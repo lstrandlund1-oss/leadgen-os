@@ -537,6 +537,7 @@ export const sv: TranslationSchema = {
       mediumRisk: "Medelrisk",
       highRisk: "Hög risk",
       detectedGap: "Upptäckt lucka",
+      becauseLabel: "Eftersom",
       whyNow: "Varför nu",
       lastSeen: "Senast sedd",
       followupOverdueBadge: "Uppföljning väntar",

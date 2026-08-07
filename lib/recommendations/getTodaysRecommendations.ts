@@ -31,6 +31,12 @@ export type RecommendedOpportunity = {
   // enough to surface one — shown as no gap text at all rather than a
   // fabricated placeholder.
   detectedGap: string | null;
+  // Fuller "Because: ..." breakdown — up to 3 real, computed signals
+  // (opportunity_signals), sorted strongest first. Same underlying data
+  // as detectedGap (which is just reasons[0]), already computed and
+  // stored per company, just not previously queried beyond the single
+  // strongest one. Empty array when nothing was strong enough to surface.
+  reasons: string[];
 };
 
 // Pool size fetched from company_intelligence before ranking — large
@@ -59,7 +65,7 @@ export async function getTodaysRecommendations(userId: string, limit: number = 5
     client.from("companies_raw").select("id, source, source_id").in("id", rawIds),
     client
       .from("companies_normalized")
-      .select("raw_id, name, city, country, website, duplicate_of_raw_id, primary_insight")
+      .select("raw_id, name, city, country, website, duplicate_of_raw_id, primary_insight, opportunity_signals")
       .in("raw_id", rawIds),
     client.from("provider_run_raws").select("run_id, raw_id").in("raw_id", rawIds),
   ]);
@@ -134,6 +140,13 @@ export async function getTodaysRecommendations(userId: string, limit: number = 5
     if (priorityScore === -Infinity) continue; // closed — never recommend
 
     const insight = normalized?.primary_insight as { message?: string } | null;
+    const allSignals = (normalized?.opportunity_signals as { message?: string; strength?: string }[] | null) ?? [];
+    const strengthRank: Record<string, number> = { high: 3, medium: 2, low: 1 };
+    const reasons = allSignals
+      .filter((s) => !!s.message)
+      .sort((a, b) => (strengthRank[b.strength ?? ""] ?? 0) - (strengthRank[a.strength ?? ""] ?? 0))
+      .slice(0, 3)
+      .map((s) => s.message as string);
 
     candidates.push({
       rawId,
@@ -150,6 +163,7 @@ export async function getTodaysRecommendations(userId: string, limit: number = 5
       followupOverdue,
       scoredAt,
       detectedGap: insight?.message ?? null,
+      reasons,
     });
   }
 
