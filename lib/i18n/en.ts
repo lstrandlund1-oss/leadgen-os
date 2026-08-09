@@ -490,6 +490,14 @@ export const en: TranslationSchema = {
       lostReasonPriceTooHigh: "Price too high",
       lostReasonChoseCompetitor: "Chose a competitor",
       lostReasonOther: "Other",
+      tonalityPerformanceTitle: "Tonality performance",
+      tonalityPerformanceEmpty: "Not enough outreach data yet — this fills in as you contact leads.",
+      bestTonalityMessage: (label: string, rate: number) =>
+        `${label} is your top-performing tone at ${rate}% reply rate.`,
+      anglePerformanceTitle: "Angle performance",
+      anglePerformanceEmpty: "Not enough outreach data yet — this fills in as you contact leads.",
+      replyRateLabel: "reply rate",
+      contactedCountLabel: (count: number) => `${count} contacted`,
     },
     pipeline: {
       title: "Pipeline",

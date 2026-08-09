@@ -8,6 +8,13 @@ import Sidebar from "@/app/components/Sidebar";
 import type { ConversionFunnel } from "@/lib/stats/getConversionFunnel";
 import type { EconomicImpact } from "@/lib/stats/economicImpact";
 import { computeLostReasonBreakdown, type LostReason } from "@/lib/stats/lostReasons";
+import {
+  computeTonalityPerformance,
+  bestTonality,
+  computeAnglePerformance,
+  type TonalityStat,
+  type AngleStat,
+} from "@/lib/stats/outreachPerformance";
 import { formatPrice } from "@/lib/pricing";
 
 // Demo data — never shown unless the user explicitly opts in via the
@@ -39,6 +46,17 @@ const DEMO_LOST_REASONS = computeLostReasonBreakdown([
   "price_too_high",
 ]);
 
+const DEMO_OUTCOMES_FOR_PERFORMANCE = [
+  { contacted: true, replied: true, closed: true, tonality: "consultative" as const, angle_type: "Visibility gap" },
+  { contacted: true, replied: true, closed: false, tonality: "consultative" as const, angle_type: "Conversion gap" },
+  { contacted: true, replied: false, closed: false, tonality: "soft" as const, angle_type: "Visibility gap" },
+  { contacted: true, replied: true, closed: true, tonality: "direct" as const, angle_type: "Positioning gap" },
+  { contacted: true, replied: false, closed: false, tonality: "direct" as const, angle_type: "Process gap" },
+  { contacted: true, replied: false, closed: false, tonality: "bold" as const, angle_type: "Conversion gap" },
+];
+const DEMO_TONALITY_STATS = computeTonalityPerformance(DEMO_OUTCOMES_FOR_PERFORMANCE);
+const DEMO_ANGLE_STATS = computeAnglePerformance(DEMO_OUTCOMES_FOR_PERFORMANCE);
+
 function FunnelRow({ label, rate }: { label: string; rate: number | null }) {
   const pct = rate !== null ? Math.round(rate * 100) : null;
   return (
@@ -61,6 +79,8 @@ export default function StatsPage() {
   const [funnel, setFunnel] = useState<ConversionFunnel | null>(null);
   const [impact, setImpact] = useState<EconomicImpact | null | undefined>(undefined);
   const [lostReasons, setLostReasons] = useState<ReturnType<typeof computeLostReasonBreakdown> | null>(null);
+  const [tonalityStats, setTonalityStats] = useState<TonalityStat[] | null>(null);
+  const [angleStats, setAngleStats] = useState<AngleStat[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
   const tHome = getTranslations(language).ui.home;
@@ -83,14 +103,28 @@ export default function StatsPage() {
   useEffect(() => {
     // Reuses the existing outcomes API directly rather than a new route —
     // ported from the old Analytics page's approach, which already fetched
-    // exactly this data.
+    // exactly this data. One fetch, three computations, rather than
+    // fetching the same data three separate times for each section.
     fetch("/api/outcomes?all=true")
       .then((res) => (res.ok ? res.json() : { outcomes: [] }))
       .then((data) => {
-        const reasons = (data.outcomes ?? []).map((o: { lost_reason: string | null }) => o.lost_reason);
-        setLostReasons(computeLostReasonBreakdown(reasons));
+        const outcomes = (data.outcomes ?? []) as {
+          lost_reason: string | null;
+          contacted: boolean;
+          replied: boolean;
+          closed: boolean;
+          tonality: "soft" | "direct" | "consultative" | "bold" | null;
+          angle_type: string | null;
+        }[];
+        setLostReasons(computeLostReasonBreakdown(outcomes.map((o) => o.lost_reason)));
+        setTonalityStats(computeTonalityPerformance(outcomes));
+        setAngleStats(computeAnglePerformance(outcomes));
       })
-      .catch(() => setLostReasons([]));
+      .catch(() => {
+        setLostReasons([]);
+        setTonalityStats([]);
+        setAngleStats([]);
+      });
   }, []);
 
   const hasAnyData =
@@ -100,6 +134,8 @@ export default function StatsPage() {
   const shownFunnel = demoMode ? DEMO_FUNNEL : funnel;
   const shownImpact = demoMode ? DEMO_IMPACT : impact;
   const shownLostReasons = demoMode ? DEMO_LOST_REASONS : lostReasons;
+  const shownTonalityStats = demoMode ? DEMO_TONALITY_STATS : tonalityStats;
+  const shownAngleStats = demoMode ? DEMO_ANGLE_STATS : angleStats;
   const shownLoading = demoMode ? false : loading;
   const shownHasAnyData = demoMode ? true : hasAnyData;
 
@@ -200,6 +236,71 @@ export default function StatsPage() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+            </section>
+          )}
+
+          {shownTonalityStats && (
+            <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 mt-6">
+              <h3 className="text-[15px] font-medium mb-4">{t.tonalityPerformanceTitle}</h3>
+              {shownTonalityStats.every((s) => s.contacted === 0) ? (
+                <p className="text-[13px] text-[#666] py-6 text-center">{t.tonalityPerformanceEmpty}</p>
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    {shownTonalityStats.map((s) => (
+                      <div key={s.key} className="space-y-1.5">
+                        <div className="flex items-center justify-between text-[12px]">
+                          <span className="text-[#999]">{s.label}</span>
+                          <span className="text-[#f5f0e8] font-medium tabular-nums">
+                            {s.contacted > 0 ? `${s.replyRate}% ${t.replyRateLabel}` : "—"} ·{" "}
+                            {t.contactedCountLabel(s.contacted)}
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-[#1a1a1a] overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{ width: `${s.replyRate}%`, background: s.color }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {(() => {
+                    const best = bestTonality(shownTonalityStats);
+                    return best ? (
+                      <p className="text-[12px] text-[#8a8a8a] mt-4">
+                        {t.bestTonalityMessage(best.label, best.replyRate)}
+                      </p>
+                    ) : null;
+                  })()}
+                </>
+              )}
+            </section>
+          )}
+
+          {shownAngleStats && (
+            <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 mt-6">
+              <h3 className="text-[15px] font-medium mb-4">{t.anglePerformanceTitle}</h3>
+              {shownAngleStats.length === 0 ? (
+                <p className="text-[13px] text-[#666] py-6 text-center">{t.anglePerformanceEmpty}</p>
+              ) : (
+                <div className="space-y-3">
+                  {shownAngleStats.map((a) => (
+                    <div key={a.name} className="space-y-1.5">
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span className="text-[#999]">{a.name}</span>
+                        <span className="text-[#f5f0e8] font-medium tabular-nums">
+                          {a.contacted > 0 ? `${a.replyRate}% ${t.replyRateLabel}` : "—"} ·{" "}
+                          {t.contactedCountLabel(a.contacted)}
+                        </span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-[#1a1a1a] overflow-hidden">
+                        <div className="h-full rounded-full bg-[#c9a84c]" style={{ width: `${a.replyRate}%` }} />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </section>

@@ -60,11 +60,11 @@ Compiled from every task decided since the decision to rebuild Vantio (originall
 ## 6. Stats / Analytics
 
 - ✅ "Why deals are being lost" ported from the old Analytics page into Stats, fully tested
-- 🔲 Tonality Performance — still only in the old Analytics page, not ported
-- 🔲 Angle Performance — still only in the old Analytics page, not ported
+- ✅ Tonality Performance ported into Stats, fully tested (10 tests)
+- ✅ Angle Performance ported into Stats, fully tested (same module/tests as Tonality)
 - 🔲 Activity Over Time — still only in the old Analytics page, not ported
 - 🔲 Close Rate Over Time — still only in the old Analytics page, not ported
-- 🔲 Redirect `/analytics` → `/stats` (blocked until the four sections above are ported — don't lose real content)
+- 🔲 Redirect `/analytics` → `/stats` (blocked until the two sections above are ported — don't lose real content)
 
 ## 7. Not Yet Started
 

@@ -493,6 +493,14 @@ export const sv: TranslationSchema = {
       lostReasonPriceTooHigh: "För dyrt",
       lostReasonChoseCompetitor: "Valde en konkurrent",
       lostReasonOther: "Annat",
+      tonalityPerformanceTitle: "Tonprestanda",
+      tonalityPerformanceEmpty: "Inte tillräckligt med data ännu — detta fylls i när du kontaktar leads.",
+      bestTonalityMessage: (label: string, rate: number) =>
+        `${label} är din mest framgångsrika ton med ${rate}% svarsfrekvens.`,
+      anglePerformanceTitle: "Vinkelprestanda",
+      anglePerformanceEmpty: "Inte tillräckligt med data ännu — detta fylls i när du kontaktar leads.",
+      replyRateLabel: "svarsfrekvens",
+      contactedCountLabel: (count: number) => `${count} kontaktade`,
     },
     pipeline: {
       title: "Pipeline",

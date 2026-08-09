@@ -344,6 +344,13 @@ export type TranslationSchema = {
       lostReasonPriceTooHigh: string;
       lostReasonChoseCompetitor: string;
       lostReasonOther: string;
+      tonalityPerformanceTitle: string;
+      tonalityPerformanceEmpty: string;
+      bestTonalityMessage: (label: string, rate: number) => string;
+      anglePerformanceTitle: string;
+      anglePerformanceEmpty: string;
+      replyRateLabel: string;
+      contactedCountLabel: (count: number) => string;
     };
     pipeline: {
       title: string;
