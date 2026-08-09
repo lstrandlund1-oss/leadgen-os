@@ -90,7 +90,7 @@ export async function getTodaysWork(userId: string): Promise<WorkItem[]> {
           daysOverdue <= 0
             ? "Follow-up due today"
             : `Follow-up was due ${daysOverdue} day${daysOverdue === 1 ? "" : "s"} ago`,
-        href: o.run_id ? `/pipeline` : "/pipeline",
+        href: o.run_id ? `/outreach?runId=${o.run_id}&leadId=${encodeURIComponent(o.lead_id)}` : "/pipeline",
         createdAt: o.followup_date as string,
       });
     }

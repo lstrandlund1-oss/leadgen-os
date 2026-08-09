@@ -7,6 +7,8 @@ import { getEffectivePlan, canUseOutreach } from "@/lib/plan";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { getTranslations } from "@/lib/i18n";
 import type { Language } from "@/lib/i18n/types";
+import { leadUIToOutreachSnapshot } from "@/lib/outreach/leadSnapshot";
+import type { LeadUI } from "@/app/dashboard/page";
 
 type OutreachChannel = "email" | "linkedin_dm" | "cold_call";
 type OutreachTone = "professional" | "consultative" | "friendly" | "direct" | "bold";
@@ -261,6 +263,35 @@ export default function OutreachPage() {
         },
       )
       .catch(() => {});
+  }, []);
+
+  // Deep-link: opens a specific lead directly when arriving via
+  // ?runId=&leadId= (e.g. from a Today's Work notification about an
+  // overdue follow-up). Same fetch pattern as Dashboard's own deep-link
+  // effect and Pipeline's "full breakdown" — reads window.location.search
+  // directly rather than useSearchParams, avoiding a Suspense boundary
+  // requirement for what's otherwise a plain client component.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const deepLinkRunId = params.get("runId");
+    const deepLinkLeadId = params.get("leadId");
+    if (!deepLinkRunId || !deepLinkLeadId) return;
+
+    const parsedRunId = Number(deepLinkRunId);
+    if (!Number.isFinite(parsedRunId)) return;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/providers/runs/${parsedRunId}/leads`);
+        if (!res.ok) return;
+        const data = (await res.json().catch(() => ({}))) as { leads?: LeadUI[] };
+        const fetchedLeads = Array.isArray(data.leads) ? data.leads : [];
+        const match = fetchedLeads.find((l) => l.id === deepLinkLeadId);
+        if (match) setLead(leadUIToOutreachSnapshot(match));
+      } catch {
+        // Deep link failed to resolve — leave the page in its normal empty state.
+      }
+    })();
   }, []);
 
   const generate = useCallback(

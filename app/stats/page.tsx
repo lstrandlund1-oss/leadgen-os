@@ -16,6 +16,8 @@ import {
   type AngleStat,
 } from "@/lib/stats/outreachPerformance";
 import { computeWeeklyActivity, bestReplyWeek, getWeekLabel, type WeeklyPoint } from "@/lib/stats/weeklyActivity";
+import type { MonthlyPerformance } from "@/lib/stats/getMonthlyPerformance";
+import type { DayActivity } from "@/lib/stats/getMonthlyPerformanceDetail";
 import { formatPrice } from "@/lib/pricing";
 
 // Demo data — never shown unless the user explicitly opts in via the
@@ -68,6 +70,29 @@ const DEMO_WEEKLY_ACTIVITY = computeWeeklyActivity([
   { created_at: "2026-07-28T00:00:00Z", contacted: true, replied: true, booked_call: false, closed: false },
 ]);
 
+const DEMO_MONTHLY_PERFORMANCE: MonthlyPerformance = {
+  contactsMade: 156,
+  replies: 42,
+  meetings: 12,
+  won: 2,
+  revenueWon: 95_000,
+};
+
+function demoMonthPrefix(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+const DEMO_MONTHLY_DETAIL: DayActivity[] = [
+  { date: `${demoMonthPrefix()}-03`, contacted: 12, replied: 4, meetings: 1, won: 0, revenueWon: 0 },
+  { date: `${demoMonthPrefix()}-07`, contacted: 18, replied: 6, meetings: 2, won: 1, revenueWon: 47_500 },
+  { date: `${demoMonthPrefix()}-11`, contacted: 9, replied: 2, meetings: 0, won: 0, revenueWon: 0 },
+  { date: `${demoMonthPrefix()}-14`, contacted: 22, replied: 8, meetings: 3, won: 0, revenueWon: 0 },
+  { date: `${demoMonthPrefix()}-18`, contacted: 15, replied: 5, meetings: 1, won: 0, revenueWon: 0 },
+  { date: `${demoMonthPrefix()}-22`, contacted: 19, replied: 7, meetings: 2, won: 1, revenueWon: 47_500 },
+  { date: `${demoMonthPrefix()}-26`, contacted: 14, replied: 4, meetings: 1, won: 0, revenueWon: 0 },
+  { date: `${demoMonthPrefix()}-29`, contacted: 11, replied: 3, meetings: 0, won: 0, revenueWon: 0 },
+];
+
 function FunnelRow({ label, rate }: { label: string; rate: number | null }) {
   const pct = rate !== null ? Math.round(rate * 100) : null;
   return (
@@ -83,6 +108,77 @@ function FunnelRow({ label, rate }: { label: string; rate: number | null }) {
   );
 }
 
+function MonthCalendar({
+  days,
+  metricField,
+  isMoney,
+  language,
+  noActivityLabel,
+}: {
+  days: DayActivity[];
+  metricField: keyof DayActivity;
+  isMoney: boolean;
+  language: "en" | "sv";
+  noActivityLabel: string;
+}) {
+  const byDate = new Map(days.map((d) => [d.date, d]));
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const firstOfMonth = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  // Monday-first offset, matching the rest of the app's week convention
+  const startOffset = (firstOfMonth.getDay() + 6) % 7;
+
+  const maxValue = Math.max(...days.map((d) => d[metricField] as number), 1);
+
+  const cells: (number | null)[] = [
+    ...Array.from({ length: startOffset }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+
+  const weekdayLabels = language === "sv" ? ["M", "T", "O", "T", "F", "L", "S"] : ["M", "T", "W", "T", "F", "S", "S"];
+
+  return (
+    <div>
+      <div className="grid grid-cols-7 gap-1 mb-1">
+        {weekdayLabels.map((w, i) => (
+          <p key={i} className="text-[9px] text-[#444] text-center">
+            {w}
+          </p>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((dayNum, i) => {
+          if (dayNum === null) return <div key={`empty-${i}`} />;
+          const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+          const activity = byDate.get(dateStr);
+          const value = (activity?.[metricField] as number) ?? 0;
+          const intensity = value > 0 ? Math.max(0.15, value / maxValue) : 0;
+          return (
+            <div
+              key={dateStr}
+              className="aspect-square rounded-md flex items-center justify-center relative group cursor-default"
+              style={{
+                background: value > 0 ? `rgba(201,168,76,${intensity})` : "#111111",
+                border: "1px solid #1a1a1a",
+              }}>
+              <span className="text-[9px] text-[#666]">{dayNum}</span>
+              <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 hidden group-hover:block z-10 bg-[#080808] border border-[#252525] rounded-lg px-2 py-1 text-[10px] whitespace-nowrap">
+                {value > 0 ? (
+                  <span className="text-[#c9a84c] font-medium">{isMoney ? formatPrice(value, "sek") : value}</span>
+                ) : (
+                  <span className="text-[#555]">{noActivityLabel}</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function StatsPage() {
   const [language] = useState(() => getStoredLanguage());
   const t = getTranslations(language).ui.stats;
@@ -93,6 +189,9 @@ export default function StatsPage() {
   const [tonalityStats, setTonalityStats] = useState<TonalityStat[] | null>(null);
   const [angleStats, setAngleStats] = useState<AngleStat[] | null>(null);
   const [weeklyActivity, setWeeklyActivity] = useState<WeeklyPoint[] | null>(null);
+  const [monthlyPerformance, setMonthlyPerformance] = useState<MonthlyPerformance | null>(null);
+  const [monthlyDetail, setMonthlyDetail] = useState<DayActivity[] | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<keyof MonthlyPerformance>("revenueWon");
   const [loading, setLoading] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
   const tHome = getTranslations(language).ui.home;
@@ -143,6 +242,18 @@ export default function StatsPage() {
       });
   }, []);
 
+  useEffect(() => {
+    fetch("/api/stats/monthly")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setMonthlyPerformance(data))
+      .catch(() => setMonthlyPerformance(null));
+
+    fetch("/api/stats/monthly-detail")
+      .then((res) => (res.ok ? res.json() : { days: [] }))
+      .then((data) => setMonthlyDetail(data.days ?? []))
+      .catch(() => setMonthlyDetail([]));
+  }, []);
+
   const hasAnyData =
     funnel &&
     funnel.contactedCount + funnel.repliedCount + funnel.meetingCount + funnel.wonCount + funnel.lostCount > 0;
@@ -153,6 +264,8 @@ export default function StatsPage() {
   const shownTonalityStats = demoMode ? DEMO_TONALITY_STATS : tonalityStats;
   const shownAngleStats = demoMode ? DEMO_ANGLE_STATS : angleStats;
   const shownWeeklyActivity = demoMode ? DEMO_WEEKLY_ACTIVITY : weeklyActivity;
+  const shownMonthlyPerformance = demoMode ? DEMO_MONTHLY_PERFORMANCE : monthlyPerformance;
+  const shownMonthlyDetail = demoMode ? DEMO_MONTHLY_DETAIL : monthlyDetail;
   const shownLoading = demoMode ? false : loading;
   const shownHasAnyData = demoMode ? true : hasAnyData;
 
@@ -496,6 +609,70 @@ export default function StatsPage() {
                         })}
                       </div>
                     </div>
+                  </>
+                );
+              })()}
+            </section>
+          )}
+
+          {shownMonthlyPerformance && (
+            <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 mt-6">
+              <h3 className="text-[15px] font-medium mb-1">{t.performanceThisMonthTitle}</h3>
+              <p className="text-[11px] text-[#555] mb-4">{t.performanceCalendarHint}</p>
+
+              {(() => {
+                const metrics: {
+                  key: keyof MonthlyPerformance;
+                  label: string;
+                  dayField: keyof DayActivity;
+                  isMoney?: boolean;
+                }[] = [
+                  { key: "contactsMade", label: t.contactsMadeMetric, dayField: "contacted" },
+                  { key: "replies", label: t.repliesMetric, dayField: "replied" },
+                  { key: "meetings", label: t.meetingsMetric, dayField: "meetings" },
+                  { key: "won", label: t.wonMetric, dayField: "won" },
+                  { key: "revenueWon", label: t.revenueWonMetric, dayField: "revenueWon", isMoney: true },
+                ];
+
+                return (
+                  <>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-6">
+                      {metrics.map((m) => {
+                        const value = shownMonthlyPerformance[m.key];
+                        const active = selectedMetric === m.key;
+                        return (
+                          <button
+                            key={m.key}
+                            type="button"
+                            onClick={() => setSelectedMetric(m.key)}
+                            className={
+                              "rounded-xl border p-3 text-left transition-colors " +
+                              (active
+                                ? "border-[#c9a84c] bg-[rgba(201,168,76,0.06)]"
+                                : "border-[#1e1e1e] bg-[#0d0d0d] hover:border-[#333]")
+                            }>
+                            <p className="text-[10px] text-[#666] uppercase tracking-wide">{m.label}</p>
+                            <p
+                              className={
+                                "text-[17px] font-semibold mt-1 " +
+                                (m.key === "won" || m.key === "revenueWon" ? "text-[#4ade80]" : "text-[#f5f0e8]")
+                              }>
+                              {m.isMoney ? formatPrice(value, "sek") : value}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {shownMonthlyDetail && (
+                      <MonthCalendar
+                        days={shownMonthlyDetail}
+                        metricField={metrics.find((m) => m.key === selectedMetric)!.dayField}
+                        isMoney={!!metrics.find((m) => m.key === selectedMetric)!.isMoney}
+                        language={language}
+                        noActivityLabel={t.noActivityOnDay}
+                      />
+                    )}
                   </>
                 );
               })()}

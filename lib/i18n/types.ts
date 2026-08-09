@@ -361,6 +361,14 @@ export type TranslationSchema = {
       dealsClosedLabel: string;
       overallCloseRateLabel: string;
       closeRatePerWeek: string;
+      performanceThisMonthTitle: string;
+      contactsMadeMetric: string;
+      repliesMetric: string;
+      meetingsMetric: string;
+      wonMetric: string;
+      revenueWonMetric: string;
+      performanceCalendarHint: string;
+      noActivityOnDay: string;
     };
     usagePlan: {
       title: string;

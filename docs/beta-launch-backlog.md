@@ -68,10 +68,10 @@ Compiled from every task decided since the decision to rebuild Vantio (originall
 
 ## 7. Not Yet Started
 
-- 🔲 Task modal + Outreach follow-up filtering — click a task, land on that specific filtered lead in Outreach
+- ✅ Outreach deep-linking — clicking an overdue follow-up in the "Today's Work" bell now lands directly on that specific lead in Outreach, pre-loaded and ready to act on, instead of a generic link to Pipeline. (Reframed from "task modal + filtering" once investigation showed Outreach is a single-lead composition page, not a list — deep-linking a specific lead was the right shape for this page, matching Dashboard and Pipeline's existing deep-link patterns.) Extracted the LeadUI-to-outreach-snapshot conversion into a shared utility so Dashboard's existing "Open in Outreach" button and this new deep-link both use the exact same mapping.
 - ✅ Notification bell — reworked as "Today's Work": real triggers (overdue follow-ups, stale pipeline leads, today's top new recommendation), computed live from real state rather than a stored event log; now visible app-wide via the Sidebar
 - ✅ Usage & Plan page — real beta usage data (daily/total limits per feature, days remaining, discount status), reusing the existing atomic usage-tracking system rather than fabricating a paid-plan display that wouldn't be accurate during beta
-- 🔲 Performance charts + hover-context on Stats (e.g., click "Revenue Won," see a calendar breakdown of which days)
+- ✅ Performance charts + hover-context on Stats — "Performance this month" section with 5 clickable metrics (contacts, replies, meetings, won, revenue won), each opening a real calendar drill-down showing exactly which days it came from, fully tested (8 tests). Kept fully separate from Home's existing simpler monthly-totals widget rather than modifying it, so Home carried zero risk from this work.
 
 ## 8. Strategic Repositioning — Commercial Intelligence Platform
 
@@ -87,7 +87,7 @@ New direction: shift Vantio's perception from "lead generation tool" to "commerc
 
 ## 9. After Beta — Deferred
 
-- 🔲 **Internal command center** — an admin dashboard for measuring usage, future revenue, and platform-level metrics across all users. Explicitly deferred until everything above is done; not part of the beta-launch scope.
+- ✅ **Internal command center** (`/admin`) — platform-wide usage and revenue-scenario metrics, aggregated from the same per-tester data the existing `/admin/beta` management tool already computes. No new data-fetching logic — just a new aggregation layer and page. Revenue is shown as clearly-labeled "if X testers convert to this plan" scenarios using real base prices, never a single fabricated "projected revenue" number, since nobody has actually converted yet. 9 tests. Gated by the same admin email allowlist as the existing beta admin tools.
 
 ---
 

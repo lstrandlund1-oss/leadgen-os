@@ -20,6 +20,7 @@ import type { Language } from "@/lib/types";
 import type { TranslationSchema as Translations } from "@/lib/i18n/types";
 import type { OpportunitySignal } from "@/lib/scoring/opportunitySignals";
 import { useToast } from "@/app/components/ToastProvider";
+import { leadUIToOutreachSnapshot } from "@/lib/outreach/leadSnapshot";
 import {
   buildOutcomePatch,
   getScoreReason,
@@ -1486,24 +1487,8 @@ export default function LeadDetailModal(props: LeadDetailModalProps) {
                     <button
                       type="button"
                       onClick={() => {
-                        // Store full lead snapshot in sessionStorage for outreach page
-                        const snapshot = {
-                          id: detailLead.id,
-                          company_name: detailLead.company.name,
-                          industry: detailLead.classification.primaryIndustry ?? null,
-                          city: detailLead.company.city ?? null,
-                          website: detailLead.company.website ?? null,
-                          rating: detailLead.metrics.rating ?? null,
-                          review_count: detailLead.metrics.reviewCount ?? null,
-                          social_presence: detailLead.metrics.socialPresence ?? null,
-                          opportunity: detailLead.score.opportunity,
-                          readiness: detailLead.score.readiness,
-                          risk: detailLead.score.risk,
-                          signals: enrichmentData?.signals ?? {},
-                          matched_needs: detailLead.fit?.matchedNeeds ?? [],
-                          missing_needs: detailLead.fit?.missingNeeds ?? [],
-                          fit_score: detailLead.fit?.fitScore ?? 0,
-                        };
+                        // Store full lead snapshot in localStorage for outreach page
+                        const snapshot = leadUIToOutreachSnapshot(detailLead, enrichmentData?.signals ?? {});
                         localStorage.setItem("vantio_outreach_lead", JSON.stringify(snapshot));
                         window.location.href = "/outreach";
                       }}
