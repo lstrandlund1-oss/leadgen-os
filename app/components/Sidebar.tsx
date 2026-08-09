@@ -42,6 +42,7 @@ export default function Sidebar() {
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<{ name: string; role: string } | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const supabase = createSupabaseBrowser();
@@ -55,6 +56,13 @@ export default function Sidebar() {
       .then((res) => (res.ok ? res.json() : { workspace: null }))
       .then((data) => setWorkspace(data.workspace))
       .catch(() => setWorkspace(null));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/admin/is-admin")
+      .then((res) => (res.ok ? res.json() : { isAdmin: false }))
+      .then((data) => setIsAdmin(!!data.isAdmin))
+      .catch(() => setIsAdmin(false));
   }, []);
 
   async function handleSignOut() {
@@ -90,6 +98,13 @@ export default function Sidebar() {
         {WORKSPACE_NAV.map((item) => (
           <NavLink key={item.href} item={item} active={isActive(item.href)} />
         ))}
+
+        {isAdmin && (
+          <>
+            <p className="px-3 pt-6 pb-2 text-[10px] uppercase tracking-widest text-[#444]">Admin</p>
+            <NavLink item={{ href: "/admin", label: "Command Center", icon: "◈" }} active={isActive("/admin")} />
+          </>
+        )}
       </nav>
 
       <Link
