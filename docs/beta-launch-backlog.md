@@ -70,7 +70,7 @@ Compiled from every task decided since the decision to rebuild Vantio (originall
 
 - 🔲 Task modal + Outreach follow-up filtering — click a task, land on that specific filtered lead in Outreach
 - ✅ Notification bell — reworked as "Today's Work": real triggers (overdue follow-ups, stale pipeline leads, today's top new recommendation), computed live from real state rather than a stored event log; now visible app-wide via the Sidebar
-- 🔲 Usage & Plan page — doesn't exist yet
+- ✅ Usage & Plan page — real beta usage data (daily/total limits per feature, days remaining, discount status), reusing the existing atomic usage-tracking system rather than fabricating a paid-plan display that wouldn't be accurate during beta
 - 🔲 Performance charts + hover-context on Stats (e.g., click "Revenue Won," see a calendar breakdown of which days)
 
 ## 8. Strategic Repositioning — Commercial Intelligence Platform

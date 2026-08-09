@@ -32,7 +32,10 @@ const ENGAGEMENT_NAV: NavItem[] = [
   { href: "/collections", label: "Collections", icon: "◇" },
 ];
 
-const WORKSPACE_NAV: NavItem[] = [{ href: "/members", label: "Members", icon: "◉" }];
+const WORKSPACE_NAV: NavItem[] = [
+  { href: "/members", label: "Members", icon: "◉" },
+  { href: "/usage-plan", label: "Usage & Plan", icon: "▣" },
+];
 
 export default function Sidebar() {
   const pathname = usePathname();

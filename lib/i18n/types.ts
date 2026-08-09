@@ -362,6 +362,30 @@ export type TranslationSchema = {
       overallCloseRateLabel: string;
       closeRatePerWeek: string;
     };
+    usagePlan: {
+      title: string;
+      loading: string;
+      loadError: string;
+      noMembershipTitle: string;
+      noMembershipExpired: string;
+      noMembershipRevoked: string;
+      noMembershipGeneric: string;
+      betaStatusLabel: string;
+      activeLabel: string;
+      activeDaysRemaining: string;
+      calendarDaysRemaining: string;
+      usageThisPeriodTitle: string;
+      todayLabel: string;
+      betaTotalLabel: string;
+      featureOutreach: string;
+      featureFollowup: string;
+      featureAiDeepSearch: string;
+      discountTitle: string;
+      discountMessage: (percent: number, months: number) => string;
+      discountEarned: string;
+      discountPending: string;
+      discountRedeemed: string;
+    };
     pipeline: {
       title: string;
       activeOpportunities: string;
