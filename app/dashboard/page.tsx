@@ -25,7 +25,6 @@ import Sidebar from "../components/Sidebar";
 import LeadDetailModal from "../components/LeadDetailModal";
 import { useLeadDetailPanel } from "../hooks/useLeadDetailPanel";
 import { applyDeepScanToLead } from "../hooks/useLeadDetailPanel";
-import NotificationBell from "../components/NotificationBell";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import type { TranslationSchema as Translations } from "@/lib/i18n/types";
 import type { SocialPresenceFilter } from "@/lib/providers/types";
@@ -1951,9 +1950,6 @@ Light enrichment: ${addendumParts.join(", ")}.`
                   </Link>
                   <div className="h-4 w-px bg-[#1e1e1e] ml-1" />
                   <span className="text-[10px] tracking-[0.18em] uppercase text-[#616161] font-mono">Lead Scanner</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <NotificationBell />
                 </div>
               </div>
             </nav>

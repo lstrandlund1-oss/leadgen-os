@@ -68,8 +68,8 @@ Compiled from every task decided since the decision to rebuild Vantio (originall
 
 ## 7. Not Yet Started
 
-- 🔲 Notification bell — UI shell exists (`NotificationBell.tsx`), but nothing anywhere in the app calls it; needs real triggers designed (due follow-ups, new scored opportunities, stale pipeline leads)
 - 🔲 Task modal + Outreach follow-up filtering — click a task, land on that specific filtered lead in Outreach
+- ✅ Notification bell — reworked as "Today's Work": real triggers (overdue follow-ups, stale pipeline leads, today's top new recommendation), computed live from real state rather than a stored event log; now visible app-wide via the Sidebar
 - 🔲 Usage & Plan page — doesn't exist yet
 - 🔲 Performance charts + hover-context on Stats (e.g., click "Revenue Won," see a calendar breakdown of which days)
 

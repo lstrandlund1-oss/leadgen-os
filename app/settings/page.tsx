@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/app/components/Sidebar";
-import NotificationBell from "@/app/components/NotificationBell";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { useTheme } from "@/app/components/ThemeProvider";
 import { useBetaStatus } from "@/lib/beta/useBetaStatus";
@@ -249,7 +248,6 @@ export default function SettingsPage() {
               <Link href="/dashboard" className="text-[12px] text-[#555] hover:text-[#888] transition-colors mr-1">
                 {t.backToDashboard}
               </Link>
-              <NotificationBell emailNotifications={notifyEmail} />
             </div>
           </div>
         </nav>

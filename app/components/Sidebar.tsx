@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
+import NotificationBell from "@/app/components/NotificationBell";
 
 type NavItem = {
   href: string;
@@ -65,10 +66,11 @@ export default function Sidebar() {
 
   return (
     <aside className="w-[220px] shrink-0 h-screen sticky top-0 bg-[#080808] border-r border-[#1a1a1a] flex flex-col px-3 py-5">
-      <div className="px-2 mb-8">
+      <div className="px-2 mb-8 flex items-center justify-between">
         <span className="text-[17px] tracking-wide" style={{ fontFamily: "var(--font-display), serif" }}>
           <span className="text-[#c9a84c]">◆</span> Vantio
         </span>
+        <NotificationBell />
       </div>
 
       <nav className="flex-1 space-y-0.5">
