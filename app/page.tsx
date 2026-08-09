@@ -22,32 +22,32 @@ const runWhenIdle: (cb: () => void) => void =
 const FEATURES = [
   {
     icon: "◈",
-    title: "Signal-Driven Scoring",
+    title: "Know Who Deserves Your Next Hour",
     body: "Every lead is scored across opportunity, readiness, risk, and fit — not just star ratings. Know exactly why a business is worth your time.",
   },
   {
     icon: "◆",
-    title: "Matched to Your Service",
+    title: "Built Around What You Actually Sell",
     body: "Your profile shapes every score. A web developer sees different leads than an SEO specialist — same database, completely different intelligence.",
   },
   {
     icon: "✦",
-    title: "Outreach Built In",
+    title: "Know Exactly What to Say",
     body: "Every lead comes with a tailored pitch angle, gap analysis, and an AI-generated message — written around your offer and the lead's specific signals.",
   },
   {
     icon: "◇",
-    title: "Enriched Automatically",
+    title: "See What They're Missing, Instantly",
     body: "Website reachability, booking CTAs, social presence, mobile friendliness — all scanned and factored into the score the moment you open a lead.",
   },
   {
     icon: "⬡",
-    title: "Track Your Pipeline",
+    title: "Never Lose Track of a Deal",
     body: "Mark leads as contacted, replied, booked, closed. See your conversion rates across every stage. Revenue totals auto-calculated.",
   },
   {
     icon: "◉",
-    title: "Geography Aware",
+    title: "Your Market, Front and Center",
     body: "Set your target location once. Every fit score adjusts for proximity — leads in your market surface first, automatically.",
   },
 ];
@@ -2133,7 +2133,7 @@ function HeroScene({ scrollY, waitlistCount }: { scrollY: number; waitlistCount:
               flexShrink: 0,
             }}
           />
-          Signal-Driven Lead Intelligence
+          Know Who Deserves Your Next Hour
           <span
             style={{
               display: "block",
