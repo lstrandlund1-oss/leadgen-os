@@ -351,6 +351,16 @@ export type TranslationSchema = {
       anglePerformanceEmpty: string;
       replyRateLabel: string;
       contactedCountLabel: (count: number) => string;
+      activityOverTimeTitle: string;
+      activityOverTimeEmpty: string;
+      bestReplyWeekLabel: string;
+      leadsContactedPerWeek: string;
+      replyRatePerWeek: string;
+      closeRateOverTimeTitle: string;
+      totalContactedLabel: string;
+      dealsClosedLabel: string;
+      overallCloseRateLabel: string;
+      closeRatePerWeek: string;
     };
     pipeline: {
       title: string;

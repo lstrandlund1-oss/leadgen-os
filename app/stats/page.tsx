@@ -15,6 +15,7 @@ import {
   type TonalityStat,
   type AngleStat,
 } from "@/lib/stats/outreachPerformance";
+import { computeWeeklyActivity, bestReplyWeek, getWeekLabel, type WeeklyPoint } from "@/lib/stats/weeklyActivity";
 import { formatPrice } from "@/lib/pricing";
 
 // Demo data — never shown unless the user explicitly opts in via the
@@ -57,6 +58,16 @@ const DEMO_OUTCOMES_FOR_PERFORMANCE = [
 const DEMO_TONALITY_STATS = computeTonalityPerformance(DEMO_OUTCOMES_FOR_PERFORMANCE);
 const DEMO_ANGLE_STATS = computeAnglePerformance(DEMO_OUTCOMES_FOR_PERFORMANCE);
 
+const DEMO_WEEKLY_ACTIVITY = computeWeeklyActivity([
+  { created_at: "2026-07-06T00:00:00Z", contacted: true, replied: true, booked_call: false, closed: false },
+  { created_at: "2026-07-07T00:00:00Z", contacted: true, replied: false, booked_call: false, closed: false },
+  { created_at: "2026-07-13T00:00:00Z", contacted: true, replied: true, booked_call: true, closed: false },
+  { created_at: "2026-07-14T00:00:00Z", contacted: true, replied: true, booked_call: false, closed: true },
+  { created_at: "2026-07-20T00:00:00Z", contacted: true, replied: false, booked_call: false, closed: false },
+  { created_at: "2026-07-27T00:00:00Z", contacted: true, replied: true, booked_call: true, closed: true },
+  { created_at: "2026-07-28T00:00:00Z", contacted: true, replied: true, booked_call: false, closed: false },
+]);
+
 function FunnelRow({ label, rate }: { label: string; rate: number | null }) {
   const pct = rate !== null ? Math.round(rate * 100) : null;
   return (
@@ -81,6 +92,7 @@ export default function StatsPage() {
   const [lostReasons, setLostReasons] = useState<ReturnType<typeof computeLostReasonBreakdown> | null>(null);
   const [tonalityStats, setTonalityStats] = useState<TonalityStat[] | null>(null);
   const [angleStats, setAngleStats] = useState<AngleStat[] | null>(null);
+  const [weeklyActivity, setWeeklyActivity] = useState<WeeklyPoint[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
   const tHome = getTranslations(language).ui.home;
@@ -113,17 +125,21 @@ export default function StatsPage() {
           contacted: boolean;
           replied: boolean;
           closed: boolean;
+          booked_call: boolean;
+          created_at: string;
           tonality: "soft" | "direct" | "consultative" | "bold" | null;
           angle_type: string | null;
         }[];
         setLostReasons(computeLostReasonBreakdown(outcomes.map((o) => o.lost_reason)));
         setTonalityStats(computeTonalityPerformance(outcomes));
         setAngleStats(computeAnglePerformance(outcomes));
+        setWeeklyActivity(computeWeeklyActivity(outcomes));
       })
       .catch(() => {
         setLostReasons([]);
         setTonalityStats([]);
         setAngleStats([]);
+        setWeeklyActivity([]);
       });
   }, []);
 
@@ -136,6 +152,7 @@ export default function StatsPage() {
   const shownLostReasons = demoMode ? DEMO_LOST_REASONS : lostReasons;
   const shownTonalityStats = demoMode ? DEMO_TONALITY_STATS : tonalityStats;
   const shownAngleStats = demoMode ? DEMO_ANGLE_STATS : angleStats;
+  const shownWeeklyActivity = demoMode ? DEMO_WEEKLY_ACTIVITY : weeklyActivity;
   const shownLoading = demoMode ? false : loading;
   const shownHasAnyData = demoMode ? true : hasAnyData;
 
@@ -303,6 +320,185 @@ export default function StatsPage() {
                   ))}
                 </div>
               )}
+            </section>
+          )}
+
+          {shownWeeklyActivity && (
+            <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 mt-6">
+              <div className="flex items-start justify-between mb-4">
+                <h3 className="text-[15px] font-medium">{t.activityOverTimeTitle}</h3>
+                {(() => {
+                  const best = bestReplyWeek(shownWeeklyActivity);
+                  return best ? (
+                    <div className="text-right">
+                      <p className="text-[10px] text-[#555]">{t.bestReplyWeekLabel}</p>
+                      <p className="text-[13px] font-semibold text-[#c9a84c]">
+                        {getWeekLabel(best.week)} — {best.replyRate}%
+                      </p>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+
+              {shownWeeklyActivity.length === 0 ? (
+                <p className="text-[13px] text-[#666] py-6 text-center">{t.activityOverTimeEmpty}</p>
+              ) : (
+                <>
+                  {(() => {
+                    const maxContacted = Math.max(...shownWeeklyActivity.map((w) => w.contacted), 1);
+                    const maxRate = 100;
+                    return (
+                      <>
+                        <div className="mb-6">
+                          <p className="text-[10px] uppercase tracking-widest text-[#555] mb-3">
+                            {t.leadsContactedPerWeek}
+                          </p>
+                          <div className="flex items-end gap-1.5 h-24">
+                            {shownWeeklyActivity.map((w) => {
+                              const h = Math.max(4, Math.round((w.contacted / maxContacted) * 96));
+                              return (
+                                <div key={w.week} className="flex-1 flex flex-col items-center gap-1 group relative">
+                                  <div
+                                    className="w-full rounded-t-sm bg-[#3b82f6]/40 hover:bg-[#3b82f6]/70 transition-colors cursor-default"
+                                    style={{ height: `${h}px` }}
+                                  />
+                                  <p className="text-[9px] text-[#444] group-hover:text-[#666]">
+                                    {getWeekLabel(w.week)}
+                                  </p>
+                                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block z-10 bg-[#080808] border border-[#252525] rounded-lg px-2 py-1.5 text-[10px] whitespace-nowrap space-y-0.5">
+                                    <p className="text-[#888]">{w.contacted} contacted</p>
+                                    <p className="text-[#c9a84c]">{w.replyRate}% reply</p>
+                                    <p className="text-[#4ade80]">{w.closeRate}% close</p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="text-[10px] uppercase tracking-widest text-[#555] mb-3">{t.replyRatePerWeek}</p>
+                          <div className="relative h-28">
+                            <svg
+                              viewBox={`0 0 ${Math.max(shownWeeklyActivity.length * 40, 200)} 80`}
+                              className="w-full h-full"
+                              preserveAspectRatio="none">
+                              {[0, 25, 50, 75, 100].map((g) => (
+                                <line
+                                  key={g}
+                                  x1="0"
+                                  y1={80 - (g / maxRate) * 80}
+                                  x2="10000"
+                                  y2={80 - (g / maxRate) * 80}
+                                  stroke="#1a1a1a"
+                                  strokeWidth="0.5"
+                                />
+                              ))}
+                              {shownWeeklyActivity.length > 1 && (
+                                <polyline
+                                  points={shownWeeklyActivity
+                                    .map((w, i) => `${i * 40 + 20},${80 - (w.replyRate / maxRate) * 76}`)
+                                    .join(" ")}
+                                  fill="none"
+                                  stroke="#c9a84c"
+                                  strokeWidth="1.5"
+                                  strokeLinejoin="round"
+                                />
+                              )}
+                              {shownWeeklyActivity.length > 1 && (
+                                <polyline
+                                  points={shownWeeklyActivity
+                                    .map((w, i) => `${i * 40 + 20},${80 - (w.closeRate / maxRate) * 76}`)
+                                    .join(" ")}
+                                  fill="none"
+                                  stroke="#4ade80"
+                                  strokeWidth="1.5"
+                                  strokeLinejoin="round"
+                                  strokeDasharray="4 2"
+                                />
+                              )}
+                              {shownWeeklyActivity.map((w, i) => (
+                                <circle
+                                  key={w.week}
+                                  cx={i * 40 + 20}
+                                  cy={80 - (w.replyRate / maxRate) * 76}
+                                  r="3"
+                                  fill="#c9a84c"
+                                />
+                              ))}
+                            </svg>
+                            <div className="absolute top-0 right-0 flex items-center gap-4">
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-4 h-0.5 bg-[#c9a84c]" />
+                                <p className="text-[9px] text-[#555]">{t.replyRateLabel}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <div style={{ width: 16, borderTop: "1.5px dashed #4ade80" }} />
+                                <p className="text-[9px] text-[#555]">{t.overallCloseRateLabel}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </>
+              )}
+            </section>
+          )}
+
+          {shownWeeklyActivity && shownWeeklyActivity.length > 1 && (
+            <section className="bg-[#111111] border border-[#252525] rounded-2xl p-4 md:p-5 mt-6">
+              <h3 className="text-[15px] font-medium mb-4">{t.closeRateOverTimeTitle}</h3>
+              {(() => {
+                const totalContacted = shownWeeklyActivity.reduce((sum, w) => sum + w.contacted, 0);
+                const totalClosed = shownWeeklyActivity.reduce((sum, w) => sum + w.closed, 0);
+                const overallCloseRate = totalContacted > 0 ? Math.round((totalClosed / totalContacted) * 100) : 0;
+                return (
+                  <>
+                    <div className="grid grid-cols-3 gap-3 mb-5">
+                      {[
+                        { label: t.totalContactedLabel, value: totalContacted.toString(), color: "#3b82f6" },
+                        { label: t.dealsClosedLabel, value: totalClosed.toString(), color: "#4ade80" },
+                        { label: t.overallCloseRateLabel, value: `${overallCloseRate}%`, color: "#c9a84c" },
+                      ].map((s) => (
+                        <div key={s.label} className="rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] p-3 text-center">
+                          <p className="text-[9px] uppercase tracking-widest text-[#555]">{s.label}</p>
+                          <p className="text-xl font-bold mt-1" style={{ color: s.color }}>
+                            {s.value}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-[#555] mb-3">{t.closeRatePerWeek}</p>
+                      <div className="flex items-end gap-1.5 h-20">
+                        {shownWeeklyActivity.map((w) => {
+                          const hasActivity = w.contacted > 0;
+                          const h = hasActivity ? Math.max(4, Math.round((w.closeRate / 100) * 80)) : 2;
+                          return (
+                            <div key={w.week} className="flex-1 flex flex-col items-center gap-1 group relative">
+                              <div
+                                className="w-full rounded-t-sm transition-colors cursor-default"
+                                style={{ height: `${h}px`, backgroundColor: hasActivity ? "#4ade8040" : "#1a1a1a" }}
+                              />
+                              <p className="text-[9px] text-[#444]">{getWeekLabel(w.week)}</p>
+                              {hasActivity && (
+                                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block z-10 bg-[#080808] border border-[#252525] rounded-lg px-2 py-1.5 text-[10px] whitespace-nowrap space-y-0.5">
+                                  <p className="text-[#4ade80] font-semibold">{w.closeRate}% close rate</p>
+                                  <p className="text-[#555]">
+                                    {w.closed} / {w.contacted}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </section>
           )}
         </main>

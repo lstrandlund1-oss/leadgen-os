@@ -26,7 +26,7 @@ Compiled from every task decided since the decision to rebuild Vantio (originall
 - ✅ `/profile` — "saved leads" was reading from disconnected localStorage, now redirects; real data lives in Settings + Collections
 - ✅ Dashboard's stale `/profile/settings` links fixed to point to `/settings`
 - ✅ `/followups` — found with zero auth protection in middleware, fixed
-- 🔲 `/analytics` — still not reachable from the sidebar (small, standalone fix)
+- ✅ `/analytics` — now redirects to `/stats` (see section 6), resolves this too since `/stats` is already in the sidebar
 
 ## 3. Real Bugs Found & Fixed Along the Way
 
@@ -57,14 +57,14 @@ Compiled from every task decided since the decision to rebuild Vantio (originall
 - ✅ "View full breakdown" — opens the exact same `LeadDetailModal` Dashboard uses, as an overlay on Pipeline, never navigating away
 - ✅ Home's pipeline overview widget matched to the same palette/design/conversion labels as the full Pipeline page
 
-## 6. Stats / Analytics
+## 6. Stats / Analytics — ✅ Complete
 
 - ✅ "Why deals are being lost" ported from the old Analytics page into Stats, fully tested
 - ✅ Tonality Performance ported into Stats, fully tested (10 tests)
 - ✅ Angle Performance ported into Stats, fully tested (same module/tests as Tonality)
-- 🔲 Activity Over Time — still only in the old Analytics page, not ported
-- 🔲 Close Rate Over Time — still only in the old Analytics page, not ported
-- 🔲 Redirect `/analytics` → `/stats` (blocked until the two sections above are ported — don't lose real content)
+- ✅ Activity Over Time ported into Stats (bar chart + SVG line chart), fully tested (11 tests)
+- ✅ Close Rate Over Time ported into Stats, same data as Activity Over Time
+- ✅ `/analytics` now redirects to `/stats` — every real section confirmed ported first, nothing lost
 
 ## 7. Not Yet Started
 
