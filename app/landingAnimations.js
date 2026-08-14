@@ -22,6 +22,7 @@
 // frame this code scheduled, so nothing leaks if the component unmounts
 // mid-animation.
 export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
+  console.log("[vantio-hero] runLandingAnimations() started, isMobile:", isMobile);
   const timeouts = [];
   const intervals = [];
   const rafs = [];
@@ -769,8 +770,10 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
   }
 
   function typeQuery(cb) {
+    console.log("[vantio-hero] typeQuery() started, typedEl found:", !!typedEl);
     let i = 0;
     (function step() {
+      if (i === 0) console.log("[vantio-hero] typing step() first call — typing should now be visible");
       if (i <= query.length) {
         typedEl.textContent = query.slice(0, i);
         i++;
@@ -851,7 +854,14 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
   }
 
   function runSequence() {
-    resetAll();
+    console.log("[vantio-hero] runSequence() called");
+    try {
+      resetAll();
+      console.log("[vantio-hero] resetAll() completed");
+    } catch (err) {
+      console.error("[vantio-hero] resetAll() threw:", err);
+      return;
+    }
 
     typeQuery(() => {
       typingCursor.style.display = "none";
@@ -975,7 +985,13 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
     });
   }
 
-  runSequence();
+  console.log("[vantio-hero] about to call runSequence() for the first time");
+  try {
+    runSequence();
+  } catch (err) {
+    console.error("[vantio-hero] runSequence() threw synchronously:", err);
+  }
+  console.log("[vantio-hero] runLandingAnimations() setup finished (async timers now scheduled)");
 
   return () => {
     timeouts.forEach((id) => clearTimeout(id));
