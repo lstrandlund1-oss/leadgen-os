@@ -1,4 +1,4 @@
-/* global document, window, setTimeout, setInterval, clearTimeout, clearInterval, requestAnimationFrame, cancelAnimationFrame, performance, ImageData */
+/* global document, window, console, setTimeout, setInterval, clearTimeout, clearInterval, requestAnimationFrame, cancelAnimationFrame, performance, ImageData */
 // This file is pure browser-runtime DOM script (not bundler/Node code), so
 // the browser globals above are declared explicitly for ESLint's no-undef
 // rule rather than relying on `/* eslint-env browser */`, which is a legacy
@@ -603,7 +603,21 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
   // guarantee a layout/paint has actually completed before measuring.
   if (!isMobile || MOBILE_NEBULA_ENABLED) {
     const renderAllNebulas = () => {
-      Object.keys(SECTION_NEBULAS).forEach((id) => renderNebulaOnCanvas(id, SECTION_NEBULAS[id]));
+      // Each canvas is rendered in its own try/catch. Without this, a
+      // failure on any single canvas would throw out of the forEach and
+      // silently skip every canvas after it in iteration order — and,
+      // since this whole function also runs on the fast (~50ms) initial
+      // timer below, an uncaught error here is the kind of thing that's
+      // easy to overlook entirely unless something else nearby happens to
+      // depend on timing. Isolating each canvas keeps one bad draw from
+      // being able to affect anything else on the page.
+      Object.keys(SECTION_NEBULAS).forEach((id) => {
+        try {
+          renderNebulaOnCanvas(id, SECTION_NEBULAS[id]);
+        } catch (err) {
+          console.error(`Nebula render failed for #${id}:`, err);
+        }
+      });
     };
     scopedRAF(() => {
       scopedRAF(renderAllNebulas);
