@@ -1,4 +1,4 @@
-/* global document, setTimeout, setInterval, clearTimeout, clearInterval, requestAnimationFrame, cancelAnimationFrame, performance, ImageData */
+/* global document, window, setTimeout, setInterval, clearTimeout, clearInterval, requestAnimationFrame, cancelAnimationFrame, performance, ImageData */
 // This file is pure browser-runtime DOM script (not bundler/Node code), so
 // the browser globals above are declared explicitly for ESLint's no-undef
 // rule rather than relying on `/* eslint-env browser */`, which is a legacy
@@ -39,6 +39,11 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
     const id = requestAnimationFrame(fn);
     rafs.push(id);
     return id;
+  };
+  const loadListeners = [];
+  const scopedOnLoad = (fn) => {
+    window.addEventListener("load", fn, { once: true });
+    loadListeners.push(fn);
   };
 
   // ── Nebula rendering — faithful port of the real algorithm from app/page.tsx ──
@@ -585,8 +590,32 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
 
   // Mobile gating matches the rest of the app (see lib/config/mobileVisuals.ts):
   // skip the animated nebula canvases on mobile, keep the static star fields.
+  //
+  // The initial render is deferred by two animation frames rather than run
+  // synchronously here. In the original static HTML file this script ran
+  // after the browser had already fully laid out the whole page, so every
+  // canvas's getBoundingClientRect() was accurate immediately. In a React/
+  // Next.js client component, this effect can fire before the browser has
+  // finished laying out a page this tall (especially right after a large
+  // injected <style> block and dangerouslySetInnerHTML block land in the
+  // same commit) — measuring too early risks reading a canvas's size before
+  // its real layout has settled. Two rAFs is the standard, cheap way to
+  // guarantee a layout/paint has actually completed before measuring.
   if (!isMobile || MOBILE_NEBULA_ENABLED) {
-    Object.keys(SECTION_NEBULAS).forEach((id) => renderNebulaOnCanvas(id, SECTION_NEBULAS[id]));
+    const renderAllNebulas = () => {
+      Object.keys(SECTION_NEBULAS).forEach((id) => renderNebulaOnCanvas(id, SECTION_NEBULAS[id]));
+    };
+    scopedRAF(() => {
+      scopedRAF(renderAllNebulas);
+    });
+    // Extra safety net: if fonts or other async resources shift the layout
+    // after the two-rAF render above, re-measure and redraw once more when
+    // the page reports everything has actually finished loading.
+    if (document.readyState === "complete") {
+      scopedSetTimeout(renderAllNebulas, 50);
+    } else {
+      scopedOnLoad(() => scopedSetTimeout(renderAllNebulas, 50));
+    }
   }
 
   // Cursor-tracking glow for all buttons
@@ -938,5 +967,6 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
     timeouts.forEach((id) => clearTimeout(id));
     intervals.forEach((id) => clearInterval(id));
     rafs.forEach((id) => cancelAnimationFrame(id));
+    loadListeners.forEach((fn) => window.removeEventListener("load", fn));
   };
 }
