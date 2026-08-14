@@ -1,3364 +1,430 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { MOBILE_NEBULA_ENABLED } from "@/lib/config/mobileVisuals";
+import { runLandingAnimations } from "./landingAnimations";
 
-// Runs a callback once the browser is actually idle, instead of eagerly on
-// the next tick (setTimeout(...,0) still runs as soon as possible, which
-// can block the browser from painting the corrected layout or becoming
-// responsive to input first). Safari doesn't support requestIdleCallback,
-// hence the fallback.
-const runWhenIdle: (cb: () => void) => void =
-  typeof window !== "undefined" && "requestIdleCallback" in window
-    ? (cb) =>
-        (
-          window as unknown as { requestIdleCallback: (cb: () => void, opts?: { timeout: number }) => void }
-        ).requestIdleCallback(cb, { timeout: 1200 })
-    : (cb) => setTimeout(cb, 50);
+// ─────────────────────────────────────────────────────────────────────────
+// This page's visual content (hero through the final CTA) is rendered from
+// a single static HTML/CSS block below rather than as idiomatic JSX. That
+// block was built and hand-tuned as a static demo (canvas-based nebula
+// rendering, a scripted hero animation timeline, scroll-triggered card
+// effects, etc.) and is intentionally kept close to that original markup —
+// converting every inline style and animation timing to React state would
+// be a much larger, riskier rewrite for no behavioural benefit. Anything
+// that depends on real app state (the auth-aware header/footer links,
+// waitlist count, mobile gating) is wired up as real React below and sits
+// around this block. The animation logic itself lives in
+// ./landingAnimations.js — see runLandingAnimations for why that's plain JS.
+// ─────────────────────────────────────────────────────────────────────────
 
-const FEATURES = [
-  {
-    icon: "◈",
-    title: "Know Who Deserves Your Next Hour",
-    body: "Every lead is scored across opportunity, readiness, risk, and fit — not just star ratings. Know exactly why a business is worth your time.",
-  },
-  {
-    icon: "◆",
-    title: "Built Around What You Actually Sell",
-    body: "Your profile shapes every score. A web developer sees different leads than an SEO specialist — same database, completely different intelligence.",
-  },
-  {
-    icon: "✦",
-    title: "Know Exactly What to Say",
-    body: "Every lead comes with a tailored pitch angle, gap analysis, and an AI-generated message — written around your offer and the lead's specific signals.",
-  },
-  {
-    icon: "◇",
-    title: "See What They're Missing, Instantly",
-    body: "Website reachability, booking CTAs, social presence, mobile friendliness — all scanned and factored into the score the moment you open a lead.",
-  },
-  {
-    icon: "⬡",
-    title: "Never Lose Track of a Deal",
-    body: "Mark leads as contacted, replied, booked, closed. See your conversion rates across every stage. Revenue totals auto-calculated.",
-  },
-  {
-    icon: "◉",
-    title: "Your Market, Front and Center",
-    body: "Set your target location once. Every fit score adjusts for proximity — leads in your market surface first, automatically.",
-  },
-];
+const SECTIONS_HTML = `<div class="hero">
+  <canvas id="nebula-hero" class="nebula-canvas" style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:0;"></canvas>
+  <div class="stars-small"></div>
 
-const STEPS = [
-  {
-    number: "01",
-    title: "Set your profile",
-    body: "Tell Vantio what you offer and who you serve. Your profile becomes the lens every score is seen through.",
-  },
-  {
-    number: "02",
-    title: "Search for leads",
-    body: "Enter a niche and location. The engine pulls local businesses and scores each one against your capabilities in seconds.",
-  },
-  {
-    number: "03",
-    title: "Read the intelligence",
-    body: "Opportunity score, risk profile, website signals, gap type, fit score, and a personalised pitch angle — not just a name and phone number.",
-  },
-  {
-    number: "04",
-    title: "Reach out with confidence",
-    body: "Save promising leads, generate a personalised AI message in seconds, send it, track the outcome. Your pipeline builds itself.",
-  },
-];
+  <div style="position:relative; z-index:2;">
+    <p class="eyebrow">Know Who Deserves Your Next Hour</p>
+    <h1 class="serif" style="font-size:clamp(38px,5vw,58px); font-weight:300; line-height:1.1;">Most of your list<br><span class="gold">was never going to buy.</span></h1>
+    <p style="font-size:18px; color:#9c9689; max-width:600px; margin:22px auto 40px; font-weight:300;">Vantio finds the leads worth your time, explains why they're a good fit and gives you the tools to reach out.</p>
+    <a href="/login" class="btn-outline" onclick="this.classList.add('pressed');">Join the beta →</a>
+  </div>
 
-// Each stat has: display value, a numeric target for count-up (null = non-numeric),
-// prefix/suffix for formatting, and a label
-const STATS = [
-  {
-    display: "< 3s",
-    countTo: 3,
-    prefix: "< ",
-    suffix: "s",
-    label: "Average time to score a lead",
-    hint: "vs. 45+ min of manual research",
-  },
-  {
-    display: "4",
-    countTo: 4,
-    prefix: "",
-    suffix: "",
-    label: "Gap types detected automatically",
-    hint: "Visibility, Conversion, Infrastructure, Optimisation",
-  },
-  {
-    display: "AI",
-    countTo: null,
-    prefix: "",
-    suffix: "",
-    label: "Messages written to your offer",
-    hint: "Tailored to each lead's signals",
-  },
-  {
-    display: "100%",
-    countTo: 100,
-    prefix: "",
-    suffix: "%",
-    label: "Profile-matched — no generic lists",
-    hint: "Every score shaped by your profile",
-  },
-];
+  <div class="demo-wrap">
+    <div class="demo-glow"></div>
+    <div id="cursor-el">
+      <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 2l14 6-6 2-2 6z" fill="#f5f0e8" stroke="#080808" stroke-width="1"/></svg>
+      <div class="click-ring" id="click-ring"></div>
+    </div>
+    <div class="chrome">
+      <div class="chrome-topline"></div>
+      <div class="chrome-bar">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <div style="flex:1; text-align:center; font-size:9px; color:#8a8478;" class="mono" id="bar-label">vantioapp.com — Lead Tool</div>
+      </div>
 
-// Easing function for count-up
-function easeOutExpo(t: number): number {
-  return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
-}
-
-function StatBar() {
-  const isMobile = useIsMobile();
-  const [triggered, setTriggered] = useState(false);
-  const [shimmer, setShimmer] = useState(false);
-  const [counts, setCounts] = useState([0, 0, 0, 0]);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const rafRef = useRef<number | null>(null);
-
-  const sectionRef = useCallback((node: HTMLElement | null) => {
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-    }
-    if (!node) return;
-    observerRef.current = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setCounts([0, 0, 0, 0]); // reset BEFORE triggering so count-up starts fresh
-          setTriggered(true);
-          setShimmer(false);
-          setTimeout(() => setShimmer(true), 200);
-        } else {
-          // Reset trigger/shimmer so it replays, but keep counts at final value
-          // to avoid flash of "< 0s" while scrolling back
-          setTriggered(false);
-          setShimmer(false);
-          // counts stay at final values until next trigger resets them
-        }
-      },
-      { threshold: 0.3 },
-    );
-    observerRef.current.observe(node);
-  }, []);
-
-  useEffect(() => {
-    if (!triggered) return;
-    const duration = 3200;
-    const start = performance.now();
-
-    const tick = (now: number) => {
-      const elapsed = now - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = easeOutExpo(progress);
-
-      setCounts(STATS.map((s) => (s.countTo !== null ? Math.round(eased * s.countTo) : 0)));
-
-      if (progress < 1) {
-        rafRef.current = requestAnimationFrame(tick);
-      }
-    };
-
-    rafRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [triggered]);
-
-  const displayValue = (s: (typeof STATS)[0], i: number) => {
-    if (s.countTo === null) return s.display;
-    // Always show prefix+count+suffix during active animation
-    // Show final display string when not yet triggered or count just reset to 0
-    if (!triggered) return s.display;
-    if (counts[i] === 0) return s.display; // count hasn't started yet
-    return `${s.prefix}${counts[i]}${s.suffix}`;
-  };
-
-  return (
-    <section
-      ref={sectionRef}
-      style={{
-        borderTop: "1px solid #141414",
-        borderBottom: "1px solid #141414",
-        background: "#0a0a0a",
-        position: "relative",
-        overflow: "hidden",
-      }}>
-      {/* Shimmer sweep line */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          bottom: 0,
-          width: "60px",
-          background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.12), transparent)",
-          left: shimmer ? "110%" : "-10%",
-          transition: shimmer ? "left 1.2s cubic-bezier(0.4,0,0.2,1)" : "none",
-          pointerEvents: "none",
-          zIndex: 2,
-        }}
-      />
-
-      <div
-        style={{
-          maxWidth: 1000,
-          margin: "0 auto",
-          padding: isMobile ? "40px 20px" : "48px 24px",
-          display: "grid",
-          gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)",
-          gap: isMobile ? 12 : 0,
-          position: "relative",
-        }}>
-        {STATS.map((s, i) => (
-          <div
-            key={i}
-            style={{
-              textAlign: "center",
-              position: "relative",
-              padding: isMobile ? "22px 14px" : "8px 16px",
-              // On mobile each stat becomes its own card in the 2x2 grid
-              border: isMobile ? "1px solid #161616" : "none",
-              borderRadius: isMobile ? 14 : 0,
-              background: isMobile ? "#0d0d0d" : "transparent",
-            }}>
-            {/* Vertical divider — desktop only; doesn't map onto the 2x2 card grid */}
-            {!isMobile && i < 3 && (
-              <div
-                style={{
-                  position: "absolute",
-                  right: 0,
-                  top: "10%",
-                  bottom: "10%",
-                  width: 1,
-                  background: `linear-gradient(to bottom, transparent, rgba(201,168,76,${shimmer ? 0.15 : 0}), transparent)`,
-                  transition: "background 0.8s ease 0.4s",
-                }}
-              />
-            )}
-
-            {/* Count-up number */}
-            <p
-              style={{
-                fontFamily: "var(--font-display), serif",
-                fontSize: "clamp(28px,4vw,44px)",
-                fontWeight: 300,
-                marginBottom: 6,
-                background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 60%, #8a6e30 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                opacity: triggered ? 1 : 0,
-                transform: triggered ? "translateY(0)" : "translateY(12px)",
-                transition: `all 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 120}ms`,
-                fontVariantNumeric: "tabular-nums",
-              }}>
-              {displayValue(s, i)}
-            </p>
-
-            {/* Label */}
-            <p
-              style={{
-                fontSize: 11,
-                color: "#444",
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                opacity: triggered ? 1 : 0,
-                transition: `opacity 0.6s ease ${i * 120 + 200}ms`,
-              }}>
-              {s.label}
-            </p>
+      <div class="stage">
+        <div id="phase1">
+          <div class="search-bar" id="search-bar">
+            <span style="color:#fac93f; font-size:14px; text-shadow:0 0 8px rgba(250,201,63,0.9), 0 0 18px rgba(250,201,63,0.5);">⌕</span>
+            <span style="font-size:14px; color:#e0d8c8;" id="typed-text"></span><span class="cursor" id="cursor"></span>
+            <div class="search-submit" id="search-submit">SCAN</div>
           </div>
-        ))}
-      </div>
 
-      <style>{`
+          <div id="loading-block">
+            <svg class="loader-ring" viewBox="0 0 64 64">
+              <circle class="loader-track" cx="32" cy="32" r="28"/>
+              <circle class="loader-fill" cx="32" cy="32" r="28" stroke-dasharray="140 176"/>
+            </svg>
+            <p class="status-text mono" id="status-text">Scanning the market…</p>
+          </div>
 
-      `}</style>
-    </section>
-  );
-}
-
-const MOCK_LEAD = {
-  name: "Bloom & Co Studio",
-  industry: "Beauty Salon",
-  city: "London",
-  score: 74,
-  fit: 81,
-  opportunity: 68,
-  risk: 22,
-  gap: "CONVERSION",
-  gapColor: "#fb923c",
-  verdict: "Strong Lead",
-  verdictColor: "#4ade80",
-};
-
-// Orbital feature chips — positioned around the card
-const ORBITAL_CHIPS = [
-  {
-    icon: "◈",
-    label: "Signal Scoring",
-    sub: "4 dimensions",
-    color: "#c9a84c",
-    angle: -140,
-    radius: 230,
-    driftSpeed: 0.018,
-    delay: 900,
-  },
-  {
-    icon: "✦",
-    label: "Outreach Built In",
-    sub: "AI-generated",
-    color: "#818cf8",
-    angle: -35,
-    radius: 260,
-    driftSpeed: 0.013,
-    delay: 1100,
-  },
-  {
-    icon: "⬡",
-    label: "Pipeline Tracking",
-    sub: "All stages",
-    color: "#4ade80",
-    angle: 145,
-    radius: 240,
-    driftSpeed: 0.02,
-    delay: 1300,
-  },
-  {
-    icon: "◆",
-    label: "Fit Matching",
-    sub: "Profile-tuned",
-    color: "#fb923c",
-    angle: 40,
-    radius: 250,
-    driftSpeed: 0.015,
-    delay: 1500,
-  },
-  {
-    icon: "◉",
-    label: "Deep Scanning",
-    sub: "Auto-enriched",
-    color: "#f472b6",
-    angle: 95,
-    radius: 260,
-    driftSpeed: 0.011,
-    delay: 1700,
-  },
-];
-
-function useReveal(): [(node: HTMLDivElement | null) => void, boolean] {
-  const [visible, setVisible] = useState(false);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const callbackRef = useCallback((node: HTMLDivElement | null) => {
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-      observerRef.current = null;
-    }
-    if (!node) return;
-    observerRef.current = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          observerRef.current?.disconnect();
-        }
-      },
-      { threshold: 0.12 },
-    );
-    observerRef.current.observe(node);
-  }, []);
-  return [callbackRef, visible];
-}
-
-// Each feature card tracks mouse position to render a spotlight glow
-function FeatureCard({
-  f,
-  i,
-  visible,
-  active,
-}: {
-  f: (typeof FEATURES)[0];
-  i: number;
-  visible: boolean;
-  active?: boolean;
-}) {
-  const isMobile = useIsMobile();
-  const [mouse, setMouse] = useState<{ x: number; y: number } | null>(null);
-  const [hovered, setHovered] = useState(false);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    setMouse({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-  };
-
-  const ICON_COLORS = ["#c9a84c", "#818cf8", "#4ade80", "#fb923c", "#f472b6", "#60a5fa"];
-  const iconColor = ICON_COLORS[i % ICON_COLORS.length];
-
-  // On mobile there's no hover — exactly one card (the centered/swiped-to
-  // one, driven by `active`) is in the spotlight: lit in its accent color
-  // and scaled up. Every other card stays neutral. On desktop this is the
-  // familiar hover state instead.
-  const lit = isMobile ? !!active : hovered;
-  const popped = isMobile ? !!active : hovered;
-
-  return (
-    <div
-      onMouseMove={handleMouseMove}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => {
-        setHovered(false);
-        setMouse(null);
-      }}
-      style={{
-        padding: 28,
-        borderRadius: 18,
-        position: "relative",
-        overflow: "hidden",
-        border: `1px solid ${lit ? (isMobile ? iconColor + "45" : "rgba(201,168,76,0.35)") : "#151515"}`,
-        background: lit ? "#111" : "#0d0d0d",
-        opacity: visible ? 1 : 0,
-        transform: visible ? (popped ? "scale(1.045)" : "scale(1)") : "translateY(40px)",
-        transition: `opacity 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 80}ms, transform 0.35s cubic-bezier(0.16,1,0.3,1), border-color 0.3s ease, background 0.3s ease`,
-        boxShadow: lit
-          ? `0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px ${isMobile ? iconColor + "18" : "rgba(201,168,76,0.1)"}`
-          : "none",
-        cursor: "default",
-      }}>
-      {/* Mouse-tracked spotlight glow */}
-      {mouse && (
-        <div
-          style={{
-            position: "absolute",
-            left: mouse.x - 120,
-            top: mouse.y - 120,
-            width: 240,
-            height: 240,
-            borderRadius: "50%",
-            background: `radial-gradient(circle, rgba(201,168,76,0.10) 0%, transparent 70%)`,
-            pointerEvents: "none",
-            transition: "none",
-          }}
-        />
-      )}
-
-      {/* Top-edge gold line — lit constantly on mobile, on hover on desktop */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: "10%",
-          right: "10%",
-          height: 1,
-          background: `linear-gradient(90deg, transparent, ${iconColor}, transparent)`,
-          opacity: lit ? 0.6 : 0,
-          transition: "opacity 0.3s ease",
-        }}
-      />
-
-      {/* Icon */}
-      <div
-        style={{
-          fontSize: 22,
-          marginBottom: 18,
-          color: lit ? iconColor : "#8a7a4a",
-          transform: popped ? "scale(1.25) translateY(-1px)" : "scale(1)",
-          transition: "all 0.3s cubic-bezier(0.16,1,0.3,1)",
-          display: "inline-block",
-          filter: lit ? `drop-shadow(0 0 8px ${iconColor}60)` : "none",
-        }}>
-        {f.icon}
-      </div>
-
-      {/* Title */}
-      <h3
-        style={{
-          fontFamily: "var(--font-display), serif",
-          fontSize: 18,
-          fontWeight: 500,
-          marginBottom: 10,
-          color: lit ? "#f5f0e8" : "#e8e0d0",
-          transition: "color 0.3s ease",
-        }}>
-        {f.title}
-      </h3>
-
-      {/* Body */}
-      <p
-        style={{
-          fontSize: 13,
-          lineHeight: 1.7,
-          color: lit ? "#666" : "#555",
-          transition: "color 0.3s ease",
-        }}>
-        {f.body}
-      </p>
-    </div>
-  );
-}
-
-const STEP_COLORS_LIST = ["#c9a84c", "#818cf8", "#4ade80", "#f472b6"];
-
-// Individual step card — flashes when its pipeline node is active
-function StepCard({
-  s,
-  i,
-  visible,
-  nodeActive,
-  nodeGlow = 0,
-}: {
-  s: (typeof STEPS)[0];
-  i: number;
-  visible: boolean;
-  nodeActive: boolean;
-  nodeGlow?: number;
-}) {
-  const [mouse, setMouse] = useState<{ x: number; y: number } | null>(null);
-  const [hovered, setHovered] = useState(false);
-  const accent = STEP_COLORS_LIST[i];
-
-  return (
-    <div
-      onMouseMove={(e) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        setMouse({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-      }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => {
-        setHovered(false);
-        setMouse(null);
-      }}
-      style={{
-        display: "flex",
-        gap: 28,
-        padding: 32,
-        borderRadius: 18,
-        position: "relative",
-        overflow: "hidden",
-        border: `1px solid ${
-          hovered
-            ? accent + "40"
-            : nodeGlow > 0.05
-              ? accent +
-                Math.round(nodeGlow * 80)
-                  .toString(16)
-                  .padStart(2, "0")
-              : "#151515"
-        }`,
-        background: hovered ? "#0f0f0f" : nodeGlow > 0.05 ? accent + "08" : "#0a0a0a",
-        opacity: visible ? 1 : 0,
-        transform: visible ? (hovered ? "translateX(4px)" : "none") : "translateY(30px)",
-        transition: `opacity 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 120}ms,
-          transform 0.35s cubic-bezier(0.16,1,0.3,1),
-          border-color 0.4s ease,
-          background 0.4s ease`,
-        boxShadow: nodeActive
-          ? `0 0 30px ${accent}12, 0 8px 32px rgba(0,0,0,0.4)`
-          : hovered
-            ? `0 8px 32px rgba(0,0,0,0.4)`
-            : "none",
-        cursor: "default",
-      }}>
-      {/* Mouse spotlight */}
-      {mouse && (
-        <div
-          style={{
-            position: "absolute",
-            left: mouse.x - 120,
-            top: mouse.y - 120,
-            width: 240,
-            height: 240,
-            borderRadius: "50%",
-            background: `radial-gradient(circle, ${accent}12 0%, transparent 70%)`,
-            pointerEvents: "none",
-            transition: "none",
-          }}
-        />
-      )}
-
-      {/* Left accent flash on node active */}
-      <div
-        style={{
-          position: "absolute",
-          left: 0,
-          top: "15%",
-          bottom: "15%",
-          width: 2,
-          background: `linear-gradient(to bottom, transparent, ${accent}, transparent)`,
-          opacity: nodeGlow > 0.05 ? nodeGlow * 0.8 : hovered ? 0.3 : 0,
-          transition: "opacity 0.4s ease",
-          borderRadius: 2,
-        }}
-      />
-
-      {/* Step number */}
-      <div
-        style={{
-          flexShrink: 0,
-          width: 64,
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "flex-start",
-          paddingTop: 4,
-        }}>
-        <span
-          style={{
-            fontFamily: "var(--font-display), serif",
-            fontSize: 52,
-            fontWeight: 300,
-            lineHeight: 1,
-            color: nodeGlow > 0.1 ? accent : hovered ? accent + "cc" : "#222",
-            transition: "color 0.15s ease, filter 0.15s ease",
-            filter:
-              nodeGlow > 0.1
-                ? `drop-shadow(0 0 ${Math.round(nodeGlow * 12)}px ${accent}${Math.round(nodeGlow * 100)
-                    .toString(16)
-                    .padStart(2, "0")})`
-                : "none",
-          }}>
-          {s.number}
-        </span>
-      </div>
-
-      {/* Content */}
-      <div style={{ flex: 1, paddingTop: 4 }}>
-        <h3
-          style={{
-            fontFamily: "var(--font-display), serif",
-            fontSize: 19,
-            fontWeight: 500,
-            marginBottom: 10,
-            color: nodeActive ? "#f5f0e8" : hovered ? "#f5f0e8" : "#e8e0d0",
-            transition: "color 0.3s ease",
-          }}>
-          {s.title}
-        </h3>
-        <p
-          style={{
-            fontSize: 13,
-            lineHeight: 1.75,
-            color: hovered ? "#666" : "#555",
-            transition: "color 0.3s ease",
-          }}>
-          {s.body}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function StepsSection({ visible, scrollY }: { visible: boolean; scrollY: number }) {
-  const isMobile = useIsMobile();
-  // Scroll-driven animation that starts when step 2 is visible on screen.
-  // We measure step 2's actual position in the document and use that as the trigger.
-  const step2Ref = useRef<HTMLDivElement | null>(null);
-  const [scrollStart, setScrollStart] = useState(9999);
-
-  useEffect(() => {
-    if (isMobile) return; // mobile renders the static timeline — nothing to measure
-    if (!step2Ref.current) return;
-    const measure = () => {
-      const el = step2Ref.current;
-      if (!el) return;
-      // Start when step 2's top reaches the bottom 30% of the viewport
-      const rect = el.getBoundingClientRect();
-      const triggerOffset = rect.top + window.scrollY - window.innerHeight * 0.7;
-      setScrollStart(triggerOffset);
-    };
-    measure();
-    window.addEventListener("resize", measure, { passive: true });
-    return () => window.removeEventListener("resize", measure);
-  }, [visible, isMobile]);
-
-  const SCROLL_RANGE = 600;
-  const t = visible ? Math.max(0, Math.min(1, (scrollY - scrollStart) / SCROLL_RANGE)) : 0;
-
-  // Smooth node value 0.0–3.0 — used for continuous fade in/out glow
-  const smoothNode = t * 3;
-
-  // Vertical pipeline: runs down left side, 4 nodes evenly spaced
-  // ViewBox: 80 wide × 600 tall. Nodes at y = 75, 225, 375, 525 (x=40)
-  const NODE_Y = [75, 225, 375, 525];
-  const NODE_X = 40;
-  const TOTAL_H = 600;
-
-  // Pulse Y position travels top → bottom
-  const pulseY = t * (NODE_Y[3] - NODE_Y[0]) + NODE_Y[0];
-  // Trail: last 12% of the path behind the pulse
-  const trailY = Math.max(NODE_Y[0], pulseY - 0.12 * (NODE_Y[3] - NODE_Y[0]));
-
-  if (isMobile) {
-    // ── Static mobile timeline ──
-    // No scroll-driven pulse, no SVG pipeline. A fixed gradient rail that
-    // blends each step's accent color into the next. The step number now
-    // sits in the gutter beside the rail (not inside the card) — the rail
-    // effectively becomes a numbered spine, with cards holding title/body only.
-    return (
-      <div style={{ position: "relative", paddingLeft: 58 }}>
-        {/* Rail — gradient walks through the four step colors */}
-        <div
-          style={{
-            position: "absolute",
-            left: 9,
-            top: 14,
-            bottom: 14,
-            width: 2,
-            borderRadius: 2,
-            background: `linear-gradient(to bottom, ${STEP_COLORS_LIST[0]}55, ${STEP_COLORS_LIST[1]}45, ${STEP_COLORS_LIST[2]}45, ${STEP_COLORS_LIST[3]}55)`,
-          }}
-        />
-        {STEPS.map((s, i) => {
-          const accent = STEP_COLORS_LIST[i];
-          return (
-            <div key={i} style={{ position: "relative", marginBottom: i < STEPS.length - 1 ? 22 : 0 }}>
-              {/* Number — sits in the gutter beside the rail, not on the card */}
-              <div
-                style={{
-                  position: "absolute",
-                  left: -58 + 14,
-                  width: 36,
-                  top: 12,
-                  textAlign: "right",
-                  fontFamily: "var(--font-display), serif",
-                  fontSize: 22,
-                  fontWeight: 300,
-                  lineHeight: 1,
-                  color: accent,
-                  textShadow: `0 0 12px ${accent}50`,
-                }}>
-                {s.number}
-              </div>
-              {/* Node on the rail */}
-              <div
-                style={{
-                  position: "absolute",
-                  left: -58 + 9 + 1 - 3.5,
-                  top: 20,
-                  width: 7,
-                  height: 7,
-                  borderRadius: "50%",
-                  background: accent,
-                  boxShadow: `0 0 8px ${accent}80`,
-                }}
-              />
-              <div
-                style={{
-                  borderRadius: 14,
-                  border: "1px solid #151515",
-                  borderLeft: `2px solid ${accent}70`,
-                  background: "#0a0a0a",
-                  padding: "18px 16px",
-                  opacity: visible ? 1 : 0,
-                  transform: visible ? "none" : "translateY(20px)",
-                  transition: `all 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 90}ms`,
-                }}>
-                <div style={{ marginBottom: 8 }}>
-                  <h3
-                    style={{
-                      fontFamily: "var(--font-display), serif",
-                      fontSize: 17,
-                      fontWeight: 500,
-                      color: "#e8e0d0",
-                    }}>
-                    {s.title}
-                  </h3>
-                </div>
-                <p style={{ fontSize: 13, lineHeight: 1.7, color: "#555" }}>{s.body}</p>
-              </div>
+          <div id="unfold-outer">
+            <div id="unfold-inner">
+              <p style="font-size:11px; color:#666; margin-bottom:8px;">842 companies found</p>
+              <div id="raw-list"></div>
             </div>
-          );
-        })}
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: "flex", gap: 0, alignItems: "stretch", position: "relative" }}>
-      {/* Vertical pipeline SVG — left column */}
-      <div
-        style={{
-          width: 80,
-          flexShrink: 0,
-          opacity: visible ? 1 : 0,
-          transition: "opacity 1s ease 0.4s",
-          position: "relative",
-        }}>
-        <svg
-          viewBox={`0 0 80 ${TOTAL_H}`}
-          style={{ width: "100%", height: "100%" }}
-          preserveAspectRatio="xMidYMid meet">
-          <defs>
-            <filter id="pipeGlow">
-              <feGaussianBlur stdDeviation="4" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-            <filter id="dotGlow">
-              <feGaussianBlur stdDeviation="5" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-            <linearGradient id="trailGrad" x1="0" x2="0" y1={trailY} y2={pulseY} gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="rgba(201,168,76,0)" />
-              <stop offset="100%" stopColor="rgba(201,168,76,0.7)" />
-            </linearGradient>
-          </defs>
-
-          {/* Pipe outer glow */}
-          <line
-            x1={NODE_X}
-            y1={NODE_Y[0]}
-            x2={NODE_X}
-            y2={NODE_Y[3]}
-            stroke="rgba(201,168,76,0.08)"
-            strokeWidth="12"
-            filter="url(#pipeGlow)"
-          />
-
-          {/* Pipe body — dark tube */}
-          <line x1={NODE_X} y1={NODE_Y[0]} x2={NODE_X} y2={NODE_Y[3]} stroke="#0d0d0d" strokeWidth="6" />
-
-          {/* Pipe wall — thin gold lines either side */}
-          <line
-            x1={NODE_X - 3}
-            y1={NODE_Y[0]}
-            x2={NODE_X - 3}
-            y2={NODE_Y[3]}
-            stroke="rgba(201,168,76,0.18)"
-            strokeWidth="1"
-          />
-          <line
-            x1={NODE_X + 3}
-            y1={NODE_Y[0]}
-            x2={NODE_X + 3}
-            y2={NODE_Y[3]}
-            stroke="rgba(201,168,76,0.18)"
-            strokeWidth="1"
-          />
-
-          {/* Glowing trail behind pulse */}
-          <line x1={NODE_X} y1={trailY} x2={NODE_X} y2={pulseY} stroke="url(#trailGrad)" strokeWidth="4" />
-
-          {/* Node indicators — smooth glow based on pulse proximity */}
-          {NODE_Y.map((ny, i) => {
-            const dist = Math.abs(smoothNode - i);
-            const glow = Math.max(0, 1 - dist * 1.8);
-            const ripple = Math.max(0, 1 - dist * 3.0);
-            const color = STEP_COLORS_LIST[i];
-            return (
-              <g key={i}>
-                {/* Ripple ring — expands and fades as pulse arrives */}
-                <circle
-                  cx={NODE_X}
-                  cy={ny}
-                  r={10 + glow * 10}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth="1"
-                  opacity={ripple * 0.35}
-                />
-                {/* Connector tick to card */}
-                <line
-                  x1={NODE_X + 8}
-                  y1={ny}
-                  x2={76}
-                  y2={ny}
-                  stroke={color}
-                  strokeWidth="1"
-                  opacity={0.12 + glow * 0.7}
-                />
-                {/* Node ring */}
-                <circle
-                  cx={NODE_X}
-                  cy={ny}
-                  r="8"
-                  fill={color}
-                  fillOpacity={glow * 0.22}
-                  stroke={color}
-                  strokeWidth="1.5"
-                  opacity={0.25 + glow * 0.75}
-                />
-                {/* Centre dot — grows with glow */}
-                <circle
-                  cx={NODE_X}
-                  cy={ny}
-                  r={2 + glow * 2}
-                  fill={color}
-                  opacity={0.35 + glow * 0.65}
-                  filter={glow > 0.2 ? "url(#pipeGlow)" : "none"}
-                />
-              </g>
-            );
-          })}
-
-          {/* Pulse dot */}
-          <circle cx={NODE_X} cy={pulseY} r="10" fill="rgba(201,168,76,0.1)" filter="url(#dotGlow)" />
-          <circle cx={NODE_X} cy={pulseY} r="4" fill="#e8c97a" filter="url(#dotGlow)" />
-        </svg>
-      </div>
-
-      {/* Cards — stacked vertically, full order guaranteed */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
-        {STEPS.map((s, i) => {
-          const dist = Math.abs(smoothNode - i);
-          const glow = Math.max(0, 1 - dist * 1.8);
-          return (
-            <div key={i} ref={i === 1 ? step2Ref : undefined}>
-              <StepCard s={s} i={i} visible={visible} nodeActive={glow > 0.1} nodeGlow={glow} />
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ── SEARCH CYCLES DATA ──
-const SEARCH_CYCLES = [
-  {
-    q: "beauty salons · london",
-    leads: [
-      {
-        n: "Luxe Nail & Spa",
-        score: 88,
-        sc: "#4ade80",
-        vc: "#4ade80",
-        v: "Top Lead",
-        fit: 92,
-        opp: 85,
-        risk: 10,
-        gap: "CONVERSION",
-        gc: "#fb923c",
-        msg: (n: string) =>
-          `Hi — <em>${n}</em> has no mobile booking CTA. I'll build one, install it, and send you a <strong>live preview within 48 hours</strong>. No commitment needed.`,
-      },
-      {
-        n: "Studio Muse London",
-        score: 79,
-        sc: "#4ade80",
-        vc: "#4ade80",
-        v: "Strong",
-        fit: 84,
-        opp: 74,
-        risk: 18,
-        gap: "INFRASTRUCTURE",
-        gc: "#60a5fa",
-        msg: null,
-      },
-      {
-        n: "Bloom & Co Studio",
-        score: 74,
-        sc: "#4ade80",
-        vc: "#4ade80",
-        v: "Strong",
-        fit: 81,
-        opp: 68,
-        risk: 22,
-        gap: "CONVERSION",
-        gc: "#fb923c",
-        msg: null,
-      },
-      {
-        n: "Glow Beauty Bar",
-        score: 61,
-        sc: "#c9a84c",
-        vc: "#c9a84c",
-        v: "Good",
-        fit: 70,
-        opp: 55,
-        risk: 30,
-        gap: "VISIBILITY",
-        gc: "#818cf8",
-        msg: null,
-      },
-      {
-        n: "The Beauty Collective",
-        score: 45,
-        sc: "#f87171",
-        vc: "#f87171",
-        v: "Weak",
-        fit: 38,
-        opp: 50,
-        risk: 55,
-        gap: "OPTIMISATION",
-        gc: "#f472b6",
-        msg: null,
-      },
-    ],
-    hint: "5 leads scored · beauty salons · london",
-  },
-  {
-    q: "web agencies · stockholm",
-    leads: [
-      {
-        n: "Brightpath Agency",
-        score: 91,
-        sc: "#4ade80",
-        vc: "#4ade80",
-        v: "Top Lead",
-        fit: 95,
-        opp: 88,
-        risk: 8,
-        gap: "INFRASTRUCTURE",
-        gc: "#60a5fa",
-        msg: (n: string) =>
-          `Hey — <em>${n}</em> has no lead capture on the site. I'll build a <strong>free working prototype</strong> and send it over by Friday. Just reply yes.`,
-      },
-      {
-        n: "Norr Studio AB",
-        score: 82,
-        sc: "#4ade80",
-        vc: "#4ade80",
-        v: "Top Lead",
-        fit: 88,
-        opp: 79,
-        risk: 14,
-        gap: "CONVERSION",
-        gc: "#fb923c",
-        msg: null,
-      },
-      {
-        n: "Studio Noll",
-        score: 73,
-        sc: "#4ade80",
-        vc: "#4ade80",
-        v: "Strong",
-        fit: 77,
-        opp: 68,
-        risk: 22,
-        gap: "CONVERSION",
-        gc: "#fb923c",
-        msg: null,
-      },
-      {
-        n: "Pixel & Pine",
-        score: 67,
-        sc: "#c9a84c",
-        vc: "#c9a84c",
-        v: "Good",
-        fit: 60,
-        opp: 72,
-        risk: 28,
-        gap: "VISIBILITY",
-        gc: "#818cf8",
-        msg: null,
-      },
-      {
-        n: "Forma Digital",
-        score: 55,
-        sc: "#f87171",
-        vc: "#f87171",
-        v: "Weak",
-        fit: 50,
-        opp: 61,
-        risk: 40,
-        gap: "OPTIMISATION",
-        gc: "#f472b6",
-        msg: null,
-      },
-    ],
-    hint: "5 leads scored · web agencies · stockholm",
-  },
-  {
-    q: "personal trainers · manchester",
-    leads: [
-      {
-        n: "Peak Form PT",
-        score: 86,
-        sc: "#4ade80",
-        vc: "#4ade80",
-        v: "Top Lead",
-        fit: 90,
-        opp: 83,
-        risk: 12,
-        gap: "VISIBILITY",
-        gc: "#818cf8",
-        msg: (n: string) =>
-          `Hi — <em>${n}</em> is invisible on Google in Manchester. I'll send a <strong>free visibility audit</strong> with 3 fixes you can action today. Want it?`,
-      },
-      {
-        n: "Momentum Fitness MCR",
-        score: 80,
-        sc: "#4ade80",
-        vc: "#4ade80",
-        v: "Strong",
-        fit: 85,
-        opp: 76,
-        risk: 16,
-        gap: "CONVERSION",
-        gc: "#fb923c",
-        msg: null,
-      },
-      {
-        n: "Elevate Coaching",
-        score: 77,
-        sc: "#4ade80",
-        vc: "#4ade80",
-        v: "Strong",
-        fit: 82,
-        opp: 73,
-        risk: 20,
-        gap: "OPTIMISATION",
-        gc: "#f472b6",
-        msg: null,
-      },
-      {
-        n: "Iron & Grit Fitness",
-        score: 62,
-        sc: "#c9a84c",
-        vc: "#c9a84c",
-        v: "Good",
-        fit: 58,
-        opp: 66,
-        risk: 34,
-        gap: "CONVERSION",
-        gc: "#fb923c",
-        msg: null,
-      },
-      {
-        n: "Body Blueprint",
-        score: 49,
-        sc: "#f87171",
-        vc: "#f87171",
-        v: "Weak",
-        fit: 42,
-        opp: 55,
-        risk: 50,
-        gap: "INFRASTRUCTURE",
-        gc: "#60a5fa",
-        msg: null,
-      },
-    ],
-    hint: "5 leads scored · personal trainers · manchester",
-  },
-];
-
-type Lead = (typeof SEARCH_CYCLES)[0]["leads"][0];
-type Cycle = (typeof SEARCH_CYCLES)[0];
-
-// ── NEBULA NOISE HELPERS ─────────────────────────────────────────────
-function nbLerp(a: number, b: number, t: number) {
-  return a + (b - a) * t;
-}
-function nbValueNoise(x: number, y: number, seed: number) {
-  const ix = Math.floor(x),
-    iy = Math.floor(y);
-  const fx = x - ix,
-    fy = y - iy;
-  const ux = fx * fx * (3 - 2 * fx),
-    uy = fy * fy * (3 - 2 * fy);
-  function h(a: number, b: number) {
-    const n = Math.sin(a * 127.1 + b * 311.7 + seed * 74.3) * 43758.5453;
-    return n - Math.floor(n);
-  }
-  return nbLerp(nbLerp(h(ix, iy), h(ix + 1, iy), ux), nbLerp(h(ix, iy + 1), h(ix + 1, iy + 1), ux), uy);
-}
-function nbFbm(x: number, y: number, seed: number, oct: number) {
-  let v = 0,
-    a = 0.5,
-    f = 1,
-    mx = 0;
-  for (let i = 0; i < oct; i++) {
-    v += nbValueNoise(x * f, y * f, seed + i) * a;
-    mx += a;
-    a *= 0.52;
-    f *= 2.1;
-  }
-  return v / mx;
-}
-function nbCloud(x: number, y: number, seed: number, warp: number) {
-  const ox = nbFbm(x + 0.0, y + 0.0, seed, 5) * warp;
-  const oy = nbFbm(x + 5.2, y + 1.3, seed + 7, 5) * warp;
-  return nbFbm(x + ox, y + oy, seed + 3, 7);
-}
-interface NbCloudCfg {
-  cx: number;
-  cy: number;
-  rx: number;
-  ry: number;
-  rot: number;
-  seed: number;
-  warp: number;
-  thresh: number;
-  intensity: number;
-  es: number;
-  c0: [number, number, number];
-  c1: [number, number, number];
-  c2: [number, number, number];
-  c3: [number, number, number];
-}
-function nbBuildCloud(W: number, H: number, cfg: NbCloudCfg): ImageData {
-  const { cx, cy, rx, ry, rot, seed, warp, thresh, intensity, es, c0, c1, c2, c3 } = cfg;
-  const data = new Uint8ClampedArray(W * H * 4);
-  const cosR = Math.cos(rot),
-    sinR = Math.sin(rot);
-  for (let py = 0; py < H; py++) {
-    for (let px = 0; px < W; px++) {
-      const dx = px - cx,
-        dy = py - cy;
-      const rx2 = (dx * cosR + dy * sinR) / rx;
-      const ry2 = (-dx * sinR + dy * cosR) / ry;
-      const d2 = rx2 * rx2 + ry2 * ry2;
-      if (d2 > 4.84) continue;
-      const n = nbCloud(rx2 * 1.2, ry2 * 1.2, seed, warp);
-      const raw = Math.max(0, n - thresh);
-      if (raw <= 0) continue;
-      const dens = Math.min(1, raw / (1 - thresh));
-      const edge = Math.exp(-es * d2);
-      const fin = dens * edge * intensity;
-      if (fin < 0.003) continue;
-      let r, g, b;
-      if (dens > 0.75) {
-        const t = (dens - 0.75) / 0.25;
-        r = nbLerp(c2[0], c3[0], t);
-        g = nbLerp(c2[1], c3[1], t);
-        b = nbLerp(c2[2], c3[2], t);
-      } else if (dens > 0.45) {
-        const t = (dens - 0.45) / 0.3;
-        r = nbLerp(c1[0], c2[0], t);
-        g = nbLerp(c1[1], c2[1], t);
-        b = nbLerp(c1[2], c2[2], t);
-      } else if (dens > 0.15) {
-        const t = (dens - 0.15) / 0.3;
-        r = nbLerp(c0[0], c1[0], t);
-        g = nbLerp(c0[1], c1[1], t);
-        b = nbLerp(c0[2], c1[2], t);
-      } else {
-        const t = dens / 0.15;
-        r = c0[0] * t;
-        g = c0[1] * t;
-        b = c0[2] * t;
-      }
-      const i4 = (py * W + px) * 4;
-      data[i4] = Math.min(255, data[i4] + r * fin * 255);
-      data[i4 + 1] = Math.min(255, data[i4 + 1] + g * fin * 255);
-      data[i4 + 2] = Math.min(255, data[i4 + 2] + b * fin * 255);
-      data[i4 + 3] = 255;
-    }
-  }
-  return new ImageData(data, W, H);
-}
-function nbScreenBlit(ctx: CanvasRenderingContext2D, W: number, H: number, img: ImageData) {
-  const tmp = document.createElement("canvas");
-  tmp.width = W;
-  tmp.height = H;
-  tmp.getContext("2d")!.putImageData(img, 0, 0);
-  ctx.globalCompositeOperation = "screen";
-  ctx.drawImage(tmp, 0, 0);
-  ctx.globalCompositeOperation = "source-over";
-}
-
-// ── HERO SCENE — flat dashboard + unified particle canvas ──
-// ── MOBILE HERO CARD — static replacement for the animated dashboard demo ──
-// The desktop demo is a two-column mockup (search+leads / score+AI message)
-// designed for a 1020px canvas, driven by a JS typing/reveal sequence. On a
-// phone that grid has nowhere to shrink to, so it overflows and gets clipped
-// (only the left column was visible), and the JS sequence is both expensive
-// and grows the container's height mid-animation, dragging the whole page
-// along with it. This is a fixed-height, single-column, fully static
-// snapshot instead — same example data, zero timers, nothing to clip or shift.
-function MobileHeroCard() {
-  const score = 88;
-  const ringColor = "#4ade80";
-  const ringCircumference = 226;
-  const ringOffset = ringCircumference * (1 - score / 100);
-  const gapColor = "#fb923c";
-
-  return (
-    <div
-      style={{
-        position: "relative",
-        zIndex: 10,
-        width: "min(420px, 92vw)",
-        animation: "fadeUp 1.2s cubic-bezier(0.16,1,0.3,1) 0.5s both",
-      }}>
-      <div
-        style={{
-          background: "rgba(8,8,14,0.96)",
-          border: "1px solid rgba(201,168,76,0.13)",
-          borderRadius: 16,
-          overflow: "hidden",
-          boxShadow:
-            "0 0 0 1px rgba(201,168,76,0.05), 0 24px 60px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.03)",
-        }}>
-        {/* Gold accent line */}
-        <div
-          style={{
-            height: 1,
-            background: "linear-gradient(90deg,transparent 5%,rgba(201,168,76,0.35) 50%,transparent 95%)",
-          }}
-        />
-
-        {/* Chrome bar */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 7,
-            padding: "11px 16px",
-            background: "rgba(5,5,10,0.8)",
-            borderBottom: "1px solid rgba(201,168,76,0.07)",
-          }}>
-          {[0, 1, 2].map((i) => (
-            <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: "#141420" }} />
-          ))}
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-            <span style={{ fontSize: 8, color: "rgba(201,168,76,0.25)" }}>◈</span>
-            <span style={{ fontSize: 9, color: "#8a8478", fontFamily: "monospace", letterSpacing: "0.04em" }}>
-              vantioapp.com — Lead Scanner
-            </span>
           </div>
         </div>
 
-        <div style={{ padding: "20px 18px" }}>
-          {/* Query context */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              background: "rgba(255,255,255,0.02)",
-              border: "1px solid rgba(201,168,76,0.1)",
-              borderRadius: 8,
-              padding: "9px 13px",
-              marginBottom: 18,
-            }}>
-            <span style={{ fontSize: 12, color: "#c9a84c" }}>🔍</span>
-            <span style={{ flex: 1, fontSize: 12, color: "#c0b8a8" }}>beauty salons · london</span>
-            <span style={{ fontSize: 8, color: "#7a7468", fontFamily: "monospace" }}>5 scored</span>
-          </div>
-
-          {/* Score ring + lead info */}
-          <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 18 }}>
-            <div
-              style={{
-                position: "relative",
-                width: 74,
-                height: 74,
-                flexShrink: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}>
-              <svg
-                viewBox="0 0 90 90"
-                width="74"
-                height="74"
-                style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}>
-                <circle cx="45" cy="45" r="36" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="6" />
-                <circle
-                  cx="45"
-                  cy="45"
-                  r="36"
-                  fill="none"
-                  stroke={ringColor}
-                  strokeWidth="6"
-                  strokeLinecap="round"
-                  strokeDasharray={ringCircumference}
-                  strokeDashoffset={ringOffset}
-                />
+        <div class="track" id="track">
+          <div class="track-panel" id="tp2">
+            <p style="font-size:11px; color:#666; margin-bottom:2px;">From your search: web agencies · stockholm</p>
+            <p style="font-size:13px; font-weight:600; margin-bottom:16px;">Here's how this market breaks down</p>
+            <div style="display:flex; align-items:center; gap:28px; flex-wrap:wrap; justify-content:center;">
+              <svg viewBox="0 0 100 100" width="120" height="120">
+                <circle cx="50" cy="50" r="38" fill="none" stroke="#1a1a1a" stroke-width="13"/>
+                <circle id="seg-high" cx="50" cy="50" r="38" fill="none" stroke="#e8b72d" stroke-width="13" stroke-dasharray="0 238.76" stroke-dashoffset="0" transform="rotate(-90 50 50)" style="transition: stroke-dasharray 0.7s ease;"/>
+                <circle id="seg-good" cx="50" cy="50" r="38" fill="none" stroke="#a8a488" stroke-width="13" stroke-dasharray="0 238.76" stroke-dashoffset="-36.01" transform="rotate(-90 50 50)" style="transition: stroke-dasharray 0.7s ease;"/>
+                <circle id="seg-low" cx="50" cy="50" r="38" fill="none" stroke="#2a2a2a" stroke-width="13" stroke-dasharray="0 238.76" stroke-dashoffset="-96.98" transform="rotate(-90 50 50)" style="transition: stroke-dasharray 0.7s ease;"/>
+                <circle id="seg-contacted" cx="50" cy="50" r="38" fill="none" stroke="#2a2a2a" stroke-width="13" stroke-dasharray="0 238.76" stroke-dashoffset="-192.26" transform="rotate(-90 50 50)" style="transition: stroke-dasharray 0.7s ease;"/>
+                <text id="snapshot-count" x="50" y="47" text-anchor="middle" font-family="Cormorant Garamond" font-size="17" font-weight="600" fill="#f5f0e8">0</text>
+                <text x="50" y="60" text-anchor="middle" font-size="6" fill="#666">companies</text>
               </svg>
-              <span
-                style={{
-                  fontSize: 21,
-                  fontWeight: 700,
-                  fontFamily: "monospace",
-                  color: ringColor,
-                  position: "relative",
-                  zIndex: 1,
-                }}>
-                {score}
-              </span>
+              <div style="font-size:12px; text-align:left;">
+                <div class="snap-legend-row" style="display:flex; align-items:center; gap:8px; margin-bottom:8px; opacity:0; transform:translateX(-8px); transition: opacity 0.4s ease, transform 0.4s ease;"><span style="width:7px;height:7px;border-radius:50%;background:#e8b72d;"></span><span style="color:#999;">High opportunity</span><span style="color:#f5f0e8; font-weight:600; margin-left:auto; padding-left:16px;">127</span></div>
+                <div class="snap-legend-row" style="display:flex; align-items:center; gap:8px; margin-bottom:8px; opacity:0; transform:translateX(-8px); transition: opacity 0.4s ease, transform 0.4s ease;"><span style="width:7px;height:7px;border-radius:50%;background:#a8a488;"></span><span style="color:#999;">Good opportunity</span><span style="color:#f5f0e8; font-weight:600; margin-left:auto; padding-left:16px;">215</span></div>
+                <div class="snap-legend-row" style="display:flex; align-items:center; gap:8px; margin-bottom:8px; opacity:0; transform:translateX(-8px); transition: opacity 0.4s ease, transform 0.4s ease;"><span style="width:7px;height:7px;border-radius:50%;background:#2a2a2a; border:1px solid #444;"></span><span style="color:#999;">Low opportunity</span><span style="color:#f5f0e8; font-weight:600; margin-left:auto; padding-left:16px;">288</span></div>
+                <div class="snap-legend-row" style="display:flex; align-items:center; gap:8px; opacity:0; transform:translateX(-8px); transition: opacity 0.4s ease, transform 0.4s ease;"><span style="width:7px;height:7px;border-radius:50%;background:#2a2a2a; border:1px solid #444;"></span><span style="color:#999;">Contacted</span><span style="color:#f5f0e8; font-weight:600; margin-left:auto; padding-left:16px;">164</span></div>
+              </div>
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#d8d0c0", marginBottom: 4 }}>
-                Luxe Nail &amp; Spa
+            <p style="font-size:10.5px; color:#888; margin-top:18px; line-height:1.5;">Vantio scores every company so you're not guessing which 127 out of 842 are actually worth your time.</p>
+            <div class="snap-stat-boxes" style="display:flex; gap:10px; margin-top:16px; opacity:0; transform:translateY(6px); transition: opacity 0.5s ease, transform 0.5s ease;">
+              <div style="flex:1; border:1px solid rgba(201,168,76,0.1); border-radius:10px; padding:10px 12px;">
+                <p style="font-size:9px; color:#666; text-transform:uppercase; letter-spacing:0.04em;">New this month</p>
+                <p class="serif" style="font-size:18px; font-weight:600; margin-top:2px;">23 <span style="font-size:10px; color:#4ade80; font-family:'DM Sans',sans-serif; font-weight:600;">+18%</span></p>
               </div>
-              <div style={{ fontSize: 8, color: "#7a7468", fontFamily: "monospace", marginBottom: 8 }}>
-                Intelligence Report
+              <div style="flex:1; border:1px solid rgba(201,168,76,0.1); border-radius:10px; padding:10px 12px;">
+                <p style="font-size:9px; color:#666; text-transform:uppercase; letter-spacing:0.04em;">Coverage</p>
+                <p class="serif" style="font-size:18px; font-weight:600; margin-top:2px;">76%</p>
+                <p style="font-size:8.5px; color:#666; margin-top:1px;">Est. market coverage</p>
               </div>
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  fontSize: 8,
-                  padding: "3px 9px",
-                  borderRadius: 4,
-                  fontWeight: 700,
-                  fontFamily: "monospace",
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  background: gapColor + "20",
-                  border: `1px solid ${gapColor}40`,
-                  color: gapColor,
-                }}>
-                ⬡ Conversion Gap
-              </span>
             </div>
           </div>
 
-          {/* Score bars */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-            {[
-              { label: "Fit Score", val: 92, color: "#818cf8" },
-              { label: "Opportunity", val: 85, color: "#4ade80" },
-              { label: "Risk Index", val: 10, color: "#f87171" },
-            ].map((bar) => (
-              <div key={bar.label}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span
-                    style={{
-                      fontSize: 8,
-                      color: "#8a8478",
-                      fontFamily: "monospace",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.06em",
-                    }}>
-                    {bar.label}
-                  </span>
-                  <span style={{ fontSize: 8, fontWeight: 700, fontFamily: "monospace", color: bar.color }}>
-                    {bar.val}
-                  </span>
-                </div>
-                <div style={{ height: 3, background: "rgba(255,255,255,0.04)", borderRadius: 99, overflow: "hidden" }}>
-                  <div style={{ height: "100%", background: bar.color, borderRadius: 99, width: `${bar.val}%` }} />
+          <div class="track-panel" id="tp3" style="padding-bottom: 90px;">
+            <p style="font-size:11px; color:#666; margin-bottom:12px;">Today's top opportunities</p>
+
+            <div class="score-card" style="animation-delay:0.1s;">
+              <div class="score-num-wrap">
+                <p class="serif score-num" style="color:#ffd363; text-shadow:0 0 8px rgba(255,211,99,0.9), 0 0 18px rgba(255,211,99,0.5);">91</p>
+                <div class="score-underline" style="background:#ffd363; box-shadow:0 0 6px rgba(232,201,122,0.7);"></div>
+                <div class="subscore-2x2">
+                  <div><p class="subscore-label">Fit</p><p class="subscore-val" style="color:#4ade80;">High</p></div>
+                  <div><p class="subscore-label">Oppty</p><p class="subscore-val" style="color:#ffd363; text-shadow:0 0 8px rgba(255,211,99,0.9), 0 0 18px rgba(255,211,99,0.5);">91</p></div>
+                  <div><p class="subscore-label">Risk</p><p class="subscore-val" style="color:#4ade80;">Low</p></div>
+                  <div><p class="subscore-label">Ready</p><p class="subscore-val" style="color:#fac93f; text-shadow:0 0 8px rgba(250,201,63,0.9), 0 0 18px rgba(250,201,63,0.5);">Med</p></div>
                 </div>
               </div>
-            ))}
+              <div style="flex:1; padding-top:2px;">
+                <p style="font-size:13px; font-weight:600;">Nordic Scale AB</p>
+                <p style="font-size:11px; color:#666; margin-top:4px; line-height:1.5;">Because: weak outbound acquisition, strong market demand</p>
+                <div class="prep-btn">Prepare outreach</div>
+              </div>
+            </div>
+
+            <div class="score-card" style="animation-delay:0.3s;">
+              <div class="score-num-wrap">
+                <p class="serif score-num" style="color:#a8a488;">87</p>
+                <div class="score-underline" style="background:#a8a488; box-shadow:0 0 5px rgba(168,164,136,0.5);"></div>
+                <div class="subscore-2x2">
+                  <div><p class="subscore-label">Fit</p><p class="subscore-val" style="color:#4ade80;">High</p></div>
+                  <div><p class="subscore-label">Oppty</p><p class="subscore-val" style="color:#a8a488;">87</p></div>
+                  <div><p class="subscore-label">Risk</p><p class="subscore-val" style="color:#fac93f; text-shadow:0 0 8px rgba(250,201,63,0.9), 0 0 18px rgba(250,201,63,0.5);">Med</p></div>
+                  <div><p class="subscore-label">Ready</p><p class="subscore-val" style="color:#4ade80;">High</p></div>
+                </div>
+              </div>
+              <div style="flex:1; padding-top:2px;">
+                <p style="font-size:13px; font-weight:600;">Webstrap Agency</p>
+                <p style="font-size:11px; color:#666; margin-top:4px; line-height:1.5;">Because: visibility gap, high traffic, low brand presence</p>
+                <div class="prep-btn">Prepare outreach</div>
+              </div>
+            </div>
+
+            <div class="score-card" id="card-3" style="animation-delay:0.5s;">
+              <div class="score-num-wrap">
+                <p class="serif score-num" style="color:#7a8a6e;">83</p>
+                <div class="score-underline" style="background:#7a8a6e; box-shadow:0 0 5px rgba(122,138,110,0.4);"></div>
+                <div class="subscore-2x2">
+                  <div><p class="subscore-label">Fit</p><p class="subscore-val" style="color:#fac93f; text-shadow:0 0 8px rgba(250,201,63,0.9), 0 0 18px rgba(250,201,63,0.5);">Med</p></div>
+                  <div><p class="subscore-label">Oppty</p><p class="subscore-val" style="color:#7a8a6e;">83</p></div>
+                  <div><p class="subscore-label">Risk</p><p class="subscore-val" style="color:#4ade80;">Low</p></div>
+                  <div><p class="subscore-label">Ready</p><p class="subscore-val" style="color:#4ade80;">High</p></div>
+                </div>
+              </div>
+              <div style="flex:1; padding-top:2px;">
+                <p style="font-size:13px; font-weight:600;">Inkognito Studios</p>
+                <p style="font-size:11px; color:#666; margin-top:4px; line-height:1.5;">Because: conversion gap, good traffic, weak conversions</p>
+                <div class="prep-btn" id="prep-btn-3">Prepare outreach</div>
+              </div>
+            </div>
+
+            <div class="score-card" style="animation-delay:0.7s;">
+              <div class="score-num-wrap">
+                <p class="serif score-num" style="color:#8a8a6e;">78</p>
+                <div class="score-underline" style="background:#8a8a6e; box-shadow:0 0 5px rgba(138,138,110,0.4);"></div>
+                <div class="subscore-2x2">
+                  <div><p class="subscore-label">Fit</p><p class="subscore-val" style="color:#fac93f; text-shadow:0 0 8px rgba(250,201,63,0.9), 0 0 18px rgba(250,201,63,0.5);">Med</p></div>
+                  <div><p class="subscore-label">Oppty</p><p class="subscore-val" style="color:#8a8a6e;">78</p></div>
+                  <div><p class="subscore-label">Risk</p><p class="subscore-val" style="color:#fac93f; text-shadow:0 0 8px rgba(250,201,63,0.9), 0 0 18px rgba(250,201,63,0.5);">Med</p></div>
+                  <div><p class="subscore-label">Ready</p><p class="subscore-val" style="color:#4ade80;">High</p></div>
+                </div>
+              </div>
+              <div style="flex:1; padding-top:2px;">
+                <p style="font-size:13px; font-weight:600;">BrightCom Solutions</p>
+                <p style="font-size:11px; color:#666; margin-top:4px; line-height:1.5;">Because: positioning gap, expanding team, unclear positioning</p>
+                <div class="prep-btn">Prepare outreach</div>
+              </div>
+            </div>
+
+            <div class="score-card" style="animation-delay:0.9s;">
+              <div class="score-num-wrap">
+                <p class="serif score-num" style="color:#7a8a6e;">74</p>
+                <div class="score-underline" style="background:#7a8a6e; box-shadow:0 0 5px rgba(122,138,110,0.35);"></div>
+                <div class="subscore-2x2">
+                  <div><p class="subscore-label">Fit</p><p class="subscore-val" style="color:#fac93f; text-shadow:0 0 8px rgba(250,201,63,0.9), 0 0 18px rgba(250,201,63,0.5);">Med</p></div>
+                  <div><p class="subscore-label">Oppty</p><p class="subscore-val" style="color:#7a8a6e;">74</p></div>
+                  <div><p class="subscore-label">Risk</p><p class="subscore-val" style="color:#4ade80;">Low</p></div>
+                  <div><p class="subscore-label">Ready</p><p class="subscore-val" style="color:#fac93f; text-shadow:0 0 8px rgba(250,201,63,0.9), 0 0 18px rgba(250,201,63,0.5);">Med</p></div>
+                </div>
+              </div>
+              <div style="flex:1; padding-top:2px;">
+                <p style="font-size:13px; font-weight:600;">Avento Logistics AB</p>
+                <p style="font-size:11px; color:#666; margin-top:4px; line-height:1.5;">Because: process gap, scaling operations, manual processes</p>
+                <div class="prep-btn">Prepare outreach</div>
+              </div>
+            </div>
           </div>
 
-          {/* AI message */}
-          <div
-            style={{
-              padding: "11px 13px",
-              background: "rgba(201,168,76,0.03)",
-              border: "1px solid rgba(201,168,76,0.1)",
-              borderRadius: 8,
-            }}>
-            <div
-              style={{
-                fontSize: 7,
-                color: "rgba(201,168,76,0.6)",
-                letterSpacing: "0.14em",
-                textTransform: "uppercase",
-                fontFamily: "monospace",
-                marginBottom: 7,
-              }}>
-              ◈ AI Outreach — Generated
+          <div class="track-panel" id="tp4">
+            <p style="font-size:11px; color:#666; margin-bottom:2px;">Preparing outreach for</p>
+            <p id="outreach-company-name" style="font-size:14px; font-weight:600; margin-bottom:16px;">Inkognito Studios</p>
+
+            <p style="font-size:9px; color:#666; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">Channel</p>
+            <div style="display:flex; gap:8px; margin-bottom:16px;">
+              <div class="chip" id="chip-email">Email</div>
+              <div class="chip">LinkedIn DM</div>
+              <div class="chip">Cold call</div>
             </div>
-            <div style={{ fontSize: 10.5, color: "#a09888", lineHeight: 1.6 }}>
-              Hi — <em style={{ color: "#c9a84c", fontStyle: "normal" }}>Luxe Nail &amp; Spa</em> has no mobile booking
-              CTA. I&apos;ll build one, install it, and send you a{" "}
-              <strong style={{ color: "#8080a0" }}>live preview within 48 hours</strong>. No commitment needed.
+
+            <p style="font-size:9px; color:#666; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">Tone</p>
+            <div style="display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap;">
+              <div class="chip">Professional</div>
+              <div class="chip" id="chip-consultative">Consultative</div>
+              <div class="chip">Direct</div>
+              <div class="chip">Bold</div>
             </div>
-          </div>
+
+            <p id="msg-label" style="font-size:9px; color:#666; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px; opacity:0; transition: opacity 0.4s ease;">Generated message</p>
+            <div id="msg-box" style="background: rgba(255,255,255,0.015); border:1px solid rgba(201,168,76,0.1); border-radius:10px; padding:14px; font-size:11.5px; color:#bbb; line-height:1.6; opacity:0; transition: opacity 0.5s ease;">
+              <p style="color:#888; font-size:10.5px; margin-bottom:8px;"><span style="color:#666;">Subject:</span> <span id="outreach-subject">Quick one on Inkognito's conversion funnel</span></p>
+              <span id="outreach-body">Hi Maria — noticed Inkognito's traffic has grown well over the past few months, but the conversion side hasn't kept pace. Teams seeing that kind of gap usually have one or two friction points costing more than they realize. Worth 15 minutes this week to walk through what's likely going on?</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:14px;">
+              <div id="send-btn" style="display:inline-flex; align-items:center; gap:7px; padding:9px 18px; border-radius:9px; background:linear-gradient(135deg,#ffd363,#e8b72d); color:#080808; font-size:11px; font-weight:700; opacity:0; transition: opacity 0.4s ease, transform 0.15s;">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#080808" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Send
+              </div>
+              <div id="sent-toast" style="display:inline-flex; align-items:center; gap:5px; padding:3px 7px; border-radius:6px; background:radial-gradient(ellipse at center, rgba(74,222,128,0.4) 0%, rgba(74,222,128,0.15) 55%, transparent 85%); color:#4ade80; font-size:11px; font-weight:600; opacity:0; transform:translateX(-6px); transition: opacity 0.35s ease, transform 0.35s ease;">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Sent
+              </div>
+            </div>
         </div>
-
-        {/* Footer */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "11px 18px",
-            borderTop: "1px solid rgba(201,168,76,0.06)",
-            background: "rgba(5,5,10,0.5)",
-          }}>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-            <div
-              style={{
-                fontSize: 8,
-                padding: "5px 12px",
-                borderRadius: 5,
-                fontFamily: "monospace",
-                fontWeight: 700,
-                letterSpacing: "0.06em",
-                background: "transparent",
-                border: "1px solid rgba(201,168,76,0.15)",
-                color: "rgba(201,168,76,0.35)",
-              }}>
-              Save Lead
-            </div>
-            <div
-              style={{
-                fontSize: 8,
-                padding: "5px 12px",
-                borderRadius: 5,
-                fontFamily: "monospace",
-                fontWeight: 700,
-                letterSpacing: "0.06em",
-                background: "#c9a84c",
-                color: "#080808",
-              }}>
-              Send Outreach
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function HeroScene({ scrollY, waitlistCount }: { scrollY: number; waitlistCount: number | null }) {
-  const isMobile = useIsMobile();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const particlesRef = useRef<
-    { x: number; y: number; vx: number; vy: number; r: number; op: number; ph: number; sp: number; layer: number }[]
-  >([]);
-  const nebulaOffRef = useRef<HTMLCanvasElement | null>(null);
-  const shooterRef = useRef<
-    { x: number; y: number; vx: number; vy: number; len: number; op: number; active: boolean; timer: number }[]
-  >([]);
-  const burstRef = useRef({ v: 0, cx: 0.5, cy: 0.5 });
-  const rafRef = useRef<number>(0);
-  const mouseRef = useRef({ x: 0.5, y: 0.5 });
-
-  // Dashboard sequence state
-  const [queryText, setQueryText] = useState("");
-  const [scanning, setScanning] = useState(false);
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [showResultsHead, setShowResultsHead] = useState(false);
-  const [leadCount, setLeadCount] = useState(0);
-  const [showRing, setShowRing] = useState(false);
-  const [ringScore, setRingScore] = useState(0);
-  const [ringColor, setRingColor] = useState("#4ade80");
-  const [ringOffset, setRingOffset] = useState(226);
-  const [topLead, setTopLead] = useState<Lead | null>(null);
-  const [showBars, setShowBars] = useState(false);
-  const [barFit, setBarFit] = useState(0);
-  const [barOpp, setBarOpp] = useState(0);
-  const [barRisk, setBarRisk] = useState(0);
-  const [showAiMsg, setShowAiMsg] = useState(false);
-  const [aiMsgText, setAiMsgText] = useState("");
-  const [aiMsgFull, setAiMsgFull] = useState("");
-  const [aiMsgDone, setAiMsgDone] = useState(false);
-  const [footerHint, setFooterHint] = useState("Analysing signals…");
-  const cycleIdxRef = useRef(0);
-  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-  // ── GOLDEN GALAXY INIT ──
-  useEffect(() => {
-    // Layer 1: deep background stars — tiny, dense, barely moving
-    const deep = Array.from({ length: 220 }, (_, i) => ({
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      r: Math.random() * 0.7 + 0.15,
-      op: Math.random() * 0.25 + 0.05,
-      ph: Math.random() * Math.PI * 2,
-      sp: Math.random() * 0.0002 + 0.00005,
-      vx: (Math.random() - 0.5) * 0.0015,
-      vy: (Math.random() - 0.5) * 0.0015,
-      layer: 0,
-    }));
-    // Layer 2: mid stars — slightly larger, warm gold tint
-    const mid = Array.from({ length: 90 }, (_, i) => ({
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      r: Math.random() * 1.1 + 0.4,
-      op: Math.random() * 0.35 + 0.08,
-      ph: Math.random() * Math.PI * 2,
-      sp: Math.random() * 0.0004 + 0.0001,
-      vx: (Math.random() - 0.5) * 0.003,
-      vy: (Math.random() - 0.5) * 0.003,
-      layer: 1,
-    }));
-    // Layer 3: bright foreground stars — large, glowing, pulsy
-    const fore = Array.from({ length: 28 }, (_, i) => ({
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      r: Math.random() * 1.8 + 0.8,
-      op: Math.random() * 0.5 + 0.2,
-      ph: Math.random() * Math.PI * 2,
-      sp: Math.random() * 0.0008 + 0.0003,
-      vx: (Math.random() - 0.5) * 0.005,
-      vy: (Math.random() - 0.5) * 0.005,
-      layer: 2,
-    }));
-    // Shooting stars
-    const shooters: {
-      x: number;
-      y: number;
-      vx: number;
-      vy: number;
-      len: number;
-      op: number;
-      active: boolean;
-      timer: number;
-    }[] = Array.from({ length: 4 }, () => ({
-      x: 0,
-      y: 0,
-      vx: 0,
-      vy: 0,
-      len: 0,
-      op: 0,
-      active: false,
-      timer: 18000 + Math.random() * 20000,
-    }));
-    particlesRef.current = [...deep, ...mid, ...fore] as unknown as typeof particlesRef.current;
-    shooterRef.current = shooters;
-
-    // ── HERO NEBULA — compute at reduced res then upscale to full device resolution ──
-    // Deferred until the browser is idle so it never competes with initial
-    // paint or input responsiveness
-    if (isMobile && !MOBILE_NEBULA_ENABLED) return; // plain black + stars only on mobile, per A/B toggle
-    runWhenIdle(() => {
-      const cv = canvasRef.current;
-      if (!cv) return;
-      const sec2 = cv.parentElement;
-      const dpr = Math.min(window.devicePixelRatio || 1, 3);
-      const cssW = sec2?.offsetWidth || cv.width || window.innerWidth;
-      const cssH = sec2?.offsetHeight || cv.height || window.innerHeight;
-      // Build at actual device-pixel resolution — building at CSS-pixel
-      // resolution only (the old behavior) looks blurry on any retina/
-      // high-DPI screen, phones especially. Mobile is a one-time static
-      // paint (no per-frame cost) and has a smaller screen, so it can
-      // afford a milder downsample than desktop's continuously-redrawn version.
-      const W = Math.round(cssW * dpr);
-      const H = Math.round(cssH * dpr);
-      const S = isMobile ? 1.5 : 3; // compute at reduced size, then upscale
-      const LW = Math.ceil(W / S),
-        LH = Math.ceil(H / S);
-      // Low-res offscreen for computation
-      const lo = document.createElement("canvas");
-      lo.width = LW;
-      lo.height = LH;
-      const loCtx = lo.getContext("2d")!;
-      loCtx.globalCompositeOperation = "screen";
-      nbScreenBlit(
-        loCtx,
-        LW,
-        LH,
-        nbBuildCloud(LW, LH, {
-          cx: 0.22 * LW,
-          cy: 0.32 * LH,
-          rx: 0.65 * LW,
-          ry: 0.55 * LW,
-          rot: 0.28,
-          seed: 1.0,
-          warp: 3.2,
-          thresh: 0.3,
-          intensity: 0.85,
-          es: 1.0,
-          c0: [0.04, 0.06, 0.22],
-          c1: [0.12, 0.16, 0.42],
-          c2: [0.2, 0.24, 0.58],
-          c3: [0.3, 0.3, 0.66],
-        }),
-      );
-      nbScreenBlit(
-        loCtx,
-        LW,
-        LH,
-        nbBuildCloud(LW, LH, {
-          cx: 0.19 * LW,
-          cy: 0.28 * LH,
-          rx: 0.55 * LW,
-          ry: 0.45 * LW,
-          rot: 0.24,
-          seed: 2.2,
-          warp: 3.5,
-          thresh: 0.33,
-          intensity: 1.2,
-          es: 1.2,
-          c0: [0.3, 0.16, 0.04],
-          c1: [0.62, 0.42, 0.09],
-          c2: [0.88, 0.68, 0.18],
-          c3: [0.98, 0.88, 0.36],
-        }),
-      );
-      nbScreenBlit(
-        loCtx,
-        LW,
-        LH,
-        nbBuildCloud(LW, LH, {
-          cx: 0.16 * LW,
-          cy: 0.23 * LH,
-          rx: 0.36 * LW,
-          ry: 0.3 * LW,
-          rot: 0.18,
-          seed: 3.5,
-          warp: 3.8,
-          thresh: 0.37,
-          intensity: 1.2,
-          es: 1.6,
-          c0: [0.65, 0.46, 0.11],
-          c1: [0.88, 0.7, 0.26],
-          c2: [0.96, 0.88, 0.5],
-          c3: [1.0, 0.99, 0.8],
-        }),
-      );
-      nbScreenBlit(
-        loCtx,
-        LW,
-        LH,
-        nbBuildCloud(LW, LH, {
-          cx: 0.14 * LW,
-          cy: 0.19 * LH,
-          rx: 0.18 * LW,
-          ry: 0.16 * LW,
-          rot: 0.12,
-          seed: 4.8,
-          warp: 4.0,
-          thresh: 0.42,
-          intensity: 1.1,
-          es: 2.0,
-          c0: [0.92, 0.8, 0.4],
-          c1: [0.97, 0.93, 0.64],
-          c2: [0.99, 0.98, 0.84],
-          c3: [1.0, 1.0, 0.97],
-        }),
-      );
-      loCtx.globalCompositeOperation = "source-over";
-      // Upscale to full device-pixel size with smoothing — LANCZOS-equivalent via bilinear
-      const off = document.createElement("canvas");
-      off.width = W;
-      off.height = H;
-      const offCtx = off.getContext("2d")!;
-      offCtx.imageSmoothingEnabled = true;
-      offCtx.imageSmoothingQuality = "high";
-      offCtx.globalCompositeOperation = "screen";
-      offCtx.drawImage(lo, 0, 0, W, H);
-      offCtx.globalCompositeOperation = "source-over";
-      nebulaOffRef.current = off;
-    });
-  }, [isMobile]);
-
-  // Canvas draw loop — desktop animates continuously; mobile draws one
-  // static frame and stops, so the galaxy still appears but nothing
-  // recomputes 300+ gradients every frame on a phone's battery/GPU.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d")!;
-    const sec = canvas.parentElement!;
-
-    // W/H stay in logical CSS-pixel units for all drawing math below.
-    // The canvas backing store is sized to the actual device resolution
-    // and the context is scaled to match — without this, the canvas
-    // renders at CSS-pixel resolution and gets blurrily stretched on
-    // any retina/high-DPI screen (most phones).
-    let W = sec.offsetWidth || window.innerWidth;
-    let H = sec.offsetHeight || window.innerHeight;
-    const applyCanvasSize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 3);
-      canvas.width = Math.round(W * dpr);
-      canvas.height = Math.round(H * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
-    applyCanvasSize();
-
-    const onResize = () => {
-      W = sec.offsetWidth || window.innerWidth;
-      H = sec.offsetHeight || window.innerHeight;
-      applyCanvasSize();
-      if (isMobile) draw(0); // redraw the single static frame at the new size
-    };
-    window.addEventListener("resize", onResize, { passive: true });
-
-    const onMouse = (e: MouseEvent) => {
-      mouseRef.current = { x: e.clientX / W, y: e.clientY / H };
-    };
-    if (!isMobile) window.addEventListener("mousemove", onMouse, { passive: true });
-
-    let lastT = 0;
-
-    function draw(t: number) {
-      const dt = t - lastT;
-      lastT = t;
-      ctx.clearRect(0, 0, W, H);
-
-      const burst = burstRef.current;
-      burst.v = Math.max(0, burst.v - 0.008);
-      const pts = particlesRef.current;
-      const shooters = shooterRef.current;
-
-      // ── 1. NEBULA CLOUD — precomputed offscreen (built at full device
-      // resolution), scaled down to logical W×H here since the context
-      // transform above already maps that onto the real screen resolution ──
-      if (nebulaOffRef.current) {
-        ctx.globalCompositeOperation = "screen";
-        ctx.drawImage(nebulaOffRef.current, 0, 0, W, H);
-        ctx.globalCompositeOperation = "source-over";
-      }
-
-      // ── 2. GALAXY CORE glow (central warm bloom) ──
-      const coreX = W * 0.5 + Math.sin(t * 0.00008) * W * 0.04;
-      const coreY = H * 0.45 + Math.cos(t * 0.00006) * H * 0.03;
-      const core = ctx.createRadialGradient(coreX, coreY, 0, coreX, coreY, W * 0.45);
-      core.addColorStop(0, `rgba(201,168,76,${0.03 + burst.v * 0.06})`);
-      core.addColorStop(0.3, `rgba(180,140,50,${0.015 + burst.v * 0.03})`);
-      core.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = core;
-      ctx.fillRect(0, 0, W, H);
-
-      // ── 3. BURST GLOW ──
-      if (burst.v > 0.01) {
-        const bg = ctx.createRadialGradient(burst.cx * W, burst.cy * H, 0, burst.cx * W, burst.cy * H, 600);
-        bg.addColorStop(0, `rgba(232,201,122,${(burst.v * 0.18).toFixed(3)})`);
-        bg.addColorStop(0.35, `rgba(201,168,76,${(burst.v * 0.08).toFixed(3)})`);
-        bg.addColorStop(0.7, `rgba(138,110,48,${(burst.v * 0.03).toFixed(3)})`);
-        bg.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = bg;
-        ctx.fillRect(0, 0, W, H);
-      }
-
-      // ── 5. STARS ──
-      for (const p of pts) {
-        if (!("layer" in p)) continue;
-        // On mobile we draw one frame only, so skip the drift/pulse math
-        // entirely — stars render fixed at their seeded position/opacity.
-        if (!isMobile) {
-          p.x = (p.x + p.vx + 100) % 100;
-          p.y = (p.y + p.vy + 100) % 100;
-        }
-        const pulse = isMobile ? 1 : 0.55 + Math.sin(t * p.sp * 2 + p.ph) * 0.45;
-        const bdx = (p.x / 100 - burst.cx) * W,
-          bdy = (p.y / 100 - burst.cy) * H;
-        const burstBoost = burst.v * Math.max(0, 1 - Math.sqrt(bdx * bdx + bdy * bdy) / 500);
-        const op = Math.min(0.92, p.op * pulse + burstBoost * 0.8);
-
-        const layer = p.layer;
-
-        if (layer === 2) {
-          // Foreground: large glowing star with corona
-          const coronaR = p.r * (6 + burstBoost * 10);
-          const gr = ctx.createRadialGradient(
-            (p.x * W) / 100,
-            (p.y * H) / 100,
-            0,
-            (p.x * W) / 100,
-            (p.y * H) / 100,
-            coronaR,
-          );
-          gr.addColorStop(0, `rgba(255,245,200,${op})`);
-          gr.addColorStop(0.15, `rgba(232,201,122,${op * 0.7})`);
-          gr.addColorStop(0.5, `rgba(201,168,76,${op * 0.2})`);
-          gr.addColorStop(1, "rgba(0,0,0,0)");
-          ctx.beginPath();
-          ctx.arc((p.x * W) / 100, (p.y * H) / 100, coronaR, 0, Math.PI * 2);
-          ctx.fillStyle = gr;
-          ctx.fill();
-          // Core
-          ctx.beginPath();
-          ctx.arc((p.x * W) / 100, (p.y * H) / 100, p.r * (1 + burstBoost * 0.5), 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(255,250,220,${op})`;
-          ctx.fill();
-        } else if (layer === 1) {
-          // Mid: warm gold with soft glow
-          if (pulse > 0.8) {
-            const gr2 = ctx.createRadialGradient(
-              (p.x * W) / 100,
-              (p.y * H) / 100,
-              0,
-              (p.x * W) / 100,
-              (p.y * H) / 100,
-              p.r * 4,
-            );
-            gr2.addColorStop(0, `rgba(232,201,122,${op * 0.6})`);
-            gr2.addColorStop(1, "rgba(0,0,0,0)");
-            ctx.beginPath();
-            ctx.arc((p.x * W) / 100, (p.y * H) / 100, p.r * 4, 0, Math.PI * 2);
-            ctx.fillStyle = gr2;
-            ctx.fill();
-          }
-          ctx.beginPath();
-          ctx.arc((p.x * W) / 100, (p.y * H) / 100, p.r * (1 + burstBoost * 0.4), 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(220,185,100,${op})`;
-          ctx.fill();
-        } else {
-          // Deep: tiny dim stars, cool white-gold
-          ctx.beginPath();
-          ctx.arc((p.x * W) / 100, (p.y * H) / 100, p.r * (1 + burstBoost * 0.3), 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(200,175,110,${op})`;
-          ctx.fill();
-        }
-      }
-
-      // ── 6. SHOOTING STARS — desktop only, mobile skips entirely ──
-      if (!isMobile && shooters?.length) {
-        for (const s of shooters) {
-          if (!s.active) {
-            s.timer -= dt;
-            if (s.timer <= 0) {
-              // Spawn from left/top edge heading right-downward
-              s.x = Math.random() * W * 0.6;
-              s.y = Math.random() * H * 0.5;
-              s.vx = 4 + Math.random() * 5;
-              s.vy = 1 + Math.random() * 2.5;
-              s.len = 60 + Math.random() * 100;
-              s.op = 0.7 + Math.random() * 0.3;
-              s.active = true;
-              s.timer = 18000 + Math.random() * 20000;
-            }
-            continue;
-          }
-          s.x += s.vx;
-          s.y += s.vy;
-          s.op -= 0.012;
-          if (s.op <= 0 || s.x > W + 50 || s.y > H + 50) {
-            s.active = false;
-            continue;
-          }
-          const tailX = s.x - (s.vx / Math.sqrt(s.vx * s.vx + s.vy * s.vy)) * s.len;
-          const tailY = s.y - (s.vy / Math.sqrt(s.vx * s.vx + s.vy * s.vy)) * s.len;
-          const streak = ctx.createLinearGradient(tailX, tailY, s.x, s.y);
-          streak.addColorStop(0, "rgba(255,245,200,0)");
-          streak.addColorStop(0.7, `rgba(232,201,122,${(s.op * 0.4).toFixed(3)})`);
-          streak.addColorStop(1, `rgba(255,250,220,${s.op.toFixed(3)})`);
-          ctx.beginPath();
-          ctx.moveTo(tailX, tailY);
-          ctx.lineTo(s.x, s.y);
-          ctx.strokeStyle = streak;
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-          // Head glow
-          const hg = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 8);
-          hg.addColorStop(0, `rgba(255,250,220,${s.op})`);
-          hg.addColorStop(1, "rgba(0,0,0,0)");
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, 8, 0, Math.PI * 2);
-          ctx.fillStyle = hg;
-          ctx.fill();
-        }
-      }
-
-      if (!isMobile) {
-        rafRef.current = requestAnimationFrame(draw);
-      }
-    }
-
-    if (isMobile) {
-      draw(0); // single static paint, no loop
-    } else {
-      rafRef.current = requestAnimationFrame(draw);
-    }
-
-    return () => {
-      cancelAnimationFrame(rafRef.current);
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("mousemove", onMouse);
-    };
-  }, [isMobile]);
-
-  const triggerBurst = (cx: number, cy: number, v: number) => {
-    burstRef.current = { v, cx, cy };
-  };
-
-  // Sequence engine
-  const runCycle = useCallback(() => {
-    timersRef.current.forEach(clearTimeout);
-    timersRef.current = [];
-    const cycle: Cycle = SEARCH_CYCLES[cycleIdxRef.current % SEARCH_CYCLES.length];
-    cycleIdxRef.current++;
-    const top = cycle.leads[0];
-
-    // Reset
-    setQueryText("");
-    setScanning(false);
-    setLeads([]);
-    setShowResultsHead(false);
-    setLeadCount(0);
-    setShowRing(false);
-    setRingScore(0);
-    setRingOffset(226);
-    setTopLead(null);
-    setShowBars(false);
-    setBarFit(0);
-    setBarOpp(0);
-    setBarRisk(0);
-    setShowAiMsg(false);
-    setAiMsgText("");
-    setAiMsgFull("");
-    setAiMsgDone(false);
-    setFooterHint("Analysing signals…");
-
-    // 1. Type query
-    let charIdx = 0;
-    function typeChar() {
-      charIdx++;
-      setQueryText(cycle.q.slice(0, charIdx));
-      if (charIdx < cycle.q.length) {
-        const t = setTimeout(typeChar, 55);
-        timersRef.current.push(t);
-      } else {
-        setScanning(true);
-        const t = setTimeout(showLeads, 600);
-        timersRef.current.push(t);
-      }
-    }
-    typeChar();
-
-    // 2. Show leads
-    function showLeads() {
-      setShowResultsHead(true);
-      setLeadCount(cycle.leads.length);
-      cycle.leads.forEach((l, idx) => {
-        const t = setTimeout(() => {
-          setLeads((prev) => [...prev, l]);
-        }, idx * 320);
-        timersRef.current.push(t);
-      });
-      const t = setTimeout(showScore, cycle.leads.length * 320 + 600);
-      timersRef.current.push(t);
-    }
-
-    // 3. Score reveal
-    function showScore() {
-      setTopLead(top);
-      setShowRing(true);
-      setRingColor(top.sc);
-      setRingOffset(226 * (1 - top.score / 100));
-      // Animate ring number
-      const start = performance.now();
-      function animRing(now: number) {
-        const p = Math.min(1, (now - start) / 1100);
-        setRingScore(Math.round(top.score * p * p * (3 - 2 * p)));
-        if (p < 1) requestAnimationFrame(animRing);
-      }
-      requestAnimationFrame(animRing);
-      const t1 = setTimeout(() => {
-        setShowBars(true);
-        setBarFit(top.fit);
-        setBarOpp(top.opp);
-        setBarRisk(top.risk);
-      }, 300);
-      const t2 = setTimeout(showMsg, 1400);
-      timersRef.current.push(t1, t2);
-    }
-
-    // 4. AI message
-    function showMsg() {
-      setShowAiMsg(true);
-      const fullHtml = top.msg ? top.msg(top.n) : "";
-      const plain = fullHtml.replace(/<[^>]+>/g, "");
-      setAiMsgFull(fullHtml);
-      let mi = 0;
-      function typeMsg() {
-        mi++;
-        setAiMsgText(plain.slice(0, mi));
-        if (mi <= plain.length) {
-          const t = setTimeout(typeMsg, 32);
-          timersRef.current.push(t);
-        } else {
-          const t = setTimeout(() => setAiMsgDone(true), 300);
-          timersRef.current.push(t);
-        }
-      }
-      typeMsg();
-      setFooterHint(cycle.hint);
-      const t = setTimeout(runCycle, 9500);
-      timersRef.current.push(t);
-    }
-  }, []);
-
-  useEffect(() => {
-    const t = setTimeout(runCycle, 800);
-    return () => {
-      clearTimeout(t);
-      timersRef.current.forEach(clearTimeout);
-    };
-  }, [runCycle]);
-
-  const ringCircumference = 226;
-
-  return (
-    <section
-      style={{
-        position: "relative",
-        width: "100vw",
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#060608",
-        overflow: "hidden",
-        paddingTop: "clamp(80px, 12vh, 140px)",
-        paddingBottom: "clamp(60px, 10vh, 120px)",
-        paddingLeft: isMobile ? 20 : 0,
-        paddingRight: isMobile ? 20 : 0,
-        boxSizing: "border-box",
-      }}>
-      {/* Canvas — particle field covers whole section */}
-      <canvas
-        ref={canvasRef}
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          pointerEvents: "none",
-          zIndex: 0,
-        }}
-      />
-
-      {/* Headline */}
-      <div
-        style={{
-          position: "relative",
-          zIndex: 10,
-          textAlign: "center",
-          marginBottom: 52,
-          animation: "fadeUp 1.2s cubic-bezier(0.16,1,0.3,1) 0.2s both",
-        }}>
-        <div
-          style={{
-            fontSize: 9,
-            letterSpacing: isMobile ? "0.14em" : "0.24em",
-            color: "rgba(201,168,76,0.35)",
-            textTransform: "uppercase",
-            fontFamily: "monospace",
-            marginBottom: 18,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: isMobile ? 8 : 10,
-          }}>
-          <span
-            style={{
-              display: "block",
-              width: isMobile ? 16 : 28,
-              height: 1,
-              background: "rgba(201,168,76,0.2)",
-              flexShrink: 0,
-            }}
-          />
-          Know Who Deserves Your Next Hour
-          <span
-            style={{
-              display: "block",
-              width: isMobile ? 16 : 28,
-              height: 1,
-              background: "rgba(201,168,76,0.2)",
-              flexShrink: 0,
-            }}
-          />
-        </div>
-        <h2
-          style={{
-            fontFamily: "var(--font-display), serif",
-            fontSize: "clamp(32px,4vw,58px)",
-            fontWeight: 300,
-            color: "#f0e8d8",
-            letterSpacing: "-0.025em",
-            lineHeight: 1.1,
-            marginBottom: 4,
-          }}>
-          The intelligence layer
-        </h2>
-        <h2
-          style={{
-            fontFamily: "var(--font-display), serif",
-            fontSize: "clamp(32px,4vw,58px)",
-            fontWeight: 600,
-            fontStyle: "italic",
-            letterSpacing: "-0.025em",
-            lineHeight: 1.1,
-            textAlign: isMobile ? "center" : "right",
-            background: "linear-gradient(135deg,#e8c97a,#c9a84c,#8a6e30)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            filter:
-              "drop-shadow(0 0 6px rgba(232,201,122,0.6)) drop-shadow(0 0 18px rgba(201,168,76,0.35)) drop-shadow(0 0 40px rgba(201,168,76,0.15))",
-          }}>
-          your outreach is missing.
-        </h2>
-        <p
-          style={{
-            fontSize: 13,
-            color: "#a09888",
-            marginTop: 16,
-            maxWidth: 460,
-            marginLeft: "auto",
-            marginRight: "auto",
-            lineHeight: 1.7,
-          }}>
-          Vantio finds local businesses and tells you exactly which ones are worth contacting — scored against your
-          service, capability, and style.
-        </p>
-
-        {/* CTA buttons */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: isMobile ? "column" : "row",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: isMobile ? 18 : 16,
-            marginTop: 32,
-          }}>
-          <GlowButton
-            href="/login"
-            style={{
-              padding: "13px 32px",
-              borderRadius: 10,
-              background: "#c9a84c",
-              color: "#080808",
-              fontWeight: 700,
-              fontSize: 14,
-              letterSpacing: "0.06em",
-              textDecoration: "none",
-              boxShadow: "0 8px 40px rgba(201,168,76,0.25)",
-            }}>
-            Request Early Access
-          </GlowButton>
-          <a
-            href="#how-it-works"
-            style={{
-              fontSize: 13,
-              color: "rgba(201,168,76,0.55)",
-              textDecoration: "none",
-              letterSpacing: "0.04em",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}>
-            See how it works <span style={{ fontSize: 11 }}>↓</span>
-          </a>
         </div>
       </div>
-
-      {/* Dashboard */}
-      {isMobile ? (
-        <MobileHeroCard />
-      ) : (
-        <div
-          style={{
-            position: "relative",
-            zIndex: 10,
-            width: "min(1020px,90vw)",
-            animation: "fadeUp 1.2s cubic-bezier(0.16,1,0.3,1) 0.5s both",
-          }}>
-          <div
-            style={{
-              background: "rgba(8,8,14,0.96)",
-              border: "1px solid rgba(201,168,76,0.13)",
-              borderRadius: 16,
-              overflow: "hidden",
-              boxShadow:
-                "0 0 0 1px rgba(201,168,76,0.05), 0 24px 60px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.03)",
-            }}>
-            {/* Gold accent line */}
-            <div
-              style={{
-                height: 1,
-                background: "linear-gradient(90deg,transparent 5%,rgba(201,168,76,0.35) 50%,transparent 95%)",
-              }}
-            />
-
-            {/* Chrome bar */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 7,
-                padding: "11px 18px",
-                background: "rgba(5,5,10,0.8)",
-                borderBottom: "1px solid rgba(201,168,76,0.07)",
-              }}>
-              {[0, 1, 2].map((i) => (
-                <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: "#141420" }} />
-              ))}
-              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                <span style={{ fontSize: 8, color: "rgba(201,168,76,0.25)" }}>◈</span>
-                <span style={{ fontSize: 9, color: "#8a8478", fontFamily: "monospace", letterSpacing: "0.04em" }}>
-                  vantioapp.com — Lead Scanner
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div
-                  style={{
-                    width: 5,
-                    height: 5,
-                    borderRadius: "50%",
-                    background: "#4ade80",
-                    animation: "pulse 1.4s infinite",
-                  }}
-                />
-                <span style={{ fontSize: 8, color: "#4ade80", fontFamily: "monospace", letterSpacing: "0.08em" }}>
-                  SCANNING
-                </span>
-              </div>
-            </div>
-
-            {/* Two-column body */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: 340 }}>
-              {/* LEFT: search + leads */}
-              <div style={{ padding: "18px 20px", borderRight: "1px solid rgba(201,168,76,0.06)" }}>
-                {/* Search bar */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    background: "rgba(255,255,255,0.02)",
-                    border: `1px solid ${scanning ? "rgba(201,168,76,0.3)" : "rgba(201,168,76,0.1)"}`,
-                    borderRadius: 8,
-                    padding: "9px 13px",
-                    marginBottom: 14,
-                    transition: "border-color 0.3s",
-                    boxShadow: scanning ? "0 0 12px rgba(201,168,76,0.15)" : "none",
-                  }}>
-                  <span style={{ fontSize: 12, color: "#c9a84c" }}>🔍</span>
-                  <span style={{ flex: 1, fontSize: 12, color: "#c0b8a8", minHeight: 15 }}>{queryText}</span>
-                  <span
-                    style={{
-                      display: "inline-block",
-                      width: 2,
-                      height: 13,
-                      background: "#c9a84c",
-                      verticalAlign: "middle",
-                      animation: "blink 0.9s infinite",
-                    }}
-                  />
-                  <div
-                    style={{
-                      padding: "4px 11px",
-                      background: "#c9a84c",
-                      color: "#080808",
-                      fontSize: 8,
-                      fontWeight: 700,
-                      borderRadius: 5,
-                      fontFamily: "monospace",
-                      letterSpacing: "0.08em",
-                      boxShadow: scanning ? "0 0 12px rgba(201,168,76,0.4)" : "none",
-                      transition: "box-shadow 0.3s",
-                    }}>
-                    SCAN
-                  </div>
-                </div>
-
-                {/* Results header */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    marginBottom: 9,
-                    opacity: showResultsHead ? 1 : 0,
-                    transition: "opacity 0.4s",
-                  }}>
-                  <span
-                    style={{
-                      fontSize: 8,
-                      color: "#7a7068",
-                      letterSpacing: "0.12em",
-                      textTransform: "uppercase",
-                      fontFamily: "monospace",
-                    }}>
-                    Results
-                  </span>
-                  <span style={{ fontSize: 8, color: "#c9a84c", fontWeight: 700, fontFamily: "monospace" }}>
-                    {leadCount}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 8,
-                      color: "#7a7068",
-                      letterSpacing: "0.12em",
-                      textTransform: "uppercase",
-                      fontFamily: "monospace",
-                    }}>
-                    leads
-                  </span>
-                  <div style={{ marginLeft: "auto", display: "flex", gap: 3 }}>
-                    {["Score ↓", "Gap", "Fit"].map((f) => (
-                      <span
-                        key={f}
-                        style={{
-                          fontSize: 7,
-                          padding: "1px 6px",
-                          border: "1px solid #383848",
-                          borderRadius: 3,
-                          color: "#6a6068",
-                          fontFamily: "monospace",
-                        }}>
-                        {f}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Leads list — fixed height to prevent dashboard growing */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 5, minHeight: 205 }}>
-                  {leads.map((l, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 9,
-                        padding: "8px 11px",
-                        borderRadius: 8,
-                        background: idx === 0 ? "rgba(201,168,76,0.05)" : "rgba(255,255,255,0.015)",
-                        border: `1px solid ${idx === 0 ? "rgba(201,168,76,0.22)" : "rgba(255,255,255,0.04)"}`,
-                        boxShadow: idx === 0 ? "0 0 20px rgba(201,168,76,0.06)" : "none",
-                        animation: "leadIn 0.35s ease both",
-                      }}>
-                      <span
-                        style={{
-                          fontSize: 8,
-                          fontFamily: "monospace",
-                          color: idx === 0 ? "#c9a84c" : "#6a6068",
-                          minWidth: 18,
-                        }}>
-                        {String(idx + 1).padStart(2, "0")}
-                      </span>
-                      <span
-                        style={{ flex: 1, fontSize: 11, fontWeight: 600, color: idx === 0 ? "#d8d0c0" : "#b0a898" }}>
-                        {l.n}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: 7,
-                          padding: "1px 6px",
-                          borderRadius: 3,
-                          fontWeight: 700,
-                          fontFamily: "monospace",
-                          background: l.gc + "18",
-                          color: l.gc,
-                        }}>
-                        {l.gap}
-                      </span>
-                      <span style={{ fontSize: 15, fontWeight: 700, minWidth: 28, textAlign: "right", color: l.sc }}>
-                        {l.score}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: 7,
-                          padding: "1px 6px",
-                          borderRadius: 3,
-                          fontWeight: 700,
-                          fontFamily: "monospace",
-                          background: l.vc + "18",
-                          color: l.vc,
-                          minWidth: 44,
-                          textAlign: "center",
-                        }}>
-                        {l.v}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* RIGHT: score ring + bars + AI message */}
-              <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column" }}>
-                <div
-                  style={{
-                    fontSize: 8,
-                    color: "rgba(201,168,76,0.6)",
-                    letterSpacing: "0.18em",
-                    textTransform: "uppercase",
-                    fontFamily: "monospace",
-                    marginBottom: 16,
-                  }}>
-                  Top Match — Intelligence Report
-                </div>
-
-                {/* Score ring + lead info */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 20,
-                    marginBottom: 18,
-                    opacity: showRing ? 1 : 0,
-                    transition: "opacity 0.5s",
-                  }}>
-                  <div
-                    style={{
-                      position: "relative",
-                      width: 90,
-                      height: 90,
-                      flexShrink: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}>
-                    <svg
-                      viewBox="0 0 90 90"
-                      width="90"
-                      height="90"
-                      style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}>
-                      <circle cx="45" cy="45" r="36" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="6" />
-                      <circle
-                        cx="45"
-                        cy="45"
-                        r="36"
-                        fill="none"
-                        stroke={ringColor}
-                        strokeWidth="6"
-                        strokeLinecap="round"
-                        strokeDasharray="226"
-                        strokeDashoffset={ringOffset}
-                        style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(0.16,1,0.3,1), stroke 0.4s" }}
-                      />
-                    </svg>
-                    <span
-                      style={{
-                        fontSize: 26,
-                        fontWeight: 700,
-                        fontFamily: "monospace",
-                        color: ringColor,
-                        position: "relative",
-                        zIndex: 1,
-                      }}>
-                      {ringScore}
-                    </span>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#d8d0c0", marginBottom: 4 }}>{topLead?.n}</div>
-                    <div style={{ fontSize: 8, color: "#7a7468", fontFamily: "monospace", marginBottom: 10 }}>
-                      Intelligence Report
-                    </div>
-                    {topLead && (
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                          fontSize: 8,
-                          padding: "3px 9px",
-                          borderRadius: 4,
-                          fontWeight: 700,
-                          fontFamily: "monospace",
-                          letterSpacing: "0.08em",
-                          textTransform: "uppercase",
-                          background: topLead.gc + "20",
-                          border: `1px solid ${topLead.gc}40`,
-                          color: topLead.gc,
-                        }}>
-                        ⬡ {topLead.gap} GAP DETECTED
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Score bars */}
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                    flex: 1,
-                    opacity: showBars ? 1 : 0,
-                    transition: "opacity 0.5s 0.2s",
-                  }}>
-                  {[
-                    { label: "Fit Score", val: barFit, color: "#818cf8", id: "fit" },
-                    { label: "Opportunity", val: barOpp, color: "#4ade80", id: "opp" },
-                    { label: "Risk Index", val: barRisk, color: "#f87171", id: "risk" },
-                  ].map((bar) => (
-                    <div key={bar.id}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                        <span
-                          style={{
-                            fontSize: 8,
-                            color: "#8a8478",
-                            fontFamily: "monospace",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.08em",
-                          }}>
-                          {bar.label}
-                        </span>
-                        <span style={{ fontSize: 8, fontWeight: 700, fontFamily: "monospace", color: bar.color }}>
-                          {bar.val || "—"}
-                        </span>
-                      </div>
-                      <div
-                        style={{
-                          height: 3,
-                          background: "rgba(255,255,255,0.04)",
-                          borderRadius: 99,
-                          overflow: "hidden",
-                        }}>
-                        <div
-                          style={{
-                            height: "100%",
-                            background: bar.color,
-                            borderRadius: 99,
-                            width: showBars ? `${bar.val}%` : "0%",
-                            transition: "width 1.1s cubic-bezier(0.16,1,0.3,1)",
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* AI message */}
-                <div
-                  style={{
-                    marginTop: 14,
-                    padding: "11px 13px",
-                    background: "rgba(201,168,76,0.03)",
-                    border: "1px solid rgba(201,168,76,0.1)",
-                    borderRadius: 8,
-                    opacity: showAiMsg ? 1 : 0,
-                    transition: "opacity 0.5s 0.4s",
-                  }}>
-                  <div
-                    style={{
-                      fontSize: 7,
-                      color: "rgba(201,168,76,0.6)",
-                      letterSpacing: "0.16em",
-                      textTransform: "uppercase",
-                      fontFamily: "monospace",
-                      marginBottom: 7,
-                    }}>
-                    ◈ AI Outreach — Generated
-                  </div>
-                  <div style={{ fontSize: 10.5, color: "#a09888", lineHeight: 1.65 }}>
-                    {aiMsgDone ? (
-                      <span
-                        dangerouslySetInnerHTML={{
-                          __html: aiMsgFull
-                            .replace(/<em>/g, '<em style="color:#c9a84c;font-style:normal">')
-                            .replace(/<strong>/g, '<strong style="color:#8080a0">'),
-                        }}
-                      />
-                    ) : (
-                      <>
-                        {aiMsgText}
-                        <span
-                          style={{
-                            display: "inline-block",
-                            width: 2,
-                            height: 11,
-                            background: "#c9a84c",
-                            verticalAlign: "middle",
-                            animation: "blink 0.9s infinite",
-                          }}
-                        />
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "11px 20px",
-                borderTop: "1px solid rgba(201,168,76,0.06)",
-                background: "rgba(5,5,10,0.5)",
-              }}>
-              <span style={{ fontSize: 8, color: "#7a7468", letterSpacing: "0.1em", fontFamily: "monospace" }}>
-                {footerHint}
-              </span>
-              <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-                <div
-                  style={{
-                    fontSize: 8,
-                    padding: "5px 12px",
-                    borderRadius: 5,
-                    fontFamily: "monospace",
-                    fontWeight: 700,
-                    letterSpacing: "0.06em",
-                    background: "transparent",
-                    border: "1px solid rgba(201,168,76,0.15)",
-                    color: "rgba(201,168,76,0.35)",
-                  }}>
-                  Save Lead
-                </div>
-                <div
-                  style={{
-                    fontSize: 8,
-                    padding: "5px 12px",
-                    borderRadius: 5,
-                    fontFamily: "monospace",
-                    fontWeight: 700,
-                    letterSpacing: "0.06em",
-                    background: "#c9a84c",
-                    color: "#080808",
-                  }}>
-                  Send Outreach
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-// Gold text with constant ambient glow
-function GoldText({
-  children,
-  style = {},
-  as: Tag = "span",
-}: {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  as?: any;
-}) {
-  return (
-    <Tag
-      style={{
-        ...style,
-        filter:
-          "drop-shadow(0 0 4px rgba(232,201,122,0.55)) drop-shadow(0 0 12px rgba(201,168,76,0.28)) drop-shadow(0 0 28px rgba(201,168,76,0.1))",
-      }}>
-      {children}
-    </Tag>
-  );
-}
-
-// Button with internal mouse-tracking glow — Huly style
-// Section with clip-path reveal — mouse position reveals a gold underglow
-// Huly's technique: CSS vars --mx --my drive clip-path circle on a glowing layer
-function GlowSection({
-  children,
-  style = {},
-}: {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-  glowColor?: string;
-}) {
-  return (
-    <div style={{ position: "relative", ...style }}>
-      <div style={{ position: "relative", zIndex: 1 }}>{children}</div>
     </div>
-  );
-}
 
-function GlowButton({
-  href,
-  children,
-  style = {},
-}: {
-  href: string;
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-}) {
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
-  const [hovered, setHovered] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  const handleMove = (e: React.MouseEvent) => {
-    const rect = wrapRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    setPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-  };
-
-  return (
-    <div
-      ref={wrapRef}
-      onMouseMove={handleMove}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => {
-        setHovered(false);
-        setPos(null);
-      }}
-      style={{ display: "inline-block", position: "relative" }}>
-      <Link
-        href={href}
-        style={{
-          position: "relative",
-          overflow: "hidden",
-          display: "inline-block",
-          ...style,
-        }}>
-        {/* Mouse-tracked inner glow */}
-        {pos && (
-          <span
-            style={{
-              position: "absolute",
-              left: pos.x - 100,
-              top: pos.y - 100,
-              width: 200,
-              height: 200,
-              borderRadius: "50%",
-              background:
-                "radial-gradient(circle, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.1) 50%, transparent 70%)",
-              pointerEvents: "none",
-              transition: "none",
-              mixBlendMode: "overlay",
-            }}
-          />
-        )}
-        {/* Edge shimmer on hover */}
-        <span
-          style={{
-            position: "absolute",
-            inset: 0,
-            borderRadius: "inherit",
-            background: hovered
-              ? "linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 50%, rgba(255,255,255,0.04) 100%)"
-              : "transparent",
-            transition: "background 0.3s ease",
-            pointerEvents: "none",
-          }}
-        />
-        {children}
-      </Link>
+    <div style="display:flex; justify-content:center; gap:6px; margin-top:18px; position:relative; z-index:2;">
+      <div class="phase-dot" style="width:5px; height:5px; border-radius:50%; background:#e8b72d;"></div>
+      <div class="phase-dot" style="width:5px; height:5px; border-radius:50%; background:#333;"></div>
+      <div class="phase-dot" style="width:5px; height:5px; border-radius:50%; background:#333;"></div>
+      <div class="phase-dot" style="width:5px; height:5px; border-radius:50%; background:#333;"></div>
     </div>
-  );
-}
+  </div>
+</div>
 
-// ── GLOBAL GALAXY CANVAS — fixed behind Features + CTA sections ──
-// ── GALAXY SECTION BACKGROUND — living, breathing galaxy as section background ──
-// Each section gets its own canvas; position absolute, covers the full section height.
-// Same full galaxy system as hero: nebulae, star layers, galaxy core, shooting stars.
-// ── GALAXY SECTION BACKGROUND — noise-based nebula, computed once on mount ──
-function GalaxySectionBg({ variant }: { variant: "features" | "cta" }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const isMobile = useIsMobile();
-  const [nearViewport, setNearViewport] = useState(false);
-  const [ready, setReady] = useState(false);
-  const readyRef = useRef(false);
+<div class="section">
+  <canvas id="nebula-problem" class="nebula-canvas" style="position:absolute; inset:0; z-index:-1; width:100%; height:100%; pointer-events:none; opacity:0.7;"></canvas><div class="stars"></div>  <p class="eyebrow">The real cost</p>
+  <h2 class="serif">Too many possibilities.<br>Too little context. <span class="gold">Wasted effort.</span></h2>
+  <p class="lead" style="margin-top:20px;">You find a company. Spend 45 minutes digging through their site and socials. Guess at an angle that might land. Write the message. Send it. Nothing — not even a no, just silence. It was never a real match.</p>
+  <p style="font-size:13px; color:#666; margin-top:14px;">Do that 10 times a week and it's 7.5 hours gone before a single reply comes in.</p>
+  <div style="display:flex; gap:18px; margin-top:44px; flex-wrap:wrap;">
+    <div class="panel panel-lit card-glow card-glow-red" style="flex:1; min-width:220px;">
+      <p class="serif" style="font-size:30px; font-weight:600; color:#e88a8a;">45+ min</p>
+      <p style="font-size:12px; color:#777; margin-top:8px; line-height:1.5;">Spent finding out a lead was never worth the effort at all</p>
+    </div>
+    <div class="panel panel-lit card-glow card-glow-red" style="flex:1; min-width:220px;">
+      <p class="serif" style="font-size:30px; font-weight:600; color:#e88a8a;">Guesswork</p>
+      <p style="font-size:12px; color:#777; margin-top:8px; line-height:1.5;">Every message is a shot in the dark — no data, just hope</p>
+    </div>
+  </div>
+</div>
 
-  // Don't do any of the canvas/nebula setup work until this section is
-  // actually about to scroll into view. Both usages of this component are
-  // below the fold on initial load, so without this gate their setup (star
-  // generation, canvas sizing, nebula build) was competing with the initial
-  // page load for no visible benefit — pure wasted work on the critical path.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const container = canvas.parentElement;
-    if (!container) return;
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) setNearViewport(true);
-      },
-      { rootMargin: "600px 0px" }, // start a little before it's actually visible, so it's ready in time
-    );
-    io.observe(container);
-    return () => io.disconnect();
-  }, []);
+<!-- THE TRANSFORMATION -->
+<div class="section" style="text-align:center;">
+  <canvas id="nebula-transform" class="nebula-canvas" style="position:absolute; inset:0; z-index:-1; width:100%; height:100%; pointer-events:none; opacity:0.7;"></canvas><div class="stars"></div>  <p class="eyebrow">From noise to decision</p>
+  <h2 class="serif" style="margin-bottom:48px;">Watch the noise <span class="gold">disappear.</span></h2>
+  <div style="display:flex; align-items:stretch; justify-content:center; gap:10px; flex-wrap:wrap;">
+    <div class="panel panel-lit card-glow card-glow-blue" style="flex:1 1 100px; min-width:0; max-width:160px; display:flex; flex-direction:column; justify-content:center; box-sizing:border-box;"><p class="serif" style="font-size:28px;font-weight:600;">347</p><p style="font-size:11px;color:#777; margin-top:4px;">companies found</p></div>
+    <span style="color:#3a3a2a; font-size:20px; display:flex; align-items:center; flex-shrink:0;" class="serif">→</span>
+    <div class="panel panel-lit card-glow card-glow-amber" style="flex:1 1 100px; min-width:0; max-width:160px; display:flex; flex-direction:column; justify-content:center; box-sizing:border-box;"><p class="serif" style="font-size:28px;font-weight:600; color:#9c9a7e;">82</p><p style="font-size:11px;color:#777; margin-top:4px;">relevant</p></div>
+    <span style="color:#3a3a2a; font-size:20px; display:flex; align-items:center; flex-shrink:0;" class="serif">→</span>
+    <div class="panel panel-lit card-glow card-glow-gold" style="flex:1 1 100px; min-width:0; max-width:160px; display:flex; flex-direction:column; justify-content:center; box-sizing:border-box;"><p class="serif" style="font-size:28px;font-weight:600; color:#fac93f; text-shadow:0 0 8px rgba(250,201,63,0.9), 0 0 18px rgba(250,201,63,0.5);">21</p><p style="font-size:11px;color:#777; margin-top:4px;">high-opportunity</p></div>
+    <span style="color:#3a3a2a; font-size:20px; display:flex; align-items:center; flex-shrink:0;" class="serif">→</span>
+    <div class="panel panel-lit card-glow card-glow-green" style="flex:1 1 100px; min-width:0; max-width:160px; display:flex; flex-direction:column; justify-content:center; box-sizing:border-box;"><p class="serif" style="font-size:28px;font-weight:600; color:#4ade80;">5</p><p style="font-size:11px;color:#4ade80; margin-top:4px;">worth today</p></div>
+  </div>
+</div>
 
-  useEffect(() => {
-    if (!nearViewport) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const container = canvas.parentElement!;
-    const c = canvas;
-    // W/H are logical CSS-pixel dimensions used for all drawing math.
-    // The canvas backing store is set to the actual device resolution
-    // via dpr below, so visuals stay crisp on retina/high-DPI screens.
-    let W = 0,
-      H = 0;
-    let dpr = 1;
-    let rafId = 0;
-    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
-    // Snapshot of static nebula + dim stars — animated stars drawn on top each frame
-    let staticSnap: HTMLCanvasElement | null = null;
+<div class="divider divider-glow-down"></div>
 
-    // ── Star layers — identical to hero ────────────────────────────
-    type StarP = {
-      x: number;
-      y: number;
-      vx: number;
-      vy: number;
-      r: number;
-      op: number;
-      ph: number;
-      sp: number;
-      layer: number;
-    };
-    type Shooter = {
-      x: number;
-      y: number;
-      vx: number;
-      vy: number;
-      len: number;
-      op: number;
-      active: boolean;
-      timer: number;
-    };
-    let deep: StarP[] = [],
-      mid: StarP[] = [],
-      fore: StarP[] = [],
-      shooters: Shooter[] = [];
+<!-- WHY VANTIO IS DIFFERENT -->
+<div class="section" style="text-align:center;">
+  <canvas id="nebula-diff" class="nebula-canvas" style="position:absolute; inset:0; z-index:-1; width:100%; height:100%; pointer-events:none; opacity:0.65;"></canvas><div class="stars"></div>  <p class="eyebrow">The core difference</p>
+  <h2 class="serif">Other tools give you names.<br><em class="gold" style="font-style:italic; font-weight:600;">We give you reasons.</em></h2>
+  <p class="lead" style="margin: 20px auto 0;">A list of 500 companies still leaves you guessing which 10 are worth calling. Vantio scores every one, explains the reason, and hands you the opening line.</p>
+</div>
 
-    function buildStarLayers() {
-      // Positions are percentage-based, so they never needed to regenerate
-      // on resize — only build once. Without this guard, every
-      // ResizeObserver firing (scroll-reveal transitions, images loading,
-      // any layout shift) reshuffled every star to a new random spot,
-      // which reads as continuous motion even in the "frozen" mobile path.
-      if (deep.length || mid.length || fore.length) return;
-      deep = Array.from({ length: 220 }, () => ({
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        r: Math.random() * 0.7 + 0.15,
-        op: Math.random() * 0.25 + 0.05,
-        ph: Math.random() * Math.PI * 2,
-        sp: Math.random() * 0.0002 + 0.00005,
-        vx: (Math.random() - 0.5) * 0.0015,
-        vy: (Math.random() - 0.5) * 0.0015,
-        layer: 0,
-      }));
-      mid = Array.from({ length: 90 }, () => ({
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        r: Math.random() * 1.1 + 0.4,
-        op: Math.random() * 0.35 + 0.08,
-        ph: Math.random() * Math.PI * 2,
-        sp: Math.random() * 0.0004 + 0.0001,
-        vx: (Math.random() - 0.5) * 0.003,
-        vy: (Math.random() - 0.5) * 0.003,
-        layer: 1,
-      }));
-      fore = Array.from({ length: 28 }, () => ({
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        r: Math.random() * 1.8 + 0.8,
-        op: Math.random() * 0.5 + 0.2,
-        ph: Math.random() * Math.PI * 2,
-        sp: Math.random() * 0.0008 + 0.0003,
-        vx: (Math.random() - 0.5) * 0.005,
-        vy: (Math.random() - 0.5) * 0.005,
-        layer: 2,
-      }));
-      shooters = Array.from({ length: 3 }, () => ({
-        x: 0,
-        y: 0,
-        vx: 0,
-        vy: 0,
-        len: 0,
-        op: 0,
-        active: false,
-        timer: 18000 + Math.random() * 22000,
-      }));
-    }
+<div class="divider divider-glow-up"></div>
 
-    function buildNebula(w: number, h: number): HTMLCanvasElement {
-      const S = isMobile ? 1.5 : 3;
-      const LW = Math.ceil(w / S),
-        LH = Math.ceil(h / S);
-      const lo = document.createElement("canvas");
-      lo.width = LW;
-      lo.height = LH;
-      const loCtx = lo.getContext("2d")!;
+<!-- HOW IT WORKS -->
+<div class="section">  <div class="stars"></div>
+  <p class="eyebrow" style="text-align:center;">Start to finish</p>
+  <h2 class="serif" style="text-align:center; margin-bottom:56px;">Five steps. <span class="gold">No guesswork.</span></h2>
+  <div style="display:flex; justify-content:space-between; gap:10px; position:relative;">
+    <svg viewBox="0 0 1000 4" style="position:absolute; top:16px; left:0; width:100%; height:4px;" preserveAspectRatio="none">
+      <defs><linearGradient id="hg" x1="0" x2="1"><stop offset="0%" stop-color="#2a2618"/><stop offset="50%" stop-color="#e8b72d"/><stop offset="100%" stop-color="#2a2618"/></linearGradient></defs>
+      <line x1="50" y1="2" x2="950" y2="2" stroke="url(#hg)" stroke-width="1.2"/>
+    </svg>
+    <div style="text-align:center; width:110px; position:relative; z-index:1;">
+      <div class="icon-badge" style="margin:0 auto 14px; background:#060608;"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg></div>
+      <p style="font-size:11.5px; color:#8c8678; line-height:1.5;">Set your market, offer, and ideal customer</p>
+    </div>
+    <div style="text-align:center; width:110px; position:relative; z-index:1;">
+      <div class="icon-badge" style="margin:0 auto 14px; background:#060608;"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg></div>
+      <p style="font-size:11.5px; color:#8c8678; line-height:1.5;">Vantio scores each lead based on your profile and lead signals</p>
+    </div>
+    <div style="text-align:center; width:110px; position:relative; z-index:1;">
+      <div class="icon-badge" style="margin:0 auto 14px; background:#060608; border-color:#ffd363; text-shadow:0 0 8px rgba(255,211,99,0.9), 0 0 18px rgba(255,211,99,0.5);"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M12 8v4l3 2"/></svg></div>
+      <p style="font-size:11.5px; color:#fac93f; font-weight:600; line-height:1.5; text-shadow:0 0 8px rgba(250,201,63,0.9), 0 0 18px rgba(250,201,63,0.5);">See the specific gap that makes each one worth contacting</p>
+    </div>
+    <div style="text-align:center; width:110px; position:relative; z-index:1;">
+      <div class="icon-badge" style="margin:0 auto 14px; background:#060608;"><svg viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg></div>
+      <p style="font-size:11.5px; color:#8c8678; line-height:1.5;">Choose from outreach templates and personalize them to your selected leads</p>
+    </div>
+    <div style="text-align:center; width:110px; position:relative; z-index:1;">
+      <div class="icon-badge" style="margin:0 auto 14px; background:#060608;"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>
+      <p style="font-size:11.5px; color:#8c8678; line-height:1.5;">Log the reply, the meeting, the deal — build your track record</p>
+    </div>
+  </div>
+  <div style="text-align:center;">
+    <a href="/login" class="start-here-btn" onclick="this.classList.add('pressed');">Start here.</a>
+  </div>
+</div>
 
-      // Static faint bg stars (seeded, not animated)
-      const seed = variant === "features" ? 67890 : 11223;
-      let s2 = seed >>> 0;
-      function rand2() {
-        s2 = (s2 * 1664525 + 1013904223) >>> 0;
-        return s2 / 0xffffffff;
-      }
-      for (let i = 0; i < 1200; i++) {
-        const x = rand2() * LW,
-          y = rand2() * LH,
-          op = rand2() * 0.08 + 0.02,
-          r2 = rand2() * 0.3 + 0.08;
-        loCtx.beginPath();
-        loCtx.arc(x, y, r2, 0, Math.PI * 2);
-        loCtx.fillStyle = `rgba(185,178,162,${op})`;
-        loCtx.fill();
-      }
+<!-- PRODUCT EXPERIENCE -->
+<div class="section">
+  <canvas id="nebula-product" class="nebula-canvas" style="position:absolute; inset:0; z-index:-1; width:100%; height:100%; pointer-events:none; opacity:0.65;"></canvas><div class="stars"></div>  <p class="eyebrow">See Vantio in action</p>
+  <h2 class="serif" style="margin-bottom:44px;">Every screen answers <span class="gold">a real question</span></h2>
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:18px;">
+    <div class="panel panel-lit card-glow card-glow-blue">
+      <div class="icon-badge" style="margin-bottom:14px;"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="11" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg></div>
+      <p style="font-size:15px;font-weight:600;margin-bottom:8px;">Pipeline</p><p style="font-size:12.5px;color:#777; line-height:1.5;">Every deal, staged from first contact to closed. See which leads have gone quiet, which need a follow-up today, and the exact reasoning behind every score</p>
+    </div>
+    <div class="panel panel-lit card-glow card-glow-gold">
+      <div class="icon-badge" style="margin-bottom:14px;"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div>
+      <p style="font-size:15px;font-weight:600;margin-bottom:8px;">Home</p><p style="font-size:12.5px;color:#777; line-height:1.5;">Your daily hub. High-opportunity leads scored to your profile, overdue follow-ups you might have missed, and the reasoning behind each one</p>
+    </div>
+    <div class="panel panel-lit card-glow card-glow-amber">
+      <div class="icon-badge" style="margin-bottom:14px;"><svg viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg></div>
+      <p style="font-size:15px;font-weight:600;margin-bottom:8px;">Outreach</p><p style="font-size:12.5px;color:#777; line-height:1.5;">Choose from proven templates, personalize each one to the specific lead, and send — by email or LinkedIn, in whatever tone fits the conversation</p>
+    </div>
+    <div class="panel panel-lit card-glow card-glow-green">
+      <div class="icon-badge" style="margin-bottom:14px;"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 15l3-4 3 3 4-6"/></svg></div>
+      <p style="font-size:15px;font-weight:600;margin-bottom:8px;">Stats</p><p style="font-size:12.5px;color:#777; line-height:1.5;">See which tones and angles actually get replies, track your close rate over time, and understand exactly why deals were lost</p>
+    </div>
+  </div>
+</div>
 
-      // Nebula clouds at low res — skipped on mobile when the A/B toggle
-      // is off, leaving just the neutral faint specks above for a plain
-      // black + stars look instead of the colored cloud composition.
-      const showNebulaClouds = !isMobile || MOBILE_NEBULA_ENABLED;
-      if (showNebulaClouds) {
-        loCtx.globalCompositeOperation = "screen";
-        if (variant === "features") {
-          nbScreenBlit(
-            loCtx,
-            LW,
-            LH,
-            nbBuildCloud(LW, LH, {
-              cx: 0.84 * LW,
-              cy: 0.3 * LH,
-              rx: 0.4 * LW,
-              ry: 0.46 * LW,
-              rot: -0.5,
-              seed: 10.0,
-              warp: 3.0,
-              thresh: 0.32,
-              intensity: 0.75,
-              es: 1.2,
-              c0: [0.05, 0.04, 0.18],
-              c1: [0.09, 0.14, 0.32],
-              c2: [0.14, 0.22, 0.48],
-              c3: [0.2, 0.3, 0.58],
-            }),
-          );
-          nbScreenBlit(
-            loCtx,
-            LW,
-            LH,
-            nbBuildCloud(LW, LH, {
-              cx: 0.86 * LW,
-              cy: 0.25 * LH,
-              rx: 0.3 * LW,
-              ry: 0.36 * LW,
-              rot: -0.48,
-              seed: 11.5,
-              warp: 3.4,
-              thresh: 0.35,
-              intensity: 1.0,
-              es: 1.5,
-              c0: [0.05, 0.22, 0.34],
-              c1: [0.1, 0.4, 0.58],
-              c2: [0.18, 0.62, 0.78],
-              c3: [0.34, 0.8, 0.9],
-            }),
-          );
-          nbScreenBlit(
-            loCtx,
-            LW,
-            LH,
-            nbBuildCloud(LW, LH, {
-              cx: 0.88 * LW,
-              cy: 0.19 * LH,
-              rx: 0.17 * LW,
-              ry: 0.22 * LW,
-              rot: -0.46,
-              seed: 12.8,
-              warp: 3.6,
-              thresh: 0.4,
-              intensity: 1.0,
-              es: 2.0,
-              c0: [0.2, 0.56, 0.7],
-              c1: [0.32, 0.74, 0.86],
-              c2: [0.5, 0.88, 0.92],
-              c3: [0.78, 0.97, 0.98],
-            }),
-          );
-        } else {
-          nbScreenBlit(
-            loCtx,
-            LW,
-            LH,
-            nbBuildCloud(LW, LH, {
-              cx: 0.5 * LW,
-              cy: 0.82 * LH,
-              rx: 0.48 * LW,
-              ry: 0.34 * LW,
-              rot: 0.05,
-              seed: 20.0,
-              warp: 2.9,
-              thresh: 0.3,
-              intensity: 0.75,
-              es: 1.1,
-              c0: [0.1, 0.03, 0.2],
-              c1: [0.22, 0.07, 0.36],
-              c2: [0.34, 0.1, 0.48],
-              c3: [0.42, 0.14, 0.58],
-            }),
-          );
-          nbScreenBlit(
-            loCtx,
-            LW,
-            LH,
-            nbBuildCloud(LW, LH, {
-              cx: 0.5 * LW,
-              cy: 0.79 * LH,
-              rx: 0.38 * LW,
-              ry: 0.26 * LW,
-              rot: 0.04,
-              seed: 21.5,
-              warp: 3.3,
-              thresh: 0.34,
-              intensity: 1.05,
-              es: 1.4,
-              c0: [0.34, 0.08, 0.18],
-              c1: [0.66, 0.2, 0.32],
-              c2: [0.88, 0.36, 0.48],
-              c3: [0.96, 0.56, 0.64],
-            }),
-          );
-          nbScreenBlit(
-            loCtx,
-            LW,
-            LH,
-            nbBuildCloud(LW, LH, {
-              cx: 0.49 * LW,
-              cy: 0.76 * LH,
-              rx: 0.22 * LW,
-              ry: 0.15 * LW,
-              rot: 0.03,
-              seed: 22.8,
-              warp: 3.5,
-              thresh: 0.39,
-              intensity: 1.05,
-              es: 1.8,
-              c0: [0.76, 0.32, 0.42],
-              c1: [0.9, 0.54, 0.6],
-              c2: [0.96, 0.72, 0.76],
-              c3: [0.99, 0.88, 0.9],
-            }),
-          );
-        }
-        loCtx.globalCompositeOperation = "source-over";
-      }
+<div class="divider"></div>
 
-      // Upscale to full canvas size
-      const snap = document.createElement("canvas");
-      snap.width = w;
-      snap.height = h;
-      const snapCtx = snap.getContext("2d")!;
-      snapCtx.fillStyle = "#060608";
-      snapCtx.fillRect(0, 0, w, h);
-      snapCtx.imageSmoothingEnabled = true;
-      snapCtx.imageSmoothingQuality = "high";
-      snapCtx.globalCompositeOperation = "screen";
-      snapCtx.drawImage(lo, 0, 0, w, h);
-      snapCtx.globalCompositeOperation = "source-over";
-      return snap;
-    }
+<!-- COMPOUNDING INTELLIGENCE -->
+<div class="section" style="text-align:center;">
+  <canvas id="nebula-compound" class="nebula-canvas" style="position:absolute; inset:0; z-index:-1; width:100%; height:100%; pointer-events:none; opacity:0.65;"></canvas><div class="stars"></div>  <p class="eyebrow">Vantio gets better with time</p>
+  <h2 class="serif">The more you use it,<br><span class="gold">the more it learns and adapts</span></h2>
+  <p class="lead" style="margin: 20px auto;">Every contact, every reply, every closed deal becomes a signal. Vantio is recording which gaps, which angles and which tones actually convert from your target market.</p>
+  <p style="font-size:11px; color:#5a5a5a; margin-top:22px;" class="mono">Available today: outcome tracking · Coming: adaptive prioritization</p>
+</div>
 
-    // Track the size actually built at, so init() calls triggered by trivial
-    // layout shifts (scroll-reveal transitions constantly nudge container
-    // size by a pixel or two) don't re-trigger the expensive nebula
-    // computation — only a real, meaningful resize should do that.
-    let builtW = 0;
-    let builtH = 0;
-    const RESIZE_THRESHOLD_PX = 40;
+<div class="divider"></div>
 
-    function init() {
-      W = container.offsetWidth;
-      H = container.offsetHeight;
-      if (W === 0 || H === 0) return;
-      dpr = Math.min(window.devicePixelRatio || 1, 3);
-      c.width = Math.round(W * dpr);
-      c.height = Math.round(H * dpr);
+<!-- ECONOMIC VALUE -->
+<div class="section" style="text-align:center;">  <div class="stars"></div>
+  <p class="eyebrow">The real comparison</p>
+  <h2 class="serif">The real cost isn't the subscription.<br><span class="gold">It's the time you're already losing.</span></h2>
+  <p class="lead" style="margin: 20px auto;"><span class="gold">7.5 hours</span> a week spent on research that goes nowhere is <span class="gold">390 hours</span> a year — time you could have spent on the leads that actually close.</p>
+</div>
 
-      const sizeChanged = Math.abs(W - builtW) > RESIZE_THRESHOLD_PX || Math.abs(H - builtH) > RESIZE_THRESHOLD_PX;
-      if (!sizeChanged && staticSnap) {
-        // Canvas backing store was just resized above (cheap), but the
-        // expensive nebula/star rebuild isn't needed for a trivial shift.
-        // Just redraw the existing static snapshot at the new (near-identical) size.
-        startAnim();
-        return;
-      }
+<!-- WHO IT'S FOR -->
+<div class="section">
+  <canvas id="nebula-whofor" class="nebula-canvas" style="position:absolute; inset:0; z-index:-1; width:100%; height:100%; pointer-events:none; opacity:0.83;"></canvas><div class="stars"></div>  <p class="eyebrow" style="text-align:center;">Built for</p>
+  <h2 class="serif" style="text-align:center; margin-bottom:44px;">Built for teams who make <span class="gold">every hour count</span></h2>
+  <div style="display:grid; grid-template-columns: repeat(4,1fr); gap:16px;">
+    <div class="panel panel-lit card-glow card-glow-gold" style="text-align:center; padding:24px 16px;">
+      <div class="icon-badge" style="margin:0 auto 12px;"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></div>
+      <p style="font-size:13.5px;font-weight:600;">Agencies</p>
+      <p style="font-size:11px; color:#777; margin-top:6px; line-height:1.5;">Pitch twice as many qualified clients in the same working week</p>
+    </div>
+    <div class="panel panel-lit card-glow card-glow-gold" style="text-align:center; padding:24px 16px;">
+      <div class="icon-badge" style="margin:0 auto 12px;"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M2 20c0-3.5 3-6 7-6s7 2.5 7 6"/><circle cx="17" cy="8" r="2.5"/><path d="M16 14.5c2.5.5 4.5 2.5 5 5.5"/></svg></div>
+      <p style="font-size:13.5px;font-weight:600;">Sales teams</p>
+      <p style="font-size:11px; color:#777; margin-top:6px; line-height:1.5;">Every rep's hours go toward leads actually worth calling</p>
+    </div>
+    <div class="panel panel-lit card-glow card-glow-gold" style="text-align:center; padding:24px 16px;">
+      <div class="icon-badge" style="margin:0 auto 12px;"><svg viewBox="0 0 24 24"><path d="M6 9l6-6 6 6-6 12z"/><path d="M6 9h12"/></svg></div>
+      <p style="font-size:13.5px;font-weight:600;">High-ticket founders</p>
+      <p style="font-size:11px; color:#777; margin-top:6px; line-height:1.5;">Every meeting on the calendar is one worth having</p>
+    </div>
+    <div class="panel panel-lit card-glow card-glow-gold" style="text-align:center; padding:24px 16px;">
+      <div class="icon-badge" style="margin:0 auto 12px;"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg></div>
+      <p style="font-size:13.5px;font-weight:600;">Outbound-led teams</p>
+      <p style="font-size:11px; color:#777; margin-top:6px; line-height:1.5;">Same volume of outreach, aimed at companies that actually convert</p>
+    </div>
+  </div>
+</div>
 
-      cancelAnimationFrame(rafId);
-      staticSnap = null;
-      // Defer heavy computation until the browser is actually idle
-      runWhenIdle(() => {
-        builtW = W;
-        builtH = H;
-        staticSnap = buildNebula(Math.round(W * dpr), Math.round(H * dpr));
-        buildStarLayers();
-        startAnim();
-      });
-    }
+<div class="divider divider-glow-down"></div>
 
-    function startAnim() {
-      const ctx = c.getContext("2d")!;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      let t = performance.now();
+<!-- FINAL CTA -->
+<div class="section" style="text-align:center; padding-bottom: 160px; overflow:hidden;">
+  <canvas id="nebula-cta" class="nebula-canvas" style="position:absolute; inset:0; z-index:-1; width:100%; height:100%; pointer-events:none; opacity:0.75;"></canvas>  <div class="stars"></div>
+  <p class="eyebrow" style="text-align:center; position:relative;">Join the beta</p>
+  <h2 class="serif" style="position:relative;">Stop guessing,<br><span class="gold">Start converting.</span></h2>
+  <p class="lead" style="margin: 18px auto 34px; position:relative;">Join the beta today.</p>
+  <div style="position:relative; display:inline-block;">
+    <div style="position:absolute; inset:-30px; background:radial-gradient(ellipse 60% 60% at 50% 50%, rgba(232,201,122,0.3) 0%, transparent 75%); filter:blur(12px); pointer-events:none;"></div>
+    <a href="/login" class="btn-outline" style="position:relative; font-size:14px; padding:17px 38px;" onclick="this.classList.add('pressed');">Join the beta →</a>
+  </div>
+</div>
 
-      function frame(now: number) {
-        const dt = now - t;
-        t = now;
-        if (!staticSnap) {
-          if (isMobile) {
-            retryTimeout = setTimeout(() => frame(performance.now()), 16);
-          } else {
-            rafId = requestAnimationFrame(frame);
-          }
-          return;
-        }
-        ctx.clearRect(0, 0, W, H);
-        ctx.drawImage(staticSnap, 0, 0, W, H);
-        if (!readyRef.current) {
-          readyRef.current = true;
-          setReady(true);
-        }
 
-        // ── Layer 0: deep tiny stars ──
-        for (const p of deep) {
-          if (!isMobile) {
-            p.x = (p.x + p.vx + 100) % 100;
-            p.y = (p.y + p.vy + 100) % 100;
-          }
-          const pulse = isMobile ? 1 : 0.55 + Math.sin(now * p.sp * 2 + p.ph) * 0.45;
-          const op = Math.min(0.92, p.op * pulse);
-          ctx.beginPath();
-          ctx.arc((p.x * W) / 100, (p.y * H) / 100, p.r, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(200,175,110,${op})`;
-          ctx.fill();
-        }
-        // ── Layer 1: mid warm gold stars ──
-        for (const p of mid) {
-          if (!isMobile) {
-            p.x = (p.x + p.vx + 100) % 100;
-            p.y = (p.y + p.vy + 100) % 100;
-          }
-          const pulse = isMobile ? 1 : 0.55 + Math.sin(now * p.sp * 2 + p.ph) * 0.45;
-          const op = Math.min(0.92, p.op * pulse);
-          if (pulse > 0.8) {
-            const gr2 = ctx.createRadialGradient(
-              (p.x * W) / 100,
-              (p.y * H) / 100,
-              0,
-              (p.x * W) / 100,
-              (p.y * H) / 100,
-              p.r * 4,
-            );
-            gr2.addColorStop(0, `rgba(232,201,122,${(op * 0.6).toFixed(3)})`);
-            gr2.addColorStop(1, "rgba(0,0,0,0)");
-            ctx.beginPath();
-            ctx.arc((p.x * W) / 100, (p.y * H) / 100, p.r * 4, 0, Math.PI * 2);
-            ctx.fillStyle = gr2;
-            ctx.fill();
-          }
-          ctx.beginPath();
-          ctx.arc((p.x * W) / 100, (p.y * H) / 100, p.r, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(220,185,100,${op})`;
-          ctx.fill();
-        }
-        // ── Layer 2: bright foreground stars with corona ──
-        for (const p of fore) {
-          if (!isMobile) {
-            p.x = (p.x + p.vx + 100) % 100;
-            p.y = (p.y + p.vy + 100) % 100;
-          }
-          const pulse = isMobile ? 1 : 0.55 + Math.sin(now * p.sp * 2 + p.ph) * 0.45;
-          const op = Math.min(0.92, p.op * pulse);
-          const coronaR = p.r * 6;
-          const gr = ctx.createRadialGradient(
-            (p.x * W) / 100,
-            (p.y * H) / 100,
-            0,
-            (p.x * W) / 100,
-            (p.y * H) / 100,
-            coronaR,
-          );
-          gr.addColorStop(0, `rgba(255,245,200,${op})`);
-          gr.addColorStop(0.15, `rgba(232,201,122,${(op * 0.7).toFixed(3)})`);
-          gr.addColorStop(0.5, `rgba(201,168,76,${(op * 0.2).toFixed(3)})`);
-          gr.addColorStop(1, "rgba(0,0,0,0)");
-          ctx.beginPath();
-          ctx.arc((p.x * W) / 100, (p.y * H) / 100, coronaR, 0, Math.PI * 2);
-          ctx.fillStyle = gr;
-          ctx.fill();
-          ctx.beginPath();
-          ctx.arc((p.x * W) / 100, (p.y * H) / 100, p.r, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(255,250,220,${op})`;
-          ctx.fill();
-        }
-        // ── Shooting stars — desktop only, motion-only effect ──
-        if (!isMobile) {
-          for (const s of shooters) {
-            if (!s.active) {
-              s.timer -= dt;
-              if (s.timer <= 0) {
-                s.x = Math.random() * W * 0.6;
-                s.y = Math.random() * H * 0.5;
-                s.vx = 4 + Math.random() * 5;
-                s.vy = 1 + Math.random() * 2.5;
-                s.len = 60 + Math.random() * 100;
-                s.op = 0.7 + Math.random() * 0.3;
-                s.active = true;
-                s.timer = 18000 + Math.random() * 22000;
-              }
-              continue;
-            }
-            s.x += s.vx;
-            s.y += s.vy;
-            s.op -= 0.012;
-            if (s.op <= 0 || s.x > W + 50 || s.y > H + 50) {
-              s.active = false;
-              continue;
-            }
-            const spd = Math.sqrt(s.vx * s.vx + s.vy * s.vy);
-            const tx = s.x - (s.vx / spd) * s.len,
-              ty = s.y - (s.vy / spd) * s.len;
-            const streak = ctx.createLinearGradient(tx, ty, s.x, s.y);
-            streak.addColorStop(0, "rgba(255,245,200,0)");
-            streak.addColorStop(0.7, `rgba(232,201,122,${(s.op * 0.4).toFixed(3)})`);
-            streak.addColorStop(1, `rgba(255,250,220,${s.op.toFixed(3)})`);
-            ctx.beginPath();
-            ctx.moveTo(tx, ty);
-            ctx.lineTo(s.x, s.y);
-            ctx.strokeStyle = streak;
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-            const hg = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 8);
-            hg.addColorStop(0, `rgba(255,250,220,${s.op})`);
-            hg.addColorStop(1, "rgba(0,0,0,0)");
-            ctx.beginPath();
-            ctx.arc(s.x, s.y, 8, 0, Math.PI * 2);
-            ctx.fillStyle = hg;
-            ctx.fill();
-          }
-        }
-
-        if (!isMobile) {
-          rafId = requestAnimationFrame(frame);
-        }
-      }
-
-      if (isMobile) {
-        frame(performance.now());
-      } else {
-        rafId = requestAnimationFrame(frame);
-      }
-    }
-
-    init();
-    let resizeDebounce: ReturnType<typeof setTimeout> | null = null;
-    const ro = new ResizeObserver(() => {
-      if (resizeDebounce) clearTimeout(resizeDebounce);
-      resizeDebounce = setTimeout(init, 120);
-    });
-    ro.observe(container);
-    return () => {
-      cancelAnimationFrame(rafId);
-      if (retryTimeout) clearTimeout(retryTimeout);
-      if (resizeDebounce) clearTimeout(resizeDebounce);
-      ro.disconnect();
-    };
-  }, [variant, isMobile, nearViewport]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        position: "absolute",
-        inset: 0,
-        width: "100%",
-        height: "100%",
-        pointerEvents: "none",
-        zIndex: 0,
-        display: "block",
-        opacity: ready ? 1 : 0,
-        transition: "opacity 0.9s ease",
-      }}
-    />
-  );
-}
+`;
 
 export default function LandingPage() {
   const isMobile = useIsMobile();
-  const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
-  const [scrollY, setScrollY] = useState(0);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
 
+  // Auth-aware header/footer state — mirrors the previous landing page:
+  // shows Dashboard/Log out when signed in, Log in otherwise, and stays in
+  // sync live if the session changes in another tab.
   useEffect(() => {
     const supabase = createSupabaseBrowser();
     supabase.auth.getSession().then(({ data }) => {
       setUserEmail(data.session?.user?.email ?? null);
     });
-    // Keep this in sync live — e.g. if the account was just deleted or
-    // signed out in another tab, this page shouldn't keep showing a stale
-    // logged-in state.
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUserEmail(session?.user?.email ?? null);
     });
@@ -3371,27 +437,9 @@ export default function LandingPage() {
     setUserEmail(null);
   }
 
-  const [moteParticles] = useState(() =>
-    Array.from({ length: 32 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: Math.random() * 1.2 + 0.4,
-      duration: Math.random() * 20 + 14,
-      delay: Math.random() * 12,
-      opacity: Math.random() * 0.3 + 0.12,
-      driftX: (Math.random() - 0.5) * 28,
-      driftY: (Math.random() - 0.5) * 22,
-      diamond: i % 3 === 0,
-    })),
-  );
-
-  const [featuresRef, featuresVisible] = useReveal();
-  const [activeFeature, setActiveFeature] = useState(0);
-  const [stepsRef, stepsVisible] = useReveal();
-  const [diffRef, diffVisible] = useReveal();
-  const [ctaRef, ctaVisible] = useReveal();
-
+  // Live waitlist count (not currently displayed anywhere on the page —
+  // it wasn't rendered in the previous version either — kept here so it's
+  // available to wire into copy later without another round of plumbing).
   useEffect(() => {
     fetch("/api/waitlist")
       .then((r) => r.json())
@@ -3402,935 +450,269 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
-    const onScroll = () => setScrollY(window.scrollY);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    const cleanup = runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED });
+    return cleanup;
+  }, [isMobile]);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#080808", color: "#f5f0e8", overflowX: "hidden" }}>
-      {/* NAV */}
-      <nav
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 40,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: isMobile ? "14px 16px" : "16px 48px",
-          borderBottom: "1px solid #181818",
-          background: "rgba(8,8,8,0.92)",
-          backdropFilter: "blur(16px)",
-        }}>
-        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-          <span style={{ color: "#c9a84c", fontSize: 18 }}>◈</span>
-          <span
-            style={{
-              fontFamily: "var(--font-display), serif",
-              fontSize: 20,
-              fontWeight: 600,
-              letterSpacing: "0.04em",
-              color: "#f5f0e8",
-            }}>
-            Van
-            <span
-              style={{
-                background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}>
-              tio
-            </span>
-          </span>
-        </Link>
+    <div style={{ minHeight: "100vh", background: "#050507", color: "#f5f0e8", overflowX: "hidden" }}>
+      <style>{`  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #050507; color: #f5f0e8; font-family: var(--font-body), sans-serif; overflow-x: hidden; scrollbar-color: #e8b72d #0c0c0f; scrollbar-width: thin; }
+  ::-webkit-scrollbar { width: 12px; }
+  ::-webkit-scrollbar-track { background: #0c0c0f; }
+  ::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#fac93f,#b3882b); border-radius: 8px; border: 2px solid #0c0c0f; }
+  ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg,#ffdd87,#e8b72d); }
+  .serif { font-family: var(--font-display), serif; }
+  .mono { font-family: "SF Mono", monospace; }
+  .eyebrow { font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase; color: #a0761a; margin-bottom: 20px; text-shadow: 0 0 10px rgba(200,150,40,0.85), 0 0 22px rgba(160,118,26,0.5); }
+  .gold { background: linear-gradient(135deg,#ffdd87 0%,#fac93f 50%,#b3882b 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 14px rgba(250,201,63,0.75)) drop-shadow(0 0 34px rgba(250,201,63,0.5)) drop-shadow(0 0 64px rgba(250,201,63,0.28)); }
+  .btn { display: inline-block; padding: 15px 32px; background: linear-gradient(135deg,#ffd363,#e8b72d); color: #080808; border-radius: 10px; font-weight: 700; font-size: 13px; text-decoration: none; box-shadow: 0 8px 24px rgba(201,168,76,0.4), 0 0 34px rgba(250,201,63,0.22); }
+  .btn, .start-here-btn, .btn-outline { position: relative; overflow: hidden; }
+  .btn::before, .start-here-btn::before, .btn-outline::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(circle 90px at var(--mx, 50%) var(--my, 50%), rgba(250,219,140,0.2625), transparent 70%);
+    opacity: 0; transition: opacity 0.25s ease;
+  }
+  .btn:hover::before, .start-here-btn:hover::before, .btn-outline:hover::before { opacity: 1; }
+  .start-here-btn {
+    display: inline-block; margin-top: 36px; padding: 12px 30px; border-radius: 10px;
+    border: 1.5px solid #e8b72d; background: transparent; color: #fac93f;
+    font-family: var(--font-display), serif; font-size: 20px; font-style: italic; font-weight: 500;
+    text-decoration: none; cursor: pointer; text-shadow: 0 0 10px rgba(250,201,63,0.9), 0 0 22px rgba(250,201,63,0.5);
+    box-shadow: 0 0 18px rgba(232,183,45,0.18);
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .start-here-btn.pressed { background: #e8b72d; color: #080808; text-shadow: none; }
+  .btn-outline {
+    display: inline-block; padding: 15px 32px; border-radius: 10px;
+    border: 1.5px solid #e8b72d; background: transparent; color: #fac93f;
+    font-weight: 700; font-size: 13px; text-decoration: none; cursor: pointer; text-shadow: 0 0 10px rgba(250,201,63,0.9), 0 0 22px rgba(250,201,63,0.5);
+    box-shadow: 0 0 18px rgba(232,183,45,0.18);
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .btn-outline.pressed { background: #e8b72d; color: #080808; text-shadow: none; }
+  .site-header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 32px; background: rgba(5,5,7,0.55); backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(232,183,45,0.12);
+  }
+  .site-header .logo-row { display: flex; align-items: center; gap: 10px; }
+  .site-header .logo-icon { height: 30px; width: auto; display: block; }
+  .site-header .wordmark-img { height: 26px; width: auto; display: block; }
+  .site-header .nav-right { display: flex; align-items: center; gap: 28px; }
+  .site-header .nav-link {
+    font-family: var(--font-body), sans-serif; font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.82);
+    text-decoration: none; transition: color 0.15s ease;
+  }
+  .site-header .nav-link:hover { color: #fac93f; text-shadow: 0 0 8px rgba(250,201,63,0.9), 0 0 18px rgba(250,201,63,0.5); }
+  .site-header .btn-outline { padding: 10px 22px; font-size: 12.5px; }
+  .hero { position: relative; min-height: 1100px; padding: 190px 24px 0; text-align: center; overflow: hidden; z-index: 0; }
+  .nebula-canvas {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%);
+  }
+  .nebula-a { position: absolute; inset: -10%; background: radial-gradient(ellipse 800px 500px at 20% 20%, rgba(90,60,140,0.16), transparent 60%), radial-gradient(ellipse 700px 600px at 80% 15%, rgba(201,168,76,0.1), transparent 55%), radial-gradient(ellipse 900px 500px at 50% 90%, rgba(40,60,120,0.14), transparent 60%); animation: drift 40s ease-in-out infinite alternate; -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 96%); mask-image: linear-gradient(to bottom, black 70%, transparent 96%); }
+  @keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(-2%,1.5%) scale(1.04); } }
+  .stars-small { position:absolute; inset:0; opacity:0.95; background-image:
+    radial-gradient(1.6px 1.6px at 8% 15%, #fff, rgba(255,255,255,0.4) 60%, transparent 100%),
+    radial-gradient(1.4px 1.4px at 22% 60%, #fff, rgba(255,255,255,0.4) 60%, transparent 100%),
+    radial-gradient(2px 2px at 60% 20%, #fff, rgba(255,255,255,0.5) 60%, transparent 100%),
+    radial-gradient(1.6px 1.6px at 85% 35%, #fff, rgba(255,255,255,0.4) 60%, transparent 100%),
+    radial-gradient(2px 2px at 92% 70%, #fff, rgba(255,255,255,0.5) 60%, transparent 100%),
+    radial-gradient(1.4px 1.4px at 38% 40%, #fff, rgba(255,255,255,0.4) 60%, transparent 100%),
+    radial-gradient(1.8px 1.8px at 12% 82%, #fff, rgba(255,255,255,0.45) 60%, transparent 100%),
+    radial-gradient(1.4px 1.4px at 68% 55%, #fff, rgba(255,255,255,0.4) 60%, transparent 100%),
+    radial-gradient(1.6px 1.6px at 50% 8%, #fff, rgba(255,255,255,0.4) 60%, transparent 100%),
+    radial-gradient(1.8px 1.8px at 78% 88%, #fff, rgba(255,255,255,0.45) 60%, transparent 100%),
+    radial-gradient(1.4px 1.4px at 30% 12%, #fff, rgba(255,255,255,0.4) 60%, transparent 100%),
+    radial-gradient(1.6px 1.6px at 95% 50%, #fff, rgba(255,255,255,0.4) 60%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 96%);
+    mask-image: linear-gradient(to bottom, black 70%, transparent 96%); }
+  .demo-wrap { position: relative; margin: 56px auto 0; max-width: 640px; }
+  .demo-glow { position: absolute; inset: -60px; background: radial-gradient(ellipse 70% 60% at 50% 45%, rgba(232,201,122,0.28) 0%, rgba(201,168,76,0.12) 40%, transparent 75%); filter: blur(20px); z-index: 0; pointer-events:none; }
+  .chrome { position:relative; z-index:2; background: rgba(8,8,14,0.97); border: 1px solid rgba(201,168,76,0.22); border-radius: 18px; overflow: hidden; box-shadow: 0 0 0 1px rgba(201,168,76,0.08), 0 40px 90px rgba(0,0,0,0.8); }
+  .chrome-topline { height: 1px; background: linear-gradient(90deg,transparent 5%,rgba(201,168,76,0.5) 50%,transparent 95%); }
+  .chrome-bar { display: flex; align-items: center; gap: 7px; padding: 12px 18px; background: rgba(5,5,10,0.85); border-bottom: 1px solid rgba(201,168,76,0.08); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #16161f; }
 
-        {/* Beta badge — right of logo; desktop only, hidden on mobile to
-            free up space for logo + CTA + hamburger on a narrow header */}
-        {!isMobile && (
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "3px 10px",
-              borderRadius: 999,
-              border: "1px solid rgba(201,168,76,0.2)",
-              background: "rgba(201,168,76,0.04)",
-              marginLeft: 20,
-            }}>
-            <span
-              style={{
-                width: 5,
-                height: 5,
-                borderRadius: "50%",
-                background: "#c9a84c",
-                display: "inline-block",
-                animation: "pulse 2s infinite",
-                flexShrink: 0,
-              }}
-            />
-            <span
-              style={{
-                fontSize: 10,
-                letterSpacing: "0.14em",
-                textTransform: "uppercase",
-                color: "#c9a84c",
-                whiteSpace: "nowrap",
-              }}>
-              Closed Beta
-            </span>
-          </div>
-        )}
+  .stage { position: relative; height: 460px; overflow: hidden; transition: opacity 0.5s ease; }
+  .stage.fading { opacity: 0; }
 
-        {/* Spacer pushes nav links to the right */}
-        <div style={{ flex: 1 }} />
+  #phase1 { position:absolute; inset:0; padding:30px; text-align:left; transition: opacity 0.5s ease, transform 0.7s cubic-bezier(0.65,0,0.35,1); }
+  #phase1.swiping-out { opacity:0; transform: translateX(-100%); }
 
-        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16 }}>
-          {/* Pricing — desktop only; still reachable on mobile via the
-              hamburger menu's Platform section */}
-          {!isMobile && (
-            <Link
-              href="/plans"
-              style={{ fontSize: 13, color: "#555", textDecoration: "none", letterSpacing: "0.06em" }}>
-              Pricing
-            </Link>
-          )}
+  .search-bar { display:flex; align-items:center; gap:10px; background: rgba(255,255,255,0.02); border:1px solid rgba(201,168,76,0.25); border-radius:10px; padding:12px 16px; transition: border-color 0.3s, box-shadow 0.3s; }
+  .search-bar.submitted { border-color: rgba(201,168,76,0.55); box-shadow: 0 0 14px rgba(201,168,76,0.2); }
+  .cursor { display:inline-block; width:2px; height:14px; background:#e8b72d; animation: blink 0.9s infinite; vertical-align:middle; }
+  @keyframes blink { 0%,49% {opacity:1;} 50%,100% {opacity:0;} }
+  .search-submit { font-size:9px; padding:5px 10px; border-radius:6px; background:#e8b72d; color:#080808; font-weight:700; letter-spacing:0.05em; margin-left:auto; transition: transform 0.15s; }
+  .search-submit.clicked { transform: scale(0.92); }
+
+  #loading-block { text-align:center; margin-top:26px; opacity:0; max-height:0; overflow:hidden; transition: opacity 0.4s ease, max-height 0.4s ease; }
+  #loading-block.visible { opacity:1; max-height:200px; }
+  .loader-ring { width:56px; height:56px; margin: 14px auto 14px; }
+  .loader-ring circle { fill:none; stroke-width:3; }
+  .loader-track { stroke:#1a1a1a; }
+  .loader-fill { stroke:#e8b72d; stroke-linecap:round; transform-origin:center; animation: spin 1.4s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .status-text { font-size: 12px; color: #999; text-align:center; height: 18px; }
+
+  #unfold-outer { position: relative; margin-top: 6px; }
+  #unfold-outer::after { content:""; position:absolute; left:0; right:0; bottom:0; height:70px; background: linear-gradient(180deg, transparent, rgba(8,8,14,1)); pointer-events:none; opacity:0; transition: opacity 0.5s ease; }
+  #unfold-outer.faded::after { opacity:1; }
+  #unfold-inner { max-height:0; overflow:hidden; transition: max-height 0.9s cubic-bezier(0.16,1,0.3,1); }
+  #unfold-inner.open { max-height: 500px; }
+  .raw-row { display:flex; align-items:center; gap:12px; padding:9px 4px; border-bottom:1px solid rgba(255,255,255,0.03); opacity:0; animation: riseIn 0.4s ease forwards; }
+  @keyframes riseIn { to { opacity:1; transform:translateY(0); } }
+  .raw-dot { width:5px; height:5px; border-radius:50%; background:#444; flex-shrink:0; }
+
+  .track { position:absolute; top:0; left:100%; display:flex; width:300%; height:100%; transition: transform 0.8s cubic-bezier(0.65,0,0.35,1); }
+  .track-panel {
+    width: 33.333%; height:100%; padding:30px; text-align:left; box-sizing:border-box;
+    overflow-y:auto; scroll-behavior: smooth; pointer-events: none;
+    scrollbar-width: none; -ms-overflow-style: none;
+  }
+  .track-panel::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+  .score-card { display:flex; align-items:flex-start; gap:16px; padding:14px; border:1px solid rgba(201,168,76,0.1); border-radius:12px; margin-bottom:10px; background: rgba(255,255,255,0.015); opacity:0; transform: translateY(10px); animation: riseIn2 0.6s ease forwards; transition: border-color 0.3s, box-shadow 0.3s, background 0.3s; }
+  .score-card.pressed { border-color: rgba(201,168,76,0.5); box-shadow: 0 0 20px rgba(201,168,76,0.15); background: rgba(201,168,76,0.03); }
+  @keyframes riseIn2 { to { opacity:1; transform:translateY(0); } }
+  .score-num-wrap { text-align:center; width: 74px; flex-shrink:0; }
+  .score-num { font-size: 28px; font-weight: 600; }
+  .score-underline { width: 20px; height: 2px; margin: 3px auto 8px; border-radius: 1px; }
+  .subscore-2x2 { display:grid; grid-template-columns: repeat(2,1fr); gap: 5px 8px; }
+  .subscore-label { font-size: 7.5px; color: #666; text-transform:uppercase; letter-spacing:0.04em; }
+  .subscore-val { font-size: 10px; font-weight: 600; margin-top: 1px; }
+  .prep-btn { font-size:10px; padding:5px 12px; border:1px solid #e8b72d; border-radius:7px; color:#fac93f; font-weight:600; display:inline-block; margin-top:10px; text-shadow: 0 0 6px rgba(250,201,63,0.9), 0 0 16px rgba(250,201,63,0.5); box-shadow: 0 0 12px rgba(232,183,45,0.15); transition: background 0.25s, color 0.25s, transform 0.15s; }
+  .prep-btn.clicked { background:#e8b72d; color:#080808; transform: scale(0.95); }
+
+  .chip { font-size:10px; padding:6px 12px; border-radius:8px; border:1px solid rgba(201,168,76,0.2); color:#888; transition: border-color 0.25s, color 0.25s, background 0.25s; }
+  .chip.active { border-color:#fac93f; color:#fac93f; background: rgba(201,168,76,0.08); text-shadow: 0 0 6px rgba(250,201,63,0.9), 0 0 16px rgba(250,201,63,0.5); box-shadow: 0 0 12px rgba(232,183,45,0.15); }
+  #send-btn.sent { background: linear-gradient(135deg,#4ade80,#22c55e); }
+
+  /* ── Cursor: appears before each click, fades out after ── */
+  #cursor-el { position:absolute; width:16px; height:16px; z-index:50; opacity:0; pointer-events:none; transition: left 0.75s cubic-bezier(0.65,0,0.35,1), top 0.75s cubic-bezier(0.65,0,0.35,1), opacity 0.3s ease; }
+  #cursor-el svg { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
+  #cursor-el.visible { opacity:1; }
+  #cursor-el.clicking svg { animation: clickPulse 0.35s ease; }
+  @keyframes clickPulse { 0% { transform: scale(1); } 40% { transform: scale(0.75); } 100% { transform: scale(1); } }
+  .click-ring { position:absolute; top:50%; left:50%; width:16px; height:16px; margin:-8px 0 0 -8px; border-radius:50%; border:1.5px solid #e8b72d; opacity:0; pointer-events:none; }
+  .click-ring.pinging { animation: ringPing 0.5s ease-out; }
+  @keyframes ringPing { 0% { opacity:0.8; transform:scale(0.4); } 100% { opacity:0; transform:scale(2.2); } }
+
+  /* ── Classes from the full landing page structure demo ── */
+  .section { padding: 130px 24px; max-width: 1100px; margin: 0 auto; position: relative; z-index: 0; }
+  .section::before, .section::after {
+    content: ""; position: absolute; left: 0; right: 0; height: 110px; pointer-events: none; z-index: 0;
+  }
+  .section::before { top: 0; background: linear-gradient(to bottom, #050507 0%, transparent 100%); }
+  .section::after { bottom: 0; background: linear-gradient(to top, #050507 0%, transparent 100%); }
+  .section-label { position: absolute; top: 40px; left: 24px; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: #2a2a2a; font-family: monospace; }
+  h2 { font-family: var(--font-display), serif; font-size: clamp(38px,5vw,58px); font-weight: 300; line-height: 1.1; letter-spacing: -0.01em; margin-bottom: 22px; }
+  .lead { font-size: 18px; color: #9c9689; max-width: 620px; line-height: 1.65; font-weight: 300; }
+  .divider { height: 1px; background: linear-gradient(90deg,transparent,rgba(201,168,76,0.22),transparent); position: relative; }
+  .divider::after { content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 60%; height: 140px; background: radial-gradient(ellipse at 50% 50%, rgba(201,168,76,0.08) 0%, transparent 70%); pointer-events: none; }
+  .divider-quiet::after { content: none; }
+  .divider-glow-down::after { transform: translate(-50%, 0%); height: 180px; }
+  .divider-glow-up::after { transform: translate(-50%, -100%); height: 180px; }
+  .stars { position: absolute; inset: 0; pointer-events: none; opacity: 0.9; background-image:
+    radial-gradient(1.8px 1.8px at 15% 25%, #ffdd87, rgba(250,201,63,0.5) 60%, transparent 100%),
+    radial-gradient(1.6px 1.6px at 75% 10%, #ffdd87, rgba(250,201,63,0.5) 60%, transparent 100%),
+    radial-gradient(2px 2px at 45% 60%, #ffdd87, rgba(250,201,63,0.55) 60%, transparent 100%),
+    radial-gradient(1.6px 1.6px at 90% 70%, #ffdd87, rgba(250,201,63,0.5) 60%, transparent 100%),
+    radial-gradient(1.8px 1.8px at 25% 85%, #ffdd87, rgba(250,201,63,0.5) 60%, transparent 100%),
+    radial-gradient(1.4px 1.4px at 55% 18%, #ffdd87, rgba(250,201,63,0.45) 60%, transparent 100%),
+    radial-gradient(1.8px 1.8px at 8% 55%, #ffdd87, rgba(250,201,63,0.5) 60%, transparent 100%),
+    radial-gradient(1.6px 1.6px at 65% 45%, #ffdd87, rgba(250,201,63,0.45) 60%, transparent 100%),
+    radial-gradient(2px 2px at 35% 35%, #ffdd87, rgba(250,201,63,0.55) 60%, transparent 100%),
+    radial-gradient(1.4px 1.4px at 95% 25%, #ffdd87, rgba(250,201,63,0.45) 60%, transparent 100%),
+    radial-gradient(1.8px 1.8px at 5% 90%, #ffdd87, rgba(250,201,63,0.5) 60%, transparent 100%),
+    radial-gradient(1.6px 1.6px at 82% 92%, #ffdd87, rgba(250,201,63,0.45) 60%, transparent 100%); }
+
+  .panel { position: relative; border-radius: 18px; border: 1px solid rgba(201,168,76,0.35); background: linear-gradient(160deg, rgba(20,18,14,0.92) 0%, rgba(8,8,10,0.97) 100%); padding: 26px; overflow: hidden; }
+  .corner-glow { position: absolute; width: 60px; height: 60px; pointer-events: none; border-radius: 50%; filter: blur(16px); }
+  .cg-tl { top: -20px; left: -20px; background: radial-gradient(circle, rgba(232,201,122,0.5), transparent 70%); }
+  .cg-br { bottom: -20px; right: -20px; background: radial-gradient(circle, rgba(232,201,122,0.5), transparent 70%); }
+
+  /* ── Section 2 variant: the BORDER LINE itself is lit, bright at the
+     top-left (light source) fading to shadow at the bottom-right - not
+     a background fill inside the card. Uses the padding-box/border-box
+     double-background trick so only the border ring is affected. ── */
+  .panel-lit {
+    border: 1.5px solid transparent;
+    background:
+      radial-gradient(ellipse 190% 30% at 0% 0%, rgba(232,201,122,0.16) 0%, rgba(232,201,122,0.06) 45%, transparent 80%) padding-box,
+      linear-gradient(160deg, rgba(20,18,14,0.92) 0%, rgba(8,8,10,0.97) 100%) padding-box,
+      radial-gradient(ellipse 150% 55% at 0% 0%, rgba(255,248,225,1) 0%, rgba(232,201,122,0.6) 30%, rgba(80,66,32,0.22) 65%, rgba(20,17,10,0.15) 100%) border-box;
+  }
+  .card-glow { transition: transform 1s ease-out, box-shadow 1s ease-out; }
+  .card-glow-blue:hover { transition: transform 0.25s ease, box-shadow 0.25s ease; transform: translateY(-4px); box-shadow: 0 12px 40px rgba(90,150,230,0.35); }
+  .card-glow-gold:hover { transition: transform 0.25s ease, box-shadow 0.25s ease; transform: translateY(-4px); box-shadow: 0 12px 40px rgba(250,201,63,0.35); }
+  .card-glow-amber:hover { transition: transform 0.25s ease, box-shadow 0.25s ease; transform: translateY(-4px); box-shadow: 0 12px 40px rgba(230,150,70,0.35); }
+  .card-glow-green:hover { transition: transform 0.25s ease, box-shadow 0.25s ease; transform: translateY(-4px); box-shadow: 0 12px 40px rgba(74,222,128,0.35); }
+  .card-glow-red:hover { transition: transform 0.25s ease, box-shadow 0.25s ease; transform: translateY(-4px); box-shadow: 0 12px 40px rgba(232,138,138,0.35); }
+
+  .icon-badge { width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(201,168,76,0.45); background: rgba(201,168,76,0.06); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .icon-badge svg { width: 16px; height: 16px; stroke: #ffd363; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .list-row { display: flex; align-items: center; gap: 14px; padding: 9px 0; }
+`}</style>
+
+      <header className="site-header">
+        <div className="logo-row">
+          <img className="logo-icon" src="/vantio-mark.png" alt="Vantio" />
+          <img className="wordmark-img" src="/vantio-wordmark.png" alt="Vantio" />
+        </div>
+        <div className="nav-right">
+          <Link href="/plans" className="nav-link">
+            Pricing
+          </Link>
           <Link
             href="/login"
-            style={{
-              fontSize: isMobile ? 12 : 13,
-              padding: isMobile ? "7px 12px" : "8px 18px",
-              borderRadius: 8,
-              border: "1px solid rgba(201,168,76,0.3)",
-              color: "#c9a84c",
-              textDecoration: "none",
-              letterSpacing: "0.06em",
-              whiteSpace: "nowrap",
+            className="btn-outline"
+            onClick={(e) => {
+              const el = e.currentTarget;
+              el.classList.add("pressed");
+              setTimeout(() => el.classList.remove("pressed"), 1000);
             }}>
-            {isMobile ? "Early Access" : "Get Early Access"}
+            Join the beta &#8594;
           </Link>
           {userEmail ? (
             <>
-              <Link
-                href="/dashboard"
-                style={{
-                  fontSize: isMobile ? 12 : 13,
-                  padding: isMobile ? "7px 12px" : "8px 18px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(201,168,76,0.3)",
-                  color: "#c9a84c",
-                  textDecoration: "none",
-                  letterSpacing: "0.06em",
-                  whiteSpace: "nowrap",
-                }}>
+              <Link href="/dashboard" className="btn-outline">
                 Dashboard
               </Link>
               <button
                 type="button"
                 onClick={handleLandingSignOut}
-                style={{
-                  fontSize: isMobile ? 12 : 13,
-                  padding: isMobile ? "7px 12px" : "8px 18px",
-                  borderRadius: 8,
-                  border: "1px solid #252525",
-                  color: "#666",
-                  background: "none",
-                  cursor: "pointer",
-                  letterSpacing: "0.06em",
-                  whiteSpace: "nowrap",
-                }}>
+                className="btn-outline"
+                style={{ background: "none", cursor: "pointer" }}>
                 Log out
               </button>
             </>
           ) : (
             <Link
               href="/login"
-              style={{
-                fontSize: isMobile ? 12 : 13,
-                padding: isMobile ? "7px 12px" : "8px 18px",
-                borderRadius: 8,
-                border: "1px solid #252525",
-                color: "#888",
-                textDecoration: "none",
-                letterSpacing: "0.06em",
-                whiteSpace: "nowrap",
+              className="btn-outline"
+              onClick={(e) => {
+                const el = e.currentTarget;
+                el.classList.add("pressed");
+                setTimeout(() => el.classList.remove("pressed"), 1000);
               }}>
               Log in
             </Link>
           )}
         </div>
-      </nav>
+      </header>
 
-      {/* HERO */}
-      <HeroScene scrollY={scrollY} waitlistCount={waitlistCount} />
+      <div dangerouslySetInnerHTML={{ __html: SECTIONS_HTML }} />
 
-      {/* STAT BAR */}
-      <StatBar />
-
-      {/* Section boundary glow */}
-      <div
+      <footer
         style={{
-          height: 1,
-          background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.18), transparent)",
-          position: "relative",
-          margin: "0",
-        }}>
-        <div
-          style={{
-            position: "absolute",
-            left: "50%",
-            top: "50%",
-            transform: "translate(-50%,-50%)",
-            width: "80%",
-            height: 160,
-            background: "radial-gradient(ellipse at 50% 50%, rgba(201,168,76,0.09) 0%, transparent 65%)",
-            pointerEvents: "none",
-          }}
-        />
-      </div>
-
-      {/* FEATURES */}
-      <div ref={featuresRef} style={{ position: "relative", background: "#060608", overflow: "hidden" }}>
-        <GalaxySectionBg variant="features" />
-        {/* Mote particle field — absolutely covers the full section, no overflow clip */}
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
-          {moteParticles.map((p) => (
-            <div
-              key={p.id}
-              style={{
-                position: "absolute",
-                left: `${p.x}%`,
-                top: `${p.y}%`,
-                width: p.size + 1,
-                height: p.size + 1,
-                background: p.diamond ? "transparent" : "#c9a84c",
-                border: p.diamond ? "1px solid rgba(201,168,76,0.7)" : "none",
-                borderRadius: p.diamond ? "0" : "50%",
-                transform: p.diamond ? "rotate(45deg)" : "none",
-                opacity: p.opacity * 2.5,
-                animation: isMobile
-                  ? "none"
-                  : `moteDrift${p.id % 4} ${p.duration}s ease-in-out ${p.delay}s infinite alternate`,
-              }}
-            />
-          ))}
-        </div>
-        <section style={{ padding: "96px 24px", maxWidth: 1100, margin: "0 auto", position: "relative", zIndex: 1 }}>
-          <div
-            style={{
-              marginBottom: 64,
-              textAlign: "center",
-              opacity: featuresVisible ? 1 : 0,
-              transform: featuresVisible ? "none" : "translateY(30px)",
-              transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)",
-            }}>
-            <GoldText
-              as="p"
-              style={{
-                fontSize: 11,
-                letterSpacing: "0.2em",
-                textTransform: "uppercase",
-                color: "#8a6e30",
-                marginBottom: 16,
-              }}>
-              What Vantio does
-            </GoldText>
-            <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(32px,5vw,52px)", fontWeight: 300 }}>
-              Not a lead list.{" "}
-              <GoldText
-                as="em"
-                style={{
-                  fontStyle: "italic",
-                  background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                }}>
-                Lead intelligence.
-              </GoldText>
-            </h2>
-          </div>
-          {isMobile ? (
-            <div>
-              {/* Swipeable card rail — native scroll-snap, no JS animation.
-                  Bleeds to the screen edges so the next card peeks in,
-                  which is the visual cue that the row swipes. */}
-              <div
-                className="vantio-feature-rail"
-                onScroll={(e) => {
-                  const el = e.currentTarget;
-                  const per = (el.scrollWidth - el.clientWidth) / (FEATURES.length - 1);
-                  if (per > 0)
-                    setActiveFeature(Math.min(FEATURES.length - 1, Math.max(0, Math.round(el.scrollLeft / per))));
-                }}
-                style={{
-                  display: "flex",
-                  gap: 14,
-                  overflowX: "auto",
-                  scrollSnapType: "x mandatory",
-                  WebkitOverflowScrolling: "touch",
-                  margin: "0 -24px",
-                  padding: "4px 24px 8px",
-                  scrollPaddingLeft: 24,
-                  scrollbarWidth: "none",
-                }}>
-                {FEATURES.map((f, i) => (
-                  <div key={i} style={{ flex: "0 0 82%", scrollSnapAlign: "center" }}>
-                    <FeatureCard f={f} i={i} visible={featuresVisible} active={i === activeFeature} />
-                  </div>
-                ))}
-              </div>
-              {/* Dot indicators */}
-              <div style={{ display: "flex", justifyContent: "center", gap: 7, marginTop: 20 }}>
-                {FEATURES.map((_, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      width: i === activeFeature ? 18 : 6,
-                      height: 6,
-                      borderRadius: 999,
-                      background: i === activeFeature ? "#c9a84c" : "#2a2a2a",
-                      transition: "all 0.3s cubic-bezier(0.16,1,0.3,1)",
-                    }}
-                  />
-                ))}
-              </div>
-              <style>{`.vantio-feature-rail::-webkit-scrollbar{display:none}`}</style>
-            </div>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
-              {FEATURES.map((f, i) => (
-                <FeatureCard key={i} f={f} i={i} visible={featuresVisible} />
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
-
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px" }}>
-        <div
-          style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.12), transparent)" }}
-        />
-      </div>
-
-      {/* HOW IT WORKS */}
-      {/* Section boundary glow */}
-      <div
-        style={{
-          height: 1,
-          background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.15), transparent)",
+          borderTop: "1px solid rgba(232,183,45,0.12)",
+          padding: "32px 48px",
           position: "relative",
         }}>
-        <div
-          style={{
-            position: "absolute",
-            left: "50%",
-            top: "50%",
-            transform: "translate(-50%,-50%)",
-            width: "70%",
-            height: 160,
-            background: "radial-gradient(ellipse at 50% 50%, rgba(201,168,76,0.08) 0%, transparent 65%)",
-            pointerEvents: "none",
-          }}
-        />
-      </div>
-
-      <div ref={stepsRef}>
-        <section
-          id="how-it-works"
-          style={{ padding: isMobile ? "72px 20px" : "112px 48px", maxWidth: 960, margin: "0 auto" }}>
-          <div
-            style={{
-              marginBottom: 64,
-              textAlign: "center",
-              opacity: stepsVisible ? 1 : 0,
-              transform: stepsVisible ? "none" : "translateY(30px)",
-              transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)",
-            }}>
-            <GoldText
-              as="p"
-              style={{
-                fontSize: 11,
-                letterSpacing: "0.2em",
-                textTransform: "uppercase",
-                color: "#8a6e30",
-                marginBottom: 16,
-              }}>
-              The process
-            </GoldText>
-            <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: "clamp(32px,5vw,52px)", fontWeight: 300 }}>
-              From search to{" "}
-              <GoldText
-                as="em"
-                style={{
-                  fontStyle: "italic",
-                  background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                }}>
-                signed client.
-              </GoldText>
-            </h2>
-          </div>
-          <StepsSection visible={stepsVisible} scrollY={scrollY} />
-        </section>
-      </div>
-
-      {/* Section boundary glow */}
-      <div
-        style={{
-          height: 1,
-          background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.2), transparent)",
-          position: "relative",
-        }}>
-        <div
-          style={{
-            position: "absolute",
-            left: "50%",
-            top: "50%",
-            transform: "translate(-50%,-50%)",
-            width: "85%",
-            height: 180,
-            background: "radial-gradient(ellipse at 50% 50%, rgba(201,168,76,0.10) 0%, transparent 65%)",
-            pointerEvents: "none",
-          }}
-        />
-      </div>
-
-      {/* DIFFERENTIATOR — cinematic rebuild */}
-      <div ref={diffRef}>
-        <GlowSection
-          style={{ background: "#050505", borderTop: "1px solid #0e0e0e", overflow: "hidden" }}
-          glowColor="rgba(201,168,76,0.06)">
-          <section style={{ padding: isMobile ? "72px 20px 60px" : "120px 24px 100px", position: "relative" }}>
-            {/* Background ambient glow behind Vantio column */}
-            <div
-              style={{
-                position: "absolute",
-                left: "50%",
-                top: "40%",
-                transform: "translate(-50%,-50%)",
-                width: 600,
-                height: 600,
-                borderRadius: "50%",
-                background: "radial-gradient(circle, rgba(201,168,76,0.06) 0%, transparent 65%)",
-                pointerEvents: "none",
-                filter: "blur(40px)",
-              }}
-            />
-
-            {/* Giant Scarabynth-style backdrop text — desktop only; at 80px+ it
-                overflows a phone viewport and fights the stacked layout */}
-            {!isMobile && (
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  pointerEvents: "none",
-                  overflow: "hidden",
-                }}>
-                <p
-                  style={{
-                    fontFamily: "var(--font-display), serif",
-                    fontSize: "clamp(80px, 14vw, 180px)",
-                    fontWeight: 700,
-                    letterSpacing: "-0.04em",
-                    color: "transparent",
-                    WebkitTextStroke: "1px rgba(201,168,76,0.07)",
-                    whiteSpace: "nowrap",
-                    userSelect: "none",
-                    opacity: diffVisible ? 1 : 0,
-                    transition: "opacity 1.2s ease",
-                  }}>
-                  INTELLIGENCE
-                </p>
-              </div>
-            )}
-
-            <div style={{ maxWidth: 1100, margin: "0 auto", position: "relative", zIndex: 1 }}>
-              {/* Header */}
-              <div
-                style={{
-                  marginBottom: isMobile ? 40 : 80,
-                  textAlign: "center",
-                  opacity: diffVisible ? 1 : 0,
-                  transform: diffVisible ? "none" : "translateY(40px)",
-                  transition: "all 0.9s cubic-bezier(0.16,1,0.3,1)",
-                }}>
-                <GoldText
-                  as="p"
-                  style={{
-                    fontSize: 11,
-                    letterSpacing: "0.25em",
-                    textTransform: "uppercase",
-                    color: "#8a6e30",
-                    marginBottom: 20,
-                  }}>
-                  Why Vantio is different
-                </GoldText>
-                <h2
-                  style={{
-                    fontFamily: "var(--font-display), serif",
-                    fontSize: "clamp(36px,5.5vw,64px)",
-                    fontWeight: 300,
-                    lineHeight: 1.05,
-                    letterSpacing: "-0.02em",
-                  }}>
-                  Other tools give you names.
-                  <br />
-                  <em
-                    style={{
-                      fontStyle: "italic",
-                      fontWeight: 600,
-                      background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 50%, #8a6e30 100%)",
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                    }}>
-                    We give you reasons.
-                  </em>
-                </h2>
-              </div>
-
-              {/* Three floating cards — Vantio physically elevated on desktop;
-                  on mobile Vantio leads the stack, alternatives follow compacted */}
-              {(() => {
-                const cols = [
-                  {
-                    label: "Typical lead lists",
-                    icon: "✗",
-                    iconColor: "#444",
-                    highlight: false,
-                    desc: "A spreadsheet of names. No context, no scoring, no guidance.",
-                    points: [
-                      "Name, phone, address only",
-                      "No scoring or context",
-                      "Same list for everyone",
-                      "Manual research required",
-                      "No outreach guidance",
-                    ],
-                    delay: 0,
-                  },
-                  {
-                    label: "Vantio",
-                    icon: "◈",
-                    iconColor: "#c9a84c",
-                    highlight: true,
-                    desc: "Signal-driven intelligence matched to your exact service profile.",
-                    points: [
-                      "Signal-driven lead score",
-                      "Gap type + pitch angle",
-                      "Matched to your profile",
-                      "Website signals auto-scanned",
-                      "AI outreach from your offer",
-                    ],
-                    delay: 120,
-                  },
-                  {
-                    label: "Manual research",
-                    icon: "✗",
-                    iconColor: "#444",
-                    highlight: false,
-                    desc: "1–2 hours per lead. Inconsistent. Impossible to scale.",
-                    points: [
-                      "Hours per lead",
-                      "Inconsistent judgment",
-                      "No structured scoring",
-                      "Easy to miss signals",
-                      "Hard to scale",
-                    ],
-                    delay: 240,
-                  },
-                ];
-                // Mobile: Vantio first, then the alternatives. Desktop: original order.
-                const ordered = isMobile ? [cols[1], cols[0], cols[2]] : cols;
-
-                const renderCard = (col: (typeof cols)[0], i: number) => {
-                  const compact = isMobile && !col.highlight;
-                  return (
-                    <div
-                      key={col.label}
-                      style={{
-                        borderRadius: 20,
-                        border: col.highlight ? "1px solid rgba(201,168,76,0.25)" : "1px solid #111",
-                        background: col.highlight
-                          ? "linear-gradient(160deg, rgba(201,168,76,0.07) 0%, rgba(201,168,76,0.02) 100%)"
-                          : "#080808",
-                        padding: compact ? "24px 20px" : "36px 28px",
-                        position: "relative",
-                        overflow: "hidden",
-                        opacity: diffVisible ? 1 : 0,
-                        transform: diffVisible
-                          ? !isMobile && col.highlight
-                            ? "translateY(-20px)"
-                            : "translateY(0)"
-                          : "translateY(50px)",
-                        transition: `all 0.8s cubic-bezier(0.16,1,0.3,1) ${isMobile ? i * 100 : col.delay}ms`,
-                        boxShadow: col.highlight
-                          ? "0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(201,168,76,0.12), 0 40px 60px rgba(201,168,76,0.06)"
-                          : "0 8px 32px rgba(0,0,0,0.4)",
-                      }}>
-                      {/* Spotlight underneath Vantio card */}
-                      {col.highlight && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            bottom: -40,
-                            left: "50%",
-                            transform: "translateX(-50%)",
-                            width: 300,
-                            height: 80,
-                            background: "radial-gradient(ellipse, rgba(201,168,76,0.18) 0%, transparent 70%)",
-                            filter: "blur(16px)",
-                            pointerEvents: "none",
-                          }}
-                        />
-                      )}
-                      {/* Top edge accent */}
-                      {col.highlight && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: 0,
-                            left: "15%",
-                            right: "15%",
-                            height: 1,
-                            background: "linear-gradient(90deg, transparent, #c9a84c, transparent)",
-                          }}
-                        />
-                      )}
-
-                      {/* Header */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: compact ? 10 : 16 }}>
-                        <span style={{ fontSize: col.highlight ? 20 : 14, color: col.iconColor }}>{col.icon}</span>
-                        <p
-                          style={{
-                            fontSize: col.highlight ? 16 : 13,
-                            fontWeight: 700,
-                            letterSpacing: "0.04em",
-                            color: col.highlight ? "#e8c97a" : "#888",
-                          }}>
-                          {col.label}
-                        </p>
-                        {col.highlight && (
-                          <span
-                            style={{
-                              fontSize: 9,
-                              padding: "2px 8px",
-                              borderRadius: 999,
-                              background: "rgba(201,168,76,0.15)",
-                              color: "#c9a84c",
-                              letterSpacing: "0.12em",
-                              textTransform: "uppercase",
-                              marginLeft: "auto",
-                            }}>
-                            You are here
-                          </span>
-                        )}
-                      </div>
-
-                      <p
-                        style={{
-                          fontSize: 12,
-                          color: col.highlight ? "#888" : "#666",
-                          lineHeight: 1.6,
-                          marginBottom: compact ? 14 : 24,
-                        }}>
-                        {col.desc}
-                      </p>
-
-                      {/* Divider */}
-                      <div
-                        style={{
-                          height: 1,
-                          background: col.highlight ? "rgba(201,168,76,0.1)" : "#111",
-                          marginBottom: compact ? 12 : 20,
-                        }}
-                      />
-
-                      {/* Points */}
-                      <div style={{ display: "flex", flexDirection: "column", gap: compact ? 8 : 11 }}>
-                        {col.points.map((pt, j) => (
-                          <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                            <span
-                              style={{
-                                fontSize: 10,
-                                color: col.highlight ? "#4ade80" : "#2a2a2a",
-                                flexShrink: 0,
-                                marginTop: 2,
-                              }}>
-                              {col.highlight ? "✓" : "—"}
-                            </span>
-                            <p style={{ fontSize: 12, lineHeight: 1.5, color: col.highlight ? "#999" : "#666" }}>
-                              {pt}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                };
-
-                if (isMobile) {
-                  return (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                      {renderCard(ordered[0], 0)}
-                      {/* Divider label between Vantio and the alternatives */}
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 12,
-                          margin: "10px 0 2px",
-                          opacity: diffVisible ? 1 : 0,
-                          transition: "opacity 0.8s ease 200ms",
-                        }}>
-                        <div style={{ flex: 1, height: 1, background: "#151515" }} />
-                        <span
-                          style={{
-                            fontSize: 9,
-                            letterSpacing: "0.18em",
-                            textTransform: "uppercase",
-                            color: "#555",
-                            fontFamily: "monospace",
-                          }}>
-                          Compared to the alternatives
-                        </span>
-                        <div style={{ flex: 1, height: 1, background: "#151515" }} />
-                      </div>
-                      {renderCard(ordered[1], 1)}
-                      {renderCard(ordered[2], 2)}
-                    </div>
-                  );
-                }
-                return (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1.15fr 1fr", gap: 16, alignItems: "end" }}>
-                    {ordered.map((col, i) => renderCard(col, i))}
-                  </div>
-                );
-              })()}
-            </div>
-          </section>
-        </GlowSection>
-      </div>
-
-      {/* Section boundary glow */}
-      <div
-        style={{
-          height: 1,
-          background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.15), transparent)",
-          position: "relative",
-        }}>
-        <div
-          style={{
-            position: "absolute",
-            left: "50%",
-            top: "50%",
-            transform: "translate(-50%,-50%)",
-            width: "70%",
-            height: 160,
-            background: "radial-gradient(ellipse at 50% 50%, rgba(201,168,76,0.08) 0%, transparent 65%)",
-            pointerEvents: "none",
-          }}
-        />
-      </div>
-
-      {/* CTA — cinematic closer */}
-      <div ref={ctaRef}>
-        <section
-          style={{
-            position: "relative",
-            overflow: "hidden",
-            background: "#060608",
-            minHeight: "100vh",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "clamp(80px,12vh,140px) 24px clamp(60px,10vh,120px)",
-          }}>
-          <GalaxySectionBg variant="cta" />
-
-          {/* Dense gold particle field — echoes the hero galaxy */}
-          {ctaVisible &&
-            Array.from({ length: 50 }, (_, i) => ({
-              id: i,
-              x: Math.sin(i * 2.4) * 50 + 50,
-              y: Math.cos(i * 1.7) * 50 + 50,
-              size: i % 4 === 0 ? 2.5 : 1,
-              opacity: i % 5 === 0 ? 0.35 : 0.12,
-              duration: 8 + (i % 7) * 2,
-              delay: (i % 6) * 1.5,
-            })).map((p) => (
-              <div
-                key={p.id}
-                style={{
-                  position: "absolute",
-                  left: `${p.x}%`,
-                  top: `${p.y}%`,
-                  width: p.size,
-                  height: p.size,
-                  borderRadius: "50%",
-                  background: "#c9a84c",
-                  opacity: p.opacity,
-                  animation: isMobile
-                    ? "none"
-                    : `particleDrift ${p.duration}s ease-in-out ${p.delay}s infinite alternate`,
-                  pointerEvents: "none",
-                }}
-              />
-            ))}
-
-          {/* Deep ambient glow */}
-          <div
-            style={{
-              position: "absolute",
-              bottom: -100,
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: 800,
-              height: 400,
-              borderRadius: "50%",
-              background: "radial-gradient(ellipse, rgba(201,168,76,0.1) 0%, transparent 65%)",
-              filter: "blur(60px)",
-              pointerEvents: "none",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              top: -50,
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: 600,
-              height: 200,
-              borderRadius: "50%",
-              background: "radial-gradient(ellipse, rgba(201,168,76,0.05) 0%, transparent 70%)",
-              filter: "blur(40px)",
-              pointerEvents: "none",
-            }}
-          />
-
-          <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
-            {/* Eyebrow */}
-            <GoldText
-              as="p"
-              style={{
-                fontSize: 11,
-                letterSpacing: "0.3em",
-                textTransform: "uppercase",
-                color: "#8a6e30",
-                marginBottom: 32,
-                opacity: ctaVisible ? 1 : 0,
-                transition: "opacity 0.8s ease",
-              }}>
-              Join the beta
-            </GoldText>
-
-            {/* Giant headline — Scarabynth scale */}
-            <h2
-              style={{
-                fontFamily: "var(--font-display), serif",
-                fontSize: "clamp(52px, 9vw, 110px)",
-                fontWeight: 300,
-                lineHeight: 0.95,
-                letterSpacing: "-0.03em",
-                marginBottom: 40,
-                opacity: ctaVisible ? 1 : 0,
-                transform: ctaVisible ? "none" : "translateY(40px)",
-                transition: "all 1s cubic-bezier(0.16,1,0.3,1) 0.1s",
-              }}>
-              Stop guessing.
-              <br />
-              <GoldText
-                as="em"
-                style={{
-                  fontStyle: "italic",
-                  fontWeight: 600,
-                  background: "linear-gradient(135deg, #e8c97a 0%, #c9a84c 45%, #8a6e30 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                }}>
-                Start converting.
-              </GoldText>
-            </h2>
-
-            {/* Animated gold rule */}
-            <div
-              style={{
-                height: 1,
-                background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.4), transparent)",
-                marginBottom: 40,
-                maxWidth: 480,
-                margin: "0 auto 40px",
-                transform: ctaVisible ? "scaleX(1)" : "scaleX(0)",
-                transition: "transform 1s cubic-bezier(0.16,1,0.3,1) 0.4s",
-                transformOrigin: "center",
-              }}
-            />
-
-            {/* Subtext */}
-            <p
-              style={{
-                fontSize: 15,
-                color: "#908880",
-                maxWidth: 520,
-                margin: "0 auto 56px",
-                lineHeight: 1.75,
-                opacity: ctaVisible ? 1 : 0,
-                transition: "opacity 0.8s ease 0.5s",
-              }}>
-              We&apos;re opening beta access to a limited number of service providers. Create your profile now and get
-              matched leads from day one.
-            </p>
-
-            {/* CTA button in a gold pool */}
-            <div style={{ position: "relative", display: "inline-block" }}>
-              <div
-                style={{
-                  position: "absolute",
-                  inset: -40,
-                  borderRadius: "50%",
-                  background: "radial-gradient(ellipse, rgba(201,168,76,0.15) 0%, transparent 70%)",
-                  filter: "blur(20px)",
-                  pointerEvents: "none",
-                  opacity: ctaVisible ? 1 : 0,
-                  transition: "opacity 1s ease 0.8s",
-                }}
-              />
-              <div
-                style={{
-                  opacity: ctaVisible ? 1 : 0,
-                  transform: ctaVisible ? "none" : "translateY(20px)",
-                  transition: "all 0.8s cubic-bezier(0.16,1,0.3,1) 0.7s",
-                }}>
-                <GlowButton
-                  href="/login"
-                  style={{
-                    padding: "18px 48px",
-                    borderRadius: 14,
-                    background: "#c9a84c",
-                    color: "#080808",
-                    fontWeight: 700,
-                    fontSize: 15,
-                    letterSpacing: "0.06em",
-                    textDecoration: "none",
-                    boxShadow: "0 12px 50px rgba(201,168,76,0.3), 0 4px 20px rgba(201,168,76,0.2)",
-                  }}>
-                  Create Your Profile — It&apos;s Free
-                </GlowButton>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      {/* FOOTER */}
-      <footer style={{ borderTop: "1px solid #111", padding: "32px 48px" }}>
         <div
           style={{
             maxWidth: 1100,
@@ -4342,8 +724,8 @@ export default function LandingPage() {
             gap: 16,
           }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ color: "#8a6e30", fontSize: 14 }}>◈</span>
-            <span style={{ fontFamily: "var(--font-display), serif", fontSize: 14, color: "#333" }}>Vantio</span>
+            <img src="/vantio-mark.png" alt="Vantio" style={{ height: 18, width: "auto" }} />
+            <img src="/vantio-wordmark.png" alt="Vantio" style={{ height: 14, width: "auto" }} />
           </div>
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
             {[
@@ -4352,62 +734,16 @@ export default function LandingPage() {
               ["Privacy", "/privacy"],
               ["Terms", "/terms"],
             ].map(([label, href]) => (
-              <Link key={label} href={href} style={{ fontSize: 12, color: "#333", textDecoration: "none" }}>
+              <Link key={label} href={href} className="nav-link" style={{ fontSize: 12 }}>
                 {label}
               </Link>
             ))}
           </div>
-          <p style={{ fontSize: 11, color: "#222", letterSpacing: "0.06em" }}>
-            © {new Date().getFullYear()} Vantio. All rights reserved.
+          <p style={{ fontSize: 11, color: "#555", letterSpacing: "0.06em" }}>
+            &copy; {new Date().getFullYear()} Vantio. All rights reserved.
           </p>
         </div>
       </footer>
-
-      <style>{`
-@keyframes nodeRipple {
-          0% { r: 14; opacity: 0.4; }
-          100% { r: 28; opacity: 0; }
-        }
-        @keyframes moteDrift0 {
-          from { transform: translate(0px, 0px) rotate(45deg); }
-          to   { transform: translate(18px, -14px) rotate(45deg); }
-        }
-        @keyframes moteDrift1 {
-          from { transform: translate(0px, 0px); }
-          to   { transform: translate(-14px, -20px); }
-        }
-        @keyframes moteDrift2 {
-          from { transform: translate(0px, 0px) rotate(45deg); }
-          to   { transform: translate(-20px, 10px) rotate(45deg); }
-        }
-        @keyframes moteDrift3 {
-          from { transform: translate(0px, 0px); }
-          to   { transform: translate(12px, 18px); }
-        }
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(18px); }
-          to   { opacity: 1; transform: none; }
-        }
-        @keyframes leadIn {
-          from { opacity: 0; transform: translateY(5px); }
-          to   { opacity: 1; transform: none; }
-        }
-        @keyframes particleDrift {
-          from { transform: translateY(0px) scale(1); opacity: inherit; }
-          to { transform: translateY(-14px) scale(1.2); opacity: inherit; }
-        }
-        @keyframes starPulse {
-          from { transform: scale(1); }
-          to { transform: scale(1.4); }
-        }
-        @media (max-width: 900px) {
-          nav { padding: 14px 20px !important; }
-        }
-        @media (max-width: 700px) {
-          /* Hide orbital chips on small screens — they overlap badly */
-          .orbital-chip { display: none; }
-        }
-      `}</style>
     </div>
   );
 }
