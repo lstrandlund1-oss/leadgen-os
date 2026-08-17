@@ -812,12 +812,12 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
       // #typed-text-reveal element and the heroTypewriter keyframes),
       // which starts the instant the browser paints — no JS involved,
       // so it's already in motion before hydration even completes.
-      // Wait out that same 1560ms here so the SCAN click below doesn't
+      // Wait out that same 850ms here so the SCAN click below doesn't
       // fire until the CSS reveal has actually finished on screen, then
       // continue the sequence exactly as if JS-driven typing had just
       // completed.
       console.log("[vantio-hero] typeQuery() skipped — CSS-animated on first load");
-      scopedSetTimeout(cb, 1560);
+      scopedSetTimeout(cb, 850);
       return;
     }
     console.log(

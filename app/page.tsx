@@ -50,7 +50,7 @@ const SECTIONS_HTML = `<div class="hero">
         <div id="phase1">
           <div class="search-bar" id="search-bar">
             <span style="color:#fac93f; font-size:14px; text-shadow:0 0 8px rgba(250,201,63,0.9), 0 0 18px rgba(250,201,63,0.5);">⌕</span>
-            <span id="typed-text-reveal" style="display:inline-block; overflow:hidden; white-space:nowrap; vertical-align:middle; width:0; animation: heroTypewriter 1560ms steps(24, end) 1 forwards;"><span style="font-size:14px; color:#e0d8c8;" id="typed-text">web agencies · stockholm</span></span><span class="cursor" id="cursor"></span>
+            <span id="typed-text-reveal" style="display:inline-block; overflow:hidden; white-space:nowrap; vertical-align:middle; width:0; animation: heroTypewriter 850ms steps(24, end) 1 forwards;"><span style="font-size:14px; color:#e0d8c8;" id="typed-text">web agencies · stockholm</span></span><span class="cursor" id="cursor"></span>
             <div class="search-submit" id="search-submit">SCAN</div>
           </div>
 
