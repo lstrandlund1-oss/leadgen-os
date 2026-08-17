@@ -807,13 +807,17 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
 
   function typeQuery(cb, skipAnimation) {
     if (skipAnimation) {
-      // First run only: the search text is already present in the
-      // server-rendered HTML (see the SSR markup for #typed-text), so
-      // there's nothing to animate — just pause briefly so proceeding
-      // straight to the SCAN click doesn't feel instant/jarring, then
-      // continue the sequence exactly as if typing had just finished.
-      console.log("[vantio-hero] typeQuery() skipped — text already server-rendered on first load");
-      scopedSetTimeout(cb, 550);
+      // First run only: the search text is revealed by a pure-CSS
+      // typewriter animation on the server-rendered HTML (see the
+      // #typed-text-reveal element and the heroTypewriter keyframes),
+      // which starts the instant the browser paints — no JS involved,
+      // so it's already in motion before hydration even completes.
+      // Wait out that same 1560ms here so the SCAN click below doesn't
+      // fire until the CSS reveal has actually finished on screen, then
+      // continue the sequence exactly as if JS-driven typing had just
+      // completed.
+      console.log("[vantio-hero] typeQuery() skipped — CSS-animated on first load");
+      scopedSetTimeout(cb, 1560);
       return;
     }
     console.log(

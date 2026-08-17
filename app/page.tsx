@@ -50,7 +50,7 @@ const SECTIONS_HTML = `<div class="hero">
         <div id="phase1">
           <div class="search-bar" id="search-bar">
             <span style="color:#fac93f; font-size:14px; text-shadow:0 0 8px rgba(250,201,63,0.9), 0 0 18px rgba(250,201,63,0.5);">⌕</span>
-            <span style="font-size:14px; color:#e0d8c8;" id="typed-text">web agencies · stockholm</span><span class="cursor" id="cursor"></span>
+            <span id="typed-text-reveal" style="display:inline-block; overflow:hidden; white-space:nowrap; vertical-align:middle; width:0; animation: heroTypewriter 1560ms steps(24, end) 1 forwards;"><span style="font-size:14px; color:#e0d8c8;" id="typed-text">web agencies · stockholm</span></span><span class="cursor" id="cursor"></span>
             <div class="search-submit" id="search-submit">SCAN</div>
           </div>
 
@@ -419,7 +419,7 @@ export default function LandingPage() {
   const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
 
   // Auth-aware header/footer state — mirrors the previous landing page:
-  // shows Dashboard/Log out when signed in, Log in otherwise, and stays in
+  // shows Home/Log out when signed in, Log in otherwise, and stays in
   // sync live if the session changes in another tab.
   useEffect(() => {
     const supabase = createSupabaseBrowser();
@@ -468,8 +468,8 @@ export default function LandingPage() {
           </Link>
           {userEmail ? (
             <>
-              <Link href="/dashboard" className="btn-outline">
-                Dashboard
+              <Link href="/home" className="btn-outline">
+                Home
               </Link>
               <button
                 type="button"

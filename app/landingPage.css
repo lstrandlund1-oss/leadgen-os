@@ -94,6 +94,13 @@
   .search-bar.submitted { border-color: rgba(201,168,76,0.55); box-shadow: 0 0 14px rgba(201,168,76,0.2); }
   .cursor { display:inline-block; width:2px; height:14px; background:#e8b72d; animation: blink 0.9s infinite; vertical-align:middle; }
   @keyframes blink { 0%,49% {opacity:1;} 50%,100% {opacity:0;} }
+  /* Pure-CSS typewriter reveal for the hero search text on first paint —
+     starts the instant the browser renders the page, no JS required, so
+     there's never a static/frozen moment before hydration completes. The
+     26ch target comfortably exceeds "web agencies · stockholm"'s actual
+     rendered width even with ch-unit imprecision in a proportional font,
+     so the reveal never clips the last character. */
+  @keyframes heroTypewriter { from { width: 0; } to { width: 26ch; } }
   .search-submit { font-size:9px; padding:5px 10px; border-radius:6px; background:#e8b72d; color:#080808; font-weight:700; letter-spacing:0.05em; margin-left:auto; transition: transform 0.15s; }
   .search-submit.clicked { transform: scale(0.92); }
 
