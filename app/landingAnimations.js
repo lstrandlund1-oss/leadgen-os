@@ -606,13 +606,6 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
   // stale if React ever replaces the underlying node after mount, and it
   // fails completely silently (no error, just invisible no-op writes).
   // Accessing els.whatever always re-queries the live DOM.
-  // Tracks whether runSequence() has ever run before. On the very first
-  // run (page just loaded), the search text is already server-rendered —
-  // see resetAll()/typeQuery() — so the user never has to wait through a
-  // blank, blinking-cursor search bar before anything appears. Every
-  // later loop of the demo (~27s later, and onward) types it out normally.
-  let isFirstRun = true;
-
   const els = {
     get typedEl() {
       return document.getElementById("typed-text");
@@ -805,21 +798,7 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
     scopedRAF(tick);
   }
 
-  function typeQuery(cb, skipAnimation) {
-    if (skipAnimation) {
-      // First run only: the search text is revealed by a pure-CSS
-      // typewriter animation on the server-rendered HTML (see the
-      // #typed-text-reveal element and the heroTypewriter keyframes),
-      // which starts the instant the browser paints — no JS involved,
-      // so it's already in motion before hydration even completes.
-      // Wait out that same 850ms here so the SCAN click below doesn't
-      // fire until the CSS reveal has actually finished on screen, then
-      // continue the sequence exactly as if JS-driven typing had just
-      // completed.
-      console.log("[vantio-hero] typeQuery() skipped — CSS-animated on first load");
-      scopedSetTimeout(cb, 850);
-      return;
-    }
+  function typeQuery(cb) {
     console.log(
       "[vantio-hero] typeQuery() started, els.typedEl found:",
       !!els.typedEl,
@@ -873,14 +852,8 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
     }, 750);
   }
 
-  function resetAll(skipTypedTextClear) {
-    // On the very first run, the query text is already server-rendered
-    // into #typed-text (see the SSR markup) and typeQuery() is about to
-    // skip re-typing it — so don't wipe it back to empty here either,
-    // or the user would briefly see a blank search bar for no reason.
-    if (!skipTypedTextClear) {
-      els.typedEl.textContent = "";
-    }
+  function resetAll() {
+    els.typedEl.textContent = "";
     els.searchBar.classList.remove("submitted");
     els.submitBtn.classList.remove("clicked");
     els.loadingBlock.classList.remove("visible");
@@ -922,11 +895,9 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
   }
 
   function runSequence() {
-    console.log("[vantio-hero] runSequence() called, isFirstRun:", isFirstRun);
-    const skipTyping = isFirstRun;
-    isFirstRun = false;
+    console.log("[vantio-hero] runSequence() called");
     try {
-      resetAll(skipTyping);
+      resetAll();
       console.log("[vantio-hero] resetAll() completed");
     } catch (err) {
       console.error("[vantio-hero] resetAll() threw:", err);
@@ -1052,7 +1023,7 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
           }, 3400);
         }, 2600);
       }, 900);
-    }, skipTyping);
+    });
   }
 
   console.log("[vantio-hero] about to call runSequence() for the first time");
