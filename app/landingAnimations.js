@@ -645,68 +645,141 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
   });
 
   const query = "web agencies · stockholm";
-  const typedEl = document.getElementById("typed-text");
-  const searchBar = document.getElementById("search-bar");
-  const submitBtn = document.getElementById("search-submit");
-  const typingCursor = document.getElementById("cursor");
-  const loadingBlock = document.getElementById("loading-block");
-  const statusEl = document.getElementById("status-text");
-  const unfoldOuter = document.getElementById("unfold-outer");
-  const unfoldInner = document.getElementById("unfold-inner");
-  const rawListEl = document.getElementById("raw-list");
-  const phase1 = document.getElementById("phase1");
-  const track = document.getElementById("track");
-  const dots = document.querySelectorAll(".phase-dot");
-  const barLabel = document.getElementById("bar-label");
-  const prepBtnSelected = document.getElementById("prep-btn-3");
-  const cardSelected = document.getElementById("card-3");
-  const tp3Panel = document.getElementById("tp3");
-  const chipEmail = document.getElementById("chip-email");
-  const chipConsultative = document.getElementById("chip-consultative");
-  const msgLabel = document.getElementById("msg-label");
-  const msgBox = document.getElementById("msg-box");
-  const sendBtn = document.getElementById("send-btn");
-  const sentToast = document.getElementById("sent-toast");
-  const demoWrap = document.querySelector(".demo-wrap");
-  const stageEl = document.querySelector(".stage");
-  const mouseCursor = document.getElementById("cursor-el");
-  const clickRing = document.getElementById("click-ring");
-  const snapshotCount = document.getElementById("snapshot-count");
-  const legendRows = document.querySelectorAll(".snap-legend-row");
-  const snapStatBoxes = document.querySelector(".snap-stat-boxes");
-  const segHigh = document.getElementById("seg-high");
-  const segGood = document.getElementById("seg-good");
-  const segLow = document.getElementById("seg-low");
-  const segContacted = document.getElementById("seg-contacted");
+  // Every one of these is a live getter, not a cached reference — see the
+  // comment above typeQuery() for why: a long-held DOM reference can go
+  // stale if React ever replaces the underlying node after mount, and it
+  // fails completely silently (no error, just invisible no-op writes).
+  // Accessing els.whatever always re-queries the live DOM.
+  const els = {
+    get typedEl() {
+      return document.getElementById("typed-text");
+    },
+    get searchBar() {
+      return document.getElementById("search-bar");
+    },
+    get submitBtn() {
+      return document.getElementById("search-submit");
+    },
+    get typingCursor() {
+      return document.getElementById("cursor");
+    },
+    get loadingBlock() {
+      return document.getElementById("loading-block");
+    },
+    get statusEl() {
+      return document.getElementById("status-text");
+    },
+    get unfoldOuter() {
+      return document.getElementById("unfold-outer");
+    },
+    get unfoldInner() {
+      return document.getElementById("unfold-inner");
+    },
+    get rawListEl() {
+      return document.getElementById("raw-list");
+    },
+    get phase1() {
+      return document.getElementById("phase1");
+    },
+    get track() {
+      return document.getElementById("track");
+    },
+    get dots() {
+      return document.querySelectorAll(".phase-dot");
+    },
+    get barLabel() {
+      return document.getElementById("bar-label");
+    },
+    get prepBtnSelected() {
+      return document.getElementById("prep-btn-3");
+    },
+    get cardSelected() {
+      return document.getElementById("card-3");
+    },
+    get tp3Panel() {
+      return document.getElementById("tp3");
+    },
+    get chipEmail() {
+      return document.getElementById("chip-email");
+    },
+    get chipConsultative() {
+      return document.getElementById("chip-consultative");
+    },
+    get msgLabel() {
+      return document.getElementById("msg-label");
+    },
+    get msgBox() {
+      return document.getElementById("msg-box");
+    },
+    get sendBtn() {
+      return document.getElementById("send-btn");
+    },
+    get sentToast() {
+      return document.getElementById("sent-toast");
+    },
+    get demoWrap() {
+      return document.querySelector(".demo-wrap");
+    },
+    get stageEl() {
+      return document.querySelector(".stage");
+    },
+    get mouseCursor() {
+      return document.getElementById("cursor-el");
+    },
+    get clickRing() {
+      return document.getElementById("click-ring");
+    },
+    get snapshotCount() {
+      return document.getElementById("snapshot-count");
+    },
+    get legendRows() {
+      return document.querySelectorAll(".snap-legend-row");
+    },
+    get snapStatBoxes() {
+      return document.querySelector(".snap-stat-boxes");
+    },
+    get segHigh() {
+      return document.getElementById("seg-high");
+    },
+    get segGood() {
+      return document.getElementById("seg-good");
+    },
+    get segLow() {
+      return document.getElementById("seg-low");
+    },
+    get segContacted() {
+      return document.getElementById("seg-contacted");
+    },
+  };
 
   // Brings the market snapshot to life on entry: donut segments draw in
   // one after another, the total count counts up, legend rows and the
   // stat boxes stagger in — instead of the whole panel just appearing
   // fully formed and static.
   function animateSnapshot() {
-    segHigh.style.strokeDasharray = "0 238.76";
-    segGood.style.strokeDasharray = "0 238.76";
-    segLow.style.strokeDasharray = "0 238.76";
-    segContacted.style.strokeDasharray = "0 238.76";
-    snapshotCount.textContent = "0";
-    legendRows.forEach((r) => {
+    els.segHigh.style.strokeDasharray = "0 238.76";
+    els.segGood.style.strokeDasharray = "0 238.76";
+    els.segLow.style.strokeDasharray = "0 238.76";
+    els.segContacted.style.strokeDasharray = "0 238.76";
+    els.snapshotCount.textContent = "0";
+    els.legendRows.forEach((r) => {
       r.style.opacity = "0";
       r.style.transform = "translateX(-8px)";
     });
-    snapStatBoxes.style.opacity = "0";
-    snapStatBoxes.style.transform = "translateY(6px)";
+    els.snapStatBoxes.style.opacity = "0";
+    els.snapStatBoxes.style.transform = "translateY(6px)";
 
     scopedSetTimeout(() => {
-      segHigh.style.strokeDasharray = "36.01 238.76";
+      els.segHigh.style.strokeDasharray = "36.01 238.76";
     }, 100);
     scopedSetTimeout(() => {
-      segGood.style.strokeDasharray = "60.97 238.76";
+      els.segGood.style.strokeDasharray = "60.97 238.76";
     }, 300);
     scopedSetTimeout(() => {
-      segLow.style.strokeDasharray = "95.28 238.76";
+      els.segLow.style.strokeDasharray = "95.28 238.76";
     }, 500);
     scopedSetTimeout(() => {
-      segContacted.style.strokeDasharray = "46.50 238.76";
+      els.segContacted.style.strokeDasharray = "46.50 238.76";
     }, 700);
 
     const target = 842;
@@ -714,12 +787,12 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
     const startTime = performance.now();
     function tick(now) {
       const progress = Math.min(1, (now - startTime) / duration);
-      snapshotCount.textContent = Math.round(progress * target);
+      els.snapshotCount.textContent = Math.round(progress * target);
       if (progress < 1) scopedRAF(tick);
     }
     scopedRAF(tick);
 
-    legendRows.forEach((row, i) => {
+    els.legendRows.forEach((row, i) => {
       scopedSetTimeout(
         () => {
           row.style.opacity = "1";
@@ -730,8 +803,8 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
     });
 
     scopedSetTimeout(() => {
-      snapStatBoxes.style.opacity = "1";
-      snapStatBoxes.style.transform = "translateY(0)";
+      els.snapStatBoxes.style.opacity = "1";
+      els.snapStatBoxes.style.transform = "translateY(0)";
     }, 1500);
   }
 
@@ -750,7 +823,7 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
   ];
 
   function setDot(i) {
-    dots.forEach((d, idx) => (d.style.background = idx === i ? "#e8b72d" : "#333"));
+    els.dots.forEach((d, idx) => (d.style.background = idx === i ? "#e8b72d" : "#333"));
   }
 
   // Custom-duration scroll (native smooth-scroll is too fast, typically
@@ -770,23 +843,21 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
   }
 
   function typeQuery(cb) {
-    console.log("[vantio-hero] typeQuery() started, typedEl found:", !!typedEl, "query:", JSON.stringify(query));
+    console.log(
+      "[vantio-hero] typeQuery() started, els.typedEl found:",
+      !!els.typedEl,
+      "query:",
+      JSON.stringify(query),
+    );
     let i = 0;
     (function step() {
       if (i <= query.length) {
-        // Re-querying fresh here rather than relying on the long-held
-        // `typedEl` closure variable: if React ever replaces this DOM node
-        // after initial mount (even briefly), a cached reference would
-        // silently keep writing into a detached, invisible copy of the
-        // element forever — no error, no visible effect either. A fresh
-        // lookup on every step is cheap (this only runs every 65ms) and
-        // eliminates that whole class of bug regardless of cause.
-        const liveEl = document.getElementById("typed-text");
         const text = query.slice(0, i);
-        if (liveEl) liveEl.textContent = text;
-        console.log(
-          `[vantio-hero] step() i=${i} set textContent to "${text}" | cached typedEl===live element: ${typedEl === liveEl} | live readback: "${liveEl ? liveEl.textContent : "ELEMENT MISSING"}"`,
-        );
+        // els.typedEl is a live getter (see the `els` object above) — this
+        // always writes to whatever's actually on screen right now, so it
+        // can't silently go stale even if React replaces this node.
+        if (els.typedEl) els.typedEl.textContent = text;
+        console.log(`[vantio-hero] step() i=${i} set textContent to "${text}"`);
         i++;
         scopedSetTimeout(step, 65);
       } else {
@@ -801,24 +872,24 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
   // fires onArrive. Positions are calculated live against demoWrap so
   // this works regardless of which track panel is currently visible.
   function clickOn(targetEl, onArrive, onDone) {
-    const wrapRect = demoWrap.getBoundingClientRect();
+    const wrapRect = els.demoWrap.getBoundingClientRect();
     const targetRect = targetEl.getBoundingClientRect();
     const x = targetRect.left - wrapRect.left + targetRect.width / 2 - 8;
     const y = targetRect.top - wrapRect.top + targetRect.height / 2 - 8;
 
-    mouseCursor.style.left = x + "px";
-    mouseCursor.style.top = y + "px";
-    mouseCursor.classList.add("visible");
+    els.mouseCursor.style.left = x + "px";
+    els.mouseCursor.style.top = y + "px";
+    els.mouseCursor.classList.add("visible");
 
     scopedSetTimeout(() => {
-      mouseCursor.classList.add("clicking");
-      clickRing.classList.add("pinging");
+      els.mouseCursor.classList.add("clicking");
+      els.clickRing.classList.add("pinging");
       onArrive();
       scopedSetTimeout(() => {
-        mouseCursor.classList.remove("clicking");
-        clickRing.classList.remove("pinging");
+        els.mouseCursor.classList.remove("clicking");
+        els.clickRing.classList.remove("pinging");
         scopedSetTimeout(() => {
-          mouseCursor.classList.remove("visible");
+          els.mouseCursor.classList.remove("visible");
           if (onDone) onDone();
         }, 350);
       }, 350);
@@ -826,45 +897,45 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
   }
 
   function resetAll() {
-    typedEl.textContent = "";
-    searchBar.classList.remove("submitted");
-    submitBtn.classList.remove("clicked");
-    loadingBlock.classList.remove("visible");
-    unfoldInner.classList.remove("open");
-    unfoldOuter.classList.remove("faded");
-    rawListEl.innerHTML = "";
-    phase1.classList.remove("swiping-out");
-    phase1.style.opacity = "1";
-    prepBtnSelected.classList.remove("clicked");
-    cardSelected.classList.remove("pressed");
-    chipEmail.classList.remove("active");
-    chipConsultative.classList.remove("active");
-    msgLabel.style.opacity = "0";
-    msgBox.style.opacity = "0";
-    sendBtn.style.opacity = "0";
-    sendBtn.classList.remove("sent");
-    sentToast.style.opacity = "0";
-    sentToast.style.transform = "translateX(-6px)";
-    mouseCursor.classList.remove("visible");
-    tp3Panel.scrollTop = 0;
-    segHigh.style.strokeDasharray = "0 238.76";
-    segGood.style.strokeDasharray = "0 238.76";
-    segLow.style.strokeDasharray = "0 238.76";
-    segContacted.style.strokeDasharray = "0 238.76";
-    snapshotCount.textContent = "0";
-    legendRows.forEach((r) => {
+    els.typedEl.textContent = "";
+    els.searchBar.classList.remove("submitted");
+    els.submitBtn.classList.remove("clicked");
+    els.loadingBlock.classList.remove("visible");
+    els.unfoldInner.classList.remove("open");
+    els.unfoldOuter.classList.remove("faded");
+    els.rawListEl.innerHTML = "";
+    els.phase1.classList.remove("swiping-out");
+    els.phase1.style.opacity = "1";
+    els.prepBtnSelected.classList.remove("clicked");
+    els.cardSelected.classList.remove("pressed");
+    els.chipEmail.classList.remove("active");
+    els.chipConsultative.classList.remove("active");
+    els.msgLabel.style.opacity = "0";
+    els.msgBox.style.opacity = "0";
+    els.sendBtn.style.opacity = "0";
+    els.sendBtn.classList.remove("sent");
+    els.sentToast.style.opacity = "0";
+    els.sentToast.style.transform = "translateX(-6px)";
+    els.mouseCursor.classList.remove("visible");
+    els.tp3Panel.scrollTop = 0;
+    els.segHigh.style.strokeDasharray = "0 238.76";
+    els.segGood.style.strokeDasharray = "0 238.76";
+    els.segLow.style.strokeDasharray = "0 238.76";
+    els.segContacted.style.strokeDasharray = "0 238.76";
+    els.snapshotCount.textContent = "0";
+    els.legendRows.forEach((r) => {
       r.style.opacity = "0";
       r.style.transform = "translateX(-8px)";
     });
-    snapStatBoxes.style.opacity = "0";
-    snapStatBoxes.style.transform = "translateY(6px)";
-    track.style.transition = "none";
-    track.style.transform = "translateX(0)";
-    void track.offsetWidth;
-    track.style.transition = "transform 0.8s cubic-bezier(0.65,0,0.35,1)";
+    els.snapStatBoxes.style.opacity = "0";
+    els.snapStatBoxes.style.transform = "translateY(6px)";
+    els.track.style.transition = "none";
+    els.track.style.transform = "translateX(0)";
+    void els.track.offsetWidth;
+    els.track.style.transition = "transform 0.8s cubic-bezier(0.65,0,0.35,1)";
     setDot(0);
-    barLabel.textContent = "vantioapp.com — Lead Tool";
-    typingCursor.style.display = "inline-block";
+    els.barLabel.textContent = "vantioapp.com — Lead Tool";
+    els.typingCursor.style.display = "inline-block";
   }
 
   function runSequence() {
@@ -878,47 +949,47 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
     }
 
     typeQuery(() => {
-      typingCursor.style.display = "none";
+      els.typingCursor.style.display = "none";
 
       // Cursor clicks the SCAN button to submit the search
-      clickOn(submitBtn, () => {
-        submitBtn.classList.add("clicked");
-        scopedSetTimeout(() => submitBtn.classList.remove("clicked"), 200);
-        searchBar.classList.add("submitted");
+      clickOn(els.submitBtn, () => {
+        els.submitBtn.classList.add("clicked");
+        scopedSetTimeout(() => els.submitBtn.classList.remove("clicked"), 200);
+        els.searchBar.classList.add("submitted");
       });
 
       scopedSetTimeout(() => {
-        loadingBlock.classList.add("visible");
+        els.loadingBlock.classList.add("visible");
         let si = 0;
-        statusEl.textContent = statuses[0];
+        els.statusEl.textContent = statuses[0];
         const statusTimer = scopedSetInterval(() => {
           si = (si + 1) % statuses.length;
-          statusEl.textContent = statuses[si];
+          els.statusEl.textContent = statuses[si];
         }, 900);
 
         scopedSetTimeout(() => {
           clearInterval(statusTimer);
-          loadingBlock.classList.remove("visible");
+          els.loadingBlock.classList.remove("visible");
           rawNames.forEach((n, i) => {
             const row = document.createElement("div");
             row.className = "raw-row";
             row.style.animationDelay = i * 0.12 + "s";
             row.innerHTML = `<div class="raw-dot"></div><span style="font-size:12px; color:#aaa;">${n}</span>`;
-            rawListEl.appendChild(row);
+            els.rawListEl.appendChild(row);
           });
-          unfoldInner.classList.add("open");
-          scopedSetTimeout(() => unfoldOuter.classList.add("faded"), 700);
+          els.unfoldInner.classList.add("open");
+          scopedSetTimeout(() => els.unfoldOuter.classList.add("faded"), 700);
           setDot(1);
 
           scopedSetTimeout(() => {
-            phase1.classList.add("swiping-out");
-            track.style.transform = "translateX(-33.333%)";
-            barLabel.textContent = "vantioapp.com — Home";
+            els.phase1.classList.add("swiping-out");
+            els.track.style.transform = "translateX(-33.333%)";
+            els.barLabel.textContent = "vantioapp.com — Home";
             setDot(1);
             scopedSetTimeout(animateSnapshot, 850);
 
             scopedSetTimeout(() => {
-              track.style.transform = "translateX(-66.666%)";
+              els.track.style.transform = "translateX(-66.666%)";
               setDot(2);
 
               // Single scroll down — stops at a position where the
@@ -926,22 +997,22 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
               // yet even half revealed, then clicks and transitions
               // right there rather than scrolling further and back.
               scopedSetTimeout(() => {
-                const lastCard = tp3Panel.querySelector(".score-card:last-child");
-                const halfLastCardLimit = lastCard.offsetTop + lastCard.offsetHeight / 2 - tp3Panel.clientHeight;
-                const selectedVisibleTarget = Math.max(0, cardSelected.offsetTop - 20);
+                const lastCard = els.tp3Panel.querySelector(".score-card:last-child");
+                const halfLastCardLimit = lastCard.offsetTop + lastCard.offsetHeight / 2 - els.tp3Panel.clientHeight;
+                const selectedVisibleTarget = Math.max(0, els.cardSelected.offsetTop - 20);
                 const targetTop = Math.max(0, Math.min(selectedVisibleTarget, halfLastCardLimit));
 
-                slowScrollTo(tp3Panel, targetTop, 2800, () => {
-                  clickOn(prepBtnSelected, () => {
-                    cardSelected.classList.add("pressed");
-                    prepBtnSelected.classList.add("clicked");
+                slowScrollTo(els.tp3Panel, targetTop, 2800, () => {
+                  clickOn(els.prepBtnSelected, () => {
+                    els.cardSelected.classList.add("pressed");
+                    els.prepBtnSelected.classList.add("clicked");
                   });
                 });
 
                 scopedSetTimeout(() => {
-                  track.style.transform = "translateX(-100%)";
+                  els.track.style.transform = "translateX(-100%)";
                   setDot(3);
-                  barLabel.textContent = "vantioapp.com — Outreach";
+                  els.barLabel.textContent = "vantioapp.com — Outreach";
 
                   // Cursor selects channel, then tone (chained via onDone so the
                   // second click never starts until the first cursor animation
@@ -949,31 +1020,31 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
                   // cursor to reposition mid-fade before).
                   scopedSetTimeout(() => {
                     clickOn(
-                      chipEmail,
-                      () => chipEmail.classList.add("active"),
+                      els.chipEmail,
+                      () => els.chipEmail.classList.add("active"),
                       () => {
                         clickOn(
-                          chipConsultative,
-                          () => chipConsultative.classList.add("active"),
+                          els.chipConsultative,
+                          () => els.chipConsultative.classList.add("active"),
                           () => {
-                            msgLabel.style.opacity = "1";
-                            msgBox.style.opacity = "1";
-                            sendBtn.style.opacity = "1";
+                            els.msgLabel.style.opacity = "1";
+                            els.msgBox.style.opacity = "1";
+                            els.sendBtn.style.opacity = "1";
 
                             // Cursor clicks Send as the final action of the sequence
                             scopedSetTimeout(() => {
-                              clickOn(sendBtn, () => {
-                                sendBtn.classList.add("sent");
-                                sendBtn.style.transform = "scale(0.94)";
+                              clickOn(els.sendBtn, () => {
+                                els.sendBtn.classList.add("sent");
+                                els.sendBtn.style.transform = "scale(0.94)";
                                 scopedSetTimeout(() => {
-                                  sendBtn.style.transform = "scale(1)";
+                                  els.sendBtn.style.transform = "scale(1)";
                                 }, 150);
 
-                                sentToast.style.opacity = "1";
-                                sentToast.style.transform = "translateX(0)";
+                                els.sentToast.style.opacity = "1";
+                                els.sentToast.style.transform = "translateX(0)";
                                 scopedSetTimeout(() => {
-                                  sentToast.style.opacity = "0";
-                                  sentToast.style.transform = "translateX(-6px)";
+                                  els.sentToast.style.opacity = "0";
+                                  els.sentToast.style.transform = "translateX(-6px)";
                                 }, 1350);
                               });
                             }, 525);
@@ -984,10 +1055,10 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
                   }, 900);
 
                   scopedSetTimeout(() => {
-                    stageEl.classList.add("fading");
+                    els.stageEl.classList.add("fading");
                     scopedSetTimeout(() => {
                       runSequence();
-                      scopedSetTimeout(() => stageEl.classList.remove("fading"), 50);
+                      scopedSetTimeout(() => els.stageEl.classList.remove("fading"), 50);
                     }, 500);
                   }, 7625);
                 }, 4550);
