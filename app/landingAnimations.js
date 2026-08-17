@@ -589,50 +589,6 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
     ],
   };
 
-  // Mobile gating matches the rest of the app (see lib/config/mobileVisuals.ts):
-  // skip the animated nebula canvases on mobile, keep the static star fields.
-  //
-  // The initial render is deferred by two animation frames rather than run
-  // synchronously here. In the original static HTML file this script ran
-  // after the browser had already fully laid out the whole page, so every
-  // canvas's getBoundingClientRect() was accurate immediately. In a React/
-  // Next.js client component, this effect can fire before the browser has
-  // finished laying out a page this tall (especially right after a large
-  // injected <style> block and dangerouslySetInnerHTML block land in the
-  // same commit) — measuring too early risks reading a canvas's size before
-  // its real layout has settled. Two rAFs is the standard, cheap way to
-  // guarantee a layout/paint has actually completed before measuring.
-  if (!isMobile || MOBILE_NEBULA_ENABLED) {
-    const renderAllNebulas = () => {
-      // Each canvas is rendered in its own try/catch. Without this, a
-      // failure on any single canvas would throw out of the forEach and
-      // silently skip every canvas after it in iteration order — and,
-      // since this whole function also runs on the fast (~50ms) initial
-      // timer below, an uncaught error here is the kind of thing that's
-      // easy to overlook entirely unless something else nearby happens to
-      // depend on timing. Isolating each canvas keeps one bad draw from
-      // being able to affect anything else on the page.
-      Object.keys(SECTION_NEBULAS).forEach((id) => {
-        try {
-          renderNebulaOnCanvas(id, SECTION_NEBULAS[id]);
-        } catch (err) {
-          console.error(`Nebula render failed for #${id}:`, err);
-        }
-      });
-    };
-    scopedRAF(() => {
-      scopedRAF(renderAllNebulas);
-    });
-    // Extra safety net: if fonts or other async resources shift the layout
-    // after the two-rAF render above, re-measure and redraw once more when
-    // the page reports everything has actually finished loading.
-    if (document.readyState === "complete") {
-      scopedSetTimeout(renderAllNebulas, 50);
-    } else {
-      scopedOnLoad(() => scopedSetTimeout(renderAllNebulas, 50));
-    }
-  }
-
   // Cursor-tracking glow for all buttons
   document.querySelectorAll(".btn, .start-here-btn, .btn-outline").forEach((el) => {
     el.addEventListener("mousemove", (e) => {
@@ -1073,6 +1029,56 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
   console.log("[vantio-hero] about to call runSequence() for the first time");
   try {
     runSequence();
+
+    // Scheduled after the first runSequence() call above (not before)
+    // so the hero typing animation's own timer gets queued first — the
+    // nebula rendering below is real CPU work (canvas noise generation
+    // across up to 8 sections) and shouldn't get a head start competing
+    // with the more visually important, attention-grabbing typing effect
+    // for the first paint after mount.
+    // Mobile gating matches the rest of the app (see lib/config/mobileVisuals.ts):
+    // skip the animated nebula canvases on mobile, keep the static star fields.
+    //
+    // The initial render is deferred by two animation frames rather than run
+    // synchronously here. In the original static HTML file this script ran
+    // after the browser had already fully laid out the whole page, so every
+    // canvas's getBoundingClientRect() was accurate immediately. In a React/
+    // Next.js client component, this effect can fire before the browser has
+    // finished laying out a page this tall (especially right after a large
+    // injected <style> block and dangerouslySetInnerHTML block land in the
+    // same commit) — measuring too early risks reading a canvas's size before
+    // its real layout has settled. Two rAFs is the standard, cheap way to
+    // guarantee a layout/paint has actually completed before measuring.
+    if (!isMobile || MOBILE_NEBULA_ENABLED) {
+      const renderAllNebulas = () => {
+        // Each canvas is rendered in its own try/catch. Without this, a
+        // failure on any single canvas would throw out of the forEach and
+        // silently skip every canvas after it in iteration order — and,
+        // since this whole function also runs on the fast (~50ms) initial
+        // timer below, an uncaught error here is the kind of thing that's
+        // easy to overlook entirely unless something else nearby happens to
+        // depend on timing. Isolating each canvas keeps one bad draw from
+        // being able to affect anything else on the page.
+        Object.keys(SECTION_NEBULAS).forEach((id) => {
+          try {
+            renderNebulaOnCanvas(id, SECTION_NEBULAS[id]);
+          } catch (err) {
+            console.error(`Nebula render failed for #${id}:`, err);
+          }
+        });
+      };
+      scopedRAF(() => {
+        scopedRAF(renderAllNebulas);
+      });
+      // Extra safety net: if fonts or other async resources shift the layout
+      // after the two-rAF render above, re-measure and redraw once more when
+      // the page reports everything has actually finished loading.
+      if (document.readyState === "complete") {
+        scopedSetTimeout(renderAllNebulas, 50);
+      } else {
+        scopedOnLoad(() => scopedSetTimeout(renderAllNebulas, 50));
+      }
+    }
   } catch (err) {
     console.error("[vantio-hero] runSequence() threw synchronously:", err);
   }
