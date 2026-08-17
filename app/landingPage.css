@@ -96,11 +96,15 @@
   @keyframes blink { 0%,49% {opacity:1;} 50%,100% {opacity:0;} }
   /* Pure-CSS typewriter reveal for the hero search text on first paint —
      starts the instant the browser renders the page, no JS required, so
-     there's never a static/frozen moment before hydration completes. The
-     26ch target comfortably exceeds "web agencies · stockholm"'s actual
-     rendered width even with ch-unit imprecision in a proportional font,
-     so the reveal never clips the last character. */
-  @keyframes heroTypewriter { from { width: 0; } to { width: 26ch; } }
+     there's never a static/frozen moment before hydration completes.
+     Animates clip-path rather than width specifically because #typed-text
+     is a flex child of .search-bar: flex items default to
+     min-width:auto (won't shrink below their content's natural size),
+     which fights an animated width and caused real layout breakage
+     (text overlapping the SCAN button). clip-path is purely a paint-time
+     effect — the element's layout box stays its full natural size the
+     entire time, so the flex layout never shifts or fights the reveal. */
+  @keyframes heroTypewriter { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0% 0 0); } }
   .search-submit { font-size:9px; padding:5px 10px; border-radius:6px; background:#e8b72d; color:#080808; font-weight:700; letter-spacing:0.05em; margin-left:auto; transition: transform 0.15s; }
   .search-submit.clicked { transform: scale(0.92); }
 
