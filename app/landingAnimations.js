@@ -1,4 +1,4 @@
-/* global document, window, console, setTimeout, setInterval, clearTimeout, clearInterval, requestAnimationFrame, cancelAnimationFrame, performance, ImageData */
+/* global document, window, console, setTimeout, setInterval, clearTimeout, clearInterval, requestAnimationFrame, cancelAnimationFrame, performance, ImageData, IntersectionObserver */
 // This file is pure browser-runtime DOM script (not bundler/Node code), so
 // the browser globals above are declared explicitly for ESLint's no-undef
 // rule rather than relying on `/* eslint-env browser */`, which is a legacy
@@ -26,6 +26,7 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
   const timeouts = [];
   const intervals = [];
   const rafs = [];
+  const observers = [];
   const scopedSetTimeout = (fn, ms) => {
     const id = setTimeout(fn, ms);
     timeouts.push(id);
@@ -40,11 +41,6 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
     const id = requestAnimationFrame(fn);
     rafs.push(id);
     return id;
-  };
-  const loadListeners = [];
-  const scopedOnLoad = (fn) => {
-    window.addEventListener("load", fn, { once: true });
-    loadListeners.push(fn);
   };
 
   // ── Nebula rendering — faithful port of the real algorithm from app/page.tsx ──
@@ -150,7 +146,16 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
     const H = Math.max(200, Math.round(rect.height));
     canvas.width = W;
     canvas.height = H;
-    const S = 2.5;
+    // S controls the low-res buffer's downscale factor before it gets
+    // smoothly upscaled to the real canvas size. Raised from 2.5 to 4.5:
+    // since sections are now full-viewport-width (not the previous
+    // ~1100px confined box), the pixel count this loop below has to
+    // process roughly doubled — this cuts total iterations by ~67%
+    // (quadratic effect: both width and height shrink), which is a real,
+    // measurable chunk of main-thread time back. The result is
+    // indistinguishable after the smooth upscale since this is a soft,
+    // blurry cloud effect, not sharp detail.
+    const S = 4.5;
     const LW = Math.ceil(W / S),
       LH = Math.ceil(H / S);
     const lo = document.createElement("canvas");
@@ -1050,33 +1055,55 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
     // its real layout has settled. Two rAFs is the standard, cheap way to
     // guarantee a layout/paint has actually completed before measuring.
     if (!isMobile || MOBILE_NEBULA_ENABLED) {
-      const renderAllNebulas = () => {
-        // Each canvas is rendered in its own try/catch. Without this, a
-        // failure on any single canvas would throw out of the forEach and
-        // silently skip every canvas after it in iteration order — and,
-        // since this whole function also runs on the fast (~50ms) initial
-        // timer below, an uncaught error here is the kind of thing that's
-        // easy to overlook entirely unless something else nearby happens to
-        // depend on timing. Isolating each canvas keeps one bad draw from
-        // being able to affect anything else on the page.
-        Object.keys(SECTION_NEBULAS).forEach((id) => {
-          try {
-            renderNebulaOnCanvas(id, SECTION_NEBULAS[id]);
-          } catch (err) {
-            console.error(`Nebula render failed for #${id}:`, err);
-          }
-        });
+      const renderOneNebula = (id) => {
+        // Each canvas is rendered in its own try/catch so a failure on any
+        // single one can't affect any other, or the lazy-observer loop
+        // below.
+        try {
+          renderNebulaOnCanvas(id, SECTION_NEBULAS[id]);
+        } catch (err) {
+          console.error(`Nebula render failed for #${id}:`, err);
+        }
       };
+
+      // Only the hero's nebula renders immediately — it's the only one
+      // actually visible on first paint. Deferred two animation frames for
+      // the same layout-timing reason as before.
       scopedRAF(() => {
-        scopedRAF(renderAllNebulas);
+        scopedRAF(() => renderOneNebula("nebula-hero"));
       });
-      // Extra safety net: if fonts or other async resources shift the layout
-      // after the two-rAF render above, re-measure and redraw once more when
-      // the page reports everything has actually finished loading.
-      if (document.readyState === "complete") {
-        scopedSetTimeout(renderAllNebulas, 50);
+
+      // Every other section's nebula is lazy-rendered via
+      // IntersectionObserver, firing just before that section actually
+      // scrolls into view (400px rootMargin gives it a head start so
+      // there's no visible pop-in). This is the fix for the multi-second
+      // delay before anything visually updates on load: rendering all 8
+      // sections' nebulas eagerly meant several million pixel evaluations
+      // of noise math blocking the main thread before the browser could
+      // even paint the hero's typed text — 7 of those 8 sections aren't
+      // even visible yet at that point.
+      const lazyIds = Object.keys(SECTION_NEBULAS).filter((id) => id !== "nebula-hero");
+      if ("IntersectionObserver" in window) {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                renderOneNebula(entry.target.id);
+                observer.unobserve(entry.target);
+              }
+            });
+          },
+          { rootMargin: "400px 0px" },
+        );
+        lazyIds.forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) observer.observe(el);
+        });
+        observers.push(observer);
       } else {
-        scopedOnLoad(() => scopedSetTimeout(renderAllNebulas, 50));
+        // No IntersectionObserver support: fall back to rendering
+        // everything up front rather than never rendering it at all.
+        lazyIds.forEach(renderOneNebula);
       }
     }
   } catch (err) {
@@ -1088,6 +1115,6 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
     timeouts.forEach((id) => clearTimeout(id));
     intervals.forEach((id) => clearInterval(id));
     rafs.forEach((id) => cancelAnimationFrame(id));
-    loadListeners.forEach((fn) => window.removeEventListener("load", fn));
+    observers.forEach((observer) => observer.disconnect());
   };
 }
