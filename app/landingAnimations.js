@@ -770,15 +770,29 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
   }
 
   function typeQuery(cb) {
-    console.log("[vantio-hero] typeQuery() started, typedEl found:", !!typedEl);
+    console.log("[vantio-hero] typeQuery() started, typedEl found:", !!typedEl, "query:", JSON.stringify(query));
     let i = 0;
     (function step() {
-      if (i === 0) console.log("[vantio-hero] typing step() first call — typing should now be visible");
       if (i <= query.length) {
-        typedEl.textContent = query.slice(0, i);
+        // Re-querying fresh here rather than relying on the long-held
+        // `typedEl` closure variable: if React ever replaces this DOM node
+        // after initial mount (even briefly), a cached reference would
+        // silently keep writing into a detached, invisible copy of the
+        // element forever — no error, no visible effect either. A fresh
+        // lookup on every step is cheap (this only runs every 65ms) and
+        // eliminates that whole class of bug regardless of cause.
+        const liveEl = document.getElementById("typed-text");
+        const text = query.slice(0, i);
+        if (liveEl) liveEl.textContent = text;
+        console.log(
+          `[vantio-hero] step() i=${i} set textContent to "${text}" | cached typedEl===live element: ${typedEl === liveEl} | live readback: "${liveEl ? liveEl.textContent : "ELEMENT MISSING"}"`,
+        );
         i++;
         scopedSetTimeout(step, 65);
-      } else cb();
+      } else {
+        console.log("[vantio-hero] typeQuery() finished, calling cb()");
+        cb();
+      }
     })();
   }
 
