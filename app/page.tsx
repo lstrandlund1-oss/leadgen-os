@@ -77,10 +77,10 @@ const SECTIONS_HTML = `<div class="hero">
             <div style="display:flex; align-items:center; gap:28px; flex-wrap:wrap; justify-content:center;">
               <svg viewBox="0 0 100 100" width="120" height="120">
                 <circle cx="50" cy="50" r="38" fill="none" stroke="#1a1a1a" stroke-width="13"/>
-                <circle id="seg-high" cx="50" cy="50" r="38" fill="none" stroke="#e8b72d" stroke-width="13" stroke-dasharray="0 238.76" stroke-dashoffset="0" transform="translate(100 0) scale(-1 1) rotate(-90 50 50)" style="transition: stroke-dasharray 0.35s ease;"/>
-                <circle id="seg-good" cx="50" cy="50" r="38" fill="none" stroke="#a8a488" stroke-width="13" stroke-dasharray="0 238.76" stroke-dashoffset="-36.01" transform="translate(100 0) scale(-1 1) rotate(-90 50 50)" style="transition: stroke-dasharray 0.35s ease;"/>
-                <circle id="seg-low" cx="50" cy="50" r="38" fill="none" stroke="#2a2a2a" stroke-width="13" stroke-dasharray="0 238.76" stroke-dashoffset="-96.98" transform="translate(100 0) scale(-1 1) rotate(-90 50 50)" style="transition: stroke-dasharray 0.35s ease;"/>
-                <circle id="seg-contacted" cx="50" cy="50" r="38" fill="none" stroke="#2a2a2a" stroke-width="13" stroke-dasharray="0 238.76" stroke-dashoffset="-192.26" transform="translate(100 0) scale(-1 1) rotate(-90 50 50)" style="transition: stroke-dasharray 0.35s ease;"/>
+                <circle id="seg-high" cx="50" cy="50" r="38" fill="none" stroke="#e8b72d" stroke-width="13" stroke-dasharray="0 238.76" stroke-dashoffset="0" transform="translate(100 0) scale(-1 1) rotate(-90 50 50)"/>
+                <circle id="seg-good" cx="50" cy="50" r="38" fill="none" stroke="#a8a488" stroke-width="13" stroke-dasharray="0 238.76" stroke-dashoffset="-36.01" transform="translate(100 0) scale(-1 1) rotate(-90 50 50)"/>
+                <circle id="seg-low" cx="50" cy="50" r="38" fill="none" stroke="#2a2a2a" stroke-width="13" stroke-dasharray="0 238.76" stroke-dashoffset="-96.98" transform="translate(100 0) scale(-1 1) rotate(-90 50 50)"/>
+                <circle id="seg-contacted" cx="50" cy="50" r="38" fill="none" stroke="#2a2a2a" stroke-width="13" stroke-dasharray="0 238.76" stroke-dashoffset="-192.26" transform="translate(100 0) scale(-1 1) rotate(-90 50 50)"/>
                 <text id="snapshot-count" x="50" y="47" text-anchor="middle" font-family="Cormorant Garamond" font-size="17" font-weight="600" fill="#f5f0e8">0</text>
                 <text x="50" y="60" text-anchor="middle" font-size="6" fill="#666">companies</text>
               </svg>

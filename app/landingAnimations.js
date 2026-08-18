@@ -717,6 +717,33 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
   // one after another, the total count counts up, legend rows and the
   // stat boxes stagger in — instead of the whole panel just appearing
   // fully formed and static.
+  // Grows a donut segment's arc "backward" from its far edge (where it
+  // meets the next segment in sequence) toward its own start point,
+  // rather than the more typical forward growth from a fixed start.
+  // Animates stroke-dasharray's fill length and stroke-dashoffset
+  // together every frame — offset always shifts by exactly the same
+  // amount the fill length grows, so their sum (= the far edge's fixed
+  // position) never changes, while the near edge sweeps in from there.
+  // A plain CSS transition on dasharray alone can't do this: it always
+  // grows from whatever offset is already set, in the path's one fixed
+  // direction — reversing which edge moves requires driving both
+  // properties together, frame by frame.
+  function animateSegmentGrowBackward(el, finalOffset, finalLength, duration, delay) {
+    scopedSetTimeout(() => {
+      const startTime = performance.now();
+      function tick(now) {
+        const t = Math.min(1, (now - startTime) / duration);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const currentLength = finalLength * eased;
+        const currentOffset = finalOffset + (finalLength - currentLength);
+        el.style.strokeDasharray = `${currentLength.toFixed(2)} 238.76`;
+        el.style.strokeDashoffset = `${currentOffset.toFixed(2)}`;
+        if (t < 1) scopedRAF(tick);
+      }
+      scopedRAF(tick);
+    }, delay);
+  }
+
   function animateSnapshot() {
     els.segHigh.style.strokeDasharray = "0 238.76";
     els.segGood.style.strokeDasharray = "0 238.76";
@@ -742,19 +769,14 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
     // slice last — not gold appearing first as if it were already known.
     // Each segment's own position/size on the circle is unrelated to
     // this and stays fixed; only the order they fill in over time
-    // changes here.
-    scopedSetTimeout(() => {
-      els.segContacted.style.strokeDasharray = "46.50 238.76";
-    }, 0);
-    scopedSetTimeout(() => {
-      els.segLow.style.strokeDasharray = "95.28 238.76";
-    }, 350);
-    scopedSetTimeout(() => {
-      els.segGood.style.strokeDasharray = "60.97 238.76";
-    }, 700);
-    scopedSetTimeout(() => {
-      els.segHigh.style.strokeDasharray = "36.01 238.76";
-    }, 1050);
+    // changes here. Growth direction for every segment sweeps from its
+    // far edge (top-right-ish, where it meets the next segment) back
+    // toward its own start point (top-left-ish) — see
+    // animateSegmentGrowBackward above for how that's achieved.
+    animateSegmentGrowBackward(els.segContacted, -192.26, 46.5, 350, 0);
+    animateSegmentGrowBackward(els.segLow, -96.98, 95.28, 350, 350);
+    animateSegmentGrowBackward(els.segGood, -36.01, 60.97, 350, 700);
+    animateSegmentGrowBackward(els.segHigh, 0, 36.01, 350, 1050);
 
     const target = 842;
     const duration = 900;
