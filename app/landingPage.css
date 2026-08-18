@@ -159,7 +159,7 @@
   .section-label { position: absolute; top: 40px; left: 24px; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: #2a2a2a; font-family: monospace; }
   h2 { font-family: var(--font-display), serif; font-size: clamp(38px,5vw,58px); font-weight: 300; line-height: 1.1; letter-spacing: -0.01em; margin-bottom: 22px; }
   .lead { font-size: 18px; color: #9c9689; max-width: 620px; line-height: 1.65; font-weight: 300; }
-  .divider { height: 1px; background: linear-gradient(90deg,transparent,rgba(201,168,76,0.22),transparent); position: relative; }
+  .divider { height: 1px; background: transparent; position: relative; }
   .divider::after { content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 60%; height: 140px; background: radial-gradient(ellipse at 50% 50%, rgba(201,168,76,0.08) 0%, transparent 70%); pointer-events: none; }
   .divider-quiet::after { content: none; }
   .divider-glow-down::after { transform: translate(-50%, 0%); height: 180px; }
