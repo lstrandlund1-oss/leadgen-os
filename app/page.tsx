@@ -23,7 +23,9 @@ import "./landingPage.css";
 // ─────────────────────────────────────────────────────────────────────────
 
 const SECTIONS_HTML = `<div class="hero">
-  <canvas id="nebula-hero" class="nebula-canvas" style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:0;"></canvas>
+  <div class="aurora-blob-a"></div>
+  <div class="aurora-blob-b"></div>
+  <div class="aurora-blob-c"></div>
   <div class="stars-small"></div>
 
   <div style="position:relative; z-index:2;">
@@ -248,7 +250,7 @@ const SECTIONS_HTML = `<div class="hero">
 </div>
 
 <div class="section">
-  <canvas id="nebula-problem" class="nebula-canvas" style="position:absolute; left:50%; top:0; width:100vw; height:100%; transform:translateX(-50%); pointer-events:none; z-index:-1; opacity:0.42; -webkit-mask-image:linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%),linear-gradient(to right, transparent 0%, black 45%, black 94%, transparent 100%); -webkit-mask-composite:source-in; mask-image:linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%),linear-gradient(to right, transparent 0%, black 45%, black 94%, transparent 100%); mask-composite:intersect;"></canvas><div class="stars"></div>  <p class="eyebrow">The real cost</p>
+  <div class="vignette"></div><div class="stars"></div>  <p class="eyebrow">The real cost</p>
   <h2 class="serif">Too many possibilities.<br>Too little context. <span class="gold">Wasted effort.</span></h2>
   <p class="lead" style="margin-top:20px;">You find a company. Spend 45 minutes digging through their site and socials. Guess at an angle that might land. Write the message. Send it. Nothing — not even a no, just silence. It was never a real match.</p>
   <p style="font-size:13px; color:#666; margin-top:14px;">Do that 10 times a week and it's 7.5 hours gone before a single reply comes in.</p>
@@ -266,7 +268,7 @@ const SECTIONS_HTML = `<div class="hero">
 
 <!-- THE TRANSFORMATION -->
 <div class="section" style="text-align:center;">
-  <canvas id="nebula-transform" class="nebula-canvas" style="position:absolute; left:50%; top:0; width:100vw; height:100%; transform:translateX(-50%); pointer-events:none; z-index:-1; opacity:0.42; -webkit-mask-image:linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%),linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%); -webkit-mask-composite:source-in; mask-image:linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%),linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%); mask-composite:intersect;"></canvas><div class="stars"></div>  <p class="eyebrow">From noise to decision</p>
+  <div class="vignette"></div><div class="stars"></div>  <p class="eyebrow">From noise to decision</p>
   <h2 class="serif" style="margin-bottom:48px;">Watch the noise <span class="gold">disappear.</span></h2>
   <div style="display:flex; align-items:stretch; justify-content:center; gap:10px; flex-wrap:wrap;">
     <div class="panel panel-lit card-glow card-glow-blue" style="flex:1 1 100px; min-width:0; max-width:160px; display:flex; flex-direction:column; justify-content:center; box-sizing:border-box;"><p class="serif" style="font-size:28px;font-weight:600;">347</p><p style="font-size:11px;color:#777; margin-top:4px;">companies found</p></div>
@@ -283,7 +285,7 @@ const SECTIONS_HTML = `<div class="hero">
 
 <!-- WHY VANTIO IS DIFFERENT -->
 <div class="section" style="text-align:center;">
-  <canvas id="nebula-diff" class="nebula-canvas" style="position:absolute; left:50%; top:0; width:100vw; height:100%; transform:translateX(-50%); pointer-events:none; z-index:-1; opacity:0.39; -webkit-mask-image:linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%),linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%); -webkit-mask-composite:source-in; mask-image:linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%),linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%); mask-composite:intersect;"></canvas><div class="stars"></div>  <p class="eyebrow">The core difference</p>
+  <div class="vignette"></div><div class="stars"></div>  <p class="eyebrow">The core difference</p>
   <h2 class="serif">Other tools give you names.<br><em class="gold" style="font-style:italic; font-weight:600;">We give you reasons.</em></h2>
   <p class="lead" style="margin: 20px auto 0;">A list of 500 companies still leaves you guessing which 10 are worth calling. Vantio scores every one, explains the reason, and hands you the opening line.</p>
 </div>
@@ -291,7 +293,7 @@ const SECTIONS_HTML = `<div class="hero">
 <div class="divider divider-glow-up"></div>
 
 <!-- HOW IT WORKS -->
-<div class="section">  <div class="stars"></div>
+<div class="section">  <div class="vignette"></div><div class="signal-grid"></div><div class="grid-glow"></div><div class="stars"></div>
   <p class="eyebrow" style="text-align:center;">Start to finish</p>
   <h2 class="serif" style="text-align:center; margin-bottom:56px;">Five steps. <span class="gold">No guesswork.</span></h2>
   <div style="display:flex; justify-content:space-between; gap:10px; position:relative;">
@@ -327,7 +329,7 @@ const SECTIONS_HTML = `<div class="hero">
 
 <!-- PRODUCT EXPERIENCE -->
 <div class="section">
-  <canvas id="nebula-product" class="nebula-canvas" style="position:absolute; left:50%; top:0; width:100vw; height:100%; transform:translateX(-50%); pointer-events:none; z-index:-1; opacity:0.39; -webkit-mask-image:linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%),linear-gradient(to right, transparent 0%, black 51%, black 94%, transparent 100%); -webkit-mask-composite:source-in; mask-image:linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%),linear-gradient(to right, transparent 0%, black 51%, black 94%, transparent 100%); mask-composite:intersect;"></canvas><div class="stars"></div>  <p class="eyebrow">See Vantio in action</p>
+  <div class="vignette"></div><div class="stars"></div>  <p class="eyebrow">See Vantio in action</p>
   <h2 class="serif" style="margin-bottom:44px;">Every screen answers <span class="gold">a real question</span></h2>
   <div style="display:grid; grid-template-columns: 1fr 1fr; gap:18px;">
     <div class="panel panel-lit card-glow card-glow-blue">
@@ -353,7 +355,7 @@ const SECTIONS_HTML = `<div class="hero">
 
 <!-- COMPOUNDING INTELLIGENCE -->
 <div class="section" style="text-align:center;">
-  <canvas id="nebula-compound" class="nebula-canvas" style="position:absolute; left:50%; top:0; width:100vw; height:100%; transform:translateX(-50%); pointer-events:none; z-index:-1; opacity:0.39; -webkit-mask-image:linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%),linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%); -webkit-mask-composite:source-in; mask-image:linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%),linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%); mask-composite:intersect;"></canvas><div class="stars"></div>  <p class="eyebrow">Vantio gets better with time</p>
+  <div class="vignette"></div><div class="stars"></div>  <p class="eyebrow">Vantio gets better with time</p>
   <h2 class="serif">The more you use it,<br><span class="gold">the more it learns and adapts</span></h2>
   <p class="lead" style="margin: 20px auto;">Every contact, every reply, every closed deal becomes a signal. Vantio is recording which gaps, which angles and which tones actually convert from your target market.</p>
   <p style="font-size:11px; color:#5a5a5a; margin-top:22px;" class="mono">Available today: outcome tracking · Coming: adaptive prioritization</p>
@@ -362,7 +364,7 @@ const SECTIONS_HTML = `<div class="hero">
 <div class="divider"></div>
 
 <!-- ECONOMIC VALUE -->
-<div class="section" style="text-align:center;">  <div class="stars"></div>
+<div class="section" style="text-align:center;">  <div class="vignette"></div><div class="stars"></div>
   <p class="eyebrow">The real comparison</p>
   <h2 class="serif">The real cost isn't the subscription.<br><span class="gold">It's the time you're already losing.</span></h2>
   <p class="lead" style="margin: 20px auto;"><span class="gold">7.5 hours</span> a week spent on research that goes nowhere is <span class="gold">390 hours</span> a year — time you could have spent on the leads that actually close.</p>
@@ -370,7 +372,7 @@ const SECTIONS_HTML = `<div class="hero">
 
 <!-- WHO IT'S FOR -->
 <div class="section">
-  <canvas id="nebula-whofor" class="nebula-canvas" style="position:absolute; left:50%; top:0; width:100vw; height:100%; transform:translateX(-50%); pointer-events:none; z-index:-1; opacity:0.5; -webkit-mask-image:linear-gradient(to bottom, transparent 0%, transparent 10%, black 24%, black 88%, transparent 100%),linear-gradient(to right, transparent 0%, black 6%, black 64%, transparent 100%); -webkit-mask-composite:source-in; mask-image:linear-gradient(to bottom, transparent 0%, transparent 10%, black 24%, black 88%, transparent 100%),linear-gradient(to right, transparent 0%, black 6%, black 64%, transparent 100%); mask-composite:intersect;"></canvas><div class="stars"></div>  <p class="eyebrow" style="text-align:center;">Built for</p>
+  <div class="vignette"></div><div class="stars"></div>  <p class="eyebrow" style="text-align:center;">Built for</p>
   <h2 class="serif" style="text-align:center; margin-bottom:44px;">Built for teams who make <span class="gold">every hour count</span></h2>
   <div style="display:grid; grid-template-columns: repeat(4,1fr); gap:16px;">
     <div class="panel panel-lit card-glow card-glow-gold" style="text-align:center; padding:24px 16px;">
@@ -400,7 +402,7 @@ const SECTIONS_HTML = `<div class="hero">
 
 <!-- FINAL CTA -->
 <div class="section" style="text-align:center; padding-bottom: 160px;">
-  <canvas id="nebula-cta" class="nebula-canvas" style="position:absolute; left:50%; top:0; width:100vw; height:100%; transform:translateX(-50%); pointer-events:none; z-index:-1; opacity:0.45; -webkit-mask-image:linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%),linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%); -webkit-mask-composite:source-in; mask-image:linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%),linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%); mask-composite:intersect;"></canvas>  <div class="stars"></div>
+  <div class="vignette"></div><div class="signal-grid"></div><div class="grid-glow"></div>  <div class="stars"></div>
   <p class="eyebrow" style="text-align:center; position:relative;">Join the beta</p>
   <h2 class="serif" style="position:relative;">Stop guessing,<br><span class="gold">Start converting.</span></h2>
   <p class="lead" style="margin: 18px auto 34px; position:relative;">Join the beta today.</p>

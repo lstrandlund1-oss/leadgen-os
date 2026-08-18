@@ -186,6 +186,51 @@
       linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
     mask-composite: intersect; }
 
+  /* Vignette (option 3 base) — applied to every section alongside .stars.
+     Darkens the edges around a lighter center, giving quiet depth without
+     any per-pixel computation. */
+  .vignette {
+    position: absolute; left: 50%; top: 0; width: 100vw; height: 100%;
+    transform: translateX(-50%); pointer-events: none; z-index: -2;
+    background: radial-gradient(ellipse 80% 70% at 50% 45%, transparent 40%, #050507 100%);
+  }
+
+  /* Signal grid + static glow (option 1 touch) — sections 5 and 10 only. */
+  .signal-grid {
+    position: absolute; left: 50%; top: 0; width: 100vw; height: 100%;
+    transform: translateX(-50%); pointer-events: none; z-index: -2;
+    background-image: linear-gradient(rgba(232,183,45,0.16) 1px, transparent 1px),
+                       linear-gradient(90deg, rgba(232,183,45,0.16) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(ellipse 60% 55% at 50% 50%, black 0%, transparent 75%);
+    mask-image: radial-gradient(ellipse 60% 55% at 50% 50%, black 0%, transparent 75%);
+  }
+  .grid-glow {
+    position: absolute; left: 50%; top: 50%; width: 700px; height: 500px;
+    transform: translate(-50%, -50%); pointer-events: none; z-index: -2;
+    background: radial-gradient(ellipse 50% 45% at 50% 50%, rgba(232,183,45,0.14) 0%, transparent 70%);
+  }
+
+  /* Static aurora blur (option 2) — hero only, replacing the old animated
+     canvas nebula with fixed-position blurred gradient blobs. No canvas,
+     no per-pixel noise math, nothing to time or mask at section
+     boundaries. */
+  .aurora-blob-a {
+    position: absolute; left: 8%; top: -10%; width: 480px; height: 480px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(250,201,63,0.28) 0%, rgba(179,136,43,0.13) 45%, transparent 75%);
+    filter: blur(60px); pointer-events: none; z-index: -2;
+  }
+  .aurora-blob-b {
+    position: absolute; right: 5%; bottom: -20%; width: 560px; height: 420px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,221,135,0.18) 0%, rgba(120,90,30,0.09) 50%, transparent 75%);
+    filter: blur(70px); pointer-events: none; z-index: -2;
+  }
+  .aurora-blob-c {
+    position: absolute; left: 42%; top: 25%; width: 320px; height: 320px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(250,201,63,0.13) 0%, transparent 70%);
+    filter: blur(50px); pointer-events: none; z-index: -2;
+  }
+
   .panel { position: relative; border-radius: 18px; border: 1px solid rgba(201,168,76,0.35); background: linear-gradient(160deg, rgba(20,18,14,0.92) 0%, rgba(8,8,10,0.97) 100%); padding: 26px; overflow: hidden; }
   .corner-glow { position: absolute; width: 60px; height: 60px; pointer-events: none; border-radius: 50%; filter: blur(16px); }
   .cg-tl { top: -20px; left: -20px; background: radial-gradient(circle, rgba(232,201,122,0.5), transparent 70%); }
