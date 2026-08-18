@@ -730,18 +730,23 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
     els.snapStatBoxes.style.opacity = "0";
     els.snapStatBoxes.style.transform = "translateY(6px)";
 
+    // Each segment's fill now takes 350ms (down from 700ms) and they're
+    // scheduled fully sequentially — each starts exactly when the
+    // previous one finishes — so the whole donut fills as one
+    // continuous sweep, like a clock hand moving around, rather than
+    // multiple segments growing from different points at once.
     scopedSetTimeout(() => {
       els.segHigh.style.strokeDasharray = "36.01 238.76";
-    }, 100);
+    }, 0);
     scopedSetTimeout(() => {
       els.segGood.style.strokeDasharray = "60.97 238.76";
-    }, 300);
+    }, 350);
     scopedSetTimeout(() => {
       els.segLow.style.strokeDasharray = "95.28 238.76";
-    }, 500);
+    }, 700);
     scopedSetTimeout(() => {
       els.segContacted.style.strokeDasharray = "46.50 238.76";
-    }, 700);
+    }, 1050);
 
     const target = 842;
     const duration = 900;
