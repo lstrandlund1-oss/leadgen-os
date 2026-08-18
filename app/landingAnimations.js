@@ -735,17 +735,25 @@ export function runLandingAnimations({ isMobile, MOBILE_NEBULA_ENABLED }) {
     // previous one finishes — so the whole donut fills as one
     // continuous sweep, like a clock hand moving around, rather than
     // multiple segments growing from different points at once.
-    scopedSetTimeout(() => {
-      els.segHigh.style.strokeDasharray = "36.01 238.76";
-    }, 0);
-    scopedSetTimeout(() => {
-      els.segGood.style.strokeDasharray = "60.97 238.76";
-    }, 350);
-    scopedSetTimeout(() => {
-      els.segLow.style.strokeDasharray = "95.28 238.76";
-    }, 700);
+    // Fill order tells a story: the market broadly returns a large pool
+    // of leads first (contacted, then low — the bulk, least-qualified
+    // segments), narrowing down through each qualification stage, and
+    // finally landing on the small, exclusive gold "high-opportunity"
+    // slice last — not gold appearing first as if it were already known.
+    // Each segment's own position/size on the circle is unrelated to
+    // this and stays fixed; only the order they fill in over time
+    // changes here.
     scopedSetTimeout(() => {
       els.segContacted.style.strokeDasharray = "46.50 238.76";
+    }, 0);
+    scopedSetTimeout(() => {
+      els.segLow.style.strokeDasharray = "95.28 238.76";
+    }, 350);
+    scopedSetTimeout(() => {
+      els.segGood.style.strokeDasharray = "60.97 238.76";
+    }, 700);
+    scopedSetTimeout(() => {
+      els.segHigh.style.strokeDasharray = "36.01 238.76";
     }, 1050);
 
     const target = 842;
