@@ -6,7 +6,7 @@
   ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg,#ffdd87,#e8b72d); }
   .serif { font-family: var(--font-display), serif; }
   .mono { font-family: "SF Mono", monospace; }
-  .eyebrow { font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase; color: #a0761a; margin-bottom: 20px; text-shadow: 0 0 10px rgba(200,150,40,0.85), 0 0 22px rgba(160,118,26,0.5); }
+  .eyebrow { font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase; margin-bottom: 20px; background: linear-gradient(135deg,#ffdd87 0%,#fac93f 50%,#b3882b 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 8px rgba(250,201,63,0.7)) drop-shadow(0 0 18px rgba(250,201,63,0.4)); }
   .gold { background: linear-gradient(135deg,#ffdd87 0%,#fac93f 50%,#b3882b 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 14px rgba(250,201,63,0.75)) drop-shadow(0 0 34px rgba(250,201,63,0.5)) drop-shadow(0 0 64px rgba(250,201,63,0.28)); }
   .btn { display: inline-block; padding: 15px 32px; background: linear-gradient(135deg,#ffd363,#e8b72d); color: #080808; border-radius: 10px; font-weight: 700; font-size: 13px; text-decoration: none; box-shadow: 0 8px 24px rgba(201,168,76,0.4), 0 0 34px rgba(250,201,63,0.22); }
   .btn, .start-here-btn, .btn-outline { position: relative; overflow: hidden; }
