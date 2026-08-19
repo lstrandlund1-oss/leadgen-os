@@ -458,7 +458,19 @@ export default function LandingPage() {
   }, [isMobile]);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#050507", color: "#f5f0e8", overflowX: "hidden" }}>
+    <div style={{ minHeight: "100vh", background: "#050507", color: "#f5f0e8", overflowX: "hidden", position: "relative" }}>
+      <div className="journey-wrap">
+        <div className="journey-gradient"></div>
+        <div className="journey-stars"></div>
+        <div className="journey-glow journey-glow-1"></div>
+        <div className="journey-glow journey-glow-2"></div>
+        <div className="journey-glow journey-glow-3"></div>
+        <div className="journey-glow journey-glow-4"></div>
+        <div className="journey-glow journey-glow-5"></div>
+        <div className="journey-glow journey-glow-6"></div>
+        <div className="journey-glow journey-glow-7"></div>
+        <div className="journey-glow journey-glow-8"></div>
+      </div>
       <header className="site-header">
         <div className="logo-row">
           <img className="logo-icon" src="/vantio-mark.png" alt="Vantio" />
