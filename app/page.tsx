@@ -250,7 +250,113 @@ const SECTIONS_HTML = `<div class="hero">
 </div>
 
 <div class="section">
-  <div class="vignette"></div><div class="stars"></div>  <p class="eyebrow">The real cost</p>
+  <div class="vignette"></div><div class="stars"></div><svg viewBox="0 0 100 50" preserveAspectRatio="xMidYMid slice" style="position:absolute; left:50%; top:0; width:100vw; height:100%; transform:translateX(-50%); pointer-events:none; z-index:-1; opacity:0.8;">
+  <circle cx="64.11" cy="18.34" r="0.32" fill="#3a3a3a"/>
+  <circle cx="24.16" cy="11.19" r="0.32" fill="#3a3a3a"/>
+  <circle cx="3.8" cy="39.3" r="0.32" fill="#3a3a3a"/>
+  <circle cx="15.04" cy="9.69" r="0.32" fill="#3a3a3a"/>
+  <circle cx="44.37" cy="12.22" r="0.32" fill="#3a3a3a"/>
+  <circle cx="48.67" cy="17.86" r="0.32" fill="#3a3a3a"/>
+  <circle cx="71.72" cy="4.58" r="0.32" fill="#3a3a3a"/>
+  <circle cx="36.92" cy="2.34" r="0.32" fill="#3a3a3a"/>
+  <circle cx="43.43" cy="23.33" r="0.32" fill="#3a3a3a"/>
+  <circle cx="82.26" cy="48.18" r="0.32" fill="#3a3a3a"/>
+  <circle cx="61.07" cy="5.1" r="0.32" fill="#3a3a3a"/>
+  <circle cx="55.55" cy="38.48" r="0.32" fill="#3a3a3a"/>
+  <circle cx="1.15" cy="18.42" r="0.32" fill="#3a3a3a"/>
+  <circle cx="79.32" cy="3.04" r="0.32" fill="#3a3a3a"/>
+  <circle cx="92.02" cy="48.18" r="0.32" fill="#3a3a3a"/>
+  <circle cx="49.09" cy="25.39" r="0.32" fill="#3a3a3a"/>
+  <circle cx="23.92" cy="47.39" r="0.32" fill="#3a3a3a"/>
+  <circle cx="76.24" cy="34.16" r="0.32" fill="#3a3a3a"/>
+  <circle cx="75.35" cy="9.6" r="0.32" fill="#3a3a3a"/>
+  <circle cx="75.07" cy="23.38" r="0.32" fill="#3a3a3a"/>
+  <circle cx="28.6" cy="34.01" r="0.32" fill="#3a3a3a"/>
+  <circle cx="4.62" cy="32.91" r="0.32" fill="#3a3a3a"/>
+  <circle cx="71.47" cy="18.03" r="0.32" fill="#3a3a3a"/>
+  <circle cx="4.11" cy="1.48" r="0.32" fill="#3a3a3a"/>
+  <circle cx="75.35" cy="41.19" r="0.32" fill="#3a3a3a"/>
+  <circle cx="21.85" cy="37.61" r="0.32" fill="#3a3a3a"/>
+  <circle cx="14.47" cy="46.66" r="0.32" fill="#3a3a3a"/>
+  <circle cx="28.58" cy="39.7" r="0.32" fill="#3a3a3a"/>
+  <circle cx="1.84" cy="8.96" r="0.32" fill="#3a3a3a"/>
+  <circle cx="83.65" cy="33.1" r="0.32" fill="#3a3a3a"/>
+  <circle cx="72.78" cy="37.41" r="0.32" fill="#3a3a3a"/>
+  <circle cx="7.75" cy="31.71" r="0.32" fill="#3a3a3a"/>
+  <circle cx="11.49" cy="23.36" r="0.32" fill="#3a3a3a"/>
+  <circle cx="85.46" cy="38.71" r="0.32" fill="#3a3a3a"/>
+  <circle cx="23.05" cy="31.8" r="0.32" fill="#3a3a3a"/>
+  <circle cx="9.56" cy="15.94" r="0.32" fill="#3a3a3a"/>
+  <circle cx="45.07" cy="1.4" r="0.32" fill="#3a3a3a"/>
+  <circle cx="18.86" cy="1.75" r="0.32" fill="#3a3a3a"/>
+  <circle cx="55.1" cy="23.11" r="0.32" fill="#3a3a3a"/>
+  <circle cx="76.84" cy="15.66" r="0.32" fill="#3a3a3a"/>
+  <circle cx="85.18" cy="4.09" r="0.32" fill="#3a3a3a"/>
+  <circle cx="31.28" cy="9.23" r="0.32" fill="#3a3a3a"/>
+  <circle cx="51.11" cy="2.87" r="0.32" fill="#3a3a3a"/>
+  <circle cx="8.45" cy="4.61" r="0.32" fill="#3a3a3a"/>
+  <circle cx="91.87" cy="40.18" r="0.32" fill="#3a3a3a"/>
+  <circle cx="31.29" cy="23.69" r="0.32" fill="#3a3a3a"/>
+  <circle cx="45.77" cy="37.98" r="0.32" fill="#3a3a3a"/>
+  <circle cx="43.07" cy="19.85" r="0.32" fill="#3a3a3a"/>
+  <circle cx="16.95" cy="23.97" r="0.32" fill="#3a3a3a"/>
+  <circle cx="30.75" cy="45.39" r="0.32" fill="#3a3a3a"/>
+  <circle cx="60.86" cy="31.61" r="0.32" fill="#3a3a3a"/>
+  <circle cx="67.6" cy="23.85" r="0.32" fill="#3a3a3a"/>
+  <circle cx="60.94" cy="39.1" r="0.32" fill="#3a3a3a"/>
+  <circle cx="18.69" cy="31.04" r="0.32" fill="#3a3a3a"/>
+  <circle cx="39.41" cy="11.33" r="0.32" fill="#3a3a3a"/>
+  <circle cx="65.44" cy="9.9" r="0.32" fill="#3a3a3a"/>
+  <circle cx="83.73" cy="24.88" r="0.32" fill="#3a3a3a"/>
+  <circle cx="82.0" cy="11.09" r="0.32" fill="#3a3a3a"/>
+  <circle cx="51.52" cy="47.03" r="0.32" fill="#3a3a3a"/>
+  <circle cx="48.54" cy="38.83" r="0.32" fill="#3a3a3a"/>
+  <circle cx="25.35" cy="15.71" r="0.32" fill="#3a3a3a"/>
+  <circle cx="3.25" cy="23.1" r="0.32" fill="#3a3a3a"/>
+  <circle cx="39.44" cy="25.66" r="0.32" fill="#3a3a3a"/>
+  <circle cx="46.13" cy="33.62" r="0.32" fill="#3a3a3a"/>
+  <circle cx="89.44" cy="9.48" r="0.32" fill="#3a3a3a"/>
+  <circle cx="19.44" cy="17.99" r="0.32" fill="#3a3a3a"/>
+  <circle cx="56.59" cy="30.88" r="0.32" fill="#3a3a3a"/>
+  <circle cx="27.35" cy="2.25" r="0.32" fill="#3a3a3a"/>
+  <circle cx="61.82" cy="26.78" r="0.32" fill="#3a3a3a"/>
+  <circle cx="10.76" cy="10.12" r="0.32" fill="#3a3a3a"/>
+  <circle cx="72.26" cy="46.63" r="0.32" fill="#3a3a3a"/>
+  <circle cx="58.98" cy="19.49" r="0.32" fill="#3a3a3a"/>
+  <circle cx="37.46" cy="16.15" r="0.32" fill="#3a3a3a"/>
+  <circle cx="58.02" cy="46.66" r="0.32" fill="#3a3a3a"/>
+  <circle cx="22.9" cy="23.73" r="0.32" fill="#3a3a3a"/>
+  <circle cx="60.59" cy="44.56" r="0.32" fill="#3a3a3a"/>
+  <circle cx="20.7" cy="2.33" r="0.32" fill="#3a3a3a"/>
+  <circle cx="95.26" cy="44.68" r="0.32" fill="#3a3a3a"/>
+  <circle cx="69.42" cy="12.54" r="0.32" fill="#3a3a3a"/>
+  <circle cx="55.37" cy="9.44" r="0.32" fill="#3a3a3a"/>
+  <circle cx="31.02" cy="18.02" r="0.32" fill="#3a3a3a"/>
+  <circle cx="48.48" cy="8.66" r="0.32" fill="#3a3a3a"/>
+  <circle cx="5.11" cy="45.55" r="0.32" fill="#3a3a3a"/>
+  <circle cx="96.28" cy="24.66" r="0.32" fill="#3a3a3a"/>
+  <circle cx="36.21" cy="39.65" r="1.6" fill="#fac93f" opacity="0.18"/>
+  <circle cx="36.21" cy="39.65" r="0.85" fill="#fac93f" opacity="0.3"/>
+  <circle cx="36.21" cy="39.65" r="0.4" fill="#ffe9b0"/>
+  <circle cx="77.13" cy="44.88" r="1.6" fill="#fac93f" opacity="0.18"/>
+  <circle cx="77.13" cy="44.88" r="0.85" fill="#fac93f" opacity="0.3"/>
+  <circle cx="77.13" cy="44.88" r="0.4" fill="#ffe9b0"/>
+  <circle cx="52.39" cy="33.68" r="1.6" fill="#fac93f" opacity="0.18"/>
+  <circle cx="52.39" cy="33.68" r="0.85" fill="#fac93f" opacity="0.3"/>
+  <circle cx="52.39" cy="33.68" r="0.4" fill="#ffe9b0"/>
+  <circle cx="88.86" cy="34.21" r="1.6" fill="#fac93f" opacity="0.18"/>
+  <circle cx="88.86" cy="34.21" r="0.85" fill="#fac93f" opacity="0.3"/>
+  <circle cx="88.86" cy="34.21" r="0.4" fill="#ffe9b0"/>
+  <circle cx="14.91" cy="39.7" r="1.6" fill="#fac93f" opacity="0.18"/>
+  <circle cx="14.91" cy="39.7" r="0.85" fill="#fac93f" opacity="0.3"/>
+  <circle cx="14.91" cy="39.7" r="0.4" fill="#ffe9b0"/>
+  <circle cx="80.64" cy="19.75" r="1.6" fill="#fac93f" opacity="0.18"/>
+  <circle cx="80.64" cy="19.75" r="0.85" fill="#fac93f" opacity="0.3"/>
+  <circle cx="80.64" cy="19.75" r="0.4" fill="#ffe9b0"/>
+  <circle cx="68.69" cy="33.39" r="1.6" fill="#fac93f" opacity="0.18"/>
+  <circle cx="68.69" cy="33.39" r="0.85" fill="#fac93f" opacity="0.3"/>
+  <circle cx="68.69" cy="33.39" r="0.4" fill="#ffe9b0"/>
+  </svg>  <p class="eyebrow">The real cost</p>
   <h2 class="serif">Too many possibilities.<br>Too little context. <span class="gold">Wasted effort.</span></h2>
   <p class="lead" style="margin-top:20px;">You find a company. Spend 45 minutes digging through their site and socials. Guess at an angle that might land. Write the message. Send it. Nothing — not even a no, just silence. It was never a real match.</p>
   <p style="font-size:13px; color:#666; margin-top:14px;">Do that 10 times a week and it's 7.5 hours gone before a single reply comes in.</p>
@@ -268,7 +374,113 @@ const SECTIONS_HTML = `<div class="hero">
 
 <!-- THE TRANSFORMATION -->
 <div class="section" style="text-align:center;">
-  <div class="vignette"></div><div class="stars"></div>  <p class="eyebrow">From noise to decision</p>
+  <div class="vignette"></div><div class="stars"></div><svg viewBox="0 0 100 50" preserveAspectRatio="xMidYMid slice" style="position:absolute; left:50%; top:0; width:100vw; height:100%; transform:translateX(-50%); pointer-events:none; z-index:-1; opacity:0.9;">
+  <circle cx="64.11" cy="18.34" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="24.16" cy="11.19" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="3.8" cy="39.3" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="15.04" cy="9.69" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="44.37" cy="12.22" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="48.67" cy="17.86" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="71.72" cy="4.58" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="36.92" cy="2.34" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="43.43" cy="23.33" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="82.26" cy="48.18" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="61.07" cy="5.1" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="55.55" cy="38.48" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="1.15" cy="18.42" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="79.32" cy="3.04" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="92.02" cy="48.18" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="49.09" cy="25.39" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="23.92" cy="47.39" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="76.24" cy="34.16" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="75.35" cy="9.6" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="75.07" cy="23.38" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="28.6" cy="34.01" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="4.62" cy="32.91" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="71.47" cy="18.03" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="4.11" cy="1.48" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="75.35" cy="41.19" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="21.85" cy="37.61" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="14.47" cy="46.66" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="28.58" cy="39.7" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="1.84" cy="8.96" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="83.65" cy="33.1" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="72.78" cy="37.41" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="7.75" cy="31.71" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="11.49" cy="23.36" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="85.46" cy="38.71" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="23.05" cy="31.8" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="9.56" cy="15.94" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="45.07" cy="1.4" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="18.86" cy="1.75" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="55.1" cy="23.11" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="76.84" cy="15.66" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="85.18" cy="4.09" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="31.28" cy="9.23" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="51.11" cy="2.87" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="8.45" cy="4.61" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="91.87" cy="40.18" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="31.29" cy="23.69" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="45.77" cy="37.98" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="43.07" cy="19.85" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="16.95" cy="23.97" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="30.75" cy="45.39" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="60.86" cy="31.61" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="67.6" cy="23.85" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="60.94" cy="39.1" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="18.69" cy="31.04" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="39.41" cy="11.33" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="65.44" cy="9.9" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="83.73" cy="24.88" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="82.0" cy="11.09" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="51.52" cy="47.03" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="48.54" cy="38.83" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="25.35" cy="15.71" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="3.25" cy="23.1" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="39.44" cy="25.66" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="46.13" cy="33.62" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="89.44" cy="9.48" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="19.44" cy="17.99" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="56.59" cy="30.88" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="27.35" cy="2.25" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="61.82" cy="26.78" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="10.76" cy="10.12" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="72.26" cy="46.63" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="58.98" cy="19.49" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="37.46" cy="16.15" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="58.02" cy="46.66" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="22.9" cy="23.73" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="60.59" cy="44.56" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="20.7" cy="2.33" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="95.26" cy="44.68" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="69.42" cy="12.54" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="55.37" cy="9.44" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="31.02" cy="18.02" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="48.48" cy="8.66" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="5.11" cy="45.55" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="96.28" cy="24.66" r="0.32" fill="#3a3a3a" opacity="0.12"/>
+  <circle cx="36.21" cy="39.65" r="2.4" fill="#fac93f" opacity="0.16"/>
+  <circle cx="36.21" cy="39.65" r="1.3" fill="#fac93f" opacity="0.35"/>
+  <circle cx="36.21" cy="39.65" r="0.55" fill="#ffe9b0"/>
+  <circle cx="77.13" cy="44.88" r="2.4" fill="#fac93f" opacity="0.16"/>
+  <circle cx="77.13" cy="44.88" r="1.3" fill="#fac93f" opacity="0.35"/>
+  <circle cx="77.13" cy="44.88" r="0.55" fill="#ffe9b0"/>
+  <circle cx="52.39" cy="33.68" r="2.4" fill="#fac93f" opacity="0.16"/>
+  <circle cx="52.39" cy="33.68" r="1.3" fill="#fac93f" opacity="0.35"/>
+  <circle cx="52.39" cy="33.68" r="0.55" fill="#ffe9b0"/>
+  <circle cx="88.86" cy="34.21" r="2.4" fill="#fac93f" opacity="0.16"/>
+  <circle cx="88.86" cy="34.21" r="1.3" fill="#fac93f" opacity="0.35"/>
+  <circle cx="88.86" cy="34.21" r="0.55" fill="#ffe9b0"/>
+  <circle cx="14.91" cy="39.7" r="2.4" fill="#fac93f" opacity="0.16"/>
+  <circle cx="14.91" cy="39.7" r="1.3" fill="#fac93f" opacity="0.35"/>
+  <circle cx="14.91" cy="39.7" r="0.55" fill="#ffe9b0"/>
+  <circle cx="80.64" cy="19.75" r="2.4" fill="#fac93f" opacity="0.16"/>
+  <circle cx="80.64" cy="19.75" r="1.3" fill="#fac93f" opacity="0.35"/>
+  <circle cx="80.64" cy="19.75" r="0.55" fill="#ffe9b0"/>
+  <circle cx="68.69" cy="33.39" r="2.4" fill="#fac93f" opacity="0.16"/>
+  <circle cx="68.69" cy="33.39" r="1.3" fill="#fac93f" opacity="0.35"/>
+  <circle cx="68.69" cy="33.39" r="0.55" fill="#ffe9b0"/>
+  </svg>  <p class="eyebrow">From noise to decision</p>
   <h2 class="serif" style="margin-bottom:48px;">Watch the noise <span class="gold">disappear.</span></h2>
   <div style="display:flex; align-items:stretch; justify-content:center; gap:10px; flex-wrap:wrap;">
     <div class="panel panel-lit card-glow card-glow-blue" style="flex:1 1 100px; min-width:0; max-width:160px; display:flex; flex-direction:column; justify-content:center; box-sizing:border-box;"><p class="serif" style="font-size:28px;font-weight:600;">347</p><p style="font-size:11px;color:#777; margin-top:4px;">companies found</p></div>
@@ -293,7 +505,7 @@ const SECTIONS_HTML = `<div class="hero">
 <div class="divider divider-glow-up"></div>
 
 <!-- HOW IT WORKS -->
-<div class="section">  <div class="vignette"></div><div class="signal-grid"></div><div class="grid-glow"></div><div class="stars"></div>
+<div class="section">  <div class="vignette"></div><div class="stars"></div>
   <p class="eyebrow" style="text-align:center;">Start to finish</p>
   <h2 class="serif" style="text-align:center; margin-bottom:56px;">Five steps. <span class="gold">No guesswork.</span></h2>
   <div style="display:flex; justify-content:space-between; gap:10px; position:relative;">
@@ -402,7 +614,7 @@ const SECTIONS_HTML = `<div class="hero">
 
 <!-- FINAL CTA -->
 <div class="section" style="text-align:center; padding-bottom: 160px;">
-  <div class="vignette"></div><div class="signal-grid"></div><div class="grid-glow"></div>  <div class="stars"></div>
+  <div class="vignette"></div>  <div class="stars"></div>
   <p class="eyebrow" style="text-align:center; position:relative;">Join the beta</p>
   <h2 class="serif" style="position:relative;">Stop guessing,<br><span class="gold">Start converting.</span></h2>
   <p class="lead" style="margin: 18px auto 34px; position:relative;">Join the beta today.</p>
@@ -458,18 +670,16 @@ export default function LandingPage() {
   }, [isMobile]);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#050507", color: "#f5f0e8", overflowX: "hidden", position: "relative" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#050507",
+        color: "#f5f0e8",
+        overflowX: "hidden",
+        position: "relative",
+      }}>
       <div className="journey-wrap">
-        <div className="journey-gradient"></div>
         <div className="journey-stars"></div>
-        <div className="journey-glow journey-glow-1"></div>
-        <div className="journey-glow journey-glow-2"></div>
-        <div className="journey-glow journey-glow-3"></div>
-        <div className="journey-glow journey-glow-4"></div>
-        <div className="journey-glow journey-glow-5"></div>
-        <div className="journey-glow journey-glow-6"></div>
-        <div className="journey-glow journey-glow-7"></div>
-        <div className="journey-glow journey-glow-8"></div>
       </div>
       <header className="site-header">
         <div className="logo-row">
