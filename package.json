@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "report": "node scripts/report-to-command-center.mjs",
     "typecheck": "tsc --noEmit && echo Typecheck OK"
   },
   "dependencies": {
