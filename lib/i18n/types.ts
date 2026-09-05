@@ -557,6 +557,39 @@ export type TranslationSchema = {
       backToHome: string;
       loadingFallback: string;
     };
+    forgotPassword: {
+      badge: string;
+      headingStart: string;
+      headingItalic: string;
+      body: string;
+      emailLabel: string;
+      emailPlaceholder: string;
+      emptyEmailError: string;
+      sendButton: string;
+      sendingButton: string;
+      sentTitle: string;
+      sentBodyBeforeEmail: string;
+      sentBodyAfterEmail: string;
+      backToSignIn: string;
+    };
+    resetPassword: {
+      badge: string;
+      headingStart: string;
+      headingItalic: string;
+      newPasswordLabel: string;
+      newPasswordPlaceholder: string;
+      confirmPasswordLabel: string;
+      confirmPasswordPlaceholder: string;
+      shortPasswordError: string;
+      mismatchError: string;
+      updateButton: string;
+      updatingButton: string;
+      doneTitle: string;
+      doneBody: string;
+      verifyingTitle: string;
+      verifyingHint: string;
+      requestNewLink: string;
+    };
     settings: {
       betaBadge: string;
       platformEyebrow: string;
